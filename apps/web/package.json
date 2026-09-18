@@ -1,0 +1,28 @@
+{
+  "name": "@spm-t5/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@spm-t5/shared": "*",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "@testing-library/react": "^16.0.0",
+    "@playwright/test": "^1.48.0",
+    "eslint": "^9.10.0",
+    "eslint-config-next": "^15.0.0"
+  }
+}

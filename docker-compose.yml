@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  web:
+    build: ./apps/web
+    ports: ["3000:3000"]
+    env_file: .env
+    depends_on: [event-service, auth-service]
+
+  auth-service:
+    build: ./services/auth-service
+    ports: ["4001:4000"]
+    env_file: .env
+
+  event-service:
+    build: ./services/event-service
+    ports: ["4002:4000"]
+    env_file: .env
+
+  venue-service:
+    build: ./services/venue-service
+    ports: ["4003:4000"]
+    env_file: .env
+
+  coordinator-service:
+    build: ./services/coordinator-service
+    ports: ["4004:4000"]
+    env_file: .env
+
+  notification-service:
+    build: ./services/notification-service
+    ports: ["4005:4000"]
+    env_file: .env
+
+# For local Supabase (Postgres/Auth/Storage) run the Supabase CLI stack separately:
+#   supabase start
+# and point .env at its local URL/keys, rather than duplicating it here.

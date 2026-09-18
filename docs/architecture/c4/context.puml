@@ -1,0 +1,26 @@
+@startuml context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title ConnectSphere — System Context (C4 Level 1)
+
+Person(organiser, "Event Organiser", "Creates and submits event requests")
+Person(coordinator, "Event Coordinator", "Reviews, approves, and coordinates events")
+Person(venueStaff, "Venue Staff", "Manages venue availability and setup")
+Person(techSupport, "Technical Support Staff", "Handles equipment/technical requirements")
+Person(attendee, "Attendee", "Registers for and attends events")
+
+System(connectsphere, "ConnectSphere", "Allows organisations to request, review, approve, and coordinate events across venues, staff, and attendees")
+
+System_Ext(supabase, "Supabase", "Managed Postgres, Auth, Storage, and Realtime")
+System_Ext(email, "Email/Notification Provider", "Delivers email/SMS notifications")
+
+Rel(organiser, connectsphere, "Creates/edits event requests, tracks status")
+Rel(coordinator, connectsphere, "Reviews/approves requests, assigns coordinators")
+Rel(venueStaff, connectsphere, "Confirms venue availability, manages bookings")
+Rel(techSupport, connectsphere, "Fulfils equipment/technical requirements")
+Rel(attendee, connectsphere, "Registers for events, views event details")
+
+Rel(connectsphere, supabase, "Reads/writes data, authenticates users", "HTTPS")
+Rel(connectsphere, email, "Sends notifications", "HTTPS/SMTP")
+
+@enduml

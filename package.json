@@ -1,0 +1,17 @@
+{
+  "name": "spm-t5",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test:all": "npm run test --workspaces --if-present",
+    "lint:all": "npm run lint --workspaces --if-present",
+    "build:all": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

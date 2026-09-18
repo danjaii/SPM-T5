@@ -1,0 +1,39 @@
+name: Render C4 diagrams
+
+# Keeps docs/architecture/c4/rendered/*.svg in sync with the .puml sources whenever
+# the architecture model changes, so the diagrams in docs/architecture never go stale.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "docs/architecture/c4/**"
+  pull_request:
+    paths:
+      - "docs/architecture/c4/**"
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render PlantUML C4 diagrams to SVG
+        uses: cloudbees/plantuml-github-action@master
+        with:
+          args: -v -tsvg -o rendered docs/architecture/c4/*.puml
+
+      - name: Commit rendered diagrams back to the branch
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/architecture/c4/rendered
+          git diff --cached --quiet || git commit -m "docs: re-render C4 diagrams [skip ci]"
+          git push
+
+      - name: Upload rendered diagrams (PRs)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: c4-diagrams
+          path: docs/architecture/c4/rendered

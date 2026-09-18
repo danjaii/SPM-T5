@@ -1,0 +1,60 @@
+name: Reusable service CI
+
+# Shared test/lint/build pipeline for any microservice under services/*.
+# Called by the thin per-service workflows (service-auth-ci.yml, service-event-ci.yml, ...)
+# so the actual test logic lives in one place. Each caller supplies its own `path filters`
+# so only the service that actually changed gets tested.
+on:
+  workflow_call:
+    inputs:
+      service_path:
+        required: true
+        type: string
+      service_name:
+        required: true
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.service_path }}
+    env:
+      # Point tests at a Supabase test project / local instance.
+      # Configure these as repo or environment secrets.
+      SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Type check
+        run: npm run typecheck --if-present
+
+      - name: Unit tests
+        run: npm run test:unit --if-present -- --coverage
+
+      - name: Integration tests
+        run: npm run test:integration --if-present
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.service_name }}-coverage
+          path: ${{ inputs.service_path }}/coverage
+          retention-days: 14

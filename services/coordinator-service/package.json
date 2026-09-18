@@ -1,0 +1,26 @@
+{
+  "name": "@spm-t5/coordinator-service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@spm-t5/shared": "*",
+    "@supabase/supabase-js": "^2.45.0",
+    "express": "^4.19.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0",
+    "vitest": "^2.1.0",
+    "eslint": "^9.10.0"
+  }
+}

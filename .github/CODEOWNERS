@@ -1,0 +1,11 @@
+# Default: any team member can review anything.
+* @SPM-T
+
+# Uncomment and assign once your team has settled on module ownership, e.g.:
+# apps/web/                       @frontend-owner
+# services/auth-service/          @auth-owner
+# services/event-service/         @event-owner
+# services/venue-service/         @venue-owner
+# services/coordinator-service/   @coordinator-owner
+# services/notification-service/  @notification-owner
+# docs/architecture/              @tech-lead

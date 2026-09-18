@@ -1,0 +1,29 @@
+@startuml component-event-service
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title ConnectSphere — Component Diagram: Event Service (C4 Level 3)
+' Template — copy this file per service (component-venue-service.puml, etc.)
+' and update the components to match that service's actual internal structure.
+
+Container(web, "Web App", "Next.js, React")
+ContainerDb(db, "Supabase Postgres")
+Container(notificationSvc, "Notification Service")
+
+Container_Boundary(eventSvc, "Event Service") {
+  Component(api, "API Router", "Express/Fastify routes", "HTTP endpoints for event requests")
+  Component(draftMgr, "Draft Manager", "Service class", "Save/resume incomplete event requests")
+  Component(reviewMgr, "Review & Approval Manager", "Service class", "Submission, coordinator review, approve/reject")
+  Component(repo, "Event Repository", "Data access layer", "Supabase client queries, RLS-aware")
+  Component(validator, "Request Validator", "Zod/Joi schemas", "Validates event request payloads")
+}
+
+Rel(web, api, "Calls", "HTTPS/JSON")
+Rel(api, validator, "Validates input")
+Rel(api, draftMgr, "Delegates draft operations")
+Rel(api, reviewMgr, "Delegates review/approval operations")
+Rel(draftMgr, repo, "Reads/writes drafts")
+Rel(reviewMgr, repo, "Reads/writes submitted requests")
+Rel(repo, db, "SQL", "Postgres wire protocol")
+Rel(reviewMgr, notificationSvc, "Notifies on status change", "HTTPS/JSON")
+
+@enduml

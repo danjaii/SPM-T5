@@ -1,0 +1,22 @@
+name: VenueService CI (services/venue-service)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "services/venue-service/**"
+      - "packages/shared/**"
+      - ".github/workflows/_service-ci-template.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "services/venue-service/**"
+      - "packages/shared/**"
+
+jobs:
+  ci:
+    uses: ./.github/workflows/_service-ci-template.yml
+    with:
+      service_path: services/venue-service
+      service_name: venue-service
+    secrets: inherit

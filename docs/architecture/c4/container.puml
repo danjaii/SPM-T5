@@ -1,0 +1,38 @@
+@startuml container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title ConnectSphere — Container Diagram (C4 Level 2)
+
+Person(user, "User", "Organiser / Coordinator / Venue Staff / Tech Support / Attendee")
+
+System_Boundary(connectsphere, "ConnectSphere") {
+  Container(web, "Web App", "Next.js, React", "Server-rendered UI; role-based views and forms")
+
+  Container(authSvc, "Auth Service", "Node.js/TypeScript", "Wraps Supabase Auth; issues role/permission checks")
+  Container(eventSvc, "Event Service", "Node.js/TypeScript", "Event request creation, drafts, review, approval workflow")
+  Container(venueSvc, "Venue Service", "Node.js/TypeScript", "Venue availability, booking, capacity checks")
+  Container(coordinatorSvc, "Coordinator Service", "Node.js/TypeScript", "Coordinator assignment/reassignment logic")
+  Container(notificationSvc, "Notification Service", "Node.js/TypeScript", "Sends email/SMS on status changes")
+
+  ContainerDb(db, "Supabase Postgres", "Postgres + Row-Level Security", "Events, venues, users, roles, assignments")
+}
+
+System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
+System_Ext(emailProvider, "Email/SMS Provider")
+
+Rel(user, web, "Uses", "HTTPS")
+
+Rel(web, authSvc, "Verifies session/role", "HTTPS/JSON")
+Rel(web, eventSvc, "Create/read/update event requests", "HTTPS/JSON")
+Rel(web, venueSvc, "Check/book venues", "HTTPS/JSON")
+Rel(web, coordinatorSvc, "Assign/reassign coordinators", "HTTPS/JSON")
+
+Rel(authSvc, supabaseAuth, "Authenticates users", "HTTPS")
+Rel(eventSvc, db, "Reads/writes", "SQL/Postgres wire protocol")
+Rel(venueSvc, db, "Reads/writes", "SQL/Postgres wire protocol")
+Rel(coordinatorSvc, db, "Reads/writes", "SQL/Postgres wire protocol")
+
+Rel(eventSvc, notificationSvc, "Publishes status-change events", "HTTPS/JSON or queue")
+Rel(notificationSvc, emailProvider, "Sends notifications", "HTTPS/SMTP")
+
+@enduml

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.local
+docs/architecture/c4/rendered/*.png
+!docs/architecture/c4/rendered/.gitkeep
+.DS_Store

@@ -1,0 +1,1 @@
+-- Local dev seed data. Run via `supabase db reset` or docker-compose init.

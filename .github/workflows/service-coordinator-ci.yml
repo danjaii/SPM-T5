@@ -1,0 +1,22 @@
+name: CoordinatorService CI (services/coordinator-service)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "services/coordinator-service/**"
+      - "packages/shared/**"
+      - ".github/workflows/_service-ci-template.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "services/coordinator-service/**"
+      - "packages/shared/**"
+
+jobs:
+  ci:
+    uses: ./.github/workflows/_service-ci-template.yml
+    with:
+      service_path: services/coordinator-service
+      service_name: coordinator-service
+    secrets: inherit
