@@ -1,5 +1,5 @@
 -- ConnectSphere: enable Row Level Security
--- Follows 20260920000000_init_schema.sql
+-- Follows 01_schema.sql
 --
 -- Purpose: close public/anon access on every table now that the project
 -- will be hosted. Each table gets RLS enabled plus one blanket policy
