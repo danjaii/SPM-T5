@@ -23,6 +23,9 @@
     "@testing-library/react": "^16.0.0",
     "@playwright/test": "^1.48.0",
     "eslint": "^9.10.0",
-    "eslint-config-next": "^15.0.0"
+    "eslint-config-next": "^15.0.0",
+    "@types/node": "^20.14.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
   }
 }
