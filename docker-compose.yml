@@ -1,37 +1,53 @@
-version: "3.9"
+# All images build from the repo root: they need the root package-lock.json and
+# packages/shared, which a per-folder build context can't see.
+#
+# For local Supabase (Postgres/Auth/Storage) run the Supabase CLI stack separately:
+#   supabase start
+# rather than duplicating it here. Inside a container `localhost` is the container
+# itself, so set DOCKER_SUPABASE_URL=http://host.docker.internal:54321 in .env to
+# reach it. If unset, containers use SUPABASE_URL as-is (fine for a hosted project).
+
+x-service: &service
+  env_file: .env
+  environment:
+    SUPABASE_URL: ${DOCKER_SUPABASE_URL:-${SUPABASE_URL}}
+  extra_hosts:
+    - "host.docker.internal:host-gateway" # Linux; Docker Desktop provides it already
 
 services:
   web:
-    build: ./apps/web
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Read by the browser, so these must be host-reachable URLs and public keys only.
+        # No env_file here: the web container must never receive SUPABASE_SECRET_KEY.
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
     ports: ["3000:3000"]
-    env_file: .env
     depends_on: [event-service, auth-service]
 
   auth-service:
-    build: ./services/auth-service
+    <<: *service
+    build: { context: ., dockerfile: services/auth-service/Dockerfile }
     ports: ["4001:4000"]
-    env_file: .env
 
   event-service:
-    build: ./services/event-service
+    <<: *service
+    build: { context: ., dockerfile: services/event-service/Dockerfile }
     ports: ["4002:4000"]
-    env_file: .env
 
   venue-service:
-    build: ./services/venue-service
+    <<: *service
+    build: { context: ., dockerfile: services/venue-service/Dockerfile }
     ports: ["4003:4000"]
-    env_file: .env
 
   coordinator-service:
-    build: ./services/coordinator-service
+    <<: *service
+    build: { context: ., dockerfile: services/coordinator-service/Dockerfile }
     ports: ["4004:4000"]
-    env_file: .env
 
   notification-service:
-    build: ./services/notification-service
+    <<: *service
+    build: { context: ., dockerfile: services/notification-service/Dockerfile }
     ports: ["4005:4000"]
-    env_file: .env
-
-# For local Supabase (Postgres/Auth/Storage) run the Supabase CLI stack separately:
-#   supabase start
-# and point .env at its local URL/keys, rather than duplicating it here.
