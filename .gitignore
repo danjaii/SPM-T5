@@ -9,3 +9,4 @@ test-results/
 docs/architecture/c4/rendered/*.png
 !docs/architecture/c4/rendered/.gitkeep
 .DS_Store
+pnpm-lock.yaml
