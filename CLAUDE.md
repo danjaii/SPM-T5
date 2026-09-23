@@ -32,7 +32,7 @@ npm run lint:all
 npm run test:e2e -w apps/web                 # Playwright
 ```
 
-Local full stack: `cp .env.example .env`, then `supabase start` (the Supabase CLI stack runs
+Local full stack: create a root `.env` (variables listed in README → Getting started), then `supabase start` (the Supabase CLI stack runs
 separately — `docker-compose.yml` deliberately does not duplicate it) and `docker compose up -d`.
 
 ## Architecture
@@ -48,7 +48,8 @@ the service-role key bypasses RLS entirely, so reach for the anon/user-scoped cl
 and use the service-role key only where bypassing is the actual intent.
 
 **Every service is a workspace with its own `package.json`, `tests/`, `Dockerfile`, and CI
-workflow.** The per-service workflows under `.github/workflows/service-*-ci.yml` are thin
+workflow.** Docker builds use the repo root as context (the lockfile and `packages/shared` live
+there), and each service's `build` script bundles `packages/shared` in with esbuild. The per-service workflows under `.github/workflows/service-*-ci.yml` are thin
 callers of `_service-ci-template.yml`; the real pipeline lives in the template. Path filters mean
 a change to one service only runs that service's tests — but every filter also includes
 `packages/shared/**`, so a shared-package change triggers all of them.
@@ -85,5 +86,5 @@ nothing else. Declared dependencies (express, zod) are real intent, not yet real
 Known gaps to fix rather than work around:
 - RLS is enabled on `profiles` with no policy covering it, so all non-service-role access to that
   table is denied.
-- `apps/web` has no `tsconfig.json`, `next.config.*`, `src/app/layout.tsx`, or `Dockerfile`, so its
-  `dev`, `typecheck`, `build`, and Docker build all fail as-is.
+- Services export `healthCheck()` but never call `listen()`, so their containers start and exit
+  immediately under `docker compose up`.
