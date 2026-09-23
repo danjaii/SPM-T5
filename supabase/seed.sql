@@ -60,6 +60,18 @@ insert into auth.users (id, instance_id, aud, role, email, encrypted_password, e
   ('9a628832-340b-5eae-b22c-fd04ffe882e3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'charmaine.ooi@example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false),
   ('083ff3a5-f9e3-54d0-ab02-88c1782e1341', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'dylan.heng@example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false);
 
+-- GoTrue reads these token columns as non-null strings; left NULL, every sign-in fails with
+-- "Database error querying schema". Real sign-ups get '' from GoTrue itself.
+update auth.users set
+  confirmation_token         = coalesce(confirmation_token, ''),
+  recovery_token             = coalesce(recovery_token, ''),
+  email_change_token_new     = coalesce(email_change_token_new, ''),
+  email_change_token_current = coalesce(email_change_token_current, ''),
+  email_change               = coalesce(email_change, ''),
+  phone_change               = coalesce(phone_change, ''),
+  phone_change_token         = coalesce(phone_change_token, ''),
+  reauthentication_token     = coalesce(reauthentication_token, '');
+
 -- ============================================================================
 -- ORGANISATIONS
 -- ============================================================================

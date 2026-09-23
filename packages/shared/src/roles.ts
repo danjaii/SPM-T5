@@ -2,7 +2,7 @@ export type Role =
   | "event_organiser"
   | "event_coordinator"
   | "venue_staff"
-  | "technical_support"
+  | "technical_support_staff"
   | "attendee";
 
 export function canReviewEvents(role: Role): boolean {
