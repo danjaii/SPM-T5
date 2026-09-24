@@ -8,9 +8,7 @@ Event management platform — Next.js/React frontend, Supabase-backed microservi
 SPM-T5/
 ├── .github/
 │   ├── workflows/            # CI pipelines (one per service + frontend, path-filtered)
-│   ├── ISSUE_TEMPLATE/
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── CODEOWNERS
+│   └── ISSUE_TEMPLATE/
 ├── apps/
 │   └── web/                  # Next.js/React frontend
 ├── services/                 # One folder per microservice
