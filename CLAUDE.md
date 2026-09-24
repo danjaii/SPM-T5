@@ -75,7 +75,7 @@ venue 4003, coordinator 4004, notification 4005).
   binding a port.
 - **`src/app/` in `apps/web` is routes only** — every folder is a URL segment. Components go in
   `src/components/`, browser helpers in `src/lib/`.
-- **Architecture changes need a diagram or ADR update.** The PR template has checkboxes for it;
+- **Architecture changes need a diagram or ADR update.** Flag it in the PR;
   `docs/architecture/c4/rendered/` is CI-generated, so edit the `.puml` source only.
 
 ## Current state
