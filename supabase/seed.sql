@@ -76,12 +76,12 @@ update auth.users set
 -- ORGANISATIONS
 -- ============================================================================
 insert into organisations (id, name, industry, contact_email, contact_phone, address, created_at) values
-  ('e35a9d68-a57d-596b-a750-a0928d10a33b', 'TechConnect Solutions', 'Technology', 'admin@techconnect.example.com', '+65 6123 4501', '1 Fusionopolis Way, Singapore 138632', '2025-08-16 15:57:00'),
-  ('60493a5d-77d1-58dd-9322-9cb8d6f919be', 'Meridian Capital Partners', 'Finance', 'events@meridiancapital.example.com', '+65 6123 4502', '8 Marina View, Singapore 018960', '2025-08-16 15:57:00'),
-  ('e85de1a6-b79d-5a10-adc9-d00c373977d9', 'Singapore Institute of Digital Health', 'Healthcare', 'conferences@sidh.example.org', '+65 6123 4503', '11 Mandalay Road, Singapore 308232', '2025-08-16 15:57:00'),
-  ('cce49223-7382-5689-9f3b-dd419127ec1d', 'Horizon Retail Group', 'Retail', 'marketing@horizonretail.example.com', '+65 6123 4504', '391A Orchard Road, Singapore 238873', '2025-08-16 15:57:00'),
-  ('56d4e5d5-de99-584d-ab32-b3c53c318323', 'BuildRight Construction Alliance', 'Construction', 'secretariat@buildright.example.org', '+65 6123 4505', '52 Jurong Gateway Road, Singapore 608550', '2025-08-16 15:57:00'),
-  ('912a7a26-2c52-5ebc-8797-0f609fcf3c2e', 'Pacific Rim Trade Association', 'Trade Association', 'events@pacificrimtrade.example.org', '+65 6123 4506', '80 Raffles Place, Singapore 048624', '2025-08-16 15:57:00');
+  ('e35a9d68-a57d-596b-a750-a0928d10a33b', 'The Loid Pte Ltd', 'Technology', 'admin@techconnect.example.com', '+65 6123 4501', '1 Fusionopolis Way, Singapore 138632', '2025-08-16 15:57:00'),
+  ('60493a5d-77d1-58dd-9322-9cb8d6f919be', 'Bulldog Consulting Group', 'Finance', 'events@meridiancapital.example.com', '+65 6123 4502', '8 Marina View, Singapore 018960', '2025-08-16 15:57:00'),
+  ('e85de1a6-b79d-5a10-adc9-d00c373977d9', 'Golf Tech Solutions', 'Healthcare', 'conferences@sidh.example.org', '+65 6123 4503', '11 Mandalay Road, Singapore 308232', '2025-08-16 15:57:00'),
+  ('cce49223-7382-5689-9f3b-dd419127ec1d', 'CFood Delights', 'Retail', 'marketing@horizonretail.example.com', '+65 6123 4504', '391A Orchard Road, Singapore 238873', '2025-08-16 15:57:00'),
+  ('56d4e5d5-de99-584d-ab32-b3c53c318323', 'PrimewaterhouseCoopers', 'Construction', 'secretariat@buildright.example.org', '+65 6123 4505', '52 Jurong Gateway Road, Singapore 608550', '2025-08-16 15:57:00'),
+  ('912a7a26-2c52-5ebc-8797-0f609fcf3c2e', 'Mckidney & Company', 'Trade Association', 'events@pacificrimtrade.example.org', '+65 6123 4506', '80 Raffles Place, Singapore 048624', '2025-08-16 15:57:00');
 
 -- ============================================================================
 -- USERS
