@@ -22,5 +22,8 @@
   },
   "overrides": {
     "postcss": "^8.5.28"
+  },
+  "dependencies": {
+    "vitest": "^5.0.1"
   }
 }
