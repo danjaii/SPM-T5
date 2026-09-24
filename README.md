@@ -6,9 +6,10 @@ Event management platform — Next.js/React frontend, Supabase-backed microservi
 
 ```
 SPM-T5/
+├── .agents/
+│   └── skills/               # Agent skills (e.g. supabase-server)
 ├── .github/
-│   ├── workflows/            # CI pipelines (one per service + frontend, path-filtered)
-│   └── ISSUE_TEMPLATE/
+│   └── workflows/            # CI pipelines (one per service + frontend, path-filtered)
 ├── apps/
 │   └── web/                  # Next.js/React frontend
 ├── services/                 # One folder per microservice
@@ -27,7 +28,8 @@ SPM-T5/
 │   │   ├── c4/                 # C4 model (PlantUML) — context, container, component diagrams
 │   │   └── adr/                # Architecture Decision Records
 │   └── sprints/                # Sprint planning/retro notes
-├── scripts/
+├── CLAUDE.md                   # Instructions for AI coding agents (the file to edit)
+├── AGENTS.md -> CLAUDE.md      # Symlink so Codex and other agents read the same file
 └── docker-compose.yml          # Local dev: all services + web (Supabase runs via `supabase start`)
 ```
 
@@ -47,6 +49,15 @@ SPM-T5/
 - **C4 diagrams live in `docs/architecture/c4`** as PlantUML source (`.puml`), version-controlled
   like code, and are auto-rendered to SVG/PNG by CI on every change (see
   [`docs/architecture/README.md`](docs/architecture/README.md)).
+
+## AI coding agents
+
+Project instructions for coding agents live in [`CLAUDE.md`](CLAUDE.md), which Claude Code reads.
+`AGENTS.md` is a symlink to it, so OpenAI Codex (and other tools that read `AGENTS.md`) get the
+same instructions. Edit `CLAUDE.md` only — never replace the `AGENTS.md` symlink with a copy.
+
+On Windows, git checks symlinks out as plain text files unless symlinks are enabled: turn on
+Developer Mode and run `git config core.symlinks true` before cloning, or work in WSL.
 
 ## Getting started
 

@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for AI coding agents (Claude Code, OpenAI Codex, and others) working in this repository.
+`AGENTS.md` is a symlink to this file, so both agents read the same instructions — edit here.
 
 ## Project
 
@@ -8,8 +9,9 @@ ConnectSphere — an event management platform. Next.js/React frontend, five Nod
 microservices, one shared Supabase Postgres. npm workspaces monorepo (`apps/*`, `services/*`,
 `packages/*`).
 
-Repo layout and rationale: @README.md
-Why microservices + shared DB: @docs/architecture/adr/0001-microservice-architecture.md
+Read before making structural changes:
+- Repo layout and rationale: [README.md](README.md)
+- Why microservices + shared DB: [ADR 0001](docs/architecture/adr/0001-microservice-architecture.md)
 
 ## Commands
 
@@ -37,8 +39,8 @@ separately — `docker-compose.yml` deliberately does not duplicate it) and `doc
 
 ## Architecture
 
-**Supabase Auth owns all credentials.** `profiles.id` is a foreign key to `auth.users(id)`
-(`supabase/migrations/0001_init.sql`). Password hashing, email confirmation, session tokens and
+**Supabase Auth owns all credentials.** `users.id` is a foreign key to `auth.users(id)`
+(`supabase/migrations/01_schema.sql`). Password hashing, email confirmation, session tokens and
 JWT issuance are GoTrue's job. Never add `bcrypt`, `jsonwebtoken`, or a hand-rolled session
 table — `auth-service` wraps Supabase Auth, it does not reimplement it.
 
@@ -84,7 +86,11 @@ The repo is scaffolding — most `services/*/src/index.ts` files export a `healt
 nothing else. Declared dependencies (express, zod) are real intent, not yet real code.
 
 Known gaps to fix rather than work around:
-- RLS is enabled on `profiles` with no policy covering it, so all non-service-role access to that
-  table is denied.
+- RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
+  authenticated user full access, so on `users` anyone signed in can edit any row, including
+  `role`. Replace them with per-role policies in a new migration.
 - Services export `healthCheck()` but never call `listen()`, so their containers start and exit
   immediately under `docker compose up`.
+
+
+## testing of symlinks
