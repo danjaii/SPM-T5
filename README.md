@@ -16,7 +16,7 @@ SPM-T5/
 │   ├── auth-service/
 │   ├── event-service/
 │   ├── venue-service/
-│   ├── coordinator-service/
+│   ├── equipment-service/
 │   └── notification-service/
 ├── packages/
 │   └── shared/                # Shared types, Supabase client, utils used by web + services
@@ -89,7 +89,7 @@ EMAIL_PROVIDER_API_KEY=
 # DOCKER_SUPABASE_URL=http://host.docker.internal:54321
 ```
 
-Service ports: auth 4001, event 4002, venue 4003, coordinator 4004, notification 4005, web 3000.
+Service ports: auth 4001, event 4002, venue 4003, equipment 4004, notification 4005, web 3000.
 
 ## Testing
 

@@ -42,9 +42,9 @@ services:
     build: { context: ., dockerfile: services/venue-service/Dockerfile }
     ports: ["4003:4000"]
 
-  coordinator-service:
+  equipment-service:
     <<: *service
-    build: { context: ., dockerfile: services/coordinator-service/Dockerfile }
+    build: { context: ., dockerfile: services/equipment-service/Dockerfile }
     ports: ["4004:4000"]
 
   notification-service:

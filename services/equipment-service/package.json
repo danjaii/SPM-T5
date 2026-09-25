@@ -1,5 +1,5 @@
 {
-  "name": "@spm-t5/coordinator-service",
+  "name": "@spm-t5/equipment-service",
   "version": "0.1.0",
   "private": true,
   "scripts": {

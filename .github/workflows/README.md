@@ -7,7 +7,7 @@
 | `service-auth-ci.yml` | `services/auth-service/**` | calls the reusable template scoped to `auth-service` |
 | `service-event-ci.yml` | `services/event-service/**` | calls the reusable template scoped to `event-service` |
 | `service-venue-ci.yml` | `services/venue-service/**` | calls the reusable template scoped to `venue-service` |
-| `service-coordinator-ci.yml` | `services/coordinator-service/**` | calls the reusable template scoped to `coordinator-service` |
+| `service-equipment-ci.yml` | `services/equipment-service/**` | calls the reusable template scoped to `equipment-service` |
 | `service-notification-ci.yml` | `services/notification-service/**` | calls the reusable template scoped to `notification-service` |
 | `c4-diagrams.yml` | `docs/architecture/c4/**` | renders `.puml` → SVG, commits rendered output on push, uploads as artifact on PR |
 
