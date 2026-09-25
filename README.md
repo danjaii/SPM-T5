@@ -41,14 +41,51 @@ SPM-T5/
   given change (see path filters in `.github/workflows/`).
 - **`packages/shared`** holds the Supabase client wrapper, generated DB types, and cross-cutting
   utilities (auth/role guards, validation schemas) so services and the frontend don't drift.
-- **`apps/web`** is the Next.js app. It calls services directly (BFF-less) or through an API
-  gateway if you add one later — start simple, add a gateway service only if you need it.
+- **`apps/web`** is the Next.js app. It calls services directly over HTTP — no API gateway, no BFF.
+- **Supabase owns auth and authorization.** Supabase Auth (GoTrue) holds all credentials and issues
+  JWTs; `auth-service` wraps it rather than reimplementing it. Access control is enforced by
+  Row-Level Security in Postgres, not by Express middleware.
 - **Automated testing runs on every push/PR**, scoped to whatever changed, so a new feature in
   `event-service` doesn't wait on unrelated frontend tests, and vice versa. See
   [`.github/workflows/README.md`](.github/workflows/README.md).
 - **C4 diagrams live in `docs/architecture/c4`** as PlantUML source (`.puml`), version-controlled
   like code, and are auto-rendered to SVG/PNG by CI on every change (see
   [`docs/architecture/README.md`](docs/architecture/README.md)).
+
+## Services
+
+| Service | Port | Owns |
+| ----- | ----- | ----- |
+| `auth-service` | 4001 | Authentication/authorisation, wrapping Supabase Auth |
+| `event-service` | 4002 | Event requests, drafts, review/approval, status state machine, coordinator assignment, change requests |
+| `venue-service` | 4003 | Venue catalogue, availability calendar, search, suitability checks, bookings and conflict detection |
+| `equipment-service` | 4004 | Equipment catalogue, availability checks, reservations, technical support (formerly `coordinator-service`) |
+| `notification-service` | 4005 | In-app/email notifications, triggered by event-service status changes |
+
+Attendee registration is not yet assigned to a service (most likely `event-service`) — see
+[`CLAUDE.md`](CLAUDE.md).
+
+## Roles
+
+Defined in `packages/shared/src/roles.ts`: `event_organiser`, `event_coordinator`, `venue_staff`,
+`technical_support_staff` and `attendee`. Add new roles there, not as string literals in a service.
+
+## Database
+
+`supabase/migrations/` is the schema source of truth and is append-only — add a new numbered file
+rather than editing an applied one.
+
+| Migration | Purpose |
+| ----- | ----- |
+| `01_schema.sql` | Tables; `users.id` references `auth.users(id)` |
+| `02_rls.sql` | RLS policies — currently blanket placeholders |
+| `03_users_role_privilege.sql` | Column-level grant preventing users from escalating their own `role` |
+
+## Current status
+
+This is the release-1 scaffold. Most services only export a `healthCheck()` stub and do not yet
+call `listen()`, so their containers exit immediately under `docker compose up`. RLS policies
+still let any authenticated user access every row; per-role/own-row policies are pending.
 
 ## AI coding agents
 
