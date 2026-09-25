@@ -6,12 +6,67 @@ Guidance for AI coding agents (Claude Code, OpenAI Codex, and others) working in
 ## Project
 
 ConnectSphere — an event management platform. Next.js/React frontend, five Node/TypeScript
-microservices, one shared Supabase Postgres. npm workspaces monorepo (`apps/*`, `services/*`,
-`packages/*`).
+microservices (auth, event, venue, equipment, notification), one shared Supabase Postgres. npm
+workspaces monorepo (`apps/*`, `services/*`, `packages/*`).
 
 Read before making structural changes:
 - Repo layout and rationale: [README.md](README.md)
 - Why microservices + shared DB: [ADR 0001](docs/architecture/adr/0001-microservice-architecture.md)
+
+## Course context
+
+This is the release-1 build for IS212 (SMU, AY2026/27 T1), run as a Scrum project (sprints,
+backlogs, estimation, standups, retrospectives) worth 35% of the course grade. That means PRs
+should stay traceable back to a user story, and test coverage is graded, not optional — see
+Conventions below.
+
+### Roles
+
+Every role below is a value of the `Role` type in `packages/shared/src/roles.ts` — add a role
+there, not as a string literal in a service.
+
+| Role | Access | Primary responsibilities |
+| ----- | ----- | ----- |
+| `event_organiser` | External | Creates/edits event requests (drafts & submitted), tracks approval status, requests post-submission changes, registers attendees. |
+| `event_coordinator` | Internal | Reviews/approves event requests, requests clarifications, assigns coordinators, searches venues, submits venue booking requests. |
+| `venue_staff` | Internal | Maintains the venue catalogue, approves/rejects venue bookings, sets layout options, flags unavailability (maintenance/renovation). |
+| `technical_support_staff` | Internal | Maintains the equipment catalogue, checks availability, approves/reserves equipment, handles maintenance statuses. |
+| `attendee` | External | Browses confirmed public events, registers/withdraws within capacity limits and registration windows. |
+
+### Feature scope (release 1)
+
+The 20 features below define the release-1 backlog. They span the five services in Architecture
+below plus `apps/web`; none of them are implemented yet (see Current state).
+
+1. Authorisation/authentication — RBAC via Supabase Auth JWTs (see Architecture: this is
+   RLS-enforced, not middleware-enforced).
+2. Event request creation (dates, attendance, venue/equipment requirements).
+3. Draft event requests — save/resume before final submission.
+4. Event review and approval — coordinator amend/approve/reject workflow.
+5. Coordinator assignment/reassignment per event (owned by `event-service`, alongside review/approval).
+6. Event status state machine: `Draft → Submitted → Under Review → Approved → Planning →
+   Confirmed → Completed`, with `Cancelled`/`Rejected` off-ramps.
+7. Event information management — minor edits vs. critical updates (date/time/attendance) that
+   must re-trigger venue/equipment validation.
+8. Venue catalogue (location, capacity, layouts, operating hours, accessibility).
+9. Venue availability calendar — bookings, tentative holds, maintenance blocks.
+10. Venue search/filtering by date, time, capacity, layout, location, facilities.
+11. Venue suitability checks — attendance ≤ capacity, required facilities present.
+12. Venue booking requests from coordinators to venue staff.
+13. Venue booking approval/rejection with reasons.
+14. Booking conflict detection — no overlapping venue double-bookings.
+15. Equipment request management (types, quantities, technical support needs).
+16. Equipment availability checks against overlapping reservations.
+17. Equipment reservation for an event slot.
+18. Attendee registration — capacity caps, registration windows, withdrawal.
+19. Event change requests post-approval — cross-service venue/equipment re-validation.
+20. Notifications — in-app/email on status changes, clarifications, approvals, rejections.
+
+Equipment/technical-support (#15-17) is owned by `equipment-service` (renamed from
+`coordinator-service`, which no longer exists — coordinator assignment moved to `event-service`,
+see #5). **Open question:** attendee registration (#18) still isn't assigned to any service in
+`docs/architecture/c4/container.puml` — confirm ownership (most likely `event-service`) before
+building it, and update the container diagram either way per the Conventions rule below.
 
 ## Commands
 
@@ -47,7 +102,14 @@ table — `auth-service` wraps Supabase Auth, it does not reimplement it.
 **Authorization is Row-Level Security, not application code.** ADR 0001 chose one Postgres
 instance for all five services with RLS enforcing per-role access. A service that queries with
 the service-role key bypasses RLS entirely, so reach for the anon/user-scoped client by default
-and use the service-role key only where bypassing is the actual intent.
+and use the service-role key only where bypassing is the actual intent. Express middleware may
+still decode the Supabase JWT to identify the caller (`req.user`) — that's authentication, not
+authorization — but it should not re-implement role checks that RLS already enforces.
+
+**Notification service is event-driven, not polled.** Per the container diagram, `event-service`
+publishes status-change events and `notification-service` reacts to them and dispatches
+email/SMS — favor Supabase Realtime/webhooks or an explicit event call over having services poll
+each other for state changes.
 
 **Every service is a workspace with its own `package.json`, `tests/`, `Dockerfile`, and CI
 workflow.** Docker builds use the repo root as context (the lockfile and `packages/shared` live
@@ -64,7 +126,7 @@ rather than duplicating a zod schema on each side. It's consumed as TypeScript s
 **`apps/web` calls services directly over HTTP** — no API gateway, no BFF. See
 `docs/architecture/c4/container.puml` for which service owns what. Browser-visible config must be
 prefixed `NEXT_PUBLIC_`; service ports are mapped in `docker-compose.yml` (auth 4001, event 4002,
-venue 4003, coordinator 4004, notification 4005).
+venue 4003, equipment 4004, notification 4005).
 
 ## Conventions
 
@@ -79,6 +141,16 @@ venue 4003, coordinator 4004, notification 4005).
   `src/components/`, browser helpers in `src/lib/`.
 - **Architecture changes need a diagram or ADR update.** Flag it in the PR;
   `docs/architecture/c4/rendered/` is CI-generated, so edit the `.puml` source only.
+  `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and one C3
+  (`component-event-service.puml`) — add a component diagram per service as it gets built out,
+  rather than a C4 code diagram.
+- **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
+  or backlog item a test covers (commit message or test description), and aim for full coverage
+  on unit tests (only `test:unit` gets `--coverage`, per Commands above).
+- **A stubbed service gains internal structure as it's built out**, not before: once a
+  `services/*/src/index.ts` grows past the `healthCheck()` stub, split it into `routes/`,
+  `controllers/` (or `services/` for business logic), and `middlewares/` rather than one growing
+  file — but keep the `tests/unit` + `tests/integration` split from the bullet above regardless.
 
 ## Current state
 
@@ -87,10 +159,13 @@ nothing else. Declared dependencies (express, zod) are real intent, not yet real
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
-  authenticated user full access, so on `users` anyone signed in can edit any row, including
-  `role`. Replace them with per-role policies in a new migration.
+  authenticated user full access to every row. `03_users_role_privilege.sql` closed the `role`
+  escalation on `users` specifically (column-level grant, not a row-level policy — see that
+  file's comment for why), but every table, including `users`, still allows any authenticated
+  user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
+  new migration.
 - Services export `healthCheck()` but never call `listen()`, so their containers start and exit
   immediately under `docker compose up`.
 
 
-## testing of symlinks
+## 
