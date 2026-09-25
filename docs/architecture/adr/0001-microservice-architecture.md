@@ -14,7 +14,7 @@ developer actually changed.
 ## Decision
 
 Split the backend into five Node/TypeScript microservices (`auth-service`, `event-service`,
-`venue-service`, `coordinator-service`, `notification-service`), each with its own tests,
+`venue-service`, `equipment-service`, `notification-service`), each with its own tests,
 Dockerfile, and CI workflow. Shared code (Supabase client, role types, validation) lives in
 `packages/shared`. All services share one Supabase Postgres instance for the first release,
 with Row-Level Security enforcing per-role access rather than each service owning its own
@@ -24,7 +24,7 @@ database.
 
 - **Monolith** — simpler to stand up, but every feature branch would run the full test suite
   and the team can't work on separate services without merge conflicts in one codebase.
-- **Microservices with a database per service** — better isolation, but event↔venue↔coordinator
+- **Microservices with a database per service** — better isolation, but event↔venue↔equipment
   workflows need consistent joins/transactions that are hard to do well in a single term project;
   revisit post-MVP if a service's data model diverges enough to need it.
 
