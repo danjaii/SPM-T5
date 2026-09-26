@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - services/*
+  - packages/*
+
+# Next 15 pins a PostCSS version with known advisories; see README → Dependency notes.
+overrides:
+  postcss: ^8.5.28
+
+allowBuilds:
+  esbuild: true
+  fsevents: true
+  unrs-resolver: true
