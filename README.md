@@ -12,6 +12,15 @@ SPM-T5/
 │   └── workflows/            # CI pipelines (one per service + frontend, path-filtered)
 ├── apps/
 │   └── web/                  # Next.js/React frontend
+│       ├── public/           # Static assets, served at /
+│       ├── src/
+│       │   ├── app/          # App Router routes only (every folder is a URL segment)
+│       │   ├── components/   # React components
+│       │   └── lib/          # Browser/server helpers
+│       ├── tests/            # unit/ (Vitest + Testing Library), e2e/ (Playwright)
+│       ├── eslint.config.mjs # ESLint flat config (next/core-web-vitals + next/typescript)
+│       ├── playwright.config.ts
+│       └── vitest.config.ts
 ├── services/                 # One folder per microservice
 │   ├── auth-service/
 │   ├── event-service/
@@ -140,8 +149,9 @@ npm run test:integration -w services/auth-service
 npm run test:e2e -w apps/web                    # Playwright (tests/e2e)
 ```
 
-`apps/web/vitest.config.ts` excludes `tests/e2e/**` so Vitest doesn't try to run the Playwright
-specs.
+`apps/web/vitest.config.ts` only picks up `tests/unit/**` (jsdom + Testing Library), so Vitest
+doesn't try to run the Playwright specs. `apps/web/playwright.config.ts` starts `next dev` itself,
+so `test:e2e` needs no separately running server; run `npx playwright install` once to fetch browsers.
 
 Every PR must pass its workflow's test job before merge (see branch protection notes in
 `.github/workflows/README.md`).
@@ -152,6 +162,8 @@ Every PR must pass its workflow's test job before merge (see branch protection n
   advisories; the override forces a patched release without a breaking upgrade to Next 16. Drop
   it once Next ships a fixed PostCSS.
 - **Vitest is on 4.x, not 5.x.** Vitest 5 requires Node 22+, and CI runs Node 20. Bump both
-  together.
+  together. The same applies to `jsdom` (kept on 29.x; 30+ needs Node 22+).
+- **`next-env.d.ts` and `*.tsbuildinfo` are git-ignored.** Next generates them; `npm run typecheck
+  -w apps/web` runs `next typegen` first so it works on a fresh checkout.
 - Don't use `npm audit fix --force` — it applies major-version upgrades (Next, Vitest) across the
   whole monorepo. Fix advisories deliberately, one PR each.
