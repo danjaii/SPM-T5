@@ -10,7 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    // tests/e2e is Playwright's (`npm run test:e2e`), not vitest's.
+    // tests/e2e is Playwright's (`pnpm run test:e2e`), not vitest's.
     include: ["tests/unit/**/*.test.{ts,tsx}"],
     setupFiles: ["./tests/setup.ts"],
     coverage: {
