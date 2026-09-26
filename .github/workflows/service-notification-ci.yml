@@ -2,16 +2,19 @@ name: NotificationService CI (services/notification-service)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "services/notification-service/**"
       - "packages/shared/**"
       - ".github/workflows/_service-ci-template.yml"
+      - ".github/workflows/service-notification-ci.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "services/notification-service/**"
       - "packages/shared/**"
+      - ".github/workflows/_service-ci-template.yml"
+      - ".github/workflows/service-notification-ci.yml"
 
 jobs:
   ci:

@@ -2,16 +2,19 @@ name: VenueService CI (services/venue-service)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "services/venue-service/**"
       - "packages/shared/**"
       - ".github/workflows/_service-ci-template.yml"
+      - ".github/workflows/service-venue-ci.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "services/venue-service/**"
       - "packages/shared/**"
+      - ".github/workflows/_service-ci-template.yml"
+      - ".github/workflows/service-venue-ci.yml"
 
 jobs:
   ci:

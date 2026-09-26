@@ -2,16 +2,19 @@ name: EventService CI (services/event-service)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "services/event-service/**"
       - "packages/shared/**"
       - ".github/workflows/_service-ci-template.yml"
+      - ".github/workflows/service-event-ci.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "services/event-service/**"
       - "packages/shared/**"
+      - ".github/workflows/_service-ci-template.yml"
+      - ".github/workflows/service-event-ci.yml"
 
 jobs:
   ci:

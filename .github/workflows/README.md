@@ -4,7 +4,7 @@
 |---|---|---|
 | `frontend-ci.yml` | `apps/web/**`, `packages/shared/**` | lint → typecheck → unit/component tests (with coverage) → build → Playwright E2E |
 | `_service-ci-template.yml` | (reusable, not triggered directly) | lint → typecheck → unit tests → integration tests → build |
-| `service-auth-ci.yml` | `services/auth-service/**` | calls the reusable template scoped to `auth-service` |
+| `service-auth-ci.yml` | `services/auth-service/**` | calls the reusable template scoped to `auth-service`; the unit step runs the US1–US4 auth tests (`tests/unit/auth.test.ts`) with coverage, uploaded as the `auth-service-coverage` artefact |
 | `service-event-ci.yml` | `services/event-service/**` | calls the reusable template scoped to `event-service` |
 | `service-venue-ci.yml` | `services/venue-service/**` | calls the reusable template scoped to `venue-service` |
 | `service-equipment-ci.yml` | `services/equipment-service/**` | calls the reusable template scoped to `equipment-service` |
@@ -24,7 +24,7 @@ changes, via `paths:` filters. This means:
 
 ## Recommended branch protection (Settings → Branches)
 
-Protect `main` and `develop` and require these status checks before merge:
+Protect `main` and require these status checks before merge:
 
 - `Frontend CI (apps/web) / test`
 - the `ci` job from whichever `service-*-ci.yml` workflows are relevant to the PR

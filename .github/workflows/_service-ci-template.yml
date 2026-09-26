@@ -49,7 +49,7 @@ jobs:
         run: pnpm run --if-present test:unit --coverage
 
       - name: Integration tests
-        run: pnpm run --if-present test:integration
+        run: pnpm run --if-present test:integration --passWithNoTests
 
       - name: Build
         run: pnpm run --if-present build

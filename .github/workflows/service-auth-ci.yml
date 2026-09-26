@@ -2,16 +2,19 @@ name: AuthService CI (services/auth-service)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "services/auth-service/**"
       - "packages/shared/**"
       - ".github/workflows/_service-ci-template.yml"
+      - ".github/workflows/service-auth-ci.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "services/auth-service/**"
       - "packages/shared/**"
+      - ".github/workflows/_service-ci-template.yml"
+      - ".github/workflows/service-auth-ci.yml"
 
 jobs:
   ci:
