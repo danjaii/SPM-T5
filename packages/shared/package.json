@@ -12,6 +12,7 @@
     "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
+    "eslint": "^9.10.0",
     "typescript": "^5.6.0",
     "vitest": "^4.1.11"
   }

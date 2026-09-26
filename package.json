@@ -1,29 +1,16 @@
 {
   "name": "spm-t5",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "services/*",
-    "packages/*"
-  ],
+  "packageManager": "pnpm@12.6.0",
   "scripts": {
-    "test:all": "npm run test --workspaces --if-present",
-    "lint:all": "npm run lint --workspaces --if-present",
-    "build:all": "npm run build --workspaces --if-present"
+    "test:all": "pnpm -r --if-present run test",
+    "lint:all": "pnpm -r --if-present run lint",
+    "build:all": "pnpm -r --if-present run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "globals": "^14.0.0",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.70.1"
-  },
-  "allowScripts": {
-    "esbuild@0.28.2": true,
-    "esbuild@0.21.5": true,
-    "fsevents@2.3.3": true,
-    "unrs-resolver@1.12.2": true
-  },
-  "overrides": {
-    "postcss": "^8.5.28"
   }
 }

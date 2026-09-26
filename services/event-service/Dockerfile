@@ -1,18 +1,20 @@
 # Build context is the repo root (see docker-compose.yml): the lockfile and
 # packages/shared live there, not in this folder.
 FROM node:20-slim AS build
+RUN corepack enable
 WORKDIR /repo
 COPY . .
-RUN npm ci --workspace services/event-service --include-workspace-root=false
-RUN npm run build --workspace services/event-service
+RUN pnpm install --frozen-lockfile --filter @spm-t5/event-service...
+RUN pnpm --filter @spm-t5/event-service run build
 
 FROM node:20-slim
+RUN corepack enable
 ENV NODE_ENV=production
 WORKDIR /repo
-COPY package.json package-lock.json ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/shared/package.json packages/shared/
 COPY services/event-service/package.json services/event-service/
-RUN npm ci --workspace services/event-service --omit=dev --include-workspace-root=false
+RUN pnpm install --frozen-lockfile --prod --filter @spm-t5/event-service...
 COPY --from=build /repo/services/event-service/dist services/event-service/dist
 WORKDIR /repo/services/event-service
 USER node
