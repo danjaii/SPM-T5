@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@spm-t5/shared": "*",
+    "@spm-t5/shared": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
     "express": "^4.19.0",
     "zod": "^3.23.0"

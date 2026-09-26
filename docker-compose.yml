@@ -1,4 +1,4 @@
-# All images build from the repo root: they need the root package-lock.json and
+# All images build from the repo root: they need the root pnpm-lock.yaml and
 # packages/shared, which a per-folder build context can't see.
 #
 # For local Supabase (Postgres/Auth/Storage) run the Supabase CLI stack separately:

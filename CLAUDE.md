@@ -6,7 +6,7 @@ Guidance for AI coding agents (Claude Code, OpenAI Codex, and others) working in
 ## Project
 
 ConnectSphere — an event management platform. Next.js/React frontend, five Node/TypeScript
-microservices (auth, event, venue, equipment, notification), one shared Supabase Postgres. npm
+microservices (auth, event, venue, equipment, notification), one shared Supabase Postgres. pnpm
 workspaces monorepo (`apps/*`, `services/*`, `packages/*`).
 
 Read before making structural changes:
@@ -70,23 +70,24 @@ building it, and update the container diagram either way per the Conventions rul
 
 ## Commands
 
-Run `npm install` once from the repo root — it installs every workspace. Never run `npm install`
-inside a service or app directory.
+Run `pnpm install` once from the repo root — it installs every workspace. Don't add per-workspace
+lockfiles; there is a single `pnpm-lock.yaml` at the root. Local packages are linked with the
+`workspace:*` protocol.
 
 ```bash
-npm run dev -w apps/web                      # Next.js dev server
-npm run dev -w services/auth-service         # tsx watch on one service
+pnpm --filter @spm-t5/web run dev             # Next.js dev server
+pnpm --filter @spm-t5/auth-service run dev   # tsx watch on one service
 
-npm run test:all                             # every workspace
-npm run test -w apps/web                     # one workspace
-npm run test:unit -w services/auth-service   # unit only (vitest run tests/unit)
-npm run test:integration -w services/auth-service
-npm run test:unit -w services/auth-service -- tests/unit/health.test.ts   # single file
-npm run test:unit -w services/auth-service -- -t "reports ok status"      # single test by name
+pnpm run test:all                            # every workspace
+pnpm --filter @spm-t5/web run test            # one workspace
+pnpm --filter @spm-t5/auth-service run test:unit   # unit only (vitest run tests/unit)
+pnpm --filter @spm-t5/auth-service run test:integration
+pnpm --filter @spm-t5/auth-service run test:unit tests/unit/health.test.ts   # single file
+pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"      # single test by name
 
-npm run typecheck -w services/auth-service   # tsc --noEmit (apps/web runs `next typegen` first)
-npm run lint:all                             # apps/web uses ESLint flat config (eslint.config.mjs)
-npm run test:e2e -w apps/web                 # Playwright
+pnpm --filter @spm-t5/auth-service run typecheck   # tsc --noEmit (apps/web runs `next typegen` first)
+pnpm run lint:all                            # apps/web uses ESLint flat config (eslint.config.mjs)
+pnpm --filter @spm-t5/web run test:e2e        # Playwright
 ```
 
 Local full stack: create a root `.env` (variables listed in README → Getting started), then `supabase start` (the Supabase CLI stack runs

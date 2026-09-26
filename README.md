@@ -107,14 +107,15 @@ Developer Mode and run `git config core.symlinks true` before cloning, or work i
 
 ## Getting started
 
-Requires Node 20+ (CI runs Node 20) and npm. The repo is an npm workspaces monorepo — run
-`npm install` once from the root; never inside a service or app directory.
+Requires Node 20+ (CI runs Node 20) and pnpm (the version is pinned by `packageManager` in the root `package.json`; run
+`corepack enable` once to use it). The repo is a pnpm workspaces monorepo — run `pnpm install` once
+from the root.
 
 ```bash
-npm install             # installs all workspaces
+pnpm install            # installs all workspaces
 supabase start          # local Supabase stack via the Supabase CLI (optional, for full-stack dev)
 docker compose up -d    # the five services + web (does not include Supabase)
-npm run dev -w apps/web
+pnpm --filter @spm-t5/web run dev
 ```
 
 Create a `.env` at the repo root (git-ignored; `docker-compose.yml` loads it into every service
@@ -142,11 +143,11 @@ Service ports: auth 4001, event 4002, venue 4003, equipment 4004, notification 4
 Unit and integration tests use Vitest; `apps/web` end-to-end tests use Playwright.
 
 ```bash
-npm run test:all                                # every workspace
-npm test -w services/event-service              # one workspace
-npm run test:unit -w services/auth-service      # unit only
-npm run test:integration -w services/auth-service
-npm run test:e2e -w apps/web                    # Playwright (tests/e2e)
+pnpm run test:all                               # every workspace
+pnpm --filter @spm-t5/event-service run test   # one workspace
+pnpm --filter @spm-t5/auth-service run test:unit   # unit only
+pnpm --filter @spm-t5/auth-service run test:integration
+pnpm --filter @spm-t5/web run test:e2e          # Playwright (tests/e2e)
 ```
 
 `apps/web/vitest.config.ts` only picks up `tests/unit/**` (jsdom + Testing Library), so Vitest
@@ -158,12 +159,12 @@ Every PR must pass its workflow's test job before merge (see branch protection n
 
 ## Dependency notes
 
-- **`postcss` is pinned via root `overrides`.** Next 15 pins a PostCSS version with known
+- **`postcss` is pinned via `overrides` in `pnpm-workspace.yaml`.** Next 15 pins a PostCSS version with known
   advisories; the override forces a patched release without a breaking upgrade to Next 16. Drop
   it once Next ships a fixed PostCSS.
 - **Vitest is on 4.x, not 5.x.** Vitest 5 requires Node 22+, and CI runs Node 20. Bump both
   together. The same applies to `jsdom` (kept on 29.x; 30+ needs Node 22+).
-- **`next-env.d.ts` and `*.tsbuildinfo` are git-ignored.** Next generates them; `npm run typecheck
-  -w apps/web` runs `next typegen` first so it works on a fresh checkout.
-- Don't use `npm audit fix --force` — it applies major-version upgrades (Next, Vitest) across the
+- **`next-env.d.ts` and `*.tsbuildinfo` are git-ignored.** Next generates them; `pnpm --filter @spm-t5/web
+  run typecheck` runs `next typegen` first so it works on a fresh checkout.
+- Don't blanket-apply audit fixes — they can force major-version upgrades (Next, Vitest) across the
   whole monorepo. Fix advisories deliberately, one PR each.
