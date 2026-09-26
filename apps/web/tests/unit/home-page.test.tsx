@@ -1,10 +1,13 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const { redirect } = vi.hoisted(() => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect }));
+
 import HomePage from "@/app/page";
 
 describe("HomePage", () => {
-  it("renders the ConnectSphere heading", () => {
-    render(<HomePage />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("ConnectSphere");
+  it("sends visitors to the sign-in page", () => {
+    HomePage();
+    expect(redirect).toHaveBeenCalledWith("/login");
   });
 });

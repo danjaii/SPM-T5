@@ -138,6 +138,40 @@ EMAIL_PROVIDER_API_KEY=
 
 Service ports: auth 4001, event 4002, venue 4003, equipment 4004, notification 4005, web 3000.
 
+## Auth prototype (sign in, register, role dashboards, logout)
+
+Implements US1–US4 from `user-stories.md`: `services/auth-service` (Express, wraps Supabase Auth) and
+the sign-in/register/dashboard pages in `apps/web`. It runs against the Supabase project in your root
+`.env` (with `supabase/seed.sql` applied), so create that first (see Getting started).
+
+```bash
+pnpm install
+pnpm dev     # runs both: auth-service on http://localhost:4001, web on http://localhost:3000
+```
+
+Both must be running: the sign-in page calls auth-service directly, so with only the web app up you
+get "We couldn't reach the server". Run `pnpm dev` from the repo root (inside `apps/web` it starts
+only the web app), and stop any older dev server first — the web app has to be on port 3000, the one
+auth-service allows.
+
+Sign in with any seeded account — password `ConnectSphere2026!` — and pick the matching role:
+
+| Role | Email |
+| ----- | ----- |
+| Event Coordinator | `rachel.tan@connectsphere.example.com` |
+| Venue Staff | `kenneth.wong@connectsphere.example.com` |
+| Event Organiser | `jason.chua@techconnect.example.com` |
+| Technical Support Staff | `aaron.koh@connectsphere.example.com` |
+| Attendee | `alicia.fernandez@example.com` |
+
+Notes:
+- The role you pick must match the account's role, otherwise you get the same generic error as a wrong password.
+- Registering creates a real user in that Supabase project, and Supabase emails a verification link
+  (unless confirmations are switched off in the project's Auth settings).
+- "Forgot password" emails a link to `http://localhost:3000/reset-password`; add that URL to the
+  project's Auth → URL Configuration → Redirect URLs.
+- The session is an httpOnly cookie set by auth-service; logging out revokes it in Supabase.
+
 ## Testing
 
 Unit and integration tests use Vitest; `apps/web` end-to-end tests use Playwright.

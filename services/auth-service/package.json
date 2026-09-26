@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --packages=external --alias:@spm-t5/shared=../../packages/shared/src/index.ts --outfile=dist/index.js",
+    "dev": "tsx watch --env-file=../../.env src/server.ts",
+    "build": "esbuild src/server.ts --bundle --platform=node --target=node20 --packages=external --alias:@spm-t5/shared=../../packages/shared/src/index.ts --outfile=dist/index.js",
+    "start": "node --env-file=../../.env dist/index.js",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run tests/unit",
@@ -18,9 +19,12 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.25",
+    "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.11",
     "esbuild": "^0.28.2",
     "eslint": "^9.10.0",
+    "supertest": "^7.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^4.1.11"
