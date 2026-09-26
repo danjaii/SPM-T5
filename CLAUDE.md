@@ -84,8 +84,8 @@ npm run test:integration -w services/auth-service
 npm run test:unit -w services/auth-service -- tests/unit/health.test.ts   # single file
 npm run test:unit -w services/auth-service -- -t "reports ok status"      # single test by name
 
-npm run typecheck -w services/auth-service   # tsc --noEmit
-npm run lint:all
+npm run typecheck -w services/auth-service   # tsc --noEmit (apps/web runs `next typegen` first)
+npm run lint:all                             # apps/web uses ESLint flat config (eslint.config.mjs)
 npm run test:e2e -w apps/web                 # Playwright
 ```
 
