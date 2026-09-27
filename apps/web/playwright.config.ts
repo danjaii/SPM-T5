@@ -15,7 +15,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm run dev",
+    command: "./node_modules/.bin/next dev", // called directly: a package-manager wrapper made Playwright wait minutes for shutdown
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

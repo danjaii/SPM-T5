@@ -1,0 +1,74 @@
+name: CI
+
+# One pipeline for the whole monorepo. `pnpm vitest run` at the root discovers every workspace's tests
+# (see vitest.config.mts), so adding a service needs no change here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Point tests at a Supabase test project / local instance.
+      # Configure these as repo or environment secrets.
+      SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check Vitest version
+        run: test "$(pnpm vitest --version | sed -E 's|^vitest/([0-9.]+).*|\1|')" = "4.1.11"
+
+      - name: Lint
+        run: pnpm run lint:all
+
+      - name: Type check
+        run: pnpm -r --if-present run typecheck
+
+      - name: Tests
+        run: pnpm vitest run
+
+      - name: Build
+        run: pnpm run build:all
+
+  e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @spm-t5/web exec playwright install --with-deps
+
+      - name: Run E2E tests
+        run: pnpm --filter @spm-t5/web run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 14

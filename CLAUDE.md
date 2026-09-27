@@ -78,7 +78,8 @@ lockfiles; there is a single `pnpm-lock.yaml` at the root. Local packages are li
 pnpm --filter @spm-t5/web run dev             # Next.js dev server
 pnpm --filter @spm-t5/auth-service run dev   # tsx watch on one service
 
-pnpm run test:all                            # every workspace
+pnpm vitest run                              # every workspace's tests from the root (what CI runs)
+pnpm run test:all                            # every workspace, one at a time
 pnpm --filter @spm-t5/web run test            # one workspace
 pnpm --filter @spm-t5/auth-service run test:unit   # unit only (vitest run tests/unit)
 pnpm --filter @spm-t5/auth-service run test:integration
@@ -112,12 +113,12 @@ publishes status-change events and `notification-service` reacts to them and dis
 email/SMS — favor Supabase Realtime/webhooks or an explicit event call over having services poll
 each other for state changes.
 
-**Every service is a workspace with its own `package.json`, `tests/`, `Dockerfile`, and CI
-workflow.** Docker builds use the repo root as context (the lockfile and `packages/shared` live
-there), and each service's `build` script bundles `packages/shared` in with esbuild. The per-service workflows under `.github/workflows/service-*-ci.yml` are thin
-callers of `_service-ci-template.yml`; the real pipeline lives in the template. Path filters mean
-a change to one service only runs that service's tests — but every filter also includes
-`packages/shared/**`, so a shared-package change triggers all of them.
+**Every service is a workspace with its own `package.json`, `tests/`, and `Dockerfile`.** Docker
+builds use the repo root as context (the lockfile and `packages/shared` live there), and each
+service's `build` script bundles `packages/shared` in with esbuild. CI is a single workflow,
+`.github/workflows/ci.yml` (job `test`, then `e2e`), on push to `main` and PRs into it, with no path
+filters. The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run`
+discovers every workspace's tests and a new service needs no CI change.
 
 **`packages/shared` exists to stop frontend and services drifting.** Role types, Supabase client
 wrapper, and validation schemas belong there, so `apps/web` and a service validate identically

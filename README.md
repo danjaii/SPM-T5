@@ -9,7 +9,7 @@ SPM-T5/
 ├── .agents/
 │   └── skills/               # Agent skills (e.g. supabase-server)
 ├── .github/
-│   └── workflows/            # CI pipelines (one per service + frontend, path-filtered)
+│   └── workflows/            # CI: ci.yml (lint, typecheck, tests, build, e2e) + C4 diagram rendering
 ├── apps/
 │   └── web/                  # Next.js/React frontend
 │       ├── public/           # Static assets, served at /
@@ -46,17 +46,16 @@ SPM-T5/
 
 - **Each service is independently testable and deployable.** `services/*` are standalone
   Node/TypeScript packages, each with their own `package.json`, `tests/`, and `Dockerfile`.
-  This matches the microservice architecture and lets CI run only the tests affected by a
-  given change (see path filters in `.github/workflows/`).
+  This matches the microservice architecture, and a new service is picked up by CI
+  automatically (`pnpm vitest run` discovers every workspace's tests).
 - **`packages/shared`** holds the Supabase client wrapper, generated DB types, and cross-cutting
   utilities (auth/role guards, validation schemas) so services and the frontend don't drift.
 - **`apps/web`** is the Next.js app. It calls services directly over HTTP — no API gateway, no BFF.
 - **Supabase owns auth and authorization.** Supabase Auth (GoTrue) holds all credentials and issues
   JWTs; `auth-service` wraps it rather than reimplementing it. Access control is enforced by
   Row-Level Security in Postgres, not by Express middleware.
-- **Automated testing runs on every push/PR**, scoped to whatever changed, so a new feature in
-  `event-service` doesn't wait on unrelated frontend tests, and vice versa. See
-  [`.github/workflows/README.md`](.github/workflows/README.md).
+- **Automated testing runs on every push to `main` and every PR into it**, as a single pipeline
+  covering every workspace. See [`.github/workflows/README.md`](.github/workflows/README.md).
 - **C4 diagrams live in `docs/architecture/c4`** as PlantUML source (`.puml`), version-controlled
   like code, and are auto-rendered to SVG/PNG by CI on every change (see
   [`docs/architecture/README.md`](docs/architecture/README.md)).
@@ -177,18 +176,20 @@ Notes:
 Unit and integration tests use Vitest; `apps/web` end-to-end tests use Playwright.
 
 ```bash
-pnpm run test:all                               # every workspace
+pnpm vitest run                                 # every workspace's tests, from the repo root (what CI runs)
+pnpm run test:all                               # same tests, one workspace at a time
 pnpm --filter @spm-t5/event-service run test   # one workspace
 pnpm --filter @spm-t5/auth-service run test:unit   # unit only
 pnpm --filter @spm-t5/auth-service run test:integration
 pnpm --filter @spm-t5/web run test:e2e          # Playwright (tests/e2e)
 ```
 
+The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run` finds all their tests.
 `apps/web/vitest.config.ts` only picks up `tests/unit/**` (jsdom + Testing Library), so Vitest
 doesn't try to run the Playwright specs. `apps/web/playwright.config.ts` starts `next dev` itself,
 so `test:e2e` needs no separately running server; run `npx playwright install` once to fetch browsers.
 
-Every PR must pass its workflow's test job before merge (see branch protection notes in
+Every PR must pass the `CI / test` and `CI / e2e` checks before merge (see branch protection notes in
 `.github/workflows/README.md`).
 
 ## Dependency notes

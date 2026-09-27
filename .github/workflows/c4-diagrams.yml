@@ -4,12 +4,15 @@ name: Render C4 diagrams
 # the architecture model changes, so the diagrams in docs/architecture never go stale.
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "docs/architecture/c4/**"
+      - ".github/workflows/c4-diagrams.yml"
   pull_request:
+    branches: [main]
     paths:
       - "docs/architecture/c4/**"
+      - ".github/workflows/c4-diagrams.yml"
 
 jobs:
   render:

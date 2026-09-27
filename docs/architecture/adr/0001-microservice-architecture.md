@@ -32,6 +32,9 @@ database.
 
 - CI runs per-service (`.github/workflows/service-*-ci.yml`), so a change to `venue-service`
   doesn't trigger or block on `notification-service` tests.
+  *Amended 2026-09-27: CI is now a single workflow, `.github/workflows/ci.yml`, that runs every
+  workspace's tests on each push to `main` and PR (no path filters), which is simpler for a repo this
+  size. Per-service scoping can be added back with `pnpm --filter "...[origin/main]"`.*
 - Shared schema in one Postgres instance means schema changes in `supabase/migrations/` can
   affect multiple services — coordinate migrations via PR review, not per-service ownership.
 - Adds operational overhead (5 services to run locally) — mitigated by `docker-compose.yml`.
