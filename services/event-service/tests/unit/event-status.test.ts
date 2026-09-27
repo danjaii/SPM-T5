@@ -10,16 +10,34 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>(); // login token -> user id
-  const tables: Record<string, Row[]> = { users: [], events: [] };
+  const tables: Record<string, Row[]> = { users: [], events: [], event_status_history: [] };
 
   const query = (table: string) => {
-    let rows = [...tables[table]];
+    const filters: [string, unknown][] = [];
     const builder = {
       select: () => builder,
-      eq: (col: string, val: unknown) => { rows = rows.filter((r) => r[col] === val); return builder; },
-      maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
+      eq: (col: string, val: unknown) => { filters.push([col, val]); return builder; },
+      maybeSingle: async () => {
+        const rows = tables[table].filter((r) => filters.every(([col, val]) => r[col] === val));
+        return { data: rows[0] ? { ...rows[0] } : null, error: null }; // a copy, like a real database sends
+      },
     };
     return builder;
+  };
+
+  /** Pretends to be the change_event_status database function (supabase/migrations/04_change_event_status.sql). */
+  const changeEventStatus = (callerId: string | undefined, args: Row) => {
+    const event = tables.events.find((e) => e.id === args.p_event_id);
+    if (!event) return { data: null, error: null };
+    tables.event_status_history.push({
+      event_id: event.id,
+      old_status: event.status,
+      new_status: args.p_new_status,
+      changed_by: callerId,
+      reason: args.p_reason ?? null,
+    });
+    event.status = args.p_new_status;
+    return { data: { id: event.id, name: event.name, status: event.status }, error: null };
   };
 
   const deps = {
@@ -31,7 +49,15 @@ function createFake() {
         },
       },
     },
-    forUser: () => ({ from: (table: string) => query(table) }),
+    forUser: (token: string) => ({
+      from: (table: string) => query(table),
+      rpc: (fn: string, args: Row) => ({
+        maybeSingle: async () => {
+          if (fn !== "change_event_status") throw new Error(`fake has no function ${fn}`);
+          return changeEventStatus(sessions.get(token), args); // like auth.uid(): the caller comes from their token
+        },
+      }),
+    }),
   } as unknown as SupabaseDeps;
 
   /** Pretends a user with this role is logged in; returns the cookie their browser would send. */
@@ -163,3 +189,121 @@ describe("SCRUM-7 — View event status as the event organiser", () => {
   // end of AC3
 });
 // end of SCRUM-7
+
+// ---------------------------------------------------------------------------
+// SCRUM-8 — [Event Status Management] Edit Event Status
+// ---------------------------------------------------------------------------
+describe("SCRUM-8 — Edit event status", () => {
+  // AC1: an event coordinator can change an event's status
+  it("lets a coordinator change an event's status", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review" };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "approved" });
+
+    expect(res.status).toBe(200);
+    expect(event.status).toBe("approved"); // the change was saved in the database
+  });
+  // end of AC1
+
+  // AC2: the coordinator receives confirmation once the status has been updated
+  it("confirms the change by returning the event with its new status", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review" };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "approved" });
+
+    expect(res.body).toEqual({ id: event.id, name: "Tech Summit", status: "approved" });
+  });
+  // end of AC2
+
+  // AC3: an invalid status is refused with a message, and the status stays the same
+  // made-up word, wrong capitalisation, missing entirely, not text
+  it.each(["banana", "Approved", undefined, 123])("refuses status %j and leaves the event unchanged", async (badStatus) => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review" };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: badStatus });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Invalid status." });
+    expect(event.status).toBe("under_review"); // nothing was saved
+  });
+  // end of AC3
+
+  // AC4: only event coordinators can change an event's status
+  it.each(["event_organiser", "attendee", "venue_staff", "technical_support_staff"])(
+    "refuses a %s with 403 and leaves the event unchanged",
+    async (role) => {
+      const fake = createFake();
+      const outsider = fake.signIn(role);
+      const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", organiser_id: outsider.id };
+      fake.tables.events.push(event);
+
+      const res = await request(createApp(fake.deps))
+        .patch(`/events/${event.id}/status`)
+        .set("Cookie", outsider.cookie)
+        .send({ status: "approved" });
+
+      expect(res.status).toBe(403);
+      expect(event.status).toBe("under_review"); // nothing was saved
+    },
+  );
+  // end of AC4
+
+  // AC5: every change is recorded in the status history (who, old -> new, optional reason)
+  it("records the change in the status history", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review" };
+    fake.tables.events.push(event);
+
+    await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "returned", reason: "Please add the expected attendance." });
+
+    expect(fake.tables.event_status_history).toEqual([
+      {
+        event_id: event.id,
+        old_status: "under_review",
+        new_status: "returned",
+        changed_by: coordinator.id,
+        reason: "Please add the expected attendance.",
+      },
+    ]);
+  });
+  // end of AC5
+
+  // Edge case (not an AC): changing the status of an event that doesn't exist
+  it("returns 404 and records nothing when the event doesn't exist", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${crypto.randomUUID()}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "approved" });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Event not found." });
+    expect(fake.tables.event_status_history).toEqual([]); // no history for an event that isn't there
+  });
+  // end of edge case
+});
+// end of SCRUM-8

@@ -5,6 +5,7 @@ import { eventRoutes } from "./routes/events";
 // Exported separately from listen() so tests can mount the app without opening a port.
 export function createApp(deps: SupabaseDeps) {
   const app = express();
+  app.use(express.json()); // read JSON request bodies, e.g. { "status": "approved" }
   app.use("/events", eventRoutes(deps));
   return app;
 }
