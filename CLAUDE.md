@@ -78,7 +78,7 @@ lockfiles; there is a single `pnpm-lock.yaml` at the root. Local packages are li
 pnpm --filter @spm-t5/web run dev             # Next.js dev server
 pnpm --filter @spm-t5/auth-service run dev   # tsx watch on one service
 
-pnpm vitest run                              # every workspace's tests from the root (what CI runs)
+pnpm vitest run                              # every workspace's tests + coverage report (./coverage) from the root; what CI runs
 pnpm run test:all                            # every workspace, one at a time
 pnpm --filter @spm-t5/web run test            # one workspace
 pnpm --filter @spm-t5/auth-service run test:unit   # unit only (vitest run tests/unit)

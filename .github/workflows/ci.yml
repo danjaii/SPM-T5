@@ -39,7 +39,15 @@ jobs:
         run: pnpm -r --if-present run typecheck
 
       - name: Tests
-        run: pnpm vitest run
+        run: pnpm vitest run # also writes the coverage report to ./coverage (see vitest.config.mts)
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage
+          retention-days: 14
 
       - name: Build
         run: pnpm run build:all

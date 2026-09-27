@@ -176,7 +176,7 @@ Notes:
 Unit and integration tests use Vitest; `apps/web` end-to-end tests use Playwright.
 
 ```bash
-pnpm vitest run                                 # every workspace's tests, from the repo root (what CI runs)
+pnpm vitest run                                 # every workspace's tests + coverage report in ./coverage (what CI runs)
 pnpm run test:all                               # same tests, one workspace at a time
 pnpm --filter @spm-t5/event-service run test   # one workspace
 pnpm --filter @spm-t5/auth-service run test:unit   # unit only

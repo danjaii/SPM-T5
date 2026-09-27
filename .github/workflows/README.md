@@ -2,7 +2,7 @@
 
 | Workflow | Triggers | What it runs |
 |---|---|---|
-| `ci.yml` | push to `main`, PRs into `main` | job `test`: install → Vitest version check (4.1.11) → lint → typecheck → **`pnpm vitest run`** (every workspace's tests) → build; then job `e2e`: Playwright tests for `apps/web` |
+| `ci.yml` | push to `main`, PRs into `main` | job `test`: install → Vitest version check (4.1.11) → lint → typecheck → **`pnpm vitest run`** (every workspace's tests, plus a coverage report uploaded as the `coverage` artefact) → build; then job `e2e`: Playwright tests for `apps/web` |
 | `c4-diagrams.yml` | `docs/architecture/c4/**` on push to `main` / PRs into `main` | renders `.puml` → SVG, commits rendered output on push, uploads as artifact on PR |
 
 ## Why one workflow
