@@ -10,20 +10,30 @@ export function eventRoutes(deps: SupabaseDeps) {
   router.get("/:id", requireSession(deps), async (req, res) => {
     const { id: userId, token } = res.locals.user as SessionUser;
 
-    // SCRUM-6 AC3: only event coordinators may view event status (organisers come with SCRUM-7)
+    // SCRUM-6 AC3: only event coordinators and (SCRUM-7) event organisers may view event status
     const { data: profile } = await deps.forUser(token).from("users").select("role").eq("id", userId).maybeSingle();
-    if (!isRole(profile?.role) || !canReviewEvents(profile.role)) {
+    const role = isRole(profile?.role) ? profile.role : undefined;
+    const isCoordinator = role !== undefined && canReviewEvents(role);
+    const isOrganiser = role === "event_organiser";
+    if (!isCoordinator && !isOrganiser) {
       return res.status(403).json({ error: "You are not allowed to view this event's status." });
     }
 
-    const { data: event } = await deps
+    let query = deps
       .forUser(token)
       .from("events")
       .select("id, name, status")
-      .eq("id", req.params.id)
+      .eq("id", req.params.id);
       // the following line is commented out because we don't restrict only assigned coord to see event status
       // .eq("assigned_coordinator_id", userId)
-      .maybeSingle();
+
+    // SCRUM-7 AC3: an organiser only sees events they submitted
+    if (isOrganiser) query = query.eq("organiser_id", userId);
+
+    const { data: event } = await query.maybeSingle();
+
+    // SCRUM-7 AC3: someone else's event looks exactly like one that doesn't exist
+    if (!event) return res.status(404).json({ error: "Event not found." });
 
     res.json(event);
   });

@@ -111,3 +111,55 @@ describe("SCRUM-6 — View event status as event coordinator", () => {
   // end of AC3
 });
 // end of SCRUM-6
+
+// ---------------------------------------------------------------------------
+// SCRUM-7 — [Event Status Management] View Event Status as the Event Organiser
+// ---------------------------------------------------------------------------
+describe("SCRUM-7 — View event status as the event organiser", () => {
+  // AC1: the organiser who submitted the event sees its current status
+  it("shows the organiser who submitted the event its current status", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", organiser_id: organiser.id };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps)).get(`/events/${event.id}`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: event.id, name: "Tech Summit", status: "submitted" });
+  });
+  // end of AC1
+
+  // AC2: after the status changes, the organiser sees the latest status, not a previous one
+  it("shows the organiser the latest status after it changes", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", organiser_id: organiser.id };
+    fake.tables.events.push(event);
+    const app = createApp(fake.deps);
+
+    const before = await request(app).get(`/events/${event.id}`).set("Cookie", organiser.cookie);
+    event.status = "under_review"; // a coordinator picks it up
+    const after = await request(app).get(`/events/${event.id}`).set("Cookie", organiser.cookie);
+
+    expect(before.body.status).toBe("submitted");
+    expect(after.body.status).toBe("under_review");
+  });
+  // end of AC2
+
+  // AC3: an organiser who did not submit the event cannot see it (404, so they can't tell it exists)
+  it("hides another organiser's event with 404", async () => {
+    const fake = createFake();
+    const owner = fake.signIn("event_organiser");
+    const otherOrganiser = fake.signIn("event_organiser");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", organiser_id: owner.id };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps)).get(`/events/${event.id}`).set("Cookie", otherOrganiser.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Event not found." });
+  });
+  // end of AC3
+});
+// end of SCRUM-7
