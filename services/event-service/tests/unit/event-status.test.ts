@@ -50,7 +50,7 @@ function createFake() {
 // SCRUM-6 — [Event Status Management] View Event Status as Event Coordinator
 // ---------------------------------------------------------------------------
 describe("SCRUM-6 — View event status as event coordinator", () => {
-  // AC1: assigned coordinator sees the event's current status
+  // AC1: an event coordinator sees the event's current status
   it("shows the assigned coordinator the event's current status", async () => {
     const fake = createFake();
     const coordinator = fake.signIn("event_coordinator");
@@ -62,9 +62,8 @@ describe("SCRUM-6 — View event status as event coordinator", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id: event.id, name: "Tech Summit", status: "under_review" });
   });
-  // end of AC1
 
-  // AC2: any event coordinator can see the status, not just the one assigned
+  // AC1 (extra): the AC doesn't restrict viewing to the assigned coordinator, so an unassigned one can see it too
   it("shows a coordinator the status of an event assigned to someone else", async () => {
     const fake = createFake();
     const coordinatorA = fake.signIn("event_coordinator");
@@ -77,6 +76,38 @@ describe("SCRUM-6 — View event status as event coordinator", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id: event.id, name: "Tech Summit", status: "under_review" });
   });
+  // end of AC1
+
+  // AC2: after the status changes, the coordinator sees the latest status, not a previous one
+  it("shows the latest status after it changes", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", assigned_coordinator_id: coordinator.id };
+    fake.tables.events.push(event);
+    const app = createApp(fake.deps);
+
+    const before = await request(app).get(`/events/${event.id}`).set("Cookie", coordinator.cookie);
+    event.status = "approved"; // someone changes the status (e.g. via SCRUM-8)
+    const after = await request(app).get(`/events/${event.id}`).set("Cookie", coordinator.cookie);
+
+    expect(before.body.status).toBe("under_review");
+    expect(after.body.status).toBe("approved");
+  });
   // end of AC2
+
+  // AC3: attendees, venue staff and technical support staff cannot see event status
+  it.each(["attendee", "venue_staff", "technical_support_staff"])("refuses a %s with 403", async (role) => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const outsider = fake.signIn(role);
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", assigned_coordinator_id: coordinator.id };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps)).get(`/events/${event.id}`).set("Cookie", outsider.cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body).not.toHaveProperty("status");
+  });
+  // end of AC3
 });
 // end of SCRUM-6
