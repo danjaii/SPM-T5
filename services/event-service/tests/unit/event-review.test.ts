@@ -756,6 +756,73 @@ describe("SCRUM-23/AC2 — View event details", () => {
 });
 
 // ---------------------------------------------------------------------------
+// SCRUM-23/AC3 — Missing optional information
+// ---------------------------------------------------------------------------
+describe("SCRUM-23/AC3 — Missing optional information", () => {
+  it("returns null for every optional field when the organiser left them blank", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Bare Event",
+      status: "submitted",
+      purpose: null,
+      preferred_start_datetime: null,
+      preferred_end_datetime: null,
+      expected_attendance: null,
+      preferred_room_layout_id: null,
+      accessibility_requirements: null,
+      equipment_requirements_notes: null,
+      submitted_at: "2026-09-20T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    // Each optional field must be explicitly present as null — not omitted, not undefined.
+    expect(res.body).toHaveProperty("purpose", null);
+    expect(res.body).toHaveProperty("preferred_start_datetime", null);
+    expect(res.body).toHaveProperty("preferred_end_datetime", null);
+    expect(res.body).toHaveProperty("expected_attendance", null);
+    expect(res.body).toHaveProperty("preferred_layout_name", null);
+    expect(res.body).toHaveProperty("accessibility_requirements", null);
+    expect(res.body).toHaveProperty("equipment_requirements_notes", null);
+  });
+
+  it("returns null for organiser_name when the organiser profile has no full_name", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "");
+    const coordinator = fake.signIn("event_coordinator");
+
+    // Blank full_name on the user record
+    const userRow = fake.tables.users.find((u) => u.id === organiser.id);
+    if (userRow) userRow.full_name = null as unknown as string;
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Nameless Organiser Event",
+      status: "submitted",
+      submitted_at: "2026-09-20T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("organiser_name", null);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCRUM-22/AC7 — No matching requests
 // ---------------------------------------------------------------------------
 describe("SCRUM-22/AC7 — No matching requests", () => {
