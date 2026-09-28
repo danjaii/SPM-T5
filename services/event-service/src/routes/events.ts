@@ -232,6 +232,16 @@ export function eventRoutes(deps: SupabaseDeps) {
     for (const userId of mentionedIds) {
       await deps.forUser(token).from("event_comment_mentions").insert({ comment_id: commentId, user_id: userId });
     }
+    const attachments = Array.isArray(req.body.attachments) ? req.body.attachments : [];
+    for (const att of attachments) {
+      if (typeof att?.file_name === "string" && typeof att?.storage_path === "string") {
+        await deps.forUser(token).from("event_comment_attachments").insert({
+          comment_id: commentId,
+          file_name: att.file_name,
+          storage_path: att.storage_path,
+        });
+      }
+    }
     return res.status(201).json({});
   });
 

@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>();
-  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_comments: [], event_comment_mentions: [] };
+  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_comments: [], event_comment_mentions: [], event_comment_attachments: [] };
 
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
@@ -1870,6 +1870,171 @@ describe("SCRUM-27/AC3 — Display mentions", () => {
     const comments = res.body.comments;
     expect(comments[0].mentions).toHaveLength(1);
     expect(comments[1].mentions).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-28/AC1 — Attach multiple files
+// ---------------------------------------------------------------------------
+describe("SCRUM-28/AC1 — Attach multiple files", () => {
+  it("persists a single attachment record when one file is provided with the comment", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({
+        body: "Please review the attached document.",
+        attachments: [{ file_name: "proposal.pdf", storage_path: "attachments/proposal.pdf" }],
+      });
+
+    expect(res.status).toBe(201);
+    expect(fake.tables.event_comment_attachments).toHaveLength(1);
+    expect(fake.tables.event_comment_attachments[0]).toMatchObject({
+      file_name: "proposal.pdf",
+      storage_path: "attachments/proposal.pdf",
+    });
+  });
+
+  it("persists multiple attachment records when several files are provided with the comment", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({
+        body: "See attached files.",
+        attachments: [
+          { file_name: "agenda.pdf", storage_path: "attachments/agenda.pdf" },
+          { file_name: "budget.xlsx", storage_path: "attachments/budget.xlsx" },
+          { file_name: "floor-plan.png", storage_path: "attachments/floor-plan.png" },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(fake.tables.event_comment_attachments).toHaveLength(3);
+    const fileNames = fake.tables.event_comment_attachments.map((a) => a.file_name);
+    expect(fileNames).toContain("agenda.pdf");
+    expect(fileNames).toContain("budget.xlsx");
+    expect(fileNames).toContain("floor-plan.png");
+  });
+
+  it("persists no attachment records when no attachments are provided", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "Plain comment, no files." });
+
+    expect(res.status).toBe(201);
+    expect(fake.tables.event_comment_attachments).toHaveLength(0);
+  });
+
+  it("associates each attachment with the correct comment id", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "First comment, no files." });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({
+        body: "Second comment with attachment.",
+        attachments: [{ file_name: "doc.pdf", storage_path: "attachments/doc.pdf" }],
+      });
+
+    expect(res.status).toBe(201);
+    expect(fake.tables.event_comment_attachments).toHaveLength(1);
+    const secondComment = fake.tables.event_comments.find((c) => c.body === "Second comment with attachment.");
+    expect(fake.tables.event_comment_attachments[0].comment_id).toBe(secondComment?.id);
+  });
+
+  it("persists attachments on a reply (comment with parent_comment_id)", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const parentId = crypto.randomUUID();
+    fake.tables.event_comments.push({
+      id: parentId,
+      event_id: eventId,
+      author_id: organiser.id,
+      body: "Please provide the floor plan.",
+      created_at: "2026-09-02T10:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({
+        body: "Here is the floor plan.",
+        parent_comment_id: parentId,
+        attachments: [{ file_name: "floor-plan.pdf", storage_path: "attachments/floor-plan.pdf" }],
+      });
+
+    expect(res.status).toBe(201);
+    expect(fake.tables.event_comment_attachments).toHaveLength(1);
+    expect(fake.tables.event_comment_attachments[0]).toMatchObject({
+      file_name: "floor-plan.pdf",
+      storage_path: "attachments/floor-plan.pdf",
+    });
   });
 });
 
