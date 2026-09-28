@@ -1187,12 +1187,12 @@ describe("SCRUM-25/AC2 — Display comment details", () => {
       .set("Cookie", coordinator.cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(1);
-    expect(res.body[0]).toMatchObject({
+    expect(res.body.comments).toHaveLength(1);
+    expect(res.body.comments[0]).toMatchObject({
       author_name: "Bob Lee",
       body: "Please provide more details.",
     });
-    expect(res.body[0].created_at).toBeDefined();
+    expect(res.body.comments[0].created_at).toBeDefined();
   });
 
   it("returns 403 when an attendee attempts to view comments", async () => {
@@ -1262,10 +1262,51 @@ describe("SCRUM-25/AC3 — View comment history", () => {
       .set("Cookie", coordinator.cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(3);
-    expect(res.body[0].body).toBe("First comment");
-    expect(res.body[1].body).toBe("Second comment");
-    expect(res.body[2].body).toBe("Third comment");
+    expect(res.body.comments).toHaveLength(3);
+    expect(res.body.comments[0].body).toBe("First comment");
+    expect(res.body.comments[1].body).toBe("Second comment");
+    expect(res.body.comments[2].body).toBe("Third comment");
+  });
+});
+
+describe("SCRUM-25/AC5 — Comment permissions", () => {
+  it("includes can_comment: true for an event_coordinator", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.can_comment).toBe(true);
+    expect(Array.isArray(res.body.comments)).toBe(true);
+  });
+
+  it("includes can_comment: true for an event_organiser", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Tan");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", organiser.cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.can_comment).toBe(true);
+    expect(Array.isArray(res.body.comments)).toBe(true);
   });
 });
 

@@ -150,6 +150,7 @@ export function eventRoutes(deps: SupabaseDeps) {
   });
 
   // SCRUM-25/AC2: an authorised user views comment details (author name, date/time, text)
+  // SCRUM-25/AC5: response includes can_comment so the UI can show/hide the comment input
   router.get("/:id/comments", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -162,14 +163,16 @@ export function eventRoutes(deps: SupabaseDeps) {
       .select("id, body, created_at, author:author_id(full_name)")
       .eq("event_id", req.params.id)
       .order("created_at", { ascending: true });
-    return res.json(
-      (comments ?? []).map((c) => ({
+    const can_comment = canReviewEvents(role) || role === "event_organiser";
+    return res.json({
+      can_comment,
+      comments: (comments ?? []).map((c) => ({
         id: c.id,
         body: c.body,
         created_at: c.created_at,
         author_name: (c.author as { full_name: string } | null)?.full_name ?? null,
       })),
-    );
+    });
   });
 
   // SCRUM-25/AC1: an authorised user adds a comment to an event
