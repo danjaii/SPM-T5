@@ -354,6 +354,23 @@ export function eventRoutes(deps: SupabaseDeps) {
     );
   });
 
+  // SCRUM-43/AC1: view coordinator assignment history for an event
+  router.get("/:id/assignment-history", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    const isCoordinator = role !== undefined && canReviewEvents(role);
+    const isOrganiser = role === "event_organiser";
+    if (!isCoordinator && !isOrganiser) {
+      return res.status(403).json({ error: "You are not allowed to view this event's assignment history." });
+    }
+    const { data: logs } = await deps
+      .forUser(token)
+      .from("coordinator_assignment_logs")
+      .select("event_id, coordinator_id, assigned_by, assigned_at")
+      .eq("event_id", req.params.id);
+    return res.json(logs ?? []);
+  });
+
   // SCRUM-42/AC3: assign an eligible coordinator to a given event
   router.post("/:id/assign-coordinator", requireSession(deps), async (req, res) => {
     const { id: callerId, token } = res.locals.user as SessionUser;

@@ -654,3 +654,130 @@ describe("SCRUM-42/AC6 — Record assignment", () => {
     expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-43/AC1 — View assignment history
+// ---------------------------------------------------------------------------
+describe("SCRUM-43/AC1 — View assignment history", () => {
+  it("returns assignment history for an event the caller is authorised to view", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+    const assignee = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: assignee.id,
+    });
+    fake.tables.coordinator_assignment_logs.push({
+      id: crypto.randomUUID(),
+      event_id: eventId,
+      coordinator_id: assignee.id,
+      assigned_by: coordinator.id,
+      assigned_at: "2026-09-01T10:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      event_id: eventId,
+      coordinator_id: assignee.id,
+      assigned_by: coordinator.id,
+    });
+  });
+
+  it("returns empty array when no assignments have been made", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("also allows an event_organiser to view the assignment history", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Org");
+    const assignee = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: assignee.id,
+    });
+    fake.tables.coordinator_assignment_logs.push({
+      id: crypto.randomUUID(),
+      event_id: eventId,
+      coordinator_id: assignee.id,
+      assigned_by: organiser.id,
+      assigned_at: "2026-09-01T10:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+  });
+
+  it("returns 403 when caller is not authorised to view events", async () => {
+    const fake = createFake();
+    const attendee = fake.signIn("attendee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", attendee.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const fake = createFake();
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`);
+
+    expect(res.status).toBe(401);
+  });
+});
