@@ -96,7 +96,7 @@ export function eventRoutes(deps: SupabaseDeps) {
         "id, name, status, purpose, preferred_start_datetime, preferred_end_datetime, " +
         "expected_attendance, preferred_room_layout:preferred_room_layout_id(name), " +
         "accessibility_requirements, equipment_requirements_notes, submitted_at, " +
-        "organiser:organiser_id(full_name)"
+        "assigned_coordinator_id, organiser:organiser_id(full_name)"
       )
       .eq("id", req.params.id);
 
@@ -107,6 +107,18 @@ export function eventRoutes(deps: SupabaseDeps) {
 
     // SCRUM-7 AC3: someone else's event looks exactly like one that doesn't exist
     if (!event) return res.status(404).json({ error: "Event not found." });
+
+    // SCRUM-42/AC5: look up the assigned coordinator's name as the organiser's point of contact
+    let pointOfContactName: string | null = null;
+    if (event.assigned_coordinator_id) {
+      const { data: poc } = await deps
+        .forUser(token)
+        .from("users")
+        .select("full_name")
+        .eq("id", event.assigned_coordinator_id)
+        .maybeSingle();
+      pointOfContactName = (poc?.full_name as string | null) ?? null;
+    }
 
     res.json({
       id: event.id,
@@ -121,6 +133,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       equipment_requirements_notes: (event.equipment_requirements_notes as string | null) ?? null,
       submitted_at: (event.submitted_at as string | null) ?? null,
       organiser_name: (event.organiser as { full_name: string } | null)?.full_name ?? null,
+      point_of_contact_name: pointOfContactName,
     });
   });
 

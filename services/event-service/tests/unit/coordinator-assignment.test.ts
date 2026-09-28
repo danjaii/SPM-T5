@@ -513,3 +513,73 @@ describe("SCRUM-42/AC4 — Coordinator's active event list", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-42/AC5 — Coordinator as organiser's point of contact
+// ---------------------------------------------------------------------------
+describe("SCRUM-42/AC5 — Coordinator as organiser's point of contact", () => {
+  it("includes the assigned coordinator's name as point_of_contact_name when an organiser views the event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Org");
+    const coordinator = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ point_of_contact_name: "Bob Coord" });
+  });
+
+  it("returns null point_of_contact_name when no coordinator is assigned", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Org");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.point_of_contact_name).toBeNull();
+  });
+
+  it("also includes point_of_contact_name when a coordinator views the event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ point_of_contact_name: "Bob Coord" });
+  });
+});

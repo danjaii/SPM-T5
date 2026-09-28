@@ -679,6 +679,7 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       equipment_requirements_notes: "Projector and microphone",
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_name: "Alice Johnson",
+      point_of_contact_name: null,
     });
   });
 
@@ -721,6 +722,7 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       equipment_requirements_notes: null,
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_name: "Bob Smith",
+      point_of_contact_name: null,
     });
   });
 });
