@@ -1477,6 +1477,75 @@ describe("SCRUM-26/AC3 — Order replies oldest to newest", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// SCRUM-26/AC4 — Prevent empty replies
+// ---------------------------------------------------------------------------
+describe("SCRUM-26/AC4 — Prevent empty replies", () => {
+  it("returns 400 when reply body is empty string", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Tan");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const parentId = crypto.randomUUID();
+    fake.tables.event_comments.push({
+      id: parentId,
+      event_id: eventId,
+      author_id: organiser.id,
+      body: "What are the venue requirements?",
+      created_at: "2026-09-02T09:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "", parent_comment_id: parentId });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+  });
+
+  it("returns 400 when reply body is whitespace only", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Tan");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const parentId = crypto.randomUUID();
+    fake.tables.event_comments.push({
+      id: parentId,
+      event_id: eventId,
+      author_id: organiser.id,
+      body: "What are the venue requirements?",
+      created_at: "2026-09-02T09:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "   ", parent_comment_id: parentId });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+  });
+});
+
 describe("SCRUM-25/AC4 — Prevent empty comments", () => {
   it("returns 400 when body is empty string", async () => {
     const fake = createFake();
