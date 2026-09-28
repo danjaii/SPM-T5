@@ -15,6 +15,8 @@ function createFake() {
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
     const orClauses: string[] = [];
+    let orderCol: string | null = null;
+    let orderAsc = true;
 
     const applyFilters = () => {
       let rows = (tables[table] ?? []).filter((r) => filters.every(([col, val]) => r[col] === val));
@@ -31,6 +33,15 @@ function createFake() {
           ),
         );
       }
+      if (orderCol) {
+        const col = orderCol;
+        const asc = orderAsc;
+        rows = [...rows].sort((a, b) => {
+          const av = String(a[col] ?? "");
+          const bv = String(b[col] ?? "");
+          return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+        });
+      }
       return rows;
     };
 
@@ -42,6 +53,11 @@ function createFake() {
       },
       or: (filter: string) => {
         orClauses.push(filter);
+        return builder;
+      },
+      order: (col: string, opts?: { ascending?: boolean }) => {
+        orderCol = col;
+        orderAsc = opts?.ascending !== false;
         return builder;
       },
       insert: (row: Row | Row[]) => {
@@ -1198,5 +1214,57 @@ describe("SCRUM-25/AC2 — Display comment details", () => {
       .set("Cookie", attendee.cookie);
 
     expect(res.status).toBe(403);
+  });
+});
+
+describe("SCRUM-25/AC3 — View comment history", () => {
+  it("returns comments ordered oldest to newest", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    // Seed three comments with explicit timestamps out-of-order in the array
+    fake.tables.event_comments = [
+      {
+        id: crypto.randomUUID(),
+        event_id: eventId,
+        author_id: coordinator.id,
+        body: "Third comment",
+        created_at: "2026-09-03T12:00:00.000Z",
+      },
+      {
+        id: crypto.randomUUID(),
+        event_id: eventId,
+        author_id: coordinator.id,
+        body: "First comment",
+        created_at: "2026-09-01T12:00:00.000Z",
+      },
+      {
+        id: crypto.randomUUID(),
+        event_id: eventId,
+        author_id: coordinator.id,
+        body: "Second comment",
+        created_at: "2026-09-02T12:00:00.000Z",
+      },
+    ];
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(3);
+    expect(res.body[0].body).toBe("First comment");
+    expect(res.body[1].body).toBe("Second comment");
+    expect(res.body[2].body).toBe("Third comment");
   });
 });

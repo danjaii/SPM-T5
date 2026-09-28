@@ -160,7 +160,8 @@ export function eventRoutes(deps: SupabaseDeps) {
       .forUser(token)
       .from("event_comments")
       .select("id, body, created_at, author:author_id(full_name)")
-      .eq("event_id", req.params.id);
+      .eq("event_id", req.params.id)
+      .order("created_at", { ascending: true });
     return res.json(
       (comments ?? []).map((c) => ({
         id: c.id,
