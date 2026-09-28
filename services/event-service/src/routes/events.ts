@@ -16,6 +16,7 @@ export function eventRoutes(deps: SupabaseDeps) {
   // SCRUM-22/AC2: show own + unassigned events; hide events assigned to other coordinators
   // SCRUM-22/AC3: optional ?search= filters by event name or organiser name (case-insensitive)
   // SCRUM-22/AC4: optional ?status= filters by one or more statuses; defaults to submitted
+  // SCRUM-22/AC5: optional ?from= and ?to= filter by submission date range (YYYY-MM-DD)
   router.get("/", requireSession(deps), async (req, res) => {
     const { id: userId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -32,9 +33,15 @@ export function eventRoutes(deps: SupabaseDeps) {
       ? (Array.isArray(statusParam) ? statusParam : [statusParam]).filter((s): s is string => typeof s === "string")
       : ["submitted"];
     const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
+    const from = typeof req.query.from === "string" ? req.query.from : null;
+    const to = typeof req.query.to === "string" ? req.query.to : null;
+    const fromDate = from ? new Date(from + "T00:00:00.000Z") : null;
+    const toDate = to ? new Date(to + "T23:59:59.999Z") : null;
     const response = (events ?? [])
       .filter((e) => {
         if (!statuses.includes(e.status as string)) return false;
+        if (fromDate && e.submitted_at && new Date(e.submitted_at as string) < fromDate) return false;
+        if (toDate && e.submitted_at && new Date(e.submitted_at as string) > toDate) return false;
         if (!search) return true;
         const nameMatch = typeof e.name === "string" && e.name.toLowerCase().includes(search);
         const organiserMatch =
