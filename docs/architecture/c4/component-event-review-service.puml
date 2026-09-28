@@ -1,12 +1,12 @@
 @startuml component-event-review-service
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
-title ConnectSphere — Event Review Access Control (ER-01/AC4)
-Container(web, "Web App", "Next.js/React", "Request access screen")
+title ConnectSphere — Event Review Details (ER-01/AC2, AC4)
+Container(web, "Web App", "Next.js/React", "Request details and access messages")
 System_Ext(auth, "Supabase Auth", "Validates user tokens")
 ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "Request access projection and row policies")
 Container_Boundary(review, "Event Review Service") {
   Component(session, "Session Middleware", "Express", "Rejects invalid sessions; forwards verified caller token")
-  Component(route, "Request Access Route", "Express", "Calls the SQL access projection; returns ID or generic denial")
+  Component(route, "Request Details Route", "Express", "Calls the SQL projection; returns request details or generic denial")
 }
 Rel(web, session, "Credentialed request", "HTTPS")
 Rel(session, auth, "Verifies token", "HTTPS")

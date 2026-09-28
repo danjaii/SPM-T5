@@ -123,7 +123,7 @@ describe("ER-01/AC4 service with real database permissions", () => {
     const response = await request(databaseBackedApp()).get(`/review/requests/${eventId}`)
       .set("Cookie", `cs_session=${uid(1)}`);
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ id: eventId });
+    expect(response.body).toMatchObject({ id: eventId });
     expect(response.headers["cache-control"]).toBe("no-store");
   });
   it.each([[2, 100], [3, 100], [4, 100], [5, 104], [6, 103]])(

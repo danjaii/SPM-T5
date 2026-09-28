@@ -1,17 +1,20 @@
-# Event review: ER-01/AC4
+# Event review: ER-01/AC2 and AC4
 
-This increment implements access control only. GET `/review/requests/:id`
+GET `/review/requests/:id`
 authenticates the existing `cs_session` cookie and uses the caller's token for
-the SQL access check. Only an assigned, active coordinator receives `{ "id": "…" }`.
+the SQL detail projection. Only an assigned, active coordinator receives the
+submitted request's details, including the organiser and layout names.
 Denied and nonexistent requests both return 404; missing/invalid sessions return 401.
-Responses are not cached. Request fields (AC2) and list navigation (AC1) are not implemented.
+Responses are not cached. List navigation (AC1) remains pending.
 
-The browser route `/event-review/requests/:id` shows denial, sign-in or an access
-confirmation. It does not render the supplied event details, including on error responses.
+The browser route `/event-review/requests/:id` displays AC2's required fields,
+with dates in Singapore time, or a denial/sign-in message. Error responses never
+render request details. Missing optional field indicators (AC3) remain pending.
 
 ## Running
 
-The database needs migrations 01–06. Apply new migrations through the project's
+The database needs migrations 01–07. Migration 07 replaces the detail projection's
+return type while retaining caller-scoped permissions. Apply migrations through the project's
 normal migration process; tests apply them only to disposable local Postgres.
 The new migrations restrict event reads and profile writes and therefore affect
 other consumers of these tables. Organisers retain reads of their own events.
@@ -34,6 +37,7 @@ defaults to `http://localhost:4006`. Docker Compose also includes the service.
 
 ```sh
 pnpm vitest run -t AC4
+pnpm vitest run -t AC2
 pnpm vitest run
 pnpm --filter @spm-t5/web run test:e2e
 ```
@@ -45,5 +49,5 @@ without stopping the existing container. Browser tests simulate API responses;
 service integration tests use real Postgres behind a simulated Supabase HTTP transport.
 Live hosted Supabase is not needed for these tests.
 
-Existing AC1–AC3 tests remain enabled and fail until those criteria are implemented.
-Report the focused AC4 results separately from the full project suite.
+Existing AC1 and AC3 UI tests remain enabled and fail until those criteria are implemented.
+Report the focused AC2/AC4 results separately from the full project suite.

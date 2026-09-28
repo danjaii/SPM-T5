@@ -2,10 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { SubmittedEventRequest } from "@spm-t5/shared";
 import { BfcacheGuard } from "./BfcacheGuard";
 
 const serviceUrl = process.env.NEXT_PUBLIC_EVENT_REVIEW_SERVICE_URL ?? "http://localhost:4006";
 type Access = "checking" | "allowed" | "denied" | "signed-out" | "unavailable";
+const dateFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Singapore", day: "2-digit", month: "short", year: "numeric",
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+
+function RequestDate({ value }: { value: string | null }) {
+  return value ? <time dateTime={value}>{dateFormat.format(new Date(value))} SGT</time> : null;
+}
 
 export function EventReview({ requestId }: { requestId?: string }) {
   // Remount when navigating to another request: never reuse the previous decision.
@@ -14,6 +23,7 @@ export function EventReview({ requestId }: { requestId?: string }) {
 
 function RequestAccess({ requestId }: { requestId?: string }) {
   const [access, setAccess] = useState<Access>("checking");
+  const [detail, setDetail] = useState<SubmittedEventRequest | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     async function checkAccess() {
@@ -25,7 +35,12 @@ function RequestAccess({ requestId }: { requestId?: string }) {
         if (controller.signal.aborted) return;
         if (response.status === 401) setAccess("signed-out");
         else if ([400, 403, 404].includes(response.status)) setAccess("denied");
-        else setAccess(response.ok ? "allowed" : "unavailable");
+        else if (response.ok) {
+          const request = await response.json() as SubmittedEventRequest;
+          if (controller.signal.aborted) return;
+          setDetail(request);
+          setAccess("allowed");
+        } else setAccess("unavailable");
       } catch {
         if (!controller.signal.aborted) setAccess("unavailable");
       }
@@ -36,9 +51,20 @@ function RequestAccess({ requestId }: { requestId?: string }) {
 
   return (
     <><BfcacheGuard /><main className="dash__main">
-      <h1>Event request</h1>
+      <h1>{access === "allowed" && detail ? detail.name : "Event request"}</h1>
       {access === "checking" ? <p role="status">Checking access…</p> : null}
-      {access === "allowed" ? <p>You have access to this request.</p> : null}
+      {access === "allowed" && detail ? <dl>
+        <dt>Event organiser</dt><dd>{detail.organiser_name}</dd>
+        <dt>Event purpose</dt><dd>{detail.purpose}</dd>
+        <dt>Preferred start</dt><dd><RequestDate value={detail.preferred_start_datetime} /></dd>
+        <dt>Preferred end</dt><dd><RequestDate value={detail.preferred_end_datetime} /></dd>
+        <dt>Expected attendees</dt><dd>{detail.expected_attendance}</dd>
+        <dt>Layout preferences</dt><dd>{detail.layout_preferences}</dd>
+        <dt>Accessibility needs</dt><dd>{detail.accessibility_requirements}</dd>
+        <dt>Equipment needs</dt><dd>{detail.equipment_requirements_notes}</dd>
+        <dt>Submission date</dt><dd><RequestDate value={detail.submitted_at} /></dd>
+        <dt>Current status</dt><dd>{detail.status === "submitted" ? "Submitted" : detail.status}</dd>
+      </dl> : null}
       {access === "denied" ? <div role="alert">Request not found or access denied.</div> : null}
       {access === "signed-out" ? <div role="alert">Please sign in to view this request. <Link href="/login">Sign in</Link></div> : null}
       {access === "unavailable" ? <div role="alert">Could not verify access. Please try again later.</div> : null}

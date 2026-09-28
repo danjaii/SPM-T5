@@ -1,7 +1,7 @@
 import { Router } from "express";
+import type { SubmittedEventRequest } from "@spm-t5/shared";
 import type { SessionOptions } from "../middlewares/session";
 
-/** AC4 only: confirm access without implementing AC2's request detail response. */
 export function requestRoutes(options: SessionOptions) {
   const router = Router();
   router.get("/:id", async (req, res) => {
@@ -20,14 +20,14 @@ export function requestRoutes(options: SessionOptions) {
         body: JSON.stringify({ request_id: req.params.id }),
         signal: AbortSignal.timeout(15_000),
       });
-      if (!response.ok) throw new Error("Access check unavailable");
-      const rows = await response.json() as { id: string }[];
-      const permitted = rows.some((row) => row.id === req.params.id);
-      if (!permitted) {
+      if (!response.ok) throw new Error("Request details unavailable");
+      const rows = await response.json() as SubmittedEventRequest[];
+      const detail = rows.find((row) => row.id === req.params.id);
+      if (!detail) {
         res.status(404).json({ error: "Request not found or access denied." });
         return;
       }
-      res.json({ id: req.params.id });
+      res.json(detail);
     } catch {
       res.status(503).json({ error: "Could not load event requests. Please try again." });
     }
