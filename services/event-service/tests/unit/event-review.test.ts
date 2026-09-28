@@ -823,6 +823,75 @@ describe("SCRUM-23/AC3 — Missing optional information", () => {
 });
 
 // ---------------------------------------------------------------------------
+// SCRUM-23/AC4 — Access control
+// ---------------------------------------------------------------------------
+describe("SCRUM-23/AC4 — Access control", () => {
+  it("returns 403 when a venue_staff member attempts to view a specific event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const venueStaff = fake.signIn("venue_staff");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Restricted Event",
+      status: "submitted",
+      submitted_at: "2026-09-20T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", venueStaff.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when an attendee attempts to view a specific event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const attendee = fake.signIn("attendee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Restricted Event",
+      status: "submitted",
+      submitted_at: "2026-09-20T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", attendee.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 when an organiser attempts to view another organiser's event", async () => {
+    const fake = createFake();
+    const organiserA = fake.signIn("event_organiser");
+    const organiserB = fake.signIn("event_organiser");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Organiser A Event",
+      status: "submitted",
+      submitted_at: "2026-09-20T10:00:00.000Z",
+      organiser_id: organiserA.id,
+    });
+
+    // organiserB requests organiserA's event — must be indistinguishable from not found
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", organiserB.cookie);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCRUM-22/AC7 — No matching requests
 // ---------------------------------------------------------------------------
 describe("SCRUM-22/AC7 — No matching requests", () => {
