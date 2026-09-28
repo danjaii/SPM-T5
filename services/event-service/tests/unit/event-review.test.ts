@@ -1350,6 +1350,62 @@ describe("SCRUM-26/AC1 — Reply to a comment", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// SCRUM-26/AC2 — Display reply details and visual hierarchy
+// ---------------------------------------------------------------------------
+describe("SCRUM-26/AC2 — Display reply details and visual hierarchy", () => {
+  it("includes parent_comment_id on replies returned by GET /comments", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Tan");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const parentId = crypto.randomUUID();
+    const replyId = crypto.randomUUID();
+    fake.tables.event_comments.push(
+      {
+        id: parentId,
+        event_id: eventId,
+        author_id: organiser.id,
+        body: "Please clarify the venue requirements.",
+        created_at: "2026-09-02T10:00:00.000Z",
+      },
+      {
+        id: replyId,
+        event_id: eventId,
+        author_id: coordinator.id,
+        body: "We can accommodate that.",
+        created_at: "2026-09-02T11:00:00.000Z",
+        parent_comment_id: parentId,
+      },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const reply = (res.body.comments as { id: string; parent_comment_id?: string }[]).find(
+      (c) => c.id === replyId,
+    );
+    expect(reply).toBeDefined();
+    expect(reply?.parent_comment_id).toBe(parentId);
+    const parent = (res.body.comments as { id: string; parent_comment_id?: string | null }[]).find(
+      (c) => c.id === parentId,
+    );
+    expect(parent).toBeDefined();
+    expect(parent?.parent_comment_id).toBeNull();
+  });
+});
+
 describe("SCRUM-25/AC4 — Prevent empty comments", () => {
   it("returns 400 when body is empty string", async () => {
     const fake = createFake();

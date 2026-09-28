@@ -160,7 +160,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     const { data: comments } = await deps
       .forUser(token)
       .from("event_comments")
-      .select("id, body, created_at, author:author_id(full_name)")
+      .select("id, body, created_at, parent_comment_id, author:author_id(full_name)")
       .eq("event_id", req.params.id)
       .order("created_at", { ascending: true });
     const can_comment = canReviewEvents(role) || role === "event_organiser";
@@ -170,6 +170,7 @@ export function eventRoutes(deps: SupabaseDeps) {
         id: c.id,
         body: c.body,
         created_at: c.created_at,
+        parent_comment_id: (c.parent_comment_id as string | null) ?? null,
         author_name: (c.author as { full_name: string } | null)?.full_name ?? null,
       })),
     });
