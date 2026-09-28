@@ -1,0 +1,232 @@
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+import { createApp } from "../../src/app";
+import type { SupabaseDeps } from "../../src/supabase";
+
+// ---------------------------------------------------------------------------
+// Fake Supabase — matches the shape used in event-review.test.ts
+// ---------------------------------------------------------------------------
+type Row = Record<string, unknown>;
+
+function createFake() {
+  const sessions = new Map<string, string>();
+  const tables: Record<string, Row[]> = { users: [], events: [] };
+
+  const makeQuery = (table: string) => {
+    const filters: Array<[string, unknown]> = [];
+    const orClauses: string[] = [];
+
+    const applyFilters = () => {
+      let rows = (tables[table] ?? []).filter((r) =>
+        filters.every(([col, val]) => r[col] === val),
+      );
+      if (orClauses.length > 0) {
+        rows = rows.filter((r) =>
+          orClauses.some((clause) =>
+            clause.split(",").some((part) => {
+              const [col, op, ...rest] = part.trim().split(".");
+              const val = rest.join(".");
+              if (op === "eq") return r[col] === val;
+              if (op === "is" && val === "null") return r[col] == null;
+              return false;
+            }),
+          ),
+        );
+      }
+      return rows;
+    };
+
+    const builder = {
+      select: (_cols: string) => builder,
+      eq: (col: string, val: unknown) => {
+        filters.push([col, val]);
+        return builder;
+      },
+      or: (filter: string) => {
+        orClauses.push(filter);
+        return builder;
+      },
+      maybeSingle: (): Promise<{ data: Row | null; error: null }> => {
+        const rows = applyFilters();
+        if (!rows[0]) return Promise.resolve({ data: null, error: null });
+        return Promise.resolve({ data: { ...rows[0] }, error: null });
+      },
+      then<T>(
+        onFulfilled?: ((v: { data: Row[]; error: null }) => T | PromiseLike<T>) | null,
+        onRejected?: ((e: unknown) => T | PromiseLike<T>) | null,
+      ): Promise<T> {
+        const rows = applyFilters().map((r) => ({ ...r }));
+        return Promise.resolve({ data: rows, error: null as null }).then(onFulfilled, onRejected);
+      },
+    };
+    return builder;
+  };
+
+  const deps = {
+    anon: {
+      auth: {
+        getUser: async (token: string) => {
+          const id = sessions.get(token);
+          return id
+            ? { data: { user: { id } }, error: null }
+            : { data: { user: null }, error: { message: "bad token" } };
+        },
+      },
+    },
+    forUser: (_token: string) => ({
+      from: (table: string) => makeQuery(table),
+      rpc: (_fn: string, _args: Row) => ({
+        maybeSingle: async () => ({ data: null, error: null }),
+      }),
+    }),
+  } as unknown as SupabaseDeps;
+
+  const signIn = (role: string, fullName = "Test User", isActive = true) => {
+    const id = crypto.randomUUID();
+    tables.users.push({ id, role, full_name: fullName, is_active: isActive });
+    sessions.set(`token-${id}`, id);
+    return { id, cookie: `cs_session=token-${id}` };
+  };
+
+  return { deps, tables, signIn };
+}
+
+// ---------------------------------------------------------------------------
+// SCRUM-42/AC1 — View eligible coordinators
+// ---------------------------------------------------------------------------
+describe("SCRUM-42/AC1 — View eligible coordinators", () => {
+  it("returns eligible coordinators (active, event_coordinator role) for an unassigned event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Johnson");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+    const coordinator2 = fake.signIn("event_coordinator", "Carol White");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/eligible-coordinators`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: string }[]).map((u) => u.id);
+    expect(ids).toContain(coordinator.id);
+    expect(ids).toContain(coordinator2.id);
+    expect(ids).not.toContain(organiser.id);
+  });
+
+  it("excludes inactive coordinators", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Johnson");
+    const activeCoord = fake.signIn("event_coordinator", "Active Coord", true);
+    const inactiveCoord = fake.signIn("event_coordinator", "Inactive Coord", false);
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/eligible-coordinators`)
+      .set("Cookie", activeCoord.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: string }[]).map((u) => u.id);
+    expect(ids).toContain(activeCoord.id);
+    expect(ids).not.toContain(inactiveCoord.id);
+  });
+
+  it("returns empty array when no active coordinators exist", async () => {
+    const fake = createFake();
+    // Sign in as an inactive coordinator — lookUpRole only checks role so auth passes,
+    // but the eligible-coordinators query filters is_active=true so the list is empty.
+    const coordinator = fake.signIn("event_coordinator", "Inactive Coord", false);
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/eligible-coordinators`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("returns each coordinator's id and full_name", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/eligible-coordinators`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({ id: coordinator.id, full_name: "Bob Lee" });
+  });
+
+  it("returns 403 when caller is not an event_coordinator", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Johnson");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/eligible-coordinators`)
+      .set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/eligible-coordinators`);
+
+    expect(res.status).toBe(401);
+  });
+});

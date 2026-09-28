@@ -306,6 +306,24 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.json(result);
   });
 
+  // SCRUM-42/AC1: list eligible (active, event_coordinator) coordinators for a given event
+  router.get("/:id/eligible-coordinators", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || !canReviewEvents(role)) {
+      return res.status(403).json({ error: "You are not allowed to view eligible coordinators." });
+    }
+    const { data: coordinators } = await deps
+      .forUser(token)
+      .from("users")
+      .select("id, full_name")
+      .eq("role", "event_coordinator")
+      .eq("is_active", true);
+    return res.json(
+      (coordinators ?? []).map((u) => ({ id: u.id, full_name: u.full_name })),
+    );
+  });
+
   // SCRUM-8: an event coordinator changes an event's status
   router.patch("/:id/status", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
