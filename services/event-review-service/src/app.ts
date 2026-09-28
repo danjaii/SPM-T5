@@ -1,6 +1,8 @@
 import express from "express";
+import { requireSession, type SessionOptions } from "./middlewares/session";
 
-// Route registration follows the first failing ER-01 acceptance tests.
-export function createApp(_options: unknown) {
-  return express();
+export function createApp(options: SessionOptions) {
+  const app = express();
+  app.use("/review/requests", requireSession(options));
+  return app;
 }
