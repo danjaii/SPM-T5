@@ -357,3 +357,68 @@ describe("SCRUM-22/AC3 — Search requests", () => {
     expect(res.body).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-22/AC4 — Filter by status
+// ---------------------------------------------------------------------------
+describe("SCRUM-22/AC4 — Filter by status", () => {
+  it("filters by a single explicit status", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?status=under_review")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("Under Review Event");
+  });
+
+  it("filters by multiple statuses", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Approved Event", status: "approved", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?status=submitted&status=under_review")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    const names = res.body.map((e: { name: string }) => e.name);
+    expect(names).toContain("Submitted Event");
+    expect(names).toContain("Under Review Event");
+  });
+
+  it("defaults to submitted events when no status param is given", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("Submitted Event");
+  });
+});
