@@ -1406,6 +1406,77 @@ describe("SCRUM-26/AC2 — Display reply details and visual hierarchy", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// SCRUM-26/AC3 — Order replies (oldest to newest within a thread)
+// ---------------------------------------------------------------------------
+describe("SCRUM-26/AC3 — Order replies oldest to newest", () => {
+  it("returns replies in ascending created_at order within a thread", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Tan");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const parentId = crypto.randomUUID();
+    const reply1Id = crypto.randomUUID();
+    const reply2Id = crypto.randomUUID();
+    const reply3Id = crypto.randomUUID();
+    // Insert replies out of chronological order to confirm sorting is applied
+    fake.tables.event_comments.push(
+      {
+        id: parentId,
+        event_id: eventId,
+        author_id: organiser.id,
+        body: "What are the venue requirements?",
+        created_at: "2026-09-02T09:00:00.000Z",
+      },
+      {
+        id: reply3Id,
+        event_id: eventId,
+        author_id: coordinator.id,
+        body: "Third reply.",
+        created_at: "2026-09-02T13:00:00.000Z",
+        parent_comment_id: parentId,
+      },
+      {
+        id: reply1Id,
+        event_id: eventId,
+        author_id: coordinator.id,
+        body: "First reply.",
+        created_at: "2026-09-02T11:00:00.000Z",
+        parent_comment_id: parentId,
+      },
+      {
+        id: reply2Id,
+        event_id: eventId,
+        author_id: organiser.id,
+        body: "Second reply.",
+        created_at: "2026-09-02T12:00:00.000Z",
+        parent_comment_id: parentId,
+      },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const comments = res.body.comments as { id: string; parent_comment_id?: string | null }[];
+    const replies = comments.filter((c) => c.parent_comment_id === parentId);
+    expect(replies).toHaveLength(3);
+    expect(replies[0].id).toBe(reply1Id);
+    expect(replies[1].id).toBe(reply2Id);
+    expect(replies[2].id).toBe(reply3Id);
+  });
+});
+
 describe("SCRUM-25/AC4 — Prevent empty comments", () => {
   it("returns 400 when body is empty string", async () => {
     const fake = createFake();
