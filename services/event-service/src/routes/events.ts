@@ -107,6 +107,29 @@ export function eventRoutes(deps: SupabaseDeps) {
     });
   });
 
+  // SCRUM-24/AC2: an authorised coordinator rejects a submitted event request with a mandatory reason
+  router.post("/:id/reject", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || !canReviewEvents(role)) {
+      return res.status(403).json({ error: "You are not allowed to reject this event." });
+    }
+    const reason = typeof req.body.reason === "string" ? req.body.reason.trim() : "";
+    if (!reason) {
+      return res.status(400).json({ error: "A reason is required to reject an event." });
+    }
+    const { data: event } = await deps
+      .forUser(token)
+      .rpc("change_event_status", {
+        p_event_id: req.params.id,
+        p_new_status: "rejected",
+        p_reason: reason,
+      })
+      .maybeSingle();
+    if (!event) return res.status(404).json({ error: "Event not found." });
+    return res.json(event);
+  });
+
   // SCRUM-24/AC1: an authorised coordinator approves a submitted event request
   router.post("/:id/approve", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;

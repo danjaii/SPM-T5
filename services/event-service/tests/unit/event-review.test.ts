@@ -973,6 +973,80 @@ describe("SCRUM-22/AC7 — No matching requests", () => {
 });
 
 // ---------------------------------------------------------------------------
+// SCRUM-24/AC2 — Reject a request
+// ---------------------------------------------------------------------------
+describe("SCRUM-24/AC2 — Reject a request", () => {
+  it("updates the event status to 'rejected' when a coordinator rejects it with a reason", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    const event = {
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/reject`)
+      .set("Cookie", coordinator.cookie)
+      .send({ reason: "Venue not available on requested dates." });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("rejected");
+    expect(event.status).toBe("rejected");
+  });
+
+  it("returns 400 when no reason is provided", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/reject`)
+      .set("Cookie", coordinator.cookie)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty("error");
+  });
+
+  it("returns 403 when a non-coordinator attempts to reject an event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/reject`)
+      .set("Cookie", organiser.cookie)
+      .send({ reason: "Testing unauthorized rejection." });
+
+    expect(res.status).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCRUM-24/AC1 — Approve a request
 // ---------------------------------------------------------------------------
 describe("SCRUM-24/AC1 — Approve a request", () => {
