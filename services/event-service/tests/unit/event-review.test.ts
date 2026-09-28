@@ -505,3 +505,69 @@ describe("SCRUM-22/AC5 — Filter by submission date", () => {
     expect(res.body).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-22/AC6 — Combine search and filters
+// ---------------------------------------------------------------------------
+describe("SCRUM-22/AC6 — Combine search and filters", () => {
+  it("applies search and status filter together (AND logic)", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Tech Gala", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Art Fair", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?search=tech&status=submitted")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("Tech Summit");
+  });
+
+  it("applies status and date filters together", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Old Submitted", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "New Submitted", status: "submitted", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "New Review", status: "under_review", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?status=submitted&from=2026-09-03")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("New Submitted");
+  });
+
+  it("applies search, status, and date range all at once", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Tech Summit Sep1", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Tech Summit Sep5", status: "submitted", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Tech Gala Sep1", status: "under_review", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Art Fair Sep1", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?search=tech&status=submitted&from=2026-09-01&to=2026-09-02")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("Tech Summit Sep1");
+  });
+});
