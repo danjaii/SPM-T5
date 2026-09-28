@@ -12,6 +12,28 @@ async function lookUpRole(deps: SupabaseDeps, { id, token }: SessionUser): Promi
 export function eventRoutes(deps: SupabaseDeps) {
   const router = Router();
 
+  // SCRUM-22/AC1: list submitted event requests for a coordinator
+  router.get("/", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || !canReviewEvents(role)) {
+      return res.status(403).json({ error: "You are not allowed to view submitted event requests." });
+    }
+    const { data: events } = await deps
+      .forUser(token)
+      .from("events")
+      .select("id, name, status, submitted_at, organiser:organiser_id(full_name)")
+      .eq("status", "submitted");
+    const response = (events ?? []).map((e) => ({
+      id: e.id,
+      name: e.name,
+      status: e.status,
+      submitted_at: e.submitted_at,
+      organiser_name: (e.organiser as { full_name: string } | null)?.full_name ?? null,
+    }));
+    return res.json(response);
+  });
+
   // SCRUM-6: an event coordinator views the current status of any event
   router.get("/:id", requireSession(deps), async (req, res) => {
     const { id: userId, token } = res.locals.user as SessionUser;
