@@ -59,6 +59,23 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.json(response);
   });
 
+  // SCRUM-42/AC4: list events assigned to the calling coordinator
+  router.get("/my-events", requireSession(deps), async (req, res) => {
+    const { id: userId, token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || !canReviewEvents(role)) {
+      return res.status(403).json({ error: "You are not allowed to view your assigned events." });
+    }
+    const { data: events } = await deps
+      .forUser(token)
+      .from("events")
+      .select("id, name, status")
+      .eq("assigned_coordinator_id", userId);
+    return res.json(
+      (events ?? []).map((e) => ({ id: e.id, name: e.name, status: e.status })),
+    );
+  });
+
   // SCRUM-6: an event coordinator views the current status of any event
   // SCRUM-23/AC1+AC2: returns the full details of a submitted event request
   router.get("/:id", requireSession(deps), async (req, res) => {

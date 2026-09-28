@@ -412,3 +412,104 @@ describe("SCRUM-42/AC3 — Assign coordinator to event", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-42/AC4 — Coordinator's active event list
+// ---------------------------------------------------------------------------
+describe("SCRUM-42/AC4 — Coordinator's active event list", () => {
+  it("returns events assigned to the calling coordinator", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: coordinator.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get("/events/my-events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: string }[]).map((e) => e.id);
+    expect(ids).toContain(eventId);
+  });
+
+  it("returns empty array when coordinator has no assigned events", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+
+    const res = await request(createApp(fake.deps))
+      .get("/events/my-events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("does not include events assigned to other coordinators", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+    const other = fake.signIn("event_coordinator", "Bob Coord");
+
+    const myEventId = crypto.randomUUID();
+    const otherEventId = crypto.randomUUID();
+    fake.tables.events.push(
+      { id: myEventId, name: "My Event", status: "approved", organiser_id: crypto.randomUUID(), assigned_coordinator_id: coordinator.id },
+      { id: otherEventId, name: "Other Event", status: "approved", organiser_id: crypto.randomUUID(), assigned_coordinator_id: other.id },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events/my-events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: string }[]).map((e) => e.id);
+    expect(ids).toContain(myEventId);
+    expect(ids).not.toContain(otherEventId);
+  });
+
+  it("returns each event's id, name, and status", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "planning",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: coordinator.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get("/events/my-events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({ id: eventId, name: "Tech Summit", status: "planning" });
+  });
+
+  it("returns 403 when caller is not an event_coordinator", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await request(createApp(fake.deps))
+      .get("/events/my-events")
+      .set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const res = await request(createApp(createFake().deps))
+      .get("/events/my-events");
+
+    expect(res.status).toBe(401);
+  });
+});
