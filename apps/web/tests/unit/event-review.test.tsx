@@ -38,7 +38,33 @@ describe("ER-01 — submitted request page", () => {
     render(<EventReview requestId={detail.id} />);
     await screen.findByRole("heading", { name: "Community workshop" });
     expect(screen.getAllByText("Not provided")).toHaveLength(4);
+    for (const label of ["Event purpose", "Layout preferences", "Accessibility needs", "Equipment needs"]) {
+      expect(screen.getByText(label).nextElementSibling?.textContent).toBe("Not provided");
+    }
     expect(screen.getByText("0")).toBeTruthy();
+  });
+  it.each(["", " \t\n "])("AC3 identifies blank optional text (%j) as not provided", async (blank) => {
+    respond({ ...detail, purpose: blank, layout_preferences: blank,
+      accessibility_requirements: blank, equipment_requirements_notes: blank });
+    render(<EventReview requestId={detail.id} />);
+    await screen.findByRole("heading", { name: "Community workshop" });
+    for (const label of ["Event purpose", "Layout preferences", "Accessibility needs", "Equipment needs"]) {
+      expect(screen.getByText(label).nextElementSibling?.textContent).toBe("Not provided");
+    }
+    expect(screen.getByText("25")).toBeTruthy();
+    expect(screen.getByText("Submitted")).toBeTruthy();
+  });
+  it("AC3 labels missing attendance and dates without inventing values", async () => {
+    respond({ ...detail, expected_attendance: null, preferred_start_datetime: null,
+      preferred_end_datetime: null, submitted_at: null });
+    render(<EventReview requestId={detail.id} />);
+    await screen.findByRole("heading", { name: "Community workshop" });
+    for (const label of ["Expected attendees", "Preferred start", "Preferred end", "Submission date"]) {
+      expect(screen.getByText(label).nextElementSibling?.textContent).toBe("Not provided");
+    }
+    expect(screen.queryByText("0")).toBeNull();
+    expect(screen.getByText("Learn together")).toBeTruthy();
+    expect(screen.getByText("Submitted")).toBeTruthy();
   });
   it("AC4 never displays details when the service denies access", async () => {
     respond({ error: "Request not found or access denied." }, 404);

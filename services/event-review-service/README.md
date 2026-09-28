@@ -1,4 +1,4 @@
-# Event review: ER-01/AC2 and AC4
+# Event review: ER-01/AC2, AC3 and AC4
 
 GET `/review/requests/:id`
 authenticates the existing `cs_session` cookie and uses the caller's token for
@@ -9,7 +9,8 @@ Responses are not cached. List navigation (AC1) remains pending.
 
 The browser route `/event-review/requests/:id` displays AC2's required fields,
 with dates in Singapore time, or a denial/sign-in message. Error responses never
-render request details. Missing optional field indicators (AC3) remain pending.
+render request details. Missing values display "Not provided", including blank
+optional text and nullable attendance/dates. A provided attendance of zero remains zero.
 
 ## Running
 
@@ -38,6 +39,7 @@ defaults to `http://localhost:4006`. Docker Compose also includes the service.
 ```sh
 pnpm vitest run -t AC4
 pnpm vitest run -t AC2
+pnpm vitest run -t AC3
 pnpm vitest run
 pnpm --filter @spm-t5/web run test:e2e
 ```
@@ -49,5 +51,5 @@ without stopping the existing container. Browser tests simulate API responses;
 service integration tests use real Postgres behind a simulated Supabase HTTP transport.
 Live hosted Supabase is not needed for these tests.
 
-Existing AC1 and AC3 UI tests remain enabled and fail until those criteria are implemented.
-Report the focused AC2/AC4 results separately from the full project suite.
+Existing AC1 list, empty-state and retry tests remain enabled and fail until implemented.
+Report the focused AC2/AC3/AC4 results separately from the full project suite.

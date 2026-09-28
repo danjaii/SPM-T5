@@ -13,7 +13,7 @@ const dateFormat = new Intl.DateTimeFormat("en-GB", {
 });
 
 function RequestDate({ value }: { value: string | null }) {
-  return value ? <time dateTime={value}>{dateFormat.format(new Date(value))} SGT</time> : null;
+  return value ? <time dateTime={value}>{dateFormat.format(new Date(value))} SGT</time> : "Not provided";
 }
 
 export function EventReview({ requestId }: { requestId?: string }) {
@@ -55,13 +55,13 @@ function RequestAccess({ requestId }: { requestId?: string }) {
       {access === "checking" ? <p role="status">Checking access…</p> : null}
       {access === "allowed" && detail ? <dl>
         <dt>Event organiser</dt><dd>{detail.organiser_name}</dd>
-        <dt>Event purpose</dt><dd>{detail.purpose}</dd>
+        <dt>Event purpose</dt><dd>{detail.purpose?.trim() || "Not provided"}</dd>
         <dt>Preferred start</dt><dd><RequestDate value={detail.preferred_start_datetime} /></dd>
         <dt>Preferred end</dt><dd><RequestDate value={detail.preferred_end_datetime} /></dd>
-        <dt>Expected attendees</dt><dd>{detail.expected_attendance}</dd>
-        <dt>Layout preferences</dt><dd>{detail.layout_preferences}</dd>
-        <dt>Accessibility needs</dt><dd>{detail.accessibility_requirements}</dd>
-        <dt>Equipment needs</dt><dd>{detail.equipment_requirements_notes}</dd>
+        <dt>Expected attendees</dt><dd>{detail.expected_attendance ?? "Not provided"}</dd>
+        <dt>Layout preferences</dt><dd>{detail.layout_preferences?.trim() || "Not provided"}</dd>
+        <dt>Accessibility needs</dt><dd>{detail.accessibility_requirements?.trim() || "Not provided"}</dd>
+        <dt>Equipment needs</dt><dd>{detail.equipment_requirements_notes?.trim() || "Not provided"}</dd>
         <dt>Submission date</dt><dd><RequestDate value={detail.submitted_at} /></dd>
         <dt>Current status</dt><dd>{detail.status === "submitted" ? "Submitted" : detail.status}</dd>
       </dl> : null}
