@@ -13,8 +13,9 @@ export function eventRoutes(deps: SupabaseDeps) {
   const router = Router();
 
   // SCRUM-22/AC1: list submitted event requests for a coordinator
+  // SCRUM-22/AC2: show own + unassigned events; hide events assigned to other coordinators
   router.get("/", requireSession(deps), async (req, res) => {
-    const { token } = res.locals.user as SessionUser;
+    const { id: userId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
     if (role === undefined || !canReviewEvents(role)) {
       return res.status(403).json({ error: "You are not allowed to view submitted event requests." });
@@ -23,7 +24,8 @@ export function eventRoutes(deps: SupabaseDeps) {
       .forUser(token)
       .from("events")
       .select("id, name, status, submitted_at, organiser:organiser_id(full_name)")
-      .eq("status", "submitted");
+      .eq("status", "submitted")
+      .or(`assigned_coordinator_id.eq.${userId},assigned_coordinator_id.is.null`);
     const response = (events ?? []).map((e) => ({
       id: e.id,
       name: e.name,

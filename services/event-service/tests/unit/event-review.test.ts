@@ -14,14 +14,34 @@ function createFake() {
 
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
+    const orClauses: string[] = [];
 
-    const applyFilters = () =>
-      (tables[table] ?? []).filter((r) => filters.every(([col, val]) => r[col] === val));
+    const applyFilters = () => {
+      let rows = (tables[table] ?? []).filter((r) => filters.every(([col, val]) => r[col] === val));
+      if (orClauses.length > 0) {
+        rows = rows.filter((r) =>
+          orClauses.some((clause) =>
+            clause.split(",").some((part) => {
+              const [col, op, ...rest] = part.trim().split(".");
+              const val = rest.join(".");
+              if (op === "eq") return r[col] === val;
+              if (op === "is" && val === "null") return r[col] == null;
+              return false;
+            }),
+          ),
+        );
+      }
+      return rows;
+    };
 
     const builder = {
       select: (_cols: string) => builder,
       eq: (col: string, val: unknown) => {
         filters.push([col, val]);
+        return builder;
+      },
+      or: (filter: string) => {
+        orClauses.push(filter);
         return builder;
       },
       maybeSingle: (): Promise<{ data: Row | null; error: null }> => {
@@ -147,5 +167,109 @@ describe("SCRUM-22/AC1 — View submitted requests", () => {
     const res = await request(createApp(fake.deps)).get("/events");
 
     expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-22/AC2 — Default request visibility
+// ---------------------------------------------------------------------------
+describe("SCRUM-22/AC2 — Default request visibility", () => {
+  it("shows events assigned to the calling coordinator", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+    const otherCoord = fake.signIn("event_coordinator");
+
+    const myEvent = {
+      id: crypto.randomUUID(),
+      name: "My Event",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
+    };
+    const theirEvent = {
+      id: crypto.randomUUID(),
+      name: "Their Event",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: otherCoord.id,
+    };
+    fake.tables.events.push(myEvent, theirEvent);
+
+    const res = await request(createApp(fake.deps))
+      .get("/events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].id).toBe(myEvent.id);
+  });
+
+  it("also shows unassigned events alongside the coordinator's own assigned events", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+    const otherCoord = fake.signIn("event_coordinator");
+
+    const myEvent = {
+      id: crypto.randomUUID(),
+      name: "My Event",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
+    };
+    const unassignedEvent = {
+      id: crypto.randomUUID(),
+      name: "Unassigned Event",
+      status: "submitted",
+      submitted_at: "2026-09-02T10:00:00.000Z",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: null,
+    };
+    const theirEvent = {
+      id: crypto.randomUUID(),
+      name: "Their Event",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: otherCoord.id,
+    };
+    fake.tables.events.push(myEvent, unassignedEvent, theirEvent);
+
+    const res = await request(createApp(fake.deps))
+      .get("/events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    const ids = res.body.map((e: { id: string }) => e.id);
+    expect(ids).toContain(myEvent.id);
+    expect(ids).toContain(unassignedEvent.id);
+  });
+
+  it("hides events assigned to a different coordinator", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+    const otherCoord = fake.signIn("event_coordinator");
+
+    fake.tables.events.push({
+      id: crypto.randomUUID(),
+      name: "Other Event",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: otherCoord.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get("/events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
   });
 });
