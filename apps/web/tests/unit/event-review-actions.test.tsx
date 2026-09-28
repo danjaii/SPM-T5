@@ -14,8 +14,8 @@ describe("SCRUM-24/AC3 — Confirm decision", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /approve/i }));
 
-    // Dialog must be visible — action must NOT have fired yet
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // getByRole throws if the dialog is absent — its success IS the assertion
+    screen.getByRole("dialog");
     expect(onApprove).not.toHaveBeenCalled();
   });
 
@@ -26,7 +26,7 @@ describe("SCRUM-24/AC3 — Confirm decision", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /reject/i }));
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    screen.getByRole("dialog");
     expect(onReject).not.toHaveBeenCalled();
   });
 
@@ -51,7 +51,7 @@ describe("SCRUM-24/AC3 — Confirm decision", () => {
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
 
     expect(onApprove).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("calls onReject only after the coordinator confirms the rejection dialog", () => {
@@ -75,6 +75,6 @@ describe("SCRUM-24/AC3 — Confirm decision", () => {
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
 
     expect(onReject).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
