@@ -179,10 +179,14 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
       return res.status(403).json({ error: "You are not allowed to comment on this event." });
     }
+    const body = typeof req.body.body === "string" ? req.body.body.trim() : "";
+    if (!body) {
+      return res.status(400).json({ error: "Comment text is required." });
+    }
     await deps.forUser(token).from("event_comments").insert({
       event_id: req.params.id,
       author_id: authorId,
-      body: req.body.body,
+      body,
     });
     return res.status(201).json({});
   });
