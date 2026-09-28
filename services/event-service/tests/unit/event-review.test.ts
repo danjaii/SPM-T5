@@ -135,6 +135,14 @@ function createFake() {
           return { data: null, error: null };
         },
       }),
+      storage: {
+        from: (_bucket: string) => ({
+          createSignedUrl: async (path: string, _expiresIn: number) => ({
+            data: { signedUrl: `https://fake-storage/${path}?token=signed` },
+            error: null,
+          }),
+        }),
+      },
     }),
   } as unknown as SupabaseDeps;
 
@@ -2171,6 +2179,81 @@ describe("SCRUM-28/AC5 — Display attachments", () => {
     const comments = res.body.comments;
     expect(comments[0].attachments).toHaveLength(1);
     expect(comments[1].attachments).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-28/AC6 — Access attachments
+// ---------------------------------------------------------------------------
+describe("SCRUM-28/AC6 — Access attachments", () => {
+  it("returns a signed URL for a coordinator requesting a stored attachment", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/attachments/signed-url?storage_path=attachments/proposal.pdf`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.signed_url).toBe("string");
+    expect(res.body.signed_url.length).toBeGreaterThan(0);
+  });
+
+  it("returns a signed URL for an organiser who owns the event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/attachments/signed-url?storage_path=attachments/plan.pdf`)
+      .set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.signed_url).toBe("string");
+  });
+
+  it("returns 403 when the caller role cannot access event attachments", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+    const stranger = fake.signIn("attendee");
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/attachments/signed-url?storage_path=attachments/proposal.pdf`)
+      .set("Cookie", stranger.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 when storage_path query param is missing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/attachments/signed-url`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(400);
   });
 });
 

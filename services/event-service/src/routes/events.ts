@@ -149,6 +149,26 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.json(event);
   });
 
+  // SCRUM-28/AC6: get a short-lived signed URL to open or download a stored attachment
+  router.get("/:id/attachments/signed-url", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
+      return res.status(403).json({ error: "You are not allowed to access attachments on this event." });
+    }
+    const storagePath = typeof req.query.storage_path === "string" ? req.query.storage_path.trim() : "";
+    if (!storagePath) {
+      return res.status(400).json({ error: "storage_path is required." });
+    }
+    const { data } = await (deps.forUser(token) as any).storage
+      .from("event-attachments")
+      .createSignedUrl(storagePath, 3600);
+    if (!data?.signedUrl) {
+      return res.status(500).json({ error: "Could not generate a signed URL." });
+    }
+    return res.json({ signed_url: data.signedUrl });
+  });
+
   // SCRUM-25/AC2: an authorised user views comment details (author name, date/time, text)
   // SCRUM-25/AC5: response includes can_comment so the UI can show/hide the comment input
   // SCRUM-27/AC3: each comment includes a mentions array with user_id and full_name
