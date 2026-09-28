@@ -78,3 +78,24 @@ describe("SCRUM-24/AC3 — Confirm decision", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-24/AC5 — Authorisation
+// ---------------------------------------------------------------------------
+describe("SCRUM-24/AC5 — Authorisation", () => {
+  it("hides the Approve button when canReview is false", () => {
+    render(<EventReviewActions onApprove={vi.fn()} onReject={vi.fn()} canReview={false} />);
+    expect(screen.queryByRole("button", { name: /approve/i })).toBeNull();
+  });
+
+  it("hides the Reject button when canReview is false", () => {
+    render(<EventReviewActions onApprove={vi.fn()} onReject={vi.fn()} canReview={false} />);
+    expect(screen.queryByRole("button", { name: /reject/i })).toBeNull();
+  });
+
+  it("shows both buttons when canReview is true", () => {
+    render(<EventReviewActions onApprove={vi.fn()} onReject={vi.fn()} canReview={true} />);
+    screen.getByRole("button", { name: /approve/i });
+    screen.getByRole("button", { name: /reject/i });
+  });
+});

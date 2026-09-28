@@ -7,9 +7,10 @@ type Action = "approve" | "reject" | null;
 interface Props {
   onApprove: () => void;
   onReject: () => void;
+  canReview?: boolean;
 }
 
-export default function EventReviewActions({ onApprove, onReject }: Props) {
+export default function EventReviewActions({ onApprove, onReject, canReview = true }: Props) {
   const [pending, setPending] = useState<Action>(null);
 
   const confirm = () => {
@@ -22,8 +23,8 @@ export default function EventReviewActions({ onApprove, onReject }: Props) {
 
   return (
     <>
-      <button onClick={() => setPending("approve")}>Approve</button>
-      <button onClick={() => setPending("reject")}>Reject</button>
+      {canReview && <button onClick={() => setPending("approve")}>Approve</button>}
+      {canReview && <button onClick={() => setPending("reject")}>Reject</button>}
 
       {pending !== null && (
         <div role="dialog" aria-modal="true">
