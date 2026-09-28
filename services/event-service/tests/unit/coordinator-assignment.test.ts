@@ -1037,3 +1037,56 @@ describe("SCRUM-43/AC3 — Display history chronologically", () => {
     expect(res.body[2].assigned_at).toBe("2026-09-03T10:00:00.000Z");
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-43/AC5 — Access control
+// ---------------------------------------------------------------------------
+describe("SCRUM-43/AC5 — Access control", () => {
+  it("returns 403 when an attendee requests assignment history", async () => {
+    const fake = createFake();
+    const attendee = fake.signIn("attendee", "Dave Attendee");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "approved",
+      organiser_id: crypto.randomUUID(), assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", attendee.cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body).toHaveProperty("error");
+  });
+
+  it("returns 403 when a venue_staff user requests assignment history", async () => {
+    const fake = createFake();
+    const staff = fake.signIn("venue_staff", "Eve Staff");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "approved",
+      organiser_id: crypto.randomUUID(), assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", staff.cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body).toHaveProperty("error");
+  });
+
+  it("returns 401 when no session cookie is provided", async () => {
+    const fake = createFake();
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "approved",
+      organiser_id: crypto.randomUUID(), assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`);
+
+    expect(res.status).toBe(401);
+  });
+});
