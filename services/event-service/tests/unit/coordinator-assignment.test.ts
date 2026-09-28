@@ -38,6 +38,9 @@ function createFake() {
       return rows;
     };
 
+    let orderCol: string | null = null;
+    let orderAsc = true;
+
     const builder = {
       select: (_cols: string) => builder,
       eq: (col: string, val: unknown) => {
@@ -46,6 +49,11 @@ function createFake() {
       },
       or: (filter: string) => {
         orClauses.push(filter);
+        return builder;
+      },
+      order: (col: string, opts?: { ascending?: boolean }) => {
+        orderCol = col;
+        orderAsc = opts?.ascending ?? true;
         return builder;
       },
       update: (patch: Row) => {
@@ -76,7 +84,16 @@ function createFake() {
           for (const row of rows) Object.assign(row, patch);
           return Promise.resolve({ data: rows, error: null as null }).then(onFulfilled, onRejected);
         }
-        const rows = applyFilters().map((r) => ({ ...r }));
+        let rows = applyFilters().map((r) => ({ ...r }));
+        if (orderCol) {
+          const col = orderCol;
+          const asc = orderAsc;
+          rows = rows.sort((a, b) => {
+            const av = String(a[col] ?? "");
+            const bv = String(b[col] ?? "");
+            return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+          });
+        }
         return Promise.resolve({ data: rows, error: null as null }).then(onFulfilled, onRejected);
       },
     };
@@ -873,5 +890,73 @@ describe("SCRUM-43/AC2 — Display assignment information", () => {
     const logs = fake.tables.coordinator_assignment_logs;
     expect(logs).toHaveLength(1);
     expect(logs[0].previous_coordinator_id).toBe(existing.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-43/AC3 — Display history chronologically
+// ---------------------------------------------------------------------------
+describe("SCRUM-43/AC3 — Display history chronologically", () => {
+  it("returns records sorted oldest-first regardless of insertion order", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+    const assignee1 = fake.signIn("event_coordinator", "Bob Coord");
+    const assignee2 = fake.signIn("event_coordinator", "Carol Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "approved",
+      organiser_id: crypto.randomUUID(), assigned_coordinator_id: assignee2.id,
+    });
+    // Insert newer record first — without sorting the route returns them in this order
+    fake.tables.coordinator_assignment_logs.push({
+      id: crypto.randomUUID(), event_id: eventId, coordinator_id: assignee2.id,
+      previous_coordinator_id: assignee1.id, assigned_by: coordinator.id,
+      assigned_at: "2026-09-02T10:00:00.000Z",
+    });
+    fake.tables.coordinator_assignment_logs.push({
+      id: crypto.randomUUID(), event_id: eventId, coordinator_id: assignee1.id,
+      previous_coordinator_id: null, assigned_by: coordinator.id,
+      assigned_at: "2026-09-01T10:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0].assigned_at).toBe("2026-09-01T10:00:00.000Z");
+    expect(res.body[1].assigned_at).toBe("2026-09-02T10:00:00.000Z");
+  });
+
+  it("returns three records in chronological order when inserted out of sequence", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+    const a = fake.signIn("event_coordinator", "A Coord");
+    const b = fake.signIn("event_coordinator", "B Coord");
+    const c = fake.signIn("event_coordinator", "C Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "approved",
+      organiser_id: crypto.randomUUID(), assigned_coordinator_id: c.id,
+    });
+    // Insert in order: third, first, second
+    fake.tables.coordinator_assignment_logs.push(
+      { id: crypto.randomUUID(), event_id: eventId, coordinator_id: c.id, previous_coordinator_id: b.id, assigned_by: coordinator.id, assigned_at: "2026-09-03T10:00:00.000Z" },
+      { id: crypto.randomUUID(), event_id: eventId, coordinator_id: a.id, previous_coordinator_id: null, assigned_by: coordinator.id, assigned_at: "2026-09-01T10:00:00.000Z" },
+      { id: crypto.randomUUID(), event_id: eventId, coordinator_id: b.id, previous_coordinator_id: a.id, assigned_by: coordinator.id, assigned_at: "2026-09-02T10:00:00.000Z" },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(3);
+    expect(res.body[0].assigned_at).toBe("2026-09-01T10:00:00.000Z");
+    expect(res.body[1].assigned_at).toBe("2026-09-02T10:00:00.000Z");
+    expect(res.body[2].assigned_at).toBe("2026-09-03T10:00:00.000Z");
   });
 });

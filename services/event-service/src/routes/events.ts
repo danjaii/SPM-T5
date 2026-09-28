@@ -367,7 +367,8 @@ export function eventRoutes(deps: SupabaseDeps) {
       .forUser(token)
       .from("coordinator_assignment_logs")
       .select("event_id, coordinator_id, previous_coordinator_id, assigned_by, assigned_at")
-      .eq("event_id", req.params.id);
+      .eq("event_id", req.params.id)
+      .order("assigned_at", { ascending: true });
     return res.json(logs ?? []);
   });
 
