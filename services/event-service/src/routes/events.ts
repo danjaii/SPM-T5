@@ -186,10 +186,12 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (!body) {
       return res.status(400).json({ error: "Comment text is required." });
     }
+    const parentCommentId = typeof req.body.parent_comment_id === "string" ? req.body.parent_comment_id : null;
     await deps.forUser(token).from("event_comments").insert({
       event_id: req.params.id,
       author_id: authorId,
       body,
+      ...(parentCommentId !== null && { parent_comment_id: parentCommentId }),
     });
     return res.status(201).json({});
   });

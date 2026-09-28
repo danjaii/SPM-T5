@@ -1310,6 +1310,46 @@ describe("SCRUM-25/AC5 — Comment permissions", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// SCRUM-26/AC1 — Reply to a comment
+// ---------------------------------------------------------------------------
+describe("SCRUM-26/AC1 — Reply to a comment", () => {
+  it("saves a reply associated with the parent comment and returns 201", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const parentCommentId = crypto.randomUUID();
+    fake.tables.event_comments.push({
+      id: parentCommentId,
+      event_id: eventId,
+      author_id: organiser.id,
+      body: "Please clarify the venue requirements.",
+      created_at: "2026-09-02T10:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "We can accommodate that.", parent_comment_id: parentCommentId });
+
+    expect(res.status).toBe(201);
+    const reply = fake.tables.event_comments.find((c) => c.parent_comment_id === parentCommentId);
+    expect(reply).toBeDefined();
+    expect(reply?.body).toBe("We can accommodate that.");
+    expect(reply?.parent_comment_id).toBe(parentCommentId);
+  });
+});
+
 describe("SCRUM-25/AC4 — Prevent empty comments", () => {
   it("returns 400 when body is empty string", async () => {
     const fake = createFake();
