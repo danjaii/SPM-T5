@@ -107,6 +107,25 @@ export function eventRoutes(deps: SupabaseDeps) {
     });
   });
 
+  // SCRUM-24/AC1: an authorised coordinator approves a submitted event request
+  router.post("/:id/approve", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || !canReviewEvents(role)) {
+      return res.status(403).json({ error: "You are not allowed to approve this event." });
+    }
+    const { data: event } = await deps
+      .forUser(token)
+      .rpc("change_event_status", {
+        p_event_id: req.params.id,
+        p_new_status: "approved",
+        p_reason: null,
+      })
+      .maybeSingle();
+    if (!event) return res.status(404).json({ error: "Event not found." });
+    return res.json(event);
+  });
+
   // SCRUM-8: an event coordinator changes an event's status
   router.patch("/:id/status", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;

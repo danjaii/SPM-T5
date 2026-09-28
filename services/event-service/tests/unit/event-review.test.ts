@@ -87,8 +87,16 @@ function createFake() {
     },
     forUser: (token: string) => ({
       from: (table: string) => makeQuery(table),
-      rpc: (_fn: string, _args: Row) => ({
-        maybeSingle: async () => ({ data: null, error: null }),
+      rpc: (_fn: string, args: Row) => ({
+        maybeSingle: async () => {
+          if (_fn === "change_event_status") {
+            const event = tables.events.find((e) => e.id === args.p_event_id);
+            if (!event) return { data: null, error: null };
+            event.status = args.p_new_status;
+            return { data: { id: event.id, name: event.name, status: event.status }, error: null };
+          }
+          return { data: null, error: null };
+        },
       }),
     }),
   } as unknown as SupabaseDeps;
@@ -961,5 +969,34 @@ describe("SCRUM-22/AC7 — No matching requests", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-24/AC1 — Approve a request
+// ---------------------------------------------------------------------------
+describe("SCRUM-24/AC1 — Approve a request", () => {
+  it("updates the event status to 'approved' when a coordinator approves it", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    const event = {
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/approve`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("approved");
+    expect(event.status).toBe("approved");
   });
 });
