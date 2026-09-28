@@ -85,9 +85,9 @@ function createFake() {
     }),
   } as unknown as SupabaseDeps;
 
-  const signIn = (role: string) => {
+  const signIn = (role: string, fullName = "Test User") => {
     const id = crypto.randomUUID();
-    tables.users.push({ id, role, full_name: "Test User", is_active: true });
+    tables.users.push({ id, role, full_name: fullName, is_active: true });
     sessions.set(`token-${id}`, id);
     return { id, cookie: `cs_session=token-${id}` };
   };
@@ -267,6 +267,90 @@ describe("SCRUM-22/AC2 — Default request visibility", () => {
 
     const res = await request(createApp(fake.deps))
       .get("/events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-22/AC3 — Search requests
+// ---------------------------------------------------------------------------
+describe("SCRUM-22/AC3 — Search requests", () => {
+  it("filters by event name (partial, case-insensitive)", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Tech Summit 2026", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Art Fair", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?search=tech")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("Tech Summit 2026");
+  });
+
+  it("filters by organiser name (partial, case-insensitive)", async () => {
+    const fake = createFake();
+    const organiser1 = fake.signIn("event_organiser", "Alice Johnson");
+    const organiser2 = fake.signIn("event_organiser", "Bob Smith");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Event A", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser1.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Event B", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser2.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?search=alice")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("Event A");
+  });
+
+  it("returns all visible events when no search term is given", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Event A", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Event B", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+  });
+
+  it("returns an empty list when no events match the search term", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push({
+      id: crypto.randomUUID(),
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?search=xyz")
       .set("Cookie", coordinator.cookie);
 
     expect(res.status).toBe(200);

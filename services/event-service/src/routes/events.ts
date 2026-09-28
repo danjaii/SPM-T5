@@ -14,6 +14,7 @@ export function eventRoutes(deps: SupabaseDeps) {
 
   // SCRUM-22/AC1: list submitted event requests for a coordinator
   // SCRUM-22/AC2: show own + unassigned events; hide events assigned to other coordinators
+  // SCRUM-22/AC3: optional ?search= filters by event name or organiser name (case-insensitive)
   router.get("/", requireSession(deps), async (req, res) => {
     const { id: userId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -26,13 +27,23 @@ export function eventRoutes(deps: SupabaseDeps) {
       .select("id, name, status, submitted_at, organiser:organiser_id(full_name)")
       .eq("status", "submitted")
       .or(`assigned_coordinator_id.eq.${userId},assigned_coordinator_id.is.null`);
-    const response = (events ?? []).map((e) => ({
-      id: e.id,
-      name: e.name,
-      status: e.status,
-      submitted_at: e.submitted_at,
-      organiser_name: (e.organiser as { full_name: string } | null)?.full_name ?? null,
-    }));
+    const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
+    const response = (events ?? [])
+      .filter((e) => {
+        if (!search) return true;
+        const nameMatch = typeof e.name === "string" && e.name.toLowerCase().includes(search);
+        const organiserMatch =
+          typeof (e.organiser as { full_name: string } | null)?.full_name === "string" &&
+          (e.organiser as { full_name: string }).full_name.toLowerCase().includes(search);
+        return nameMatch || organiserMatch;
+      })
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        submitted_at: e.submitted_at,
+        organiser_name: (e.organiser as { full_name: string } | null)?.full_name ?? null,
+      }));
     return res.json(response);
   });
 
