@@ -356,7 +356,7 @@ export function eventRoutes(deps: SupabaseDeps) {
 
   // SCRUM-42/AC3: assign an eligible coordinator to a given event
   router.post("/:id/assign-coordinator", requireSession(deps), async (req, res) => {
-    const { token } = res.locals.user as SessionUser;
+    const { id: callerId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
     if (role === undefined || !canReviewEvents(role)) {
       return res.status(403).json({ error: "You are not allowed to assign coordinators." });
@@ -390,6 +390,16 @@ export function eventRoutes(deps: SupabaseDeps) {
       .from("events")
       .update({ assigned_coordinator_id: coordinatorId })
       .eq("id", req.params.id);
+    // SCRUM-42/AC6: record who assigned, who was assigned, and when
+    await deps
+      .forUser(token)
+      .from("coordinator_assignment_logs")
+      .insert({
+        event_id: req.params.id,
+        coordinator_id: coordinatorId,
+        assigned_by: callerId,
+        assigned_at: new Date().toISOString(),
+      });
     return res.json({ assigned_coordinator_id: coordinatorId });
   });
 

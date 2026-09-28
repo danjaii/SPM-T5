@@ -10,12 +10,13 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>();
-  const tables: Record<string, Row[]> = { users: [], events: [] };
+  const tables: Record<string, Row[]> = { users: [], events: [], coordinator_assignment_logs: [] };
 
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
     const orClauses: string[] = [];
     let pendingUpdate: Row | null = null;
+    let pendingInsert: Row | null = null;
 
     const applyFilters = () => {
       let rows = (tables[table] ?? []).filter((r) =>
@@ -51,6 +52,10 @@ function createFake() {
         pendingUpdate = patch;
         return builder;
       },
+      insert: (row: Row) => {
+        pendingInsert = row;
+        return builder;
+      },
       maybeSingle: (): Promise<{ data: Row | null; error: null }> => {
         const rows = applyFilters();
         if (!rows[0]) return Promise.resolve({ data: null, error: null });
@@ -60,6 +65,11 @@ function createFake() {
         onFulfilled?: ((v: { data: Row[]; error: null }) => T | PromiseLike<T>) | null,
         onRejected?: ((e: unknown) => T | PromiseLike<T>) | null,
       ): Promise<T> {
+        if (pendingInsert !== null) {
+          const row = pendingInsert;
+          (tables[table] ??= []).push(row);
+          return Promise.resolve({ data: [row], error: null as null }).then(onFulfilled, onRejected);
+        }
         if (pendingUpdate !== null) {
           const patch = pendingUpdate;
           const rows = applyFilters();
@@ -581,5 +591,66 @@ describe("SCRUM-42/AC5 — Coordinator as organiser's point of contact", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ point_of_contact_name: "Bob Coord" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-42/AC6 — Record assignment
+// ---------------------------------------------------------------------------
+describe("SCRUM-42/AC6 — Record assignment", () => {
+  it("inserts a log entry with event_id, coordinator_id, assigned_by, and assigned_at on successful assignment", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator", "Alice Coord");
+    const assignee = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const before = new Date();
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: assignee.id });
+    const after = new Date();
+
+    expect(res.status).toBe(200);
+    const logs = fake.tables.coordinator_assignment_logs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      event_id: eventId,
+      coordinator_id: assignee.id,
+      assigned_by: caller.id,
+    });
+    const assignedAt = new Date(logs[0].assigned_at as string);
+    expect(assignedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(assignedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+  });
+
+  it("does not create a log entry when the coordinator is not found", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: crypto.randomUUID() });
+
+    expect(res.status).toBe(404);
+    expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
   });
 });
