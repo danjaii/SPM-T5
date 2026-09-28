@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>();
-  const tables: Record<string, Row[]> = { users: [], events: [] };
+  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [] };
 
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
@@ -46,7 +46,15 @@ function createFake() {
       },
       maybeSingle: (): Promise<{ data: Row | null; error: null }> => {
         const rows = applyFilters();
-        return Promise.resolve({ data: rows[0] ? { ...rows[0] } : null, error: null });
+        if (!rows[0]) return Promise.resolve({ data: null, error: null });
+        const row = { ...rows[0] };
+        if (table === "events") {
+          const organiser = tables.users.find((u) => u.id === row.organiser_id);
+          row.organiser = organiser ? { full_name: organiser.full_name } : null;
+          const layout = tables.room_layouts.find((l) => l.id === row.preferred_room_layout_id);
+          row.preferred_room_layout = layout ? { name: layout.name } : null;
+        }
+        return Promise.resolve({ data: row, error: null });
       },
       then<T>(
         onFulfilled?: ((v: { data: Row[]; error: null }) => T | PromiseLike<T>) | null,
@@ -569,6 +577,98 @@ describe("SCRUM-22/AC6 — Combine search and filters", () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0].name).toBe("Tech Summit Sep1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-23/AC1 — Open a request
+// ---------------------------------------------------------------------------
+describe("SCRUM-23/AC1 — Open a request", () => {
+  it("returns the full details of a submitted event request for a coordinator", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Johnson");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const layoutId = crypto.randomUUID();
+    fake.tables.room_layouts.push({ id: layoutId, name: "Theatre" });
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      purpose: "Annual technology conference",
+      preferred_start_datetime: "2026-10-01T09:00:00.000Z",
+      preferred_end_datetime: "2026-10-01T17:00:00.000Z",
+      expected_attendance: 200,
+      preferred_room_layout_id: layoutId,
+      accessibility_requirements: "Wheelchair access required",
+      equipment_requirements_notes: "Projector and microphone",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      purpose: "Annual technology conference",
+      preferred_start_datetime: "2026-10-01T09:00:00.000Z",
+      preferred_end_datetime: "2026-10-01T17:00:00.000Z",
+      expected_attendance: 200,
+      preferred_layout_name: "Theatre",
+      accessibility_requirements: "Wheelchair access required",
+      equipment_requirements_notes: "Projector and microphone",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_name: "Alice Johnson",
+    });
+  });
+
+  it("returns null for optional fields when they are not set", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Bob Smith");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Minimal Event",
+      status: "submitted",
+      purpose: null,
+      preferred_start_datetime: null,
+      preferred_end_datetime: null,
+      expected_attendance: null,
+      preferred_room_layout_id: null,
+      accessibility_requirements: null,
+      equipment_requirements_notes: null,
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      id: eventId,
+      name: "Minimal Event",
+      status: "submitted",
+      purpose: null,
+      preferred_start_datetime: null,
+      preferred_end_datetime: null,
+      expected_attendance: null,
+      preferred_layout_name: null,
+      accessibility_requirements: null,
+      equipment_requirements_notes: null,
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_name: "Bob Smith",
+    });
   });
 });
 

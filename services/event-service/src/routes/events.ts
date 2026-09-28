@@ -60,6 +60,7 @@ export function eventRoutes(deps: SupabaseDeps) {
   });
 
   // SCRUM-6: an event coordinator views the current status of any event
+  // SCRUM-23/AC1+AC2: returns the full details of a submitted event request
   router.get("/:id", requireSession(deps), async (req, res) => {
     const { id: userId, token } = res.locals.user as SessionUser;
 
@@ -74,10 +75,13 @@ export function eventRoutes(deps: SupabaseDeps) {
     let query = deps
       .forUser(token)
       .from("events")
-      .select("id, name, status")
+      .select(
+        "id, name, status, purpose, preferred_start_datetime, preferred_end_datetime, " +
+        "expected_attendance, preferred_room_layout:preferred_room_layout_id(name), " +
+        "accessibility_requirements, equipment_requirements_notes, submitted_at, " +
+        "organiser:organiser_id(full_name)"
+      )
       .eq("id", req.params.id);
-      // the following line is commented out because we don't restrict only assigned coord to see event status
-      // .eq("assigned_coordinator_id", userId)
 
     // SCRUM-7 AC3: an organiser only sees events they submitted
     if (isOrganiser) query = query.eq("organiser_id", userId);
@@ -87,7 +91,20 @@ export function eventRoutes(deps: SupabaseDeps) {
     // SCRUM-7 AC3: someone else's event looks exactly like one that doesn't exist
     if (!event) return res.status(404).json({ error: "Event not found." });
 
-    res.json(event);
+    res.json({
+      id: event.id,
+      name: event.name,
+      status: event.status,
+      purpose: (event.purpose as string | null) ?? null,
+      preferred_start_datetime: (event.preferred_start_datetime as string | null) ?? null,
+      preferred_end_datetime: (event.preferred_end_datetime as string | null) ?? null,
+      expected_attendance: (event.expected_attendance as number | null) ?? null,
+      preferred_layout_name: (event.preferred_room_layout as { name: string } | null)?.name ?? null,
+      accessibility_requirements: (event.accessibility_requirements as string | null) ?? null,
+      equipment_requirements_notes: (event.equipment_requirements_notes as string | null) ?? null,
+      submitted_at: (event.submitted_at as string | null) ?? null,
+      organiser_name: (event.organiser as { full_name: string } | null)?.full_name ?? null,
+    });
   });
 
   // SCRUM-8: an event coordinator changes an event's status
