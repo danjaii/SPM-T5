@@ -1546,6 +1546,101 @@ describe("SCRUM-26/AC4 — Prevent empty replies", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// SCRUM-27/AC1 — Search for users
+// ---------------------------------------------------------------------------
+describe("SCRUM-27/AC1 — Search for users", () => {
+  it("returns matching eligible users (coordinators and organisers) by partial name", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Johnson");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+    const coordinator2 = fake.signIn("event_coordinator", "Alice Smith");
+    // attendee with matching name — must NOT appear
+    fake.signIn("attendee", "Alice Attendee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/mentionable-users?query=alice`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const names = (res.body as { id: string; full_name: string }[]).map((u) => u.full_name);
+    expect(names).toContain("Alice Johnson");
+    expect(names).toContain("Alice Smith");
+    expect(names).not.toContain("Alice Attendee");
+  });
+
+  it("returns empty array when no eligible user matches the query", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Bob Smith");
+    const coordinator = fake.signIn("event_coordinator", "Carol White");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/mentionable-users?query=xyz`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("returns 403 when caller does not have access to the request", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const attendee = fake.signIn("attendee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/mentionable-users?query=alice`)
+      .set("Cookie", attendee.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/mentionable-users?query=alice`);
+
+    expect(res.status).toBe(401);
+  });
+});
+
 describe("SCRUM-25/AC4 — Prevent empty comments", () => {
   it("returns 400 when body is empty string", async () => {
     const fake = createFake();

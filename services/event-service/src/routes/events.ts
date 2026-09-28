@@ -197,6 +197,29 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.status(201).json({});
   });
 
+  // SCRUM-27/AC1: search for users eligible to access the request (coordinators and organisers)
+  router.get("/:id/mentionable-users", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
+      return res.status(403).json({ error: "You are not allowed to search for users on this event." });
+    }
+    const query = typeof req.query.query === "string" ? req.query.query.trim().toLowerCase() : "";
+    const { data: users } = await deps
+      .forUser(token)
+      .from("users")
+      .select("id, full_name")
+      .or("role.eq.event_coordinator,role.eq.event_organiser");
+    const result = (users ?? [])
+      .filter((u) => {
+        if (!query) return true;
+        const name = typeof u.full_name === "string" ? u.full_name.toLowerCase() : "";
+        return name.includes(query);
+      })
+      .map((u) => ({ id: u.id, full_name: u.full_name }));
+    return res.json(result);
+  });
+
   // SCRUM-8: an event coordinator changes an event's status
   router.patch("/:id/status", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
