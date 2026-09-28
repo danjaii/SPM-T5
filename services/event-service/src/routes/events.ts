@@ -193,6 +193,23 @@ export function eventRoutes(deps: SupabaseDeps) {
       }
     }
 
+    let attachmentsByComment = new Map<string, Array<{ file_name: string; storage_path: string }>>();
+    if (commentIds.length > 0) {
+      const { data: attachmentRows } = await deps
+        .forUser(token)
+        .from("event_comment_attachments")
+        .select("comment_id, file_name, storage_path")
+        .in("comment_id", commentIds);
+      for (const a of attachmentRows ?? []) {
+        const cid = a.comment_id as string;
+        if (!attachmentsByComment.has(cid)) attachmentsByComment.set(cid, []);
+        attachmentsByComment.get(cid)!.push({
+          file_name: a.file_name as string,
+          storage_path: a.storage_path as string,
+        });
+      }
+    }
+
     const can_comment = canReviewEvents(role) || role === "event_organiser";
     return res.json({
       can_comment,
@@ -203,6 +220,7 @@ export function eventRoutes(deps: SupabaseDeps) {
         parent_comment_id: (c.parent_comment_id as string | null) ?? null,
         author_name: (c.author as { full_name: string } | null)?.full_name ?? null,
         mentions: mentionsByComment.get(c.id as string) ?? [],
+        attachments: attachmentsByComment.get(c.id as string) ?? [],
       })),
     });
   });

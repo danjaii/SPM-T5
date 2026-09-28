@@ -2038,6 +2038,142 @@ describe("SCRUM-28/AC1 — Attach multiple files", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// SCRUM-28/AC5 — Display attachments
+// ---------------------------------------------------------------------------
+describe("SCRUM-28/AC5 — Display attachments", () => {
+  it("includes an attachments array with file_name and storage_path for a comment with one attachment", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const commentId = crypto.randomUUID();
+    fake.tables.event_comments.push({
+      id: commentId, event_id: eventId, author_id: coordinator.id,
+      body: "Please review the attached document.",
+      created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
+    });
+    fake.tables.event_comment_attachments.push({
+      comment_id: commentId, file_name: "proposal.pdf", storage_path: "attachments/proposal.pdf",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const [comment] = res.body.comments;
+    expect(comment.attachments).toHaveLength(1);
+    expect(comment.attachments[0].file_name).toBe("proposal.pdf");
+    expect(comment.attachments[0].storage_path).toBe("attachments/proposal.pdf");
+  });
+
+  it("includes all attachments when a comment has multiple files", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const commentId = crypto.randomUUID();
+    fake.tables.event_comments.push({
+      id: commentId, event_id: eventId, author_id: coordinator.id,
+      body: "See attached files.",
+      created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
+    });
+    fake.tables.event_comment_attachments.push(
+      { comment_id: commentId, file_name: "agenda.pdf", storage_path: "attachments/agenda.pdf" },
+      { comment_id: commentId, file_name: "budget.xlsx", storage_path: "attachments/budget.xlsx" },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const [comment] = res.body.comments;
+    expect(comment.attachments).toHaveLength(2);
+    const names = comment.attachments.map((a: Row) => a.file_name);
+    expect(names).toContain("agenda.pdf");
+    expect(names).toContain("budget.xlsx");
+  });
+
+  it("returns attachments: [] for a comment with no attachments", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const commentId = crypto.randomUUID();
+    fake.tables.event_comments.push({
+      id: commentId, event_id: eventId, author_id: coordinator.id,
+      body: "Just a plain comment.",
+      created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.comments[0].attachments).toEqual([]);
+  });
+
+  it("does not include attachments from a different comment on the same event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const commentId1 = crypto.randomUUID();
+    const commentId2 = crypto.randomUUID();
+    fake.tables.event_comments.push(
+      {
+        id: commentId1, event_id: eventId, author_id: coordinator.id,
+        body: "First comment with attachment.",
+        created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
+      },
+      {
+        id: commentId2, event_id: eventId, author_id: organiser.id,
+        body: "Second comment, no attachment.",
+        created_at: "2026-09-01T12:00:00.000Z", parent_comment_id: null,
+      },
+    );
+    fake.tables.event_comment_attachments.push({
+      comment_id: commentId1, file_name: "doc.pdf", storage_path: "attachments/doc.pdf",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    const comments = res.body.comments;
+    expect(comments[0].attachments).toHaveLength(1);
+    expect(comments[1].attachments).toHaveLength(0);
+  });
+});
+
 describe("SCRUM-25/AC4 — Prevent empty comments", () => {
   it("returns 400 when body is empty string", async () => {
     const fake = createFake();
