@@ -894,6 +894,83 @@ describe("SCRUM-43/AC2 — Display assignment information", () => {
 });
 
 // ---------------------------------------------------------------------------
+// SCRUM-43/AC4 — Preserve historical records
+// ---------------------------------------------------------------------------
+describe("SCRUM-43/AC4 — Preserve historical records", () => {
+  it("returns both records after two successive assignments to the same event", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+    const assignee1 = fake.signIn("event_coordinator", "Bob Coord");
+    const assignee2 = fake.signIn("event_coordinator", "Carol Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      organiser_id: crypto.randomUUID(), assigned_coordinator_id: null,
+    });
+
+    // First assignment
+    const res1 = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", coordinator.cookie)
+      .send({ coordinator_id: assignee1.id });
+    expect(res1.status).toBe(200);
+
+    // Second assignment — reassign to a different coordinator
+    const res2 = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", coordinator.cookie)
+      .send({ coordinator_id: assignee2.id });
+    expect(res2.status).toBe(200);
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+  });
+
+  it("does not overwrite the first record when a second assignment is made", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+    const assignee1 = fake.signIn("event_coordinator", "Bob Coord");
+    const assignee2 = fake.signIn("event_coordinator", "Carol Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      organiser_id: crypto.randomUUID(), assigned_coordinator_id: null,
+    });
+
+    await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", coordinator.cookie)
+      .send({ coordinator_id: assignee1.id });
+
+    await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", coordinator.cookie)
+      .send({ coordinator_id: assignee2.id });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    // The first record must still record assignee1 as coordinator (not overwritten)
+    const first = res.body.find((r: { coordinator_id: string }) => r.coordinator_id === assignee1.id);
+    expect(first).toBeDefined();
+    expect(first.previous_coordinator_id).toBeNull();
+    // The second record records the reassignment to assignee2 with assignee1 as previous
+    const second = res.body.find((r: { coordinator_id: string }) => r.coordinator_id === assignee2.id);
+    expect(second).toBeDefined();
+    expect(second.previous_coordinator_id).toBe(assignee1.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCRUM-43/AC3 — Display history chronologically
 // ---------------------------------------------------------------------------
 describe("SCRUM-43/AC3 — Display history chronologically", () => {
