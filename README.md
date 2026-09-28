@@ -69,6 +69,7 @@ SPM-T5/
 | `venue-service` | 4003 | Venue catalogue, availability calendar, search, suitability checks, bookings and conflict detection |
 | `equipment-service` | 4004 | Equipment catalogue, availability checks, reservations, technical support (formerly `coordinator-service`) |
 | `notification-service` | 4005 | In-app/email notifications, triggered by event-service status changes |
+| `event-review-service` | 4006 | [ER-01/AC4 request access checks](services/event-review-service/README.md); full request details and review actions remain pending |
 
 Attendee registration is not yet assigned to a service (most likely `event-service`) — see
 [`CLAUDE.md`](CLAUDE.md).

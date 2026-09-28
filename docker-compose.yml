@@ -40,6 +40,16 @@ services:
     build: { context: ., dockerfile: services/event-service/Dockerfile }
     ports: ["4002:4000"]
 
+  event-review-service:
+    build: { context: ., dockerfile: services/event-review-service/Dockerfile }
+    ports: ["4006:4000"]
+    environment:
+      SUPABASE_URL: ${DOCKER_SUPABASE_URL:-${SUPABASE_URL}}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+      WEB_ORIGIN: http://localhost:3000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   venue-service:
     <<: *service
     build: { context: ., dockerfile: services/venue-service/Dockerfile }

@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://localhost:3000";
+// Use a separate port when Docker is serving an older build on port 3000.
+const port = process.env.PLAYWRIGHT_PORT ?? "3000";
+const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -15,9 +17,9 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "./node_modules/.bin/next dev", // called directly: a package-manager wrapper made Playwright wait minutes for shutdown
+    command: `node node_modules/next/dist/bin/next dev --port ${port}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI && !process.env.PLAYWRIGHT_PORT,
     timeout: 120_000,
   },
 });

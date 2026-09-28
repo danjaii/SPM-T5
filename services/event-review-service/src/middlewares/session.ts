@@ -4,6 +4,7 @@ export interface SessionOptions {
   url: string;
   publishableKey: string;
   fetch?: typeof fetch;
+  webOrigin?: string;
 }
 
 /** ER-01/AC4: authenticate the caller; request permissions belong in database RLS. */
