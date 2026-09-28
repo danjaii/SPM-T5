@@ -571,3 +571,76 @@ describe("SCRUM-22/AC6 — Combine search and filters", () => {
     expect(res.body[0].name).toBe("Tech Summit Sep1");
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-22/AC7 — No matching requests
+// ---------------------------------------------------------------------------
+describe("SCRUM-22/AC7 — No matching requests", () => {
+  it("returns empty array when search term matches nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?search=xyz")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("returns empty array when status filter matches no events", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?status=approved")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("returns empty array when date range excludes all events", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Sep Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?from=2026-10-01")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("returns empty array when combined filters match nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get("/events?search=tech&status=approved")
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+});
