@@ -151,6 +151,7 @@ export function eventRoutes(deps: SupabaseDeps) {
 
   // SCRUM-25/AC2: an authorised user views comment details (author name, date/time, text)
   // SCRUM-25/AC5: response includes can_comment so the UI can show/hide the comment input
+  // SCRUM-27/AC3: each comment includes a mentions array with user_id and full_name
   router.get("/:id/comments", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -163,6 +164,35 @@ export function eventRoutes(deps: SupabaseDeps) {
       .select("id, body, created_at, parent_comment_id, author:author_id(full_name)")
       .eq("event_id", req.params.id)
       .order("created_at", { ascending: true });
+
+    const commentIds = (comments ?? []).map((c) => c.id as string);
+    let mentionsByComment = new Map<string, Array<{ user_id: string; full_name: string | null }>>();
+    if (commentIds.length > 0) {
+      const { data: mentionRows } = await deps
+        .forUser(token)
+        .from("event_comment_mentions")
+        .select("comment_id, user_id")
+        .in("comment_id", commentIds);
+      const mentionedUserIds = [...new Set((mentionRows ?? []).map((m) => m.user_id as string))];
+      let userMap = new Map<string, string>();
+      if (mentionedUserIds.length > 0) {
+        const { data: users } = await deps
+          .forUser(token)
+          .from("users")
+          .select("id, full_name")
+          .in("id", mentionedUserIds);
+        userMap = new Map((users ?? []).map((u) => [u.id as string, u.full_name as string]));
+      }
+      for (const m of mentionRows ?? []) {
+        const cid = m.comment_id as string;
+        if (!mentionsByComment.has(cid)) mentionsByComment.set(cid, []);
+        mentionsByComment.get(cid)!.push({
+          user_id: m.user_id as string,
+          full_name: userMap.get(m.user_id as string) ?? null,
+        });
+      }
+    }
+
     const can_comment = canReviewEvents(role) || role === "event_organiser";
     return res.json({
       can_comment,
@@ -172,6 +202,7 @@ export function eventRoutes(deps: SupabaseDeps) {
         created_at: c.created_at,
         parent_comment_id: (c.parent_comment_id as string | null) ?? null,
         author_name: (c.author as { full_name: string } | null)?.full_name ?? null,
+        mentions: mentionsByComment.get(c.id as string) ?? [],
       })),
     });
   });
