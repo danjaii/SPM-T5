@@ -781,3 +781,97 @@ describe("SCRUM-43/AC1 — View assignment history", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-43/AC2 — Display assignment information
+// ---------------------------------------------------------------------------
+describe("SCRUM-43/AC2 — Display assignment information", () => {
+  it("returns previous_coordinator_id as null for an initial assignment", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+    const assignee = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: assignee.id,
+    });
+    fake.tables.coordinator_assignment_logs.push({
+      id: crypto.randomUUID(),
+      event_id: eventId,
+      coordinator_id: assignee.id,
+      previous_coordinator_id: null,
+      assigned_by: coordinator.id,
+      assigned_at: "2026-09-01T10:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].previous_coordinator_id).toBeNull();
+  });
+
+  it("returns previous_coordinator_id when a coordinator was previously assigned", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator", "Alice Coord");
+    const previousAssignee = fake.signIn("event_coordinator", "Carol Coord");
+    const newAssignee = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: newAssignee.id,
+    });
+    fake.tables.coordinator_assignment_logs.push({
+      id: crypto.randomUUID(),
+      event_id: eventId,
+      coordinator_id: newAssignee.id,
+      previous_coordinator_id: previousAssignee.id,
+      assigned_by: coordinator.id,
+      assigned_at: "2026-09-02T10:00:00.000Z",
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].previous_coordinator_id).toBe(previousAssignee.id);
+  });
+
+  it("records previous_coordinator_id from the event when assigning a coordinator", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator", "Alice Coord");
+    const existing = fake.signIn("event_coordinator", "Carol Coord");
+    const newAssignee = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "approved",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: existing.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: newAssignee.id });
+
+    expect(res.status).toBe(200);
+    const logs = fake.tables.coordinator_assignment_logs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0].previous_coordinator_id).toBe(existing.id);
+  });
+});

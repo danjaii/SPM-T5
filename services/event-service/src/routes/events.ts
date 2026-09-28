@@ -366,7 +366,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     const { data: logs } = await deps
       .forUser(token)
       .from("coordinator_assignment_logs")
-      .select("event_id, coordinator_id, assigned_by, assigned_at")
+      .select("event_id, coordinator_id, previous_coordinator_id, assigned_by, assigned_at")
       .eq("event_id", req.params.id);
     return res.json(logs ?? []);
   });
@@ -396,7 +396,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     const { data: event } = await deps
       .forUser(token)
       .from("events")
-      .select("id")
+      .select("id, assigned_coordinator_id")
       .eq("id", req.params.id)
       .maybeSingle();
     if (!event) {
@@ -408,12 +408,14 @@ export function eventRoutes(deps: SupabaseDeps) {
       .update({ assigned_coordinator_id: coordinatorId })
       .eq("id", req.params.id);
     // SCRUM-42/AC6: record who assigned, who was assigned, and when
+    // SCRUM-43/AC2: record the previous coordinator for history display
     await deps
       .forUser(token)
       .from("coordinator_assignment_logs")
       .insert({
         event_id: req.params.id,
         coordinator_id: coordinatorId,
+        previous_coordinator_id: (event.assigned_coordinator_id as string | null) ?? null,
         assigned_by: callerId,
         assigned_at: new Date().toISOString(),
       });
