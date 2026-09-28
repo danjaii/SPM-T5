@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>();
-  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [] };
+  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_comments: [] };
 
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
@@ -43,6 +43,13 @@ function createFake() {
       or: (filter: string) => {
         orClauses.push(filter);
         return builder;
+      },
+      insert: (row: Row | Row[]) => {
+        const rows = Array.isArray(row) ? row : [row];
+        for (const r of rows) {
+          (tables[table] ??= []).push({ id: crypto.randomUUID(), ...r });
+        }
+        return Promise.resolve({ data: rows, error: null });
       },
       maybeSingle: (): Promise<{ data: Row | null; error: null }> => {
         const rows = applyFilters();
@@ -1072,5 +1079,60 @@ describe("SCRUM-24/AC1 — Approve a request", () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("approved");
     expect(event.status).toBe("approved");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-25/AC1 — Add a comment
+// ---------------------------------------------------------------------------
+describe("SCRUM-25/AC1 — Add a comment", () => {
+  it("saves a comment and returns 201 when a coordinator posts to an event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "Please provide more details." });
+
+    expect(res.status).toBe(201);
+    expect(fake.tables.event_comments).toHaveLength(1);
+    expect(fake.tables.event_comments[0]).toMatchObject({
+      event_id: eventId,
+      author_id: coordinator.id,
+      body: "Please provide more details.",
+    });
+  });
+
+  it("returns 403 when an attendee attempts to add a comment", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const attendee = fake.signIn("attendee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", attendee.cookie)
+      .send({ body: "I want to comment." });
+
+    expect(res.status).toBe(403);
   });
 });

@@ -149,6 +149,21 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.json(event);
   });
 
+  // SCRUM-25/AC1: an authorised user adds a comment to an event
+  router.post("/:id/comments", requireSession(deps), async (req, res) => {
+    const { id: authorId, token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
+      return res.status(403).json({ error: "You are not allowed to comment on this event." });
+    }
+    await deps.forUser(token).from("event_comments").insert({
+      event_id: req.params.id,
+      author_id: authorId,
+      body: req.body.body,
+    });
+    return res.status(201).json({});
+  });
+
   // SCRUM-8: an event coordinator changes an event's status
   router.patch("/:id/status", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
