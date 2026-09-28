@@ -15,6 +15,7 @@ function createFake() {
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
     const orClauses: string[] = [];
+    let pendingUpdate: Row | null = null;
 
     const applyFilters = () => {
       let rows = (tables[table] ?? []).filter((r) =>
@@ -46,6 +47,10 @@ function createFake() {
         orClauses.push(filter);
         return builder;
       },
+      update: (patch: Row) => {
+        pendingUpdate = patch;
+        return builder;
+      },
       maybeSingle: (): Promise<{ data: Row | null; error: null }> => {
         const rows = applyFilters();
         if (!rows[0]) return Promise.resolve({ data: null, error: null });
@@ -55,6 +60,12 @@ function createFake() {
         onFulfilled?: ((v: { data: Row[]; error: null }) => T | PromiseLike<T>) | null,
         onRejected?: ((e: unknown) => T | PromiseLike<T>) | null,
       ): Promise<T> {
+        if (pendingUpdate !== null) {
+          const patch = pendingUpdate;
+          const rows = applyFilters();
+          for (const row of rows) Object.assign(row, patch);
+          return Promise.resolve({ data: rows, error: null as null }).then(onFulfilled, onRejected);
+        }
         const rows = applyFilters().map((r) => ({ ...r }));
         return Promise.resolve({ data: rows, error: null as null }).then(onFulfilled, onRejected);
       },
@@ -226,6 +237,177 @@ describe("SCRUM-42/AC1 — View eligible coordinators", () => {
 
     const res = await request(createApp(fake.deps))
       .get(`/events/${eventId}/eligible-coordinators`);
+
+    expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-42/AC3 — Assign coordinator to event
+// ---------------------------------------------------------------------------
+describe("SCRUM-42/AC3 — Assign coordinator to event", () => {
+  it("assigns an eligible coordinator to an unassigned event", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator", "Alice Coord");
+    const assignee = fake.signIn("event_coordinator", "Bob Coord");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: assignee.id });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ assigned_coordinator_id: assignee.id });
+    const stored = fake.tables.events.find((e) => e.id === eventId);
+    expect(stored?.assigned_coordinator_id).toBe(assignee.id);
+  });
+
+  it("returns 400 if coordinator_id is missing from the request body", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({});
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 if the coordinator does not exist", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: crypto.randomUUID() });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 if the coordinator is inactive", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator");
+    const inactive = fake.signIn("event_coordinator", "Inactive Coord", false);
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: inactive.id });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 if the target user is not an event_coordinator", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator");
+    const organiser = fake.signIn("event_organiser", "Bob Org");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: organiser.id });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 if the event does not exist", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator");
+    const assignee = fake.signIn("event_coordinator", "Bob Coord");
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${crypto.randomUUID()}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: assignee.id });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 403 if caller is not an event_coordinator", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", organiser.cookie)
+      .send({ coordinator_id: coordinator.id });
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: null,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .send({ coordinator_id: coordinator.id });
 
     expect(res.status).toBe(401);
   });

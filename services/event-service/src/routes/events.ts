@@ -324,6 +324,45 @@ export function eventRoutes(deps: SupabaseDeps) {
     );
   });
 
+  // SCRUM-42/AC3: assign an eligible coordinator to a given event
+  router.post("/:id/assign-coordinator", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || !canReviewEvents(role)) {
+      return res.status(403).json({ error: "You are not allowed to assign coordinators." });
+    }
+    const coordinatorId = typeof req.body.coordinator_id === "string" ? req.body.coordinator_id.trim() : "";
+    if (!coordinatorId) {
+      return res.status(400).json({ error: "coordinator_id is required." });
+    }
+    const { data: coordinator } = await deps
+      .forUser(token)
+      .from("users")
+      .select("id")
+      .eq("id", coordinatorId)
+      .eq("role", "event_coordinator")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (!coordinator) {
+      return res.status(404).json({ error: "Coordinator not found or not eligible." });
+    }
+    const { data: event } = await deps
+      .forUser(token)
+      .from("events")
+      .select("id")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (!event) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+    await deps
+      .forUser(token)
+      .from("events")
+      .update({ assigned_coordinator_id: coordinatorId })
+      .eq("id", req.params.id);
+    return res.json({ assigned_coordinator_id: coordinatorId });
+  });
+
   // SCRUM-8: an event coordinator changes an event's status
   router.patch("/:id/status", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
