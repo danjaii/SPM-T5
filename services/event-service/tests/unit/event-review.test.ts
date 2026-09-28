@@ -673,6 +673,89 @@ describe("SCRUM-23/AC1 — Open a request", () => {
 });
 
 // ---------------------------------------------------------------------------
+// SCRUM-23/AC2 — View event details
+// ---------------------------------------------------------------------------
+describe("SCRUM-23/AC2 — View event details", () => {
+  it("returns all required detail fields for an open submitted event request", async () => {
+    // AC2 field checklist: organiser name, event name, purpose, datetime range,
+    // expected attendance, layout preference, accessibility needs, equipment needs,
+    // submission date, current status.
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Carol White");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const layoutId = crypto.randomUUID();
+    fake.tables.room_layouts.push({ id: layoutId, name: "Classroom" });
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Leadership Workshop",
+      status: "under_review",
+      purpose: "Team leadership development",
+      preferred_start_datetime: "2026-11-15T09:00:00.000Z",
+      preferred_end_datetime: "2026-11-15T12:00:00.000Z",
+      expected_attendance: 30,
+      preferred_room_layout_id: layoutId,
+      accessibility_requirements: "Hearing loop required",
+      equipment_requirements_notes: "Laptop and projector",
+      submitted_at: "2026-09-15T08:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.organiser_name).toBe("Carol White");
+    expect(res.body.name).toBe("Leadership Workshop");
+    expect(res.body.purpose).toBe("Team leadership development");
+    expect(res.body.preferred_start_datetime).toBe("2026-11-15T09:00:00.000Z");
+    expect(res.body.preferred_end_datetime).toBe("2026-11-15T12:00:00.000Z");
+    expect(res.body.expected_attendance).toBe(30);
+    expect(res.body.preferred_layout_name).toBe("Classroom");
+    expect(res.body.accessibility_requirements).toBe("Hearing loop required");
+    expect(res.body.equipment_requirements_notes).toBe("Laptop and projector");
+    expect(res.body.submitted_at).toBe("2026-09-15T08:00:00.000Z");
+    expect(res.body.status).toBe("under_review");
+  });
+
+  it("exposes layout preference as a resolved name, not a raw foreign-key ID", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+
+    const layoutId = crypto.randomUUID();
+    fake.tables.room_layouts.push({ id: layoutId, name: "Boardroom" });
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Board Meeting",
+      status: "submitted",
+      purpose: null,
+      preferred_start_datetime: null,
+      preferred_end_datetime: null,
+      expected_attendance: null,
+      preferred_room_layout_id: layoutId,
+      accessibility_requirements: null,
+      equipment_requirements_notes: null,
+      submitted_at: "2026-09-20T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.preferred_layout_name).toBe("Boardroom");
+    expect(res.body).not.toHaveProperty("preferred_room_layout_id");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCRUM-22/AC7 — No matching requests
 // ---------------------------------------------------------------------------
 describe("SCRUM-22/AC7 — No matching requests", () => {
