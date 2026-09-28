@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>();
-  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_comments: [] };
+  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_comments: [], event_comment_mentions: [] };
 
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
@@ -1638,6 +1638,100 @@ describe("SCRUM-27/AC1 — Search for users", () => {
       .get(`/events/${eventId}/mentionable-users?query=alice`);
 
     expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-27/AC2 — Add a mention
+// ---------------------------------------------------------------------------
+describe("SCRUM-27/AC2 — Add a mention", () => {
+  it("saves a mention record when the comment body contains a @[userId] marker", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: `Hello @[${organiser.id}] please review this.` });
+
+    expect(res.status).toBe(201);
+    const mentions = fake.tables.event_comment_mentions ?? [];
+    expect(mentions).toHaveLength(1);
+    expect(mentions[0].user_id).toBe(organiser.id);
+  });
+
+  it("saves multiple mention records for multiple @[userId] markers in the body", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+    const coordinator2 = fake.signIn("event_coordinator", "Carol");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: `@[${organiser.id}] and @[${coordinator2.id}] please check.` });
+
+    expect(res.status).toBe(201);
+    const mentions = fake.tables.event_comment_mentions ?? [];
+    expect(mentions).toHaveLength(2);
+    const mentionedIds = mentions.map((m: Row) => m.user_id);
+    expect(mentionedIds).toContain(organiser.id);
+    expect(mentionedIds).toContain(coordinator2.id);
+  });
+
+  it("saves no mention records when the comment body contains no @[userId] markers", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "Just a plain comment with no mentions." });
+
+    expect(res.status).toBe(201);
+    const mentions = fake.tables.event_comment_mentions ?? [];
+    expect(mentions).toHaveLength(0);
+  });
+
+  it("returns 403 and saves no mentions when caller is not authorised", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const attendee = fake.signIn("attendee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", attendee.cookie)
+      .send({ body: `Hello @[${organiser.id}].` });
+
+    expect(res.status).toBe(403);
+    const mentions = fake.tables.event_comment_mentions ?? [];
+    expect(mentions).toHaveLength(0);
   });
 });
 

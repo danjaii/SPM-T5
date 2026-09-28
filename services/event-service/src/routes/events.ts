@@ -177,6 +177,7 @@ export function eventRoutes(deps: SupabaseDeps) {
   });
 
   // SCRUM-25/AC1: an authorised user adds a comment to an event
+  // SCRUM-27/AC2: @[userId] markers in the body are extracted and persisted as mention records
   router.post("/:id/comments", requireSession(deps), async (req, res) => {
     const { id: authorId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -188,12 +189,18 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(400).json({ error: "Comment text is required." });
     }
     const parentCommentId = typeof req.body.parent_comment_id === "string" ? req.body.parent_comment_id : null;
+    const commentId = crypto.randomUUID();
     await deps.forUser(token).from("event_comments").insert({
+      id: commentId,
       event_id: req.params.id,
       author_id: authorId,
       body,
       ...(parentCommentId !== null && { parent_comment_id: parentCommentId }),
     });
+    const mentionedIds = [...body.matchAll(/@\[([^\]]+)\]/g)].map((m) => m[1]);
+    for (const userId of mentionedIds) {
+      await deps.forUser(token).from("event_comment_mentions").insert({ comment_id: commentId, user_id: userId });
+    }
     return res.status(201).json({});
   });
 
