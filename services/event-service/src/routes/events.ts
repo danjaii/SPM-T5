@@ -149,6 +149,28 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.json(event);
   });
 
+  // SCRUM-25/AC2: an authorised user views comment details (author name, date/time, text)
+  router.get("/:id/comments", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
+      return res.status(403).json({ error: "You are not allowed to view comments on this event." });
+    }
+    const { data: comments } = await deps
+      .forUser(token)
+      .from("event_comments")
+      .select("id, body, created_at, author:author_id(full_name)")
+      .eq("event_id", req.params.id);
+    return res.json(
+      (comments ?? []).map((c) => ({
+        id: c.id,
+        body: c.body,
+        created_at: c.created_at,
+        author_name: (c.author as { full_name: string } | null)?.full_name ?? null,
+      })),
+    );
+  });
+
   // SCRUM-25/AC1: an authorised user adds a comment to an event
   router.post("/:id/comments", requireSession(deps), async (req, res) => {
     const { id: authorId, token } = res.locals.user as SessionUser;

@@ -47,7 +47,7 @@ function createFake() {
       insert: (row: Row | Row[]) => {
         const rows = Array.isArray(row) ? row : [row];
         for (const r of rows) {
-          (tables[table] ??= []).push({ id: crypto.randomUUID(), ...r });
+          (tables[table] ??= []).push({ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...r });
         }
         return Promise.resolve({ data: rows, error: null });
       },
@@ -73,6 +73,11 @@ function createFake() {
             ? rows.map((r) => {
                 const organiser = tables.users.find((u) => u.id === r.organiser_id);
                 return { ...r, organiser: organiser ? { full_name: organiser.full_name } : null };
+              })
+            : table === "event_comments"
+            ? rows.map((r) => {
+                const author = tables.users.find((u) => u.id === r.author_id);
+                return { ...r, author: author ? { full_name: author.full_name } : null };
               })
             : rows.map((r) => ({ ...r }));
         return Promise.resolve({ data: enriched, error: null as null }).then(onFulfilled, onRejected);
@@ -1132,6 +1137,65 @@ describe("SCRUM-25/AC1 — Add a comment", () => {
       .post(`/events/${eventId}/comments`)
       .set("Cookie", attendee.cookie)
       .send({ body: "I want to comment." });
+
+    expect(res.status).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-25/AC2 — Display comment details
+// ---------------------------------------------------------------------------
+describe("SCRUM-25/AC2 — Display comment details", () => {
+  it("returns each comment with author_name, created_at, and body", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Tan");
+    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const app = createApp(fake.deps);
+    await request(app)
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "Please provide more details." });
+
+    const res = await request(app)
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      author_name: "Bob Lee",
+      body: "Please provide more details.",
+    });
+    expect(res.body[0].created_at).toBeDefined();
+  });
+
+  it("returns 403 when an attendee attempts to view comments", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const attendee = fake.signIn("attendee");
+
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z",
+      organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/comments`)
+      .set("Cookie", attendee.cookie);
 
     expect(res.status).toBe(403);
   });
