@@ -14,6 +14,9 @@ export default defineConfig({
       reporter: ["text", "html", "lcov"],
       include: ["apps/web/src/**/*.{ts,tsx}", "services/*/src/**/*.ts", "packages/shared/src/**/*.ts"],
       exclude: ["**/*.d.ts"],
+      // Coverage floor (baseline when added: 60.16 / 57.65 / 56.19 / 60.41). Ratchet up as coverage
+      // rises, never lower — see CLAUDE.md → Development workflow.
+      thresholds: { statements: 60, branches: 57, functions: 56, lines: 60 },
     },
   },
 });
