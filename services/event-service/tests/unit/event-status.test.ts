@@ -198,7 +198,7 @@ describe("SCRUM-8 — Edit event status", () => {
   it("lets a coordinator change an event's status", async () => {
     const fake = createFake();
     const coordinator = fake.signIn("event_coordinator");
-    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review" };
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", assigned_coordinator_id: coordinator.id };
     fake.tables.events.push(event);
 
     const res = await request(createApp(fake.deps))
@@ -215,7 +215,7 @@ describe("SCRUM-8 — Edit event status", () => {
   it("confirms the change by returning the event with its new status", async () => {
     const fake = createFake();
     const coordinator = fake.signIn("event_coordinator");
-    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review" };
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", assigned_coordinator_id: coordinator.id };
     fake.tables.events.push(event);
 
     const res = await request(createApp(fake.deps))
@@ -232,7 +232,7 @@ describe("SCRUM-8 — Edit event status", () => {
   it.each(["banana", "Approved", undefined, 123])("refuses status %j and leaves the event unchanged", async (badStatus) => {
     const fake = createFake();
     const coordinator = fake.signIn("event_coordinator");
-    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review" };
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", assigned_coordinator_id: coordinator.id };
     fake.tables.events.push(event);
 
     const res = await request(createApp(fake.deps))
@@ -266,11 +266,30 @@ describe("SCRUM-8 — Edit event status", () => {
   );
   // end of AC4
 
+  // AC6: only the coordinator assigned to the event can change its status
+  it("refuses a coordinator who isn't assigned to the event with 403", async () => {
+    const fake = createFake();
+    const assigned = fake.signIn("event_coordinator");
+    const otherCoordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", assigned_coordinator_id: assigned.id };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", otherCoordinator.cookie)
+      .send({ status: "approved" });
+
+    expect(res.status).toBe(403);
+    expect(event.status).toBe("under_review"); // nothing was saved
+    expect(fake.tables.event_status_history).toEqual([]); // and nothing was recorded
+  });
+  // end of AC6
+
   // AC5: every change is recorded in the status history (who, old -> new, optional reason)
   it("records the change in the status history", async () => {
     const fake = createFake();
     const coordinator = fake.signIn("event_coordinator");
-    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review" };
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", assigned_coordinator_id: coordinator.id };
     fake.tables.events.push(event);
 
     await request(createApp(fake.deps))
@@ -305,5 +324,22 @@ describe("SCRUM-8 — Edit event status", () => {
     expect(fake.tables.event_status_history).toEqual([]); // no history for an event that isn't there
   });
   // end of edge case
+
+  // For the UI: viewing an event says whether the viewer may change its status (so the page knows to show the dropdown)
+  it("tells the assigned coordinator they can change the status, and others they can't", async () => {
+    const fake = createFake();
+    const assigned = fake.signIn("event_coordinator");
+    const otherCoordinator = fake.signIn("event_coordinator");
+    const organiser = fake.signIn("event_organiser");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "under_review", assigned_coordinator_id: assigned.id, organiser_id: organiser.id };
+    fake.tables.events.push(event);
+    const app = createApp(fake.deps);
+    const view = (cookie: string) => request(app).get(`/events/${event.id}`).set("Cookie", cookie);
+
+    expect((await view(assigned.cookie)).body.canChangeStatus).toBe(true);
+    expect((await view(otherCoordinator.cookie)).body.canChangeStatus).toBe(false);
+    expect((await view(organiser.cookie)).body.canChangeStatus).toBe(false);
+  });
+  // end of UI support
 });
 // end of SCRUM-8
