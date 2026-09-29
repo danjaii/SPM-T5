@@ -116,6 +116,22 @@ th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text
 tr:last-child td { border-bottom: 0; }
 .empty { padding: 18px 14px; color: var(--muted); }
 
+/* ---------- Event status page (SCRUM-6/7/8) ---------- */
+.back-link { display: inline-block; margin-bottom: 20px; font-size: 14px; }
+.event { max-width: 560px; }
+.event h1 { font-size: 30px; font-weight: 700; }
+.event__status { display: flex; align-items: center; gap: 10px; margin: 10px 0 28px; color: var(--muted); font-size: 14px; }
+.status-badge {
+  padding: 4px 10px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--steel-dark); background: var(--selected); border: 1px solid var(--steel);
+}
+.event__form { padding: 24px; background: #fff; border: 1px solid var(--border); }
+.field select, .field textarea {
+  width: 100%; padding: 11px 12px; font: inherit; color: var(--ink);
+  background: var(--field); border: 1px solid var(--border); border-radius: 0;
+}
+.field select:focus-visible, .field textarea:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+
 @media (max-width: 800px) {
   .auth { grid-template-columns: 1fr; }
   .auth__brand { padding: 28px; gap: 32px; }

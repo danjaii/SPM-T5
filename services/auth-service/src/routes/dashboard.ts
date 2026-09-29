@@ -6,7 +6,8 @@ import { requireSession, type SessionUser } from "../middlewares/session";
 type Row = Record<string, unknown>;
 interface Section {
   title: string;
-  columns: { key: string; label: string }[];
+  /** linkKey: the row field holding a link for this column's value (the web app renders it as a link). */
+  columns: { key: string; label: string; linkKey?: string }[];
   rows: Row[];
 }
 
@@ -74,7 +75,7 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
     }
     case "event_coordinator": {
       const [events, bookings] = await Promise.all([
-        rows(db.from("events").select("name, status, preferred_start_datetime, expected_attendance")
+        rows(db.from("events").select("id, name, status, preferred_start_datetime, expected_attendance")
           .eq("assigned_coordinator_id", userId).order("preferred_start_datetime", { ascending: true }).limit(LIMIT)),
         rows(db.from("venue_bookings").select("status, event_start_datetime, event_end_datetime, event:events(name), venue:venues(name)")
           .eq("requested_by", userId).order("event_start_datetime", { ascending: true }).limit(LIMIT)),
@@ -83,10 +84,11 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
         {
           title: "Events I coordinate",
           columns: [
-            { key: "name", label: "Event" }, { key: "status", label: "Status" },
+            // SCRUM-8 UI: these are the coordinator's assigned events, so they may change each status — link to the page for it
+            { key: "name", label: "Event" }, { key: "status", label: "Status", linkKey: "statusHref" },
             { key: "start", label: "Starts" }, { key: "attendance", label: "Expected attendance" },
           ],
-          rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
+          rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), statusHref: `/events/${e.id}`, start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
         },
         {
           title: "My venue booking requests",

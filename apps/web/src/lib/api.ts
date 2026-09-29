@@ -3,6 +3,10 @@
 export const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? "http://localhost:4001";
 export const SERVER_AUTH_URL = process.env.AUTH_SERVICE_URL ?? AUTH_URL;
 
+// event-service, same idea as auth-service above.
+export const EVENT_URL = process.env.NEXT_PUBLIC_EVENT_SERVICE_URL ?? "http://localhost:4002";
+export const SERVER_EVENT_URL = process.env.EVENT_SERVICE_URL ?? EVENT_URL;
+
 export const SESSION_COOKIE = "cs_session";
 
 export interface ApiResult<T> {

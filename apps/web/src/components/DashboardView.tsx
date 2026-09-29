@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { roleLabel } from "@/lib/roles";
 import { BfcacheGuard } from "./BfcacheGuard";
 import { LogoutButton } from "./LogoutButton";
@@ -7,7 +8,8 @@ export interface DashboardData {
   user: { fullName: string; email: string; role: string };
   sections: {
     title: string;
-    columns: { key: string; label: string }[];
+    /** linkKey: the row field holding a link for this column's value (set by auth-service, e.g. an event's status page). */
+    columns: { key: string; label: string; linkKey?: string }[];
     rows: Record<string, string | number>[];
   }[];
 }
@@ -42,7 +44,12 @@ export function DashboardView({ data }: { data: DashboardData }) {
                   </thead>
                   <tbody>
                     {section.rows.map((row, i) => (
-                      <tr key={i}>{section.columns.map((c) => <td key={c.key}>{row[c.key]}</td>)}</tr>
+                      <tr key={i}>
+                        {section.columns.map((c) => {
+                          const href = c.linkKey ? row[c.linkKey] : undefined;
+                          return <td key={c.key}>{href ? <Link href={String(href)}>{row[c.key]}</Link> : row[c.key]}</td>;
+                        })}
+                      </tr>
                     ))}
                   </tbody>
                 </table>

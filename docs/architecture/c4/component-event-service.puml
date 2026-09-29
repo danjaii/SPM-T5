@@ -2,28 +2,36 @@
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
 title ConnectSphere — Component Diagram: Event Service (C4 Level 3)
-' Template — copy this file per service (component-venue-service.puml, etc.)
-' and update the components to match that service's actual internal structure.
+' Built so far: event status management (SCRUM-6 view as coordinator, SCRUM-7 view as organiser,
+' SCRUM-8 edit status). Components marked "Planned" are not built yet — they come with the
+' event request / review / assignment stories. Copy this file per service as it gets built out.
 
-Container(web, "Web App", "Next.js, React")
-ContainerDb(db, "Supabase Postgres")
-Container(notificationSvc, "Notification Service")
+Container(web, "Web App", "Next.js, React", "Event status page (/events/[id]); status dropdown for the assigned coordinator")
+System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "events, users, event_status_history; change_event_status() function")
+Container(notificationSvc, "Notification Service", "Node.js/TypeScript", "Planned: reacts to status changes")
 
 Container_Boundary(eventSvc, "Event Service") {
-  Component(api, "API Router", "Express/Fastify routes", "HTTP endpoints for event requests")
-  Component(draftMgr, "Draft Manager", "Service class", "Save/resume incomplete event requests")
-  Component(reviewMgr, "Review & Approval Manager", "Service class", "Submission, coordinator review, approve/reject")
-  Component(repo, "Event Repository", "Data access layer", "Supabase client queries, RLS-aware")
-  Component(validator, "Request Validator", "Zod/Joi schemas", "Validates event request payloads")
+  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin; mounts /events")
+  Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
+  Component(eventRoutes, "Event Status Routes", "routes/events.ts", "GET /events/:id — coordinators: any event; organisers: only events they submitted; others 403. PATCH /events/:id/status — assigned coordinator only; validates the status")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "isRole, canReviewEvents, EVENT_STATUSES / isEventStatus — same rules the web app uses")
+  Component(supabaseDeps, "Supabase Client", "supabase.ts", "Publishable key + caller's token, so every query runs as the user (RLS applies)")
+
+  Component(draftMgr, "Draft Manager", "Planned", "Save/resume incomplete event requests")
+  Component(reviewMgr, "Review & Approval Manager", "Planned", "Submission, coordinator review, approve/reject")
 }
 
-Rel(web, api, "Calls", "HTTPS/JSON")
-Rel(api, validator, "Validates input")
-Rel(api, draftMgr, "Delegates draft operations")
-Rel(api, reviewMgr, "Delegates review/approval operations")
-Rel(draftMgr, repo, "Reads/writes drafts")
-Rel(reviewMgr, repo, "Reads/writes submitted requests")
-Rel(repo, db, "SQL", "Postgres wire protocol")
-Rel(reviewMgr, notificationSvc, "Notifies on status change", "HTTPS/JSON")
+Rel(web, app, "Views / changes event status (browser + server-side)", "HTTPS/JSON, session cookie")
+Rel(app, eventRoutes, "Routes /events requests")
+Rel(eventRoutes, session, "Requires a signed-in caller")
+Rel(session, supabaseAuth, "Verifies session token", "HTTPS")
+Rel(eventRoutes, shared, "Checks role and status values")
+Rel(eventRoutes, supabaseDeps, "Queries events and users; calls change_event_status()")
+Rel(supabaseDeps, db, "Reads; status change + history written in one transaction", "PostgREST / RPC")
+
+Rel(app, draftMgr, "Planned")
+Rel(app, reviewMgr, "Planned")
+Rel(reviewMgr, notificationSvc, "Planned: notifies on status change", "HTTPS/JSON")
 
 @enduml
