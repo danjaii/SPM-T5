@@ -30,6 +30,21 @@ describe("Dashboard tables", () => {
     render(<DashboardView data={data} />);
 
     expect(screen.getByText("requested").closest("a")).toBeNull();
-    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(document.querySelectorAll("td a")).toHaveLength(1); // only one link inside the tables
+  });
+
+  // SCRUM-29 AC3 + AC4: coordinators and venue staff reach the venue catalogue from their dashboard; nobody else sees the link
+  it.each([
+    ["event_coordinator", true],
+    ["venue_staff", true],
+    ["event_organiser", false],
+    ["attendee", false],
+    ["technical_support_staff", false],
+  ])("for a %s, shows the 'Venue catalogue' link: %s", (role, shown) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    const link = screen.queryByRole("link", { name: "Venue catalogue" });
+    if (shown) expect(link?.getAttribute("href")).toBe("/venues");
+    else expect(link).toBeNull();
   });
 });
