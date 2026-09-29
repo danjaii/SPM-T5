@@ -28,7 +28,7 @@ async function fromVenueService(path: string): Promise<Response> {
 export async function getVenues(): Promise<{ venues: VenueSummary[] } | { error: string }> {
   const res = await fromVenueService("/venues");
 
-  // SCRUM-29 AC4: not allowed (or another problem) → pass venue-service's message on for the page to show
+  // SCRUM-29 AC4/AC6/AC7: not allowed (or another problem) → pass venue-service's message on for the page to show
   const data = await res.json();
   return res.ok ? { venues: data } : { error: data.error ?? "We couldn't load the venue catalogue." };
 }
@@ -37,7 +37,7 @@ export async function getVenues(): Promise<{ venues: VenueSummary[] } | { error:
 export async function getVenue(id: string): Promise<{ venue: VenueDetails } | { error: string }> {
   const res = await fromVenueService(`/venues/${encodeURIComponent(id)}`);
 
-  // SCRUM-29 AC4 + unknown venue: pass venue-service's message on for the page to show
+  // SCRUM-29 AC4/AC6/AC7 + unknown venue: pass venue-service's message on for the page to show
   const data = await res.json();
   return res.ok ? { venue: data } : { error: data.error ?? "We couldn't load this venue." };
 }

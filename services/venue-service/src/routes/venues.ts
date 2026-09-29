@@ -21,7 +21,7 @@ interface VenueDetailRow {
 export function venueRoutes(deps: SupabaseDeps) {
   const router = Router();
 
-  // SCRUM-29 AC3 + AC4: every venue request must come from a signed-in coordinator or venue staff member
+  // SCRUM-29 AC3 + AC4 + AC6 + AC7: every venue request must come from a signed-in coordinator or venue staff member
   router.use(requireSession(deps), async (_req, res, next) => {
     const { id, token } = res.locals.user as SessionUser;
     const { data: profile } = await deps.forUser(token).from("users").select("role").eq("id", id).maybeSingle();

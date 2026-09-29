@@ -138,7 +138,7 @@ describe("SCRUM-29 — Browse the venue catalogue", () => {
   });
   // end of AC3
 
-  // AC4 (Scenario 4): external users (and anyone else who isn't a coordinator or venue staff) are denied
+  // AC4 + AC6 + AC7 (Scenarios 4, 6, 7): organisers, attendees and technical support staff are denied
   // passing this test case means that an attendee, event org and tech support staff are unable to access the venue catalogue information
   it.each(["event_organiser", "attendee", "technical_support_staff"])("refuses a %s with 403", async (role) => {
     const fake = createFake();
@@ -153,7 +153,7 @@ describe("SCRUM-29 — Browse the venue catalogue", () => {
     expect(detail.status).toBe(403);
     expect(list.body).toEqual({ error: "You are not allowed to view the venue catalogue." });
   });
-  // end of AC4
+  // end of AC4 + AC6 + AC7
 
   // AC5 (Scenario 5), backend half: an empty catalogue is an empty list, not an error
   // (the empty-state message itself is shown by the web page)

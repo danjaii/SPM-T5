@@ -57,13 +57,13 @@ describe("SCRUM-29 — Loading venues", () => {
   });
   // end of not signed in
 
-  // AC4 (Scenario 4): a user whose role isn't allowed gets venue-service's "not allowed" message to show
+  // AC4 + AC6 + AC7 (Scenarios 4, 6, 7): a user whose role isn't allowed gets venue-service's "not allowed" message to show
   it("passes on venue-service's message when the user isn't allowed to see the catalogue", async () => {
     mockServer(403, { error: "You are not allowed to view the venue catalogue." });
 
     await expect(getVenues()).resolves.toEqual({ error: "You are not allowed to view the venue catalogue." });
   });
-  // end of AC4
+  // end of AC4 + AC6 + AC7
 
   // AC2 (Scenario 2): the detail page gets one venue's full details from venue-service, as the signed-in user
   it("asks venue-service for one venue's details as the signed-in user", async () => {
@@ -91,7 +91,7 @@ describe("SCRUM-29 — Loading venues", () => {
   });
   // end of not signed in (detail)
 
-  // AC4 (Scenario 4) on the detail page, plus a venue that doesn't exist: pass venue-service's message on to show
+  // AC4 + AC6 + AC7 (Scenarios 4, 6, 7) on the detail page, plus a venue that doesn't exist: pass venue-service's message on to show
   // when the backend has made the call that the person should not be seeing the details webpage, make sure that our webpage can properly show that the person is not allowed to view the venue catalogue
   it("passes on venue-service's message when a venue's details can't be shown", async () => {
     mockServer(403, { error: "You are not allowed to view the venue catalogue." });
@@ -100,6 +100,6 @@ describe("SCRUM-29 — Loading venues", () => {
     mockServer(404, { error: "Venue not found." });
     await expect(getVenue("no-such-venue")).resolves.toEqual({ error: "Venue not found." });
   });
-  // end of AC4 (detail)
+  // end of AC4 + AC6 + AC7 (detail)
 });
 // end of SCRUM-29

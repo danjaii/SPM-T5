@@ -27,7 +27,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
           <VenueDetail venue={result.venue} />
         ) : (
           // for venue details, if not allowed to see or venue not available, we show nicely to user the error
-          // SCRUM-29 AC4 (e.g. an organiser) or an unknown venue — show why, instead of the details
+          // SCRUM-29 AC4/AC6/AC7 (e.g. an organiser) or an unknown venue — show why, instead of the details
           <div className="alert alert--error" role="alert">{result.error}</div>
         )}
       </main>

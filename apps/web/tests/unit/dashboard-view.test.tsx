@@ -33,7 +33,7 @@ describe("Dashboard tables", () => {
     expect(document.querySelectorAll("td a")).toHaveLength(1); // only one link inside the tables
   });
 
-  // SCRUM-29 AC3 + AC4: coordinators and venue staff reach the venue catalogue from their dashboard; nobody else sees the link
+  // SCRUM-29 AC3 + AC4 + AC6 + AC7: coordinators and venue staff reach the venue catalogue from their dashboard; nobody else sees the link
   it.each([
     ["event_coordinator", true],
     ["venue_staff", true],

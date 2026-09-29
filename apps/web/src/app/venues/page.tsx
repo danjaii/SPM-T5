@@ -27,7 +27,7 @@ export default async function VenuesPage() {
         {"venues" in result ? (
           <VenueList venues={result.venues} />
         ) : (
-          // SCRUM-29 AC4: e.g. an organiser — show why, instead of the catalogue
+          // SCRUM-29 AC4/AC6/AC7: e.g. an organiser — show why, instead of the catalogue
           <div className="alert alert--error" role="alert">{result.error}</div>
         )}
       </main>

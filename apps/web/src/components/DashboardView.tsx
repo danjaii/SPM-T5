@@ -32,7 +32,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
       <main className="dash__main">
         <h1>{roleLabel(user.role)} dashboard</h1>
         <p className="dash__lede">Signed in as {user.email}</p>
-        {/* SCRUM-29 AC3 + AC4: same shared rule venue-service uses — coordinators and venue staff only */}
+        {/* SCRUM-29 AC3 + AC4 + AC6 + AC7: same shared rule venue-service uses — coordinators and venue staff only */}
         {/* if role is event coord or venue staff, we show the link that leads them to see the venue catalogue */}
         {isRole(user.role) && canViewVenueCatalogue(user.role) && (
           <nav className="dash__links">

@@ -25,7 +25,7 @@ describe("SCRUM-29 — Venue catalogue page (/venues)", () => {
   });
   // end of AC1
 
-  // AC4 (Scenario 4): a user who isn't allowed sees the "not allowed" message instead of the catalogue
+  // AC4 + AC6 + AC7 (Scenarios 4, 6, 7): a user who isn't allowed sees the "not allowed" message instead of the catalogue
   // if a user is not allowed to see the venue catalogue list, the backend will output denied. we want to carry this denied information onto the frontend to tell user that he or she is denied
   it("shows the 'not allowed' message instead of the catalogue", async () => {
     getVenues.mockResolvedValue({ error: "You are not allowed to view the venue catalogue." });
@@ -35,6 +35,6 @@ describe("SCRUM-29 — Venue catalogue page (/venues)", () => {
     expect(screen.getByRole("alert").textContent).toBe("You are not allowed to view the venue catalogue.");
     expect(screen.queryByRole("table")).toBeNull();
   });
-  // end of AC4
+  // end of AC4 + AC6 + AC7
 });
 // end of SCRUM-29

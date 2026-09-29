@@ -34,7 +34,7 @@ describe("SCRUM-29 — Venue detail page (/venues/[id])", () => {
   });
   // end of AC2
 
-  // AC4 (Scenario 4), plus a venue that doesn't exist: show the error message (e.g. "not allowed" or "Venue not found") instead of the details
+  // AC4 + AC6 + AC7 (Scenarios 4, 6, 7), plus a venue that doesn't exist: show the error message (e.g. "not allowed" or "Venue not found") instead of the details
   // the similar one for the venue list is in venues-page.test.tsx
   it("shows the 'not allowed' or 'not found' message instead of the details", async () => {
     getVenue.mockResolvedValue({ error: "Venue not found." });
@@ -44,6 +44,6 @@ describe("SCRUM-29 — Venue detail page (/venues/[id])", () => {
     expect(screen.getByRole("alert").textContent).toBe("Venue not found.");
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
   });
-  // end of AC4
+  // end of AC4 + AC6 + AC7
 });
 // end of SCRUM-29
