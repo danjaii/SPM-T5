@@ -108,6 +108,8 @@ export function eventRoutes(deps: SupabaseDeps) {
     // SCRUM-7 AC3: someone else's event looks exactly like one that doesn't exist
     if (!event) return res.status(404).json({ error: "Event not found." });
 
+    // For the UI: whether this viewer may change the status (SCRUM-8 AC4 + AC6), so the page knows to show the dropdown
+    const canChangeStatus = isCoordinator && event.assigned_coordinator_id === userId;
     // SCRUM-42/AC5: look up the assigned coordinator's name as the organiser's point of contact
     let pointOfContactName: string | null = null;
     if (event.assigned_coordinator_id) {
@@ -120,8 +122,8 @@ export function eventRoutes(deps: SupabaseDeps) {
       pointOfContactName = (poc?.full_name as string | null) ?? null;
     }
 
-    res.json({
-      id: event.id,
+    res.json({ id: event.id, name: event.name, status: {
+      id: event.status, canChangeStatus }.id,
       name: event.name,
       status: event.status,
       purpose: (event.purpose as string | null) ?? null,
@@ -425,7 +427,7 @@ export function eventRoutes(deps: SupabaseDeps) {
 
   // SCRUM-8: an event coordinator changes an event's status
   router.patch("/:id/status", requireSession(deps), async (req, res) => {
-    const { token } = res.locals.user as SessionUser;
+    const { id: userId, token } = res.locals.user as SessionUser;
 
     // SCRUM-8 AC4: only event coordinators may change an event's status
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -439,6 +441,18 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(400).json({ error: "Invalid status." });
     }
 
+    // SCRUM-8 AC6: only the coordinator assigned to this event may change its status
+    const { data: target } = await deps
+      .forUser(token)
+      .from("events")
+      .select("assigned_coordinator_id")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (!target) return res.status(404).json({ error: "Event not found." });
+    if (target.assigned_coordinator_id !== userId) {
+      return res.status(403).json({ error: "Only the coordinator assigned to this event can change its status." });
+    }
+
     // SCRUM-8 AC1 + AC5: change the status and record it in event_status_history together, all-or-nothing
     // (see supabase/migrations/04_change_event_status.sql). The reason is optional.
     const { data: event } = await deps
@@ -449,7 +463,6 @@ export function eventRoutes(deps: SupabaseDeps) {
         p_reason: typeof req.body.reason === "string" ? req.body.reason : null,
       })
       .maybeSingle();
-    if (!event) return res.status(404).json({ error: "Event not found." });
 
     // SCRUM-8 AC2: confirm the change by sending back the updated event
     res.json(event);

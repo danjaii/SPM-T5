@@ -1,4 +1,5 @@
 import request from "supertest";
+import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import type { SupabaseDeps } from "../../src/supabase";
@@ -11,6 +12,9 @@ const WEB = "http://localhost:3000";
 afterEach(() => {
   delete process.env.WEB_ORIGIN;
 });
+    expect(res.headers["access-control-allow-credentials"]).toBe("true");
+    expect(res.headers["access-control-allow-methods"]).toContain("PATCH");
+  });
 
 describe("SCRUM-22: event-service CORS", () => {
   it("answers a preflight from the web origin without needing a session", async () => {
@@ -18,6 +22,19 @@ describe("SCRUM-22: event-service CORS", () => {
       .options("/events")
       .set("Origin", WEB)
       .set("Access-Control-Request-Method", "GET");
+
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe(WEB);
+    expect(res.headers["access-control-allow-credentials"]).toBe("true");
+    expect(res.headers["access-control-allow-methods"]).toContain("GET");
+  });
+
+  it("allows the web app to send PATCH requests with the login cookie", async () => {
+    const res = await request(app)
+      .options("/events/some-id/status")
+      .set("Origin", WEB)
+      .set("Access-Control-Request-Method", "PATCH");
+
     expect(res.status).toBe(204);
     expect(res.headers["access-control-allow-origin"]).toBe(WEB);
     expect(res.headers["access-control-allow-credentials"]).toBe("true");
@@ -33,16 +50,28 @@ describe("SCRUM-22: event-service CORS", () => {
   });
 
   it("does not allow any other origin, and never uses a wildcard", async () => {
-    const res = await request(app).options("/events").set("Origin", "http://evil.example");
+    const res = await request(app)
+      .options("/events")
+      .set("Origin", "http://evil.example");
+
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
     expect(res.headers["access-control-allow-credentials"]).toBeUndefined();
   });
 
   it("takes the allowed origin from WEB_ORIGIN", async () => {
     process.env.WEB_ORIGIN = "https://app.example.com";
-    const res = await request(app).options("/events").set("Origin", "https://app.example.com");
+    const res = await request(app)
+      .options("/events")
+      .set("Origin", "https://app.example.com");
+
     expect(res.headers["access-control-allow-origin"]).toBe("https://app.example.com");
-    const old = await request(app).options("/events").set("Origin", WEB);
+
+    const old = await request(app)
+      .options("/events")
+      .set("Origin", WEB);
+
     expect(old.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+});
   });
 });

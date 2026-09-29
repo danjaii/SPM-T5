@@ -1,0 +1,34 @@
+@startuml component-venue-service
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title ConnectSphere — Component Diagram: Venue Service (C4 Level 3)
+' Built so far: the read-only venue catalogue (SCRUM-29). Components marked "Planned" come with the
+' venue availability, search, booking and suitability stories (features #9–14).
+
+Container(web, "Web App", "Next.js, React", "Venue catalogue (/venues) and venue detail (/venues/[id]) pages; link on coordinator + venue staff dashboards")
+System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "venues, room_layouts, venue_supported_layouts, facilities, venue_facilities, users")
+
+Container_Boundary(venueSvc, "Venue Service") {
+  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; mounts /venues")
+  Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
+  Component(catalogue, "Venue Catalogue Routes", "routes/venues.ts", "Entrance check: coordinators + venue staff only, others 403. GET /venues — name, location, max capacity. GET /venues/:id — all characteristics, layouts (with capacity) and facilities flattened")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "isRole, canViewVenueCatalogue — the same rule the web app uses for the dashboard link")
+  Component(supabaseDeps, "Supabase Client", "supabase.ts", "Publishable key + caller's token, so every query runs as the user (RLS applies)")
+
+  Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks")
+  Component(booking, "Booking Requests", "Planned", "Coordinator requests; venue staff approve/reject; conflict detection")
+}
+
+Rel(web, app, "Loads the catalogue and venue details (server-side)", "HTTPS/JSON, session cookie")
+Rel(app, catalogue, "Routes /venues requests")
+Rel(catalogue, session, "Requires a signed-in caller")
+Rel(session, supabaseAuth, "Verifies session token", "HTTPS")
+Rel(catalogue, shared, "Checks the caller's role")
+Rel(catalogue, supabaseDeps, "Reads venues with their layouts and facilities")
+Rel(supabaseDeps, db, "Reads (one nested query per venue detail)", "PostgREST")
+
+Rel(app, availability, "Planned")
+Rel(app, booking, "Planned")
+
+@enduml

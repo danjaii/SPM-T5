@@ -355,6 +355,24 @@ describe("US3 — Role based access", () => {
     ]);
   });
 
+  // SCRUM-8 UI: a coordinator reaches the edit-status page by clicking an event's status; other roles get plain text
+  it("links each status in 'Events I coordinate' to that event's status page, and nowhere else", async () => {
+    const coordinator = fake.seedUser("coord@example.com", "event_coordinator");
+    fake.tables.events.push({ id: "evt-1", name: "Tech Summit", status: "under_review", assigned_coordinator_id: coordinator });
+    const cookie = await signInAs("coord@example.com", "event_coordinator");
+    const res = await request(app).get("/dashboard").set("Cookie", cookie);
+
+    const [myEvents, myBookings] = res.body.sections;
+    expect(myEvents.columns).toContainEqual({ key: "status", label: "Status", linkKey: "statusHref" });
+    expect(myEvents.rows).toEqual([expect.objectContaining({ status: "under review", statusHref: "/events/evt-1" })]);
+    expect(myBookings.columns.some((c: Row) => c.linkKey)).toBe(false);
+
+    const organiser = fake.seedUser("org@example.com", "event_organiser");
+    fake.tables.events.push({ id: "evt-2", name: "My conference", organiser_id: organiser, status: "submitted" });
+    const orgRes = await request(app).get("/dashboard").set("Cookie", await signInAs("org@example.com", "event_organiser"));
+    expect(orgRes.body.sections[0].columns.some((c: Row) => c.linkKey)).toBe(false);
+  });
+
   it("shows an attendee their registrations and only confirmed, bookable events in the catalogue", async () => {
     const me = fake.seedUser("att@example.com", "attendee");
     fake.tables.event_registrations.push({ attendee_id: me, status: "registered", event: { name: "Tech Summit" } });
