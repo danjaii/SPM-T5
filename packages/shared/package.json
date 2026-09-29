@@ -9,7 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0"
+    "@supabase/supabase-js": "^2.45.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "eslint": "^9.10.0",
