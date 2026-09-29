@@ -122,10 +122,11 @@ export function eventRoutes(deps: SupabaseDeps) {
       pointOfContactName = (poc?.full_name as string | null) ?? null;
     }
 
-    res.json({ id: event.id, name: event.name, status: {
-      id: event.status, canChangeStatus }.id,
+    res.json({
+      id: event.id,
       name: event.name,
       status: event.status,
+      canChangeStatus,
       purpose: (event.purpose as string | null) ?? null,
       preferred_start_datetime: (event.preferred_start_datetime as string | null) ?? null,
       preferred_end_datetime: (event.preferred_end_datetime as string | null) ?? null,
