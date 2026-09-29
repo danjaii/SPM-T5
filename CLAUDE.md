@@ -12,6 +12,9 @@ workspaces monorepo (`apps/*`, `services/*`, `packages/*`).
 Read before making structural changes:
 - Repo layout and rationale: [README.md](README.md)
 - Why microservices + shared DB: [ADR 0001](docs/architecture/adr/0001-microservice-architecture.md)
+- Feature specs (user stories, acceptance criteria, shared rules): [docs/specs/](docs/specs/). Test
+  names reference the spec's scenario IDs (e.g. `36-S4`); where a spec disagrees with the schema,
+  its "Implementation decisions" section wins.
 
 ## Course context
 
