@@ -431,6 +431,12 @@ importers:
         specifier: ^3.23.0
         version: 3.25.76
     devDependencies:
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
+      '@types/supertest':
+        specifier: ^7.2.1
+        version: 7.2.1
       '@vitest/coverage-v8':
         specifier: ^4.1.11
         version: 4.1.11(vitest@4.1.11)
@@ -440,6 +446,9 @@ importers:
       eslint:
         specifier: ^9.10.0
         version: 9.39.5(supports-color@7.2.0)
+      supertest:
+        specifier: ^7.3.0
+        version: 7.3.0(supports-color@7.2.0)
       tsx:
         specifier: ^4.19.0
         version: 4.23.15
