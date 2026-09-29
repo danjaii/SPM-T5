@@ -36,6 +36,7 @@ SPM-T5/
 │   ├── architecture/
 │   │   ├── c4/                 # C4 model (PlantUML) — context, container, component diagrams
 │   │   └── adr/                # Architecture Decision Records
+│   ├── specs/                  # One spec per Jira story (Given/When/Then ACs), written before tests — see _template.md
 │   └── sprints/                # Sprint planning/retro notes
 ├── CLAUDE.md                   # Instructions for AI coding agents (the file to edit)
 ├── AGENTS.md -> CLAUDE.md      # Symlink so Codex and other agents read the same file

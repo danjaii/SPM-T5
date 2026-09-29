@@ -136,7 +136,8 @@ venue 4003, equipment 4004, notification 4005).
   numbered file; never edit one that's already been applied. Schema changes can affect multiple
   services — flag them in the PR.
 - **Tests live in `tests/unit` and `tests/integration` per workspace**, not colocated with source.
-  The CI template runs the two separately, and only `test:unit` gets `--coverage`.
+  The CI template runs the two separately. Coverage is configured once in the root
+  `vitest.config.mts` (no per-workspace `--coverage` flag) and applies to `pnpm vitest run`.
 - **Export the Express app separately from `listen()`** so integration tests can mount it without
   binding a port.
 - **`src/app/` in `apps/web` is routes only** — every folder is a URL segment. Components go in
@@ -148,11 +149,45 @@ venue 4003, equipment 4004, notification 4005).
   rather than a C4 code diagram.
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
-  on unit tests (only `test:unit` gets `--coverage`, per Commands above).
+  on unit tests. Coverage must never drop below the floor in `vitest.config.mts`; raise the floor
+  when coverage rises, never lower it.
 - **A stubbed service gains internal structure as it's built out**, not before: once a
   `services/*/src/index.ts` grows past the `healthCheck()` stub, split it into `routes/`,
   `controllers/` (or `services/` for business logic), and `middlewares/` rather than one growing
   file — but keep the `tests/unit` + `tests/integration` split from the bullet above regardless.
+
+## Development workflow (spec → red → green → refactor)
+
+Every behaviour change follows this loop, for every agent and teammate. Before writing code, read
+`.agents/skills/test-driven-development/SKILL.md` and its `writing-good-tests.md` — they hold the
+full rules (the Iron Law: no production code without a failing test first). Where the skill's
+examples say `npm test`, use the pnpm commands in Commands above.
+
+1. **Spec first.** Open or create `docs/specs/SCRUM-<story>-<slug>.md` from
+   `docs/specs/_template.md`. Write each acceptance criterion as Given/When/Then scenarios, taking
+   the ACs from Jira or from context I've given you. If you don't know them, ask — never invent
+   ACs (same rule as ticket references in Git conventions).
+2. **Red.** Pick one scenario and write one failing test in `tests/unit` (or `tests/integration`),
+   with `describe('SCRUM-<story>/AC<n> …')`. Run only that file
+   (`pnpm --filter <workspace> run test:unit tests/unit/<file>`) and confirm it fails on the
+   assertion, for the expected reason — not on a typo or import error. Show me the failing output.
+3. **Green.** Write the minimum code that passes, then re-run that file and the workspace's tests.
+4. **Refactor.** Clean up only while green; re-run after each change. No new behaviour here.
+5. **Repeat** for the next scenario. Keep the spec's AC → test table current as tests land.
+6. **Before committing**, run `pnpm vitest run` plus typecheck and lint for the touched
+   workspaces. Commit only green states (the red step happens locally), ideally one AC per commit.
+   Commit the spec with the story's first commit.
+
+Rules that go with the loop:
+- **Bug fixes** start with a failing test that reproduces the bug.
+- **Test doubles:** inject dependencies and fake them at the boundary, like the in-memory Supabase
+  fake passed to `createApp(deps)` in `services/event-service/tests/unit/event-status.test.ts`.
+  Don't mock our own modules or assert on mock behaviour.
+- **Exceptions — ask first:** config, generated code, pure styling, docs, and migrations with no
+  testable behaviour. Never skip a test silently.
+- **If a test passes immediately**, it isn't proving anything — fix the test before writing code.
+- **A hook** (`.claude/hooks/tdd-reminder.mjs`) reminds Claude Code when it edits `src/` files.
+  It is a reminder only; the rules above apply to every agent whether or not the hook runs.
 
 ## Git conventions
 
