@@ -154,6 +154,56 @@ venue 4003, equipment 4004, notification 4005).
   `controllers/` (or `services/` for business logic), and `middlewares/` rather than one growing
   file — but keep the `tests/unit` + `tests/integration` split from the bullet above regardless.
 
+## Git conventions
+
+Apply these automatically whenever you create a branch, write a commit, or draft/open a PR. Don't
+wait to be reminded. They exist so every change on `main` traces back to a Jira story and
+acceptance criterion — part of what the Scrum project is graded on.
+
+### Ticket references
+- Jira project key is `SCRUM`. Write references exactly as `SCRUM-<story>/AC<n>` (e.g.
+  `SCRUM-14/AC2`) — uppercase, hyphen, no spaces. Jira's GitHub integration only links that form;
+  `SCRUM - 8` or `Scrum 6` (seen in older history) don't link.
+- Jira story numbers are **not** the feature numbers 1–20 in Feature scope above. Never derive a
+  ticket from that list.
+- Take the story from the current branch name and the AC from the change itself or from context
+  I've given you. If you can't determine either, ask. Never guess or invent a ticket or AC.
+- Several ACs of one story: `SCRUM-14/AC2,AC3`. A change spanning stories should usually be split;
+  if it genuinely can't be, list each: `SCRUM-6/AC1, SCRUM-7/AC2`.
+- Non-story work (CI, tooling, docs, dependency bumps, refactors with no behaviour change) uses a
+  type prefix instead: `chore`, `ci`, `docs`, `refactor`, `test`. If the work changes user-visible
+  behaviour, it's story work — ask for the ticket.
+
+### Branches
+- Story work: `SCRUM-<story>/<short-kebab-description>`, e.g. `SCRUM-14/venue-search-filters`.
+- Non-story work: `<type>/<short-kebab-description>`, e.g. `ci/cache-pnpm-store`.
+- Always branch off an up-to-date `main` (`git fetch && git switch -c <branch> origin/main`) unless
+  I say otherwise. One story per branch; keep branches short-lived and delete after merge — no
+  long-lived per-feature branches like `user-auth`.
+- Never commit or push directly to `main`, and never force-push a branch someone else has pushed to.
+
+### Commit messages
+- Title: `SCRUM-<story>/AC<n> - <Imperative summary>` or `<type> - <Imperative summary>`.
+  - Imperative mood ("Add", "Fix", "Refactor", "Remove"), ≤ ~72 characters, no trailing period.
+  - e.g. `SCRUM-14/AC2 - Add capacity filter to venue search endpoint`
+  - e.g. `ci - Cache pnpm store between workflow runs`
+- Body (optional, after a blank line): short bullets on what changed and why.
+- One logical change per commit. If staged changes cover unrelated things, suggest splitting first.
+- Flag in the body when a commit adds a migration under `supabase/migrations/` or touches
+  `packages/shared` — both affect multiple services.
+
+### Tests
+- Put the story/AC in the test description so coverage is traceable, e.g.
+  `describe('SCRUM-14/AC2 venue capacity filter', ...)` (see Keep tests traceable above).
+
+### Pull requests
+- Target `main`. PRs are **squash-merged**, so the PR title becomes the single commit on `main` —
+  it must follow the commit-title format and summarise the whole PR.
+- Before opening, run `pnpm vitest run` (what CI runs) plus typecheck/lint for the workspaces you
+  touched, and report any failures in the PR rather than hiding them.
+- Open with `gh pr create --base main`. The body follows `.github/pull_request_template.md` — fill
+  every section for this specific PR; don't leave placeholder text.
+
 ## Current state
 
 The repo is scaffolding — most `services/*/src/index.ts` files export a `healthCheck()` stub and
