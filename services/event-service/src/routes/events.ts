@@ -9,6 +9,33 @@ async function lookUpRole(deps: SupabaseDeps, { id, token }: SessionUser): Promi
   return isRole(profile?.role) ? profile.role : undefined;
 }
 
+/** The event fields GET /events/:id selects. Typed by hand because the project has no generated database types. */
+interface EventDetailRow {
+  id: string;
+  name: string;
+  status: string;
+  purpose: string | null;
+  preferred_start_datetime: string | null;
+  preferred_end_datetime: string | null;
+  expected_attendance: number | null;
+  preferred_room_layout: unknown;
+  accessibility_requirements: string | null;
+  equipment_requirements_notes: string | null;
+  submitted_at: string | null;
+  assigned_coordinator_id: string | null;
+  organiser: unknown;
+}
+
+/**
+ * The full_name of an embedded user row (e.g. organiser:organiser_id(full_name)). Without generated
+ * types Supabase describes an embed as an array; at runtime it is a single object, so accept both.
+ */
+function embeddedName(value: unknown): string | null {
+  const row = Array.isArray(value) ? value[0] : value;
+  const name = (row as { full_name?: unknown } | null | undefined)?.full_name;
+  return typeof name === "string" ? name : null;
+}
+
 export function eventRoutes(deps: SupabaseDeps) {
   const router = Router();
 
@@ -44,9 +71,7 @@ export function eventRoutes(deps: SupabaseDeps) {
         if (toDate && e.submitted_at && new Date(e.submitted_at as string) > toDate) return false;
         if (!search) return true;
         const nameMatch = typeof e.name === "string" && e.name.toLowerCase().includes(search);
-        const organiserMatch =
-          typeof (e.organiser as { full_name: string } | null)?.full_name === "string" &&
-          (e.organiser as { full_name: string }).full_name.toLowerCase().includes(search);
+        const organiserMatch = embeddedName(e.organiser)?.toLowerCase().includes(search) ?? false;
         return nameMatch || organiserMatch;
       })
       .map((e) => ({
@@ -54,7 +79,7 @@ export function eventRoutes(deps: SupabaseDeps) {
         name: e.name,
         status: e.status,
         submitted_at: e.submitted_at,
-        organiser_name: (e.organiser as { full_name: string } | null)?.full_name ?? null,
+        organiser_name: embeddedName(e.organiser),
       }));
     return res.json(response);
   });
@@ -103,7 +128,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     // SCRUM-7 AC3: an organiser only sees events they submitted
     if (isOrganiser) query = query.eq("organiser_id", userId);
 
-    const { data: event } = await query.maybeSingle();
+    const { data: event } = await query.maybeSingle<EventDetailRow>();
 
     // SCRUM-7 AC3: someone else's event looks exactly like one that doesn't exist
     if (!event) return res.status(404).json({ error: "Event not found." });
@@ -135,7 +160,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       accessibility_requirements: (event.accessibility_requirements as string | null) ?? null,
       equipment_requirements_notes: (event.equipment_requirements_notes as string | null) ?? null,
       submitted_at: (event.submitted_at as string | null) ?? null,
-      organiser_name: (event.organiser as { full_name: string } | null)?.full_name ?? null,
+      organiser_name: embeddedName(event.organiser),
       point_of_contact_name: pointOfContactName,
     });
   });
@@ -193,7 +218,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (!storagePath) {
       return res.status(400).json({ error: "storage_path is required." });
     }
-    const { data } = await (deps.forUser(token) as any).storage
+    const { data } = await deps.forUser(token).storage
       .from("event-attachments")
       .createSignedUrl(storagePath, 3600);
     if (!data?.signedUrl) {
@@ -219,7 +244,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       .order("created_at", { ascending: true });
 
     const commentIds = (comments ?? []).map((c) => c.id as string);
-    let mentionsByComment = new Map<string, Array<{ user_id: string; full_name: string | null }>>();
+    const mentionsByComment = new Map<string, Array<{ user_id: string; full_name: string | null }>>();
     if (commentIds.length > 0) {
       const { data: mentionRows } = await deps
         .forUser(token)
@@ -246,7 +271,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       }
     }
 
-    let attachmentsByComment = new Map<string, Array<{ file_name: string; storage_path: string }>>();
+    const attachmentsByComment = new Map<string, Array<{ file_name: string; storage_path: string }>>();
     if (commentIds.length > 0) {
       const { data: attachmentRows } = await deps
         .forUser(token)
@@ -271,7 +296,7 @@ export function eventRoutes(deps: SupabaseDeps) {
         body: c.body,
         created_at: c.created_at,
         parent_comment_id: (c.parent_comment_id as string | null) ?? null,
-        author_name: (c.author as { full_name: string } | null)?.full_name ?? null,
+        author_name: embeddedName(c.author),
         mentions: mentionsByComment.get(c.id as string) ?? [],
         attachments: attachmentsByComment.get(c.id as string) ?? [],
       })),
