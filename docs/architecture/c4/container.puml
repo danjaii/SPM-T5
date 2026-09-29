@@ -10,7 +10,7 @@ System_Boundary(connectsphere, "ConnectSphere") {
 
   Container(authSvc, "Auth Service", "Node.js/TypeScript", "Wraps Supabase Auth; issues role/permission checks")
   Container(eventSvc, "Event Service", "Node.js/TypeScript", "Event request creation, drafts, review, approval workflow, coordinator assignment")
-  Container(venueSvc, "Venue Service", "Node.js/TypeScript", "Venue availability, booking, capacity checks")
+  Container(venueSvc, "Venue Service", "Node.js/TypeScript", "Venue availability, booking requests, double-hold prevention, capacity checks")
   Container(equipmentSvc, "Equipment Service", "Node.js/TypeScript", "Equipment catalogue, availability checks, reservations")
   Container(notificationSvc, "Notification Service", "Node.js/TypeScript", "Sends email/SMS on status changes")
 
@@ -24,7 +24,7 @@ Rel(user, web, "Uses", "HTTPS")
 
 Rel(web, authSvc, "Verifies session/role", "HTTPS/JSON")
 Rel(web, eventSvc, "Create/read/update event requests; assign/reassign coordinators", "HTTPS/JSON")
-Rel(web, venueSvc, "Check/book venues", "HTTPS/JSON")
+Rel(web, venueSvc, "Check venues; submit, track, withdraw and amend venue booking requests", "HTTPS/JSON")
 Rel(web, equipmentSvc, "Check/reserve equipment", "HTTPS/JSON")
 
 Rel(authSvc, supabaseAuth, "Authenticates users", "HTTPS")
