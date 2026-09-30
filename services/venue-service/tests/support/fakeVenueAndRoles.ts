@@ -9,6 +9,10 @@ export class FakeVenueReader implements VenueReader {
     return this.venues.find((v) => v.id === venueId) ?? null;
   }
 
+  async getByIds(venueIds: string[]) {
+    return this.venues.filter((v) => venueIds.includes(v.id));
+  }
+
   async listActive() {
     return this.venues.filter((v) => v.isActive);
   }

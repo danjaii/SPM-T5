@@ -11,6 +11,8 @@ export interface VenueInfo {
 export interface VenueReader {
   /** Null when the venue does not exist. */
   getById(venueId: string): Promise<VenueInfo | null>;
+  /** The venues with these ids (missing ones are simply absent), for showing names on lists. */
+  getByIds(venueIds: string[]): Promise<VenueInfo[]>;
   /** Active venues for the form's picker, by name. */
   listActive(): Promise<VenueInfo[]>;
 }
@@ -33,6 +35,13 @@ export class SupabaseVenueReader implements VenueReader {
     const { data, error } = await this.db.from("venues").select(COLUMNS).eq("id", venueId).maybeSingle();
     if (error) throw new Error(`Reading venue failed: ${error.message}`, { cause: error });
     return data ? toVenue(data as unknown as Row) : null;
+  }
+
+  async getByIds(venueIds: string[]): Promise<VenueInfo[]> {
+    if (venueIds.length === 0) return [];
+    const { data, error } = await this.db.from("venues").select(COLUMNS).in("id", venueIds);
+    if (error) throw new Error(`Reading venues failed: ${error.message}`, { cause: error });
+    return (data as unknown as Row[]).map(toVenue);
   }
 
   async listActive(): Promise<VenueInfo[]> {

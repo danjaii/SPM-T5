@@ -88,6 +88,23 @@ export class SupabaseBookingRepository implements BookingRepository {
     return data.length > 0;
   }
 
+  async getById(id: string): Promise<BookingRecord | null> {
+    const { data, error } = await this.db.from("venue_bookings").select(BOOKING_COLUMNS).eq("id", id).maybeSingle();
+    if (error) throw new Error("Could not read the venue booking request.");
+    return data ? toBookingRecord(data as unknown as Row) : null;
+  }
+
+  async listByEvents(eventIds: string[]): Promise<BookingRecord[]> {
+    if (eventIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from("venue_bookings")
+      .select(BOOKING_COLUMNS)
+      .in("event_id", eventIds)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error("Could not read your venue booking requests.");
+    return (data as unknown as Row[]).map(toBookingRecord);
+  }
+
   async listByEvent(eventId: string): Promise<BookingRecord[]> {
     const { data, error } = await this.db
       .from("venue_bookings")

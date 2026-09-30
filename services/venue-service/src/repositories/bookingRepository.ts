@@ -9,6 +9,12 @@ export interface BookingRepository {
   /** True if a PENDING/APPROVED request already holds this venue over any part of the period. */
   hasHold(venueId: string, start: Date, end: Date): Promise<boolean>;
 
+  /** One request by id, or null (SCRUM-33 detail). */
+  getById(id: string): Promise<BookingRecord | null>;
+
+  /** Requests for any of these events, most recently submitted first (SCRUM-33 list). */
+  listByEvents(eventIds: string[]): Promise<BookingRecord[]>;
+
   /** Every request ever made for the event, oldest first (DR6 active check, DR7 repeat guard). */
   listByEvent(eventId: string): Promise<BookingRecord[]>;
 

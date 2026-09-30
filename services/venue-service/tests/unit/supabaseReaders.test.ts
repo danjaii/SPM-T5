@@ -11,7 +11,7 @@ type Reply = { data: unknown; error: { message: string } | null };
 /** Every chained query method returns the chain; awaiting it or calling maybeSingle() gives the reply. */
 function stubDb(reply: Reply) {
   const chain: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "order"]) chain[m] = () => chain;
+  for (const m of ["select", "eq", "in", "order"]) chain[m] = () => chain;
   chain.maybeSingle = async () => reply;
   chain.then = (resolve: (r: Reply) => unknown) => resolve(reply);
   return { from: () => chain } as unknown as SupabaseClient;
@@ -58,6 +58,42 @@ describe("SupabaseBookingRepository.listByEvent", () => {
     expect(rows).toMatchObject([{ id: "b1", eventId: "e1", status: "rejected" }]);
     const failing = new SupabaseBookingRepository(stubDb({ data: null, error: { message: "secret" } }));
     await expect(failing.listByEvent("e1")).rejects.toThrow("Could not read the event's venue booking requests.");
+  });
+});
+
+describe("SupabaseBookingRepository getById and listByEvents (SCRUM-33)", () => {
+  const row = {
+    id: "b1",
+    event_id: "e1",
+    venue_id: "v1",
+    event_start_datetime: "2030-11-14T01:00:00.000Z",
+    event_end_datetime: "2030-11-14T09:00:00.000Z",
+    status: "requested",
+    created_at: "2030-01-01T00:00:00.000Z",
+  };
+
+  it("getById maps a row, returns null when missing and fails generically", async () => {
+    expect(await new SupabaseBookingRepository(stubDb({ data: row, error: null })).getById("b1")).toMatchObject({ id: "b1" });
+    expect(await new SupabaseBookingRepository(stubDb({ data: null, error: null })).getById("x")).toBeNull();
+    await expect(new SupabaseBookingRepository(stubDb({ data: null, error: { message: "s" } })).getById("x")).rejects.toThrow(
+      "Could not read the venue booking request.",
+    );
+  });
+
+  it("listByEvents skips the query for no events, maps rows and fails generically", async () => {
+    const failing = new SupabaseBookingRepository(stubDb({ data: null, error: { message: "s" } }));
+    expect(await failing.listByEvents([])).toEqual([]);
+    expect(await new SupabaseBookingRepository(stubDb({ data: [row], error: null })).listByEvents(["e1"])).toHaveLength(1);
+    await expect(failing.listByEvents(["e1"])).rejects.toThrow("Could not read your venue booking requests.");
+  });
+});
+
+describe("SupabaseVenueReader.getByIds", () => {
+  it("returns nothing for no ids, maps rows and throws on errors", async () => {
+    const failing = new SupabaseVenueReader(stubDb({ data: null, error: { message: "down" } }));
+    expect(await failing.getByIds([])).toEqual([]);
+    expect(await new SupabaseVenueReader(stubDb({ data: [VENUE], error: null })).getByIds(["v1"])).toHaveLength(1);
+    await expect(failing.getByIds(["v1"])).rejects.toThrow(/Reading venues failed/);
   });
 });
 

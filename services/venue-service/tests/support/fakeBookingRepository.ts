@@ -43,6 +43,16 @@ export class FakeBookingRepository implements BookingRepository {
     );
   }
 
+  async getById(id: string): Promise<BookingRecord | null> {
+    return this.rows.find((r) => r.id === id) ?? null;
+  }
+
+  async listByEvents(eventIds: string[]): Promise<BookingRecord[]> {
+    return this.rows
+      .filter((r) => eventIds.includes(r.eventId))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
   async listByEvent(eventId: string): Promise<BookingRecord[]> {
     return this.rows.filter((r) => r.eventId === eventId);
   }
