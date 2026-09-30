@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
 import { VenueBookingAmendForm } from "@/components/VenueBookingAmendForm";
-import { getVenueBooking, getVenueBookingForm } from "@/lib/venueBookings";
+import { getVenueBooking, getVenueBookingForm } from "@/lib/venueBookingsServer";
 
 export const dynamic = "force-dynamic";
 

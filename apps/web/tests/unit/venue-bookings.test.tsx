@@ -12,7 +12,8 @@ vi.mock("next/navigation", () => ({ redirect }));
 
 import { VenueBookingDetail } from "@/components/VenueBookingDetail";
 import { VenueBookingList } from "@/components/VenueBookingList";
-import { getVenueBooking, getVenueBookingForm, getVenueBookings, type VenueBookingDetailView } from "@/lib/venueBookings";
+import { getVenueBooking, getVenueBookingForm, getVenueBookings } from "@/lib/venueBookingsServer";
+import type { VenueBookingDetailView } from "@/lib/venueBookings";
 
 const item = (over = {}) => ({
   id: "b-1", eventId: "evt-1", eventName: "Tech Summit", venueId: "ven-1", venueName: "Grand Hall",

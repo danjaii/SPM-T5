@@ -4,7 +4,7 @@ import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
 import { VenueBookingActions } from "@/components/VenueBookingActions";
 import { VenueBookingDetail } from "@/components/VenueBookingDetail";
-import { getVenueBooking } from "@/lib/venueBookings";
+import { getVenueBooking } from "@/lib/venueBookingsServer";
 
 export const dynamic = "force-dynamic";
 
