@@ -2,30 +2,39 @@
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
 title ConnectSphere â€” Component Diagram: Venue Service (C4 Level 3)
-' Built so far: the double-hold rule for venue booking requests (SCRUM-36) and its foundations
-' (app, session, error handling, Postgres repository). Components marked "Planned" arrive with the
-' rest of the venue booking stories (docs/specs/venue-booking-request.md): SCRUM-32 submit,
-' SCRUM-33 track, SCRUM-35 withdraw, SCRUM-60 amend, SCRUM-59 accept a suggestion.
+' Built so far: the read-only venue catalogue (SCRUM-29), the double-hold rule for venue booking
+' requests (SCRUM-36) and its foundations (app, session, error handling, Postgres repository).
+' Components marked "Planned" arrive with the rest of the venue booking stories
+' (docs/specs/venue-booking-request.md): SCRUM-32 submit, SCRUM-33 track, SCRUM-35 withdraw,
+' SCRUM-60 amend, SCRUM-59 accept a suggestion; and with availability/search/suitability (#9-11).
 
-Container(web, "Web App", "Next.js, React", "Planned: venue booking request form, my-bookings list")
+Container(web, "Web App", "Next.js, React", "Venue catalogue (/venues) and venue detail (/venues/[id]) pages; link on coordinator + venue staff dashboards. Planned: venue booking request form, my-bookings list")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
-ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "venue_bookings (overlap exclusion constraint, one active request per event, one suggestion acceptance), venues, events")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "venues, room_layouts, venue_supported_layouts, facilities, venue_facilities, users; venue_bookings (overlap exclusion constraint, one active request per event, one suggestion acceptance), events")
 
 Container_Boundary(venueSvc, "Venue Service") {
-  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin (GET, POST); mounts routes; error handler")
+  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin (GET, POST); mounts /venues; error handler")
   Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
+  Component(catalogue, "Venue Catalogue Routes", "routes/venues.ts", "Entrance check: coordinators + venue staff only, others 403. GET /venues — name, location, max capacity. GET /venues/:id — all characteristics, layouts (with capacity) and facilities flattened")
   Component(errors, "Error Handler", "middlewares/errors.ts, domain/errors.ts", "BookingError -> 409/403/404/422 with only a code and message; anything unexpected -> generic 500, so a refusal never exposes another event")
   Component(slotRule, "Slot Conflict Rule", "services/slotConflictRule.ts", "SCRUM-36: friendly pre-check that a venue period is not held by a Pending/Approved request")
   Component(repo, "Booking Repository", "repositories/supabaseBookingRepository.ts", "Inserts requests; turns constraint violations into SLOT_CONFLICT / ACTIVE_REQUEST_EXISTS / SUGGESTION_ALREADY_USED; retries a deadlock victim")
-  Component(shared, "Shared Rules", "@spm-t5/shared", "Period overlap, Singapore time, status mapping, error codes, input validation â€” same rules the web app uses")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "isRole, canViewVenueCatalogue, period overlap, Singapore time, status mapping, error codes, input validation — same rules the web app uses")
+  Component(supabaseDeps, "Supabase Client", "supabase.ts", "Publishable key + caller's token, so every query runs as the user (RLS applies)")
 
+  Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks")
   Component(bookingSvc, "Booking Service", "Planned", "Submit, withdraw, amend and accept-suggestion through one path (SCRUM-32/35/60/59)")
   Component(eventReader, "Event Reader", "Planned", "Reads event name, status, assigned coordinator, attendance and requirements (DR16)")
   Component(bookingRoutes, "Booking Routes", "Planned", "POST /venue-bookings, GET /venue-bookings (SCRUM-33), withdraw / amend / accept-suggestion")
 }
 
-Rel(app, session, "Requires a signed-in caller")
+Rel(web, app, "Loads the catalogue and venue details (server-side)", "HTTPS/JSON, session cookie")
+Rel(app, catalogue, "Routes /venues requests")
+Rel(catalogue, session, "Requires a signed-in caller")
 Rel(session, supabaseAuth, "Verifies session token", "HTTPS")
+Rel(catalogue, shared, "Checks the caller's role")
+Rel(catalogue, supabaseDeps, "Reads venues with their layouts and facilities")
+Rel(supabaseDeps, db, "Reads (one nested query per venue detail)", "PostgREST")
 Rel(app, errors, "Renders failures")
 Rel(slotRule, repo, "Asks whether the period is held")
 Rel(repo, shared, "Status values, holding statuses")
@@ -33,10 +42,12 @@ Rel(repo, db, "Inserts / reads venue_bookings; the database constraint is the at
 
 Rel(web, bookingRoutes, "Planned: submit / track / withdraw / amend", "HTTPS/JSON, session cookie")
 Rel(app, bookingRoutes, "Planned")
+Rel(bookingRoutes, session, "Planned: requires a signed-in caller")
 Rel(bookingRoutes, bookingSvc, "Planned")
 Rel(bookingSvc, slotRule, "Planned: checks the slot before inserting")
 Rel(bookingSvc, repo, "Planned")
 Rel(bookingSvc, eventReader, "Planned")
 Rel(eventReader, db, "Planned: reads events directly (shared database, ADR 0001)", "PostgREST")
+Rel(app, availability, "Planned")
 
 @enduml

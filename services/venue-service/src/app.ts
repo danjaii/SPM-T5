@@ -1,11 +1,10 @@
 import express from "express";
 import { errorHandler } from "./middlewares/errors";
 import type { SupabaseDeps } from "./supabase";
+import { venueRoutes } from "./routes/venues";
 
 // Exported separately from listen() so tests can mount the app without opening a port.
-// `_deps` is unused until the routes that need Supabase are mounted (SCRUM-32); server.ts and tests already pass it.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function createApp(_deps: SupabaseDeps) {
+export function createApp(deps: SupabaseDeps) {
   const app = express();
   app.use(express.json());
 
@@ -26,7 +25,8 @@ export function createApp(_deps: SupabaseDeps) {
     next();
   });
 
-  // Routes are mounted here as each story lands (SCRUM-32 onwards).
+  app.use("/venues", venueRoutes(deps));
+  // Booking routes are mounted here as each story lands (SCRUM-32 onwards).
 
   app.use(errorHandler);
   return app;

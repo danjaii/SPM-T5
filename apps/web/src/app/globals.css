@@ -108,6 +108,7 @@ a { color: var(--steel-dark); }
 .dash__main h1 { font-size: 30px; font-weight: 700; }
 .dash__lede { color: var(--muted); margin: 6px 0 28px; }
 .dash__section { margin-bottom: 36px; }
+.dash__links { display: flex; gap: 20px; margin: -12px 0 28px; font-size: 15px; font-weight: 500; }
 .dash__section h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); background: #fff; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -131,6 +132,19 @@ tr:last-child td { border-bottom: 0; }
   background: var(--field); border: 1px solid var(--border); border-radius: 0;
 }
 .field select:focus-visible, .field textarea:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+
+/* ---------- Venue detail page (SCRUM-29) ---------- */
+.venue { max-width: 720px; }
+.venue h1 { font-size: 30px; font-weight: 700; }
+.venue h2 { font-size: 20px; font-weight: 700; margin: 28px 0 10px; }
+.venue__facts {
+  display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; margin: 0;
+  padding: 20px 24px; background: #fff; border: 1px solid var(--border);
+}
+.venue__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.venue__facts dd { margin: 0; }
+.venue__note { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+.venue__list { margin: 0; padding: 14px 24px 14px 40px; background: #fff; border: 1px solid var(--border); line-height: 1.8; }
 
 @media (max-width: 800px) {
   .auth { grid-template-columns: 1fr; }
