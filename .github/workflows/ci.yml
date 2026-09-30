@@ -52,6 +52,45 @@ jobs:
       - name: Build
         run: pnpm run build:all
 
+  # Database-backed tests (tests/integration): a real local Supabase, so migrations and constraints
+  # (slot exclusion, one active request per event) are checked against Postgres, not a fake.
+  # Runs in parallel with `test`, which skips these suites because it has no SUPABASE_SECRET_KEY.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          # @supabase/realtime-js (pulled in by supabase-js) needs a native WebSocket, which Node 20 lacks
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase (applies supabase/migrations, then seed.sql)
+        run: supabase start
+
+      - name: Export local connection details for the tests
+        run: |
+          supabase status -o env \
+            | grep -E '^(API_URL|SECRET_KEY)=' \
+            | sed -E 's/^API_URL=/SUPABASE_URL=/; s/^SECRET_KEY=/SUPABASE_SECRET_KEY=/' \
+            | tr -d '"' >> "$GITHUB_ENV"
+
+      - name: Fail loudly if the database is not configured (otherwise the tests would silently skip)
+        run: test -n "$SUPABASE_URL" && test -n "$SUPABASE_SECRET_KEY"
+
+      - name: Integration tests
+        run: pnpm vitest run --project @spm-t5/venue-service tests/integration --coverage.enabled=false
+
   e2e:
     needs: test
     runs-on: ubuntu-latest
