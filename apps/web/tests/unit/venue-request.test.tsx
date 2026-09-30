@@ -21,7 +21,7 @@ const form = {
   venueRequirements: "Projector",
   accessibilityNeeds: "Step-free access",
 };
-const venues = [{ id: "ven-1", name: "Grand Hall", maxCapacity: 200, isActive: true }];
+const venues = [{ id: "ven-1", name: "Grand Hall", max_capacity: 200 }];
 
 function mockServer(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => body });

@@ -6,8 +6,8 @@ import { SERVER_VENUE_URL, SESSION_COOKIE, VENUE_URL, type ApiResult } from "./a
 export interface VenueOption {
   id: string;
   name: string;
-  maxCapacity: number | null;
-  isActive: boolean;
+  /** As the venue catalogue (SCRUM-29, GET /venues) returns it. */
+  max_capacity: number | null;
 }
 
 /** GET /events/:id/venue-booking-form (32-S1): the event's own details, pre-filled and read-only in the form. */

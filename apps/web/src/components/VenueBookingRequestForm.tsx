@@ -64,7 +64,7 @@ export function VenueBookingRequestForm({ form, venues }: { form: VenueBookingFo
             <option value="">Choose a venue</option>
             {venues.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.name}{v.maxCapacity != null ? ` (capacity ${v.maxCapacity})` : ""}
+                {v.name}{v.max_capacity != null ? ` (capacity ${v.max_capacity})` : ""}
               </option>
             ))}
           </select>
