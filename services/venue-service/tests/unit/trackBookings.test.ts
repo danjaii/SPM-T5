@@ -6,6 +6,7 @@ import { amendmentChain } from "../../src/services/trackingService";
 import type { SupabaseDeps } from "../../src/supabase";
 import { FakeBookingRepository } from "../support/fakeBookingRepository";
 import { FakeEventReader, anEvent } from "../support/fakeEventReader";
+import { FakeUserReader } from "../support/fakeUserReader";
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
 const deps = {
@@ -35,7 +36,7 @@ function setup() {
     "tech-1": "technical_support_staff",
     "attendee-1": "attendee",
   });
-  const app = createApp(deps, { ports: () => ({ bookings, events, venues, roles }) });
+  const app = createApp(deps, { ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader() }) });
   const get = (path: string, user = "coordinator-1") => request(app).get(path).set("Cookie", `cs_session=tok-${user}`);
   return { bookings, get, setClock: (d: Date) => (clock = d) };
 }

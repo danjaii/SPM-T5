@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, it, expect } from "vitest";
 import { supabasePorts } from "../../src/ports";
 import { SupabaseRoleReader } from "../../src/readers/roleReader";
+import { SupabaseUserReader } from "../../src/readers/userReader";
 import { SupabaseVenueReader } from "../../src/readers/venueReader";
 import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookingRepository";
 import type { SupabaseDeps } from "../../src/supabase";
@@ -162,7 +163,18 @@ describe("supabasePorts", () => {
     const tokens: string[] = [];
     const deps = { anon: {}, forUser: (t: string) => (tokens.push(t), stubDb({ data: null, error: null })) } as unknown as SupabaseDeps;
     const ports = supabasePorts(deps)("caller-token");
-    expect(Object.keys(ports).sort()).toEqual(["bookings", "events", "roles", "venues"]);
+    expect(Object.keys(ports).sort()).toEqual(["bookings", "events", "roles", "users", "venues"]);
     expect(tokens).toEqual(["caller-token"]);
+  });
+});
+
+describe("SupabaseUserReader", () => {
+  it("maps ids to full names, skips the query for no ids, and throws on errors", async () => {
+    const reader = new SupabaseUserReader(stubDb({ data: [{ id: "u1", full_name: "Casey Coordinator" }], error: null }));
+    expect(await reader.namesOf(["u1"])).toEqual(new Map([["u1", "Casey Coordinator"]]));
+    expect((await reader.namesOf([])).size).toBe(0);
+    await expect(new SupabaseUserReader(stubDb({ data: null, error: { message: "down" } })).namesOf(["u1"])).rejects.toThrow(
+      /Reading users failed/,
+    );
   });
 });
