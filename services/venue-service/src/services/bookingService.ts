@@ -1,4 +1,4 @@
-import { canRequestVenue, isHoldingDbStatus, parseVenueBookingInput, type Role } from "@spm-t5/shared";
+import { canRequestVenue, isHoldingDbStatus, parseVenueBookingInput, utcToSgt, type Role } from "@spm-t5/shared";
 import { bookingError, forbidden, notFound, validationFailed } from "../domain/errors";
 import type { BookingRecord } from "../domain/types";
 import type { EventInfo, EventReader } from "../readers/eventReader";
@@ -81,6 +81,32 @@ export class BookingService {
     const original = await this.loadRejectedFor(caller, id);
     const fields = typeof body === "object" && body !== null ? body : {};
     return this.submit(caller, { ...fields, eventId: original.eventId }, { amendsBookingId: original.id });
+  }
+
+  /**
+   * SCRUM-59: one action to take the exact venue, date and time Venue Staff suggested. It goes through
+   * the same amend path as SCRUM-60, so every submit rule applies and nothing is duplicated.
+   * The suggestion's "used" state is the new request itself (from_suggestion = true); the unique index
+   * in migration 06 makes a second accept fail even if two race past the pre-check (59-S3).
+   */
+  async acceptSuggestion(caller: Caller, id: string): Promise<BookingRecord> {
+    const original = await this.loadRejectedFor(caller, id);
+    if (!original.suggestion) throw bookingError("NO_SUGGESTION");
+
+    const history = await this.deps.bookings.listByEvent(original.eventId);
+    if (history.some((b) => b.fromSuggestion && b.amendsBookingId === original.id)) {
+      throw bookingError("SUGGESTION_ALREADY_USED");
+    }
+
+    const start = utcToSgt(original.suggestion.start);
+    const body = {
+      eventId: original.eventId,
+      venueId: original.suggestion.venueId,
+      date: start.date,
+      startTime: start.time,
+      endTime: utcToSgt(original.suggestion.end).time,
+    };
+    return this.submit(caller, body, { amendsBookingId: original.id, fromSuggestion: true });
   }
 
   async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<BookingRecord> {

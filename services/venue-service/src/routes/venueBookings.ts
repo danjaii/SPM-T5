@@ -71,6 +71,16 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     }),
   );
 
+  // 59-S1: accept the suggested alternative in one action.
+  router.post(
+    "/venue-bookings/:id/accept-suggestion",
+    asyncHandler(async (req, res) => {
+      const { caller, service } = await context(res.locals.user as SessionUser);
+      const booking = await service.acceptSuggestion(caller, String(req.params.id));
+      res.status(201).json(toBookingDto(booking));
+    }),
+  );
+
   // 32-S2: pre-fill for the request form. Same access rules as submitting.
   router.get(
     "/events/:eventId/venue-booking-form",
