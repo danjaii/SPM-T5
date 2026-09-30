@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { HOLDING_DB_STATUSES } from "@spm-t5/shared";
 import { bookingError } from "../domain/errors";
 import type { BookingRecord, Decision, NewBooking } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
