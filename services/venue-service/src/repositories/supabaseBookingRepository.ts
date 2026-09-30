@@ -75,17 +75,19 @@ function translate(error: PgError): Error {
 export class SupabaseBookingRepository implements BookingRepository {
   constructor(private readonly db: SupabaseClient) {}
 
+  /**
+   * Asks the database through venue_slot_is_held (migration 07), a yes/no security definer helper:
+   * under RLS a coordinator cannot read other coordinators' requests, so a plain select here would
+   * never see the request holding the slot. The exclusion constraint remains the authority.
+   */
   async hasHold(venueId: string, start: Date, end: Date): Promise<boolean> {
-    const { data, error } = await this.db
-      .from("venue_bookings")
-      .select("id")
-      .eq("venue_id", venueId)
-      .in("status", [...HOLDING_DB_STATUSES])
-      .lt("event_start_datetime", end.toISOString())
-      .gt("event_end_datetime", start.toISOString())
-      .limit(1);
+    const { data, error } = await this.db.rpc("venue_slot_is_held", {
+      p_venue_id: venueId,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+    });
     if (error) throw new Error("Could not check the venue's availability.");
-    return data.length > 0;
+    return data === true;
   }
 
   async listPending(): Promise<BookingRecord[]> {

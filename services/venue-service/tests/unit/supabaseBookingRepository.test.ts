@@ -111,28 +111,26 @@ describe("SCRUM-36/AC4 simultaneous requests: deadlock victim (36-S4)", () => {
 });
 
 describe("SupabaseBookingRepository.hasHold", () => {
-  it("reports a hold when an overlapping holding row exists, and none otherwise", async () => {
-    const query = (rows: unknown[]) =>
-      ({
-        from: () => {
-          const chain: Record<string, unknown> = {};
-          for (const m of ["select", "eq", "in", "lt", "gt"]) chain[m] = () => chain;
-          chain.limit = async () => ({ data: rows, error: null });
-          return chain;
-        },
-      }) as unknown as SupabaseClient;
+  const rpcDb = (reply: { data: unknown; error: unknown }) => {
+    const calls: unknown[][] = [];
+    const db = { rpc: async (...args: unknown[]) => (calls.push(args), reply) } as unknown as SupabaseClient;
+    return { repo: new SupabaseBookingRepository(db), calls };
+  };
+  const start = new Date("2030-11-14T01:00:00.000Z");
+  const end = new Date("2030-11-14T09:00:00.000Z");
 
-    const start = new Date("2030-11-14T01:00:00.000Z");
-    const end = new Date("2030-11-14T09:00:00.000Z");
-    expect(await new SupabaseBookingRepository(query([{ id: "x" }])).hasHold("v", start, end)).toBe(true);
-    expect(await new SupabaseBookingRepository(query([])).hasHold("v", start, end)).toBe(false);
+  it("asks venue_slot_is_held, so RLS cannot hide the holder from the pre-check", async () => {
+    const held = rpcDb({ data: true, error: null });
+    expect(await held.repo.hasHold("v", start, end)).toBe(true);
+    expect(held.calls[0]).toEqual([
+      "venue_slot_is_held",
+      { p_venue_id: "v", p_start: start.toISOString(), p_end: end.toISOString() },
+    ]);
+    expect(await rpcDb({ data: false, error: null }).repo.hasHold("v", start, end)).toBe(false);
   });
 
   it("fails with a generic error if the lookup fails", async () => {
-    const chain: Record<string, unknown> = {};
-    for (const m of ["select", "eq", "in", "lt", "gt"]) chain[m] = () => chain;
-    chain.limit = async () => ({ data: null, error: { code: "XX000", message: "secret" } });
-    const repo = new SupabaseBookingRepository({ from: () => chain } as unknown as SupabaseClient);
-    await expect(repo.hasHold("v", new Date(), new Date())).rejects.toThrow("Could not check the venue's availability.");
+    const { repo } = rpcDb({ data: null, error: { code: "XX000", message: "secret" } });
+    await expect(repo.hasHold("v", start, end)).rejects.toThrow("Could not check the venue's availability.");
   });
 });

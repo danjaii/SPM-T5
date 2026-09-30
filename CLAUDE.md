@@ -209,8 +209,12 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-The repo is scaffolding — most `services/*/src/index.ts` files export a `healthCheck()` stub and
-nothing else. Declared dependencies (express, zod) are real intent, not yet real code.
+Parts of the repo are still scaffolding — some `services/*/src/index.ts` files export a
+`healthCheck()` stub and nothing else. Declared dependencies (express, zod) are real intent, not yet
+real code. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
+(SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
+`component-venue-service.puml`). Its Venue Staff approval routes (SCRUM-37 to 40) are not built: the
+repository already has `listPending` and `decide` for them.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
@@ -218,9 +222,10 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration.
-- Services export `healthCheck()` but never call `listen()`, so their containers start and exit
-  immediately under `docker compose up`.
+  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` only; the other tables
+  are still blanket.
+- Services that are still stubs export `healthCheck()` but never call `listen()`, so their
+  containers start and exit immediately under `docker compose up`.
 
 
 ## 
