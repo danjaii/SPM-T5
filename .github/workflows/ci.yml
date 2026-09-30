@@ -64,7 +64,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+          # @supabase/realtime-js (pulled in by supabase-js) needs a native WebSocket, which Node 20 lacks
           cache: "pnpm"
 
       - name: Install dependencies
