@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SERVER_VENUE_URL, SESSION_COOKIE } from "./api";
 import type {
+  EventVenueBookingView,
   VenueBookingDetailView,
   VenueBookingFormData,
   VenueBookingListItem,
@@ -52,3 +53,21 @@ export async function getVenueBooking(id: string): Promise<{ booking: VenueBooki
   return res.ok ? { booking: data } : { error: data.error ?? "We couldn't load this venue booking request." };
 }
 
+
+/**
+ * SCRUM-38: the approved venue booking for an event, or null. Only the event's assigned Coordinator is
+ * answered (anyone else gets 403), so any failure just means "show nothing" rather than an error.
+ */
+export async function getApprovedVenueBooking(eventId: string): Promise<EventVenueBookingView | null> {
+  try {
+    const token = (await cookies()).get(SESSION_COOKIE)?.value;
+    if (!token) return null;
+    const res = await fetch(`${SERVER_VENUE_URL}/events/${encodeURIComponent(eventId)}/venue-booking`, {
+      headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+      cache: "no-store",
+    });
+    return res.ok ? ((await res.json()) as EventVenueBookingView | null) : null;
+  } catch {
+    return null;
+  }
+}

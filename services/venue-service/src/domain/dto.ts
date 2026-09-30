@@ -37,6 +37,22 @@ export function toBookingDto(b: BookingRecord): BookingDto {
   };
 }
 
+/** The outcome of a Venue Staff decision (SCRUM-38, SCRUM-39): the request plus who decided, when and why. */
+export interface DecisionDto extends BookingDto {
+  decidedBy: string | null;
+  decidedAt: string | null;
+  rejectionReason: string | null;
+}
+
+export function toDecisionDto(b: BookingRecord): DecisionDto {
+  return {
+    ...toBookingDto(b),
+    decidedBy: b.reviewedBy,
+    decidedAt: b.reviewedAt ? b.reviewedAt.toISOString() : null,
+    rejectionReason: b.status === "rejected" ? b.reviewNotes : null,
+  };
+}
+
 /** A row in the Coordinator's list (SCRUM-33). */
 export interface BookingListItem {
   id: string;
