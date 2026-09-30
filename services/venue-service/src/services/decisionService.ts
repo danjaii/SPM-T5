@@ -1,5 +1,5 @@
-import { utcToSgt } from "@spm-t5/shared";
-import { bookingError, forbidden, notFound } from "../domain/errors";
+import { parseRejectionInput, utcToSgt } from "@spm-t5/shared";
+import { bookingError, forbidden, notFound, validationFailed } from "../domain/errors";
 import type { BookingRecord } from "../domain/types";
 import type { EventReader } from "../readers/eventReader";
 import type { VenueReader } from "../readers/venueReader";
@@ -21,7 +21,7 @@ export interface EventVenueBooking {
   endTime: string;
 }
 
-/** SCRUM-38: Venue Staff decide pending venue booking requests. */
+/** SCRUM-38 / SCRUM-39: Venue Staff decide pending venue booking requests. */
 export class DecisionService {
   constructor(private readonly deps: DecisionDeps) {}
 
@@ -48,6 +48,22 @@ export class DecisionService {
     const approved = await bookings.decide(id, { outcome: "approved" }, caller.id, now());
     if (!approved) throw bookingError("NOT_PENDING");
     return approved;
+  }
+
+  /**
+   * 39-S1: reject a PENDING request with a reason. Same order as approve, with the reason checked after
+   * the status (39-S2, 39-S5). A rejection is final (39-S3) and releases the slot (39-S4); the event is
+   * not touched (39-S6). Any suggestion in the body is ignored until SCRUM-40.
+   */
+  async reject(caller: Caller, id: string, body: unknown): Promise<BookingRecord> {
+    const { bookings, now } = this.deps;
+    await this.loadPending(caller, id);
+    const parsed = parseRejectionInput(body);
+    if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+
+    const rejected = await bookings.decide(id, { outcome: "rejected", reason: parsed.data.reason }, caller.id, now());
+    if (!rejected) throw bookingError("NOT_PENDING");
+    return rejected;
   }
 
   /** 38-S4: the event's APPROVED request with its venue name, or null. Only the assigned Coordinator may ask. */

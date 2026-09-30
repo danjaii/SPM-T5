@@ -102,10 +102,10 @@ describe("SCRUM-39/AC2 a reason is required (39-S2)", () => {
   });
 
   it("39-S2 a missing body or reason is 422 too", async () => {
-    const { reject, pending } = setup();
+    const { app, reject, pending, as } = setup();
     const row = pending();
     expect((await reject(row.id, {})).status).toBe(422);
-    expect((await reject(row.id, undefined)).status).toBe(422);
+    expect((await request(app).post(`/venue-bookings/${row.id}/reject`).set("Cookie", as("staff-1"))).status).toBe(422);
     expect(row.status).toBe("requested");
   });
 

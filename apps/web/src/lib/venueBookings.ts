@@ -92,6 +92,10 @@ export const acceptVenueSuggestion = (id: string) =>
 export const approveVenueBooking = (id: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/approve`);
 
+/** SCRUM-39: Venue Staff reject a pending request; the reason is required (1 to 500 characters). */
+export const rejectVenueBooking = (id: string, reason: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/reject`, { reason });
+
 /** GET /events/:id/venue-booking (38-S4): the event's approved venue, as its Coordinator sees it. */
 export interface EventVenueBookingView {
   venueName: string;

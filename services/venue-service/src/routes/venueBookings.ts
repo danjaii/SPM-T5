@@ -8,7 +8,7 @@ import { assertMayRequestFor, BookingService } from "../services/bookingService"
 import { DecisionService } from "../services/decisionService";
 import { TrackingService } from "../services/trackingService";
 
-/** Routes for SCRUM-32 (submit), SCRUM-33 (track) and SCRUM-38 (approve). Session middleware is mounted by the caller. */
+/** Routes for SCRUM-32 (submit), SCRUM-33 (track), SCRUM-38 (approve) and SCRUM-39 (reject). Session middleware is mounted by the caller. */
 export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
   const router = Router();
 
@@ -89,6 +89,15 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     asyncHandler(async (req, res) => {
       const { caller, decisions } = await context(res.locals.user as SessionUser);
       res.json(toDecisionDto(await decisions.approve(caller, String(req.params.id))));
+    }),
+  );
+
+  // 39-S1: Venue Staff reject a pending request, with a reason (body { reason }).
+  router.post(
+    "/venue-bookings/:id/reject",
+    asyncHandler(async (req, res) => {
+      const { caller, decisions } = await context(res.locals.user as SessionUser);
+      res.json(toDecisionDto(await decisions.reject(caller, String(req.params.id), req.body)));
     }),
   );
 
