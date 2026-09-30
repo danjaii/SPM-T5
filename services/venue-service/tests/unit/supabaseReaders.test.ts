@@ -20,18 +20,15 @@ function stubDb(reply: Reply) {
 const VENUE = { id: "v1", name: "Orchid Hall", max_capacity: 150, is_active: true };
 
 describe("SupabaseVenueReader", () => {
-  it("maps a venue row and lists active venues", async () => {
+  it("maps a venue row", async () => {
     const reader = new SupabaseVenueReader(stubDb({ data: VENUE, error: null }));
     expect(await reader.getById("v1")).toEqual({ id: "v1", name: "Orchid Hall", maxCapacity: 150, isActive: true });
-    const list = new SupabaseVenueReader(stubDb({ data: [VENUE], error: null }));
-    expect(await list.listActive()).toHaveLength(1);
   });
 
   it("returns null for a missing venue and throws on errors", async () => {
     expect(await new SupabaseVenueReader(stubDb({ data: null, error: null })).getById("x")).toBeNull();
     const failing = new SupabaseVenueReader(stubDb({ data: null, error: { message: "down" } }));
     await expect(failing.getById("x")).rejects.toThrow(/Reading venue failed/);
-    await expect(failing.listActive()).rejects.toThrow(/Listing venues failed/);
   });
 });
 

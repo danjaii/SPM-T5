@@ -2,41 +2,52 @@
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
 title ConnectSphere — Component Diagram: Venue Service (C4 Level 3)
-' Built so far: the double-hold rule for venue booking requests (SCRUM-36) and its foundations
-' (app, session, error handling, Postgres repository). Components marked "Planned" arrive with the
-' rest of the venue booking stories (docs/specs/venue-booking-request.md): SCRUM-32 submit,
-' SCRUM-33 track, SCRUM-35 withdraw, SCRUM-60 amend, SCRUM-59 accept a suggestion.
+' Built so far: the read-only venue catalogue (SCRUM-29) and the venue booking request stories
+' (docs/specs/venue-booking-request.md): SCRUM-36 double-hold rule, SCRUM-32 submit, SCRUM-33 track,
+' SCRUM-35 withdraw, SCRUM-60 amend, SCRUM-59 accept a suggestion. Components marked "Planned" come
+' with venue availability, search, suitability and the Venue Staff approval stories (SCRUM-37 to 40).
 
-Container(web, "Web App", "Next.js, React", "Planned: venue booking request form, my-bookings list")
+Container(web, "Web App", "Next.js, React", "Venue catalogue (/venues, /venues/[id]); venue booking request form and my-bookings list/detail")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
-ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "venue_bookings (overlap exclusion constraint, one active request per event, one suggestion acceptance), venues, events")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "venue_bookings (overlap exclusion constraint, one active request per event, one suggestion acceptance), venues, room_layouts, facilities, events, users")
 
 Container_Boundary(venueSvc, "Venue Service") {
-  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin (GET, POST); mounts routes; error handler")
+  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin (GET, POST); injectable clock and data ports; mounts routes; error handler")
   Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
   Component(errors, "Error Handler", "middlewares/errors.ts, domain/errors.ts", "BookingError -> 409/403/404/422 with only a code and message; anything unexpected -> generic 500, so a refusal never exposes another event")
+  Component(catalogue, "Venue Catalogue Routes", "routes/venues.ts", "SCRUM-29: coordinators + venue staff only, others 403. GET /venues, GET /venues/:id (layouts, facilities)")
+  Component(bookingRoutes, "Booking Routes", "routes/venueBookings.ts", "POST /venue-bookings, GET /venue-bookings (+ /:id), withdraw / amend / accept-suggestion, GET /events/:id/venue-booking-form")
+  Component(bookingSvc, "Booking Service", "services/bookingService.ts", "Submit, amend and accept-suggestion through one path; withdraw (SCRUM-32/35/60/59)")
+  Component(trackingSvc, "Tracking Service", "services/trackingService.ts", "SCRUM-33: the coordinator's requests, detail, rejection reason, suggestion, amendment chain")
   Component(slotRule, "Slot Conflict Rule", "services/slotConflictRule.ts", "SCRUM-36: friendly pre-check that a venue period is not held by a Pending/Approved request")
-  Component(repo, "Booking Repository", "repositories/supabaseBookingRepository.ts", "Inserts requests; turns constraint violations into SLOT_CONFLICT / ACTIVE_REQUEST_EXISTS / SUGGESTION_ALREADY_USED; retries a deadlock victim")
-  Component(shared, "Shared Rules", "@spm-t5/shared", "Period overlap, Singapore time, status mapping, error codes, input validation — same rules the web app uses")
+  Component(repo, "Booking Repository", "repositories/supabaseBookingRepository.ts", "Inserts requests; conditional withdraw/decide updates; turns constraint violations into SLOT_CONFLICT / ACTIVE_REQUEST_EXISTS / SUGGESTION_ALREADY_USED; retries a deadlock victim")
+  Component(readers, "Readers", "readers/eventReader, venueReader, roleReader", "Read events (DR16), venue names and the caller's role as the caller, so RLS applies")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "Roles, period overlap, Singapore time, status mapping, error codes, input validation — same rules the web app uses")
 
-  Component(bookingSvc, "Booking Service", "Planned", "Submit, withdraw, amend and accept-suggestion through one path (SCRUM-32/35/60/59)")
-  Component(eventReader, "Event Reader", "Planned", "Reads event name, status, assigned coordinator, attendance and requirements (DR16)")
-  Component(bookingRoutes, "Booking Routes", "Planned", "POST /venue-bookings, GET /venue-bookings (SCRUM-33), withdraw / amend / accept-suggestion")
+  Component(approval, "Approval Queue and Decisions", "Planned", "SCRUM-37 to 40 routes on top of the repository's listPending / decide")
+  Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks")
 }
 
+Rel(web, app, "Catalogue and booking requests (server-side and browser)", "HTTPS/JSON, session cookie")
 Rel(app, session, "Requires a signed-in caller")
 Rel(session, supabaseAuth, "Verifies session token", "HTTPS")
 Rel(app, errors, "Renders failures")
+Rel(app, catalogue, "Routes /venues requests")
+Rel(app, bookingRoutes, "Routes booking requests")
+Rel(catalogue, shared, "Checks the caller's role")
+Rel(bookingRoutes, bookingSvc, "Submit, withdraw, amend, accept")
+Rel(bookingRoutes, trackingSvc, "List and detail")
+Rel(bookingSvc, slotRule, "Checks the slot before inserting")
+Rel(bookingSvc, repo, "Reads history, inserts, withdraws")
+Rel(bookingSvc, readers, "Event, venue and role lookups")
+Rel(trackingSvc, repo, "Reads requests")
+Rel(trackingSvc, readers, "Assigned events, venue names")
 Rel(slotRule, repo, "Asks whether the period is held")
 Rel(repo, shared, "Status values, holding statuses")
-Rel(repo, db, "Inserts / reads venue_bookings; the database constraint is the atomic guarantee", "PostgREST")
+Rel(repo, db, "Reads/writes venue_bookings; the database constraint is the atomic guarantee", "PostgREST")
+Rel(readers, db, "Reads events, venues, users directly (shared database, ADR 0001)", "PostgREST")
+Rel(catalogue, db, "Reads venues with layouts and facilities", "PostgREST")
 
-Rel(web, bookingRoutes, "Planned: submit / track / withdraw / amend", "HTTPS/JSON, session cookie")
-Rel(app, bookingRoutes, "Planned")
-Rel(bookingRoutes, bookingSvc, "Planned")
-Rel(bookingSvc, slotRule, "Planned: checks the slot before inserting")
-Rel(bookingSvc, repo, "Planned")
-Rel(bookingSvc, eventReader, "Planned")
-Rel(eventReader, db, "Planned: reads events directly (shared database, ADR 0001)", "PostgREST")
-
+Rel(app, approval, "Planned")
+Rel(app, availability, "Planned")
 @enduml

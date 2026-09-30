@@ -12,10 +12,6 @@ export class FakeVenueReader implements VenueReader {
   async getByIds(venueIds: string[]) {
     return this.venues.filter((v) => venueIds.includes(v.id));
   }
-
-  async listActive() {
-    return this.venues.filter((v) => v.isActive);
-  }
 }
 
 export const aVenue = (overrides: Partial<VenueInfo> = {}): VenueInfo => ({

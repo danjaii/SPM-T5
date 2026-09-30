@@ -102,14 +102,5 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     }),
   );
 
-  // Minimal venue list for the form's picker (SCRUM-29 owns the full catalogue).
-  router.get(
-    "/venues",
-    asyncHandler(async (_req, res) => {
-      const { ports } = await context(res.locals.user as SessionUser);
-      res.json(await ports.venues.listActive());
-    }),
-  );
-
   return router;
 }

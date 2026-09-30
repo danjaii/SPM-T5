@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canViewVenueCatalogue, isRole } from "@spm-t5/shared";
 import { roleLabel } from "@/lib/roles";
 import { BfcacheGuard } from "./BfcacheGuard";
 import { LogoutButton } from "./LogoutButton";
@@ -31,6 +32,13 @@ export function DashboardView({ data }: { data: DashboardData }) {
       <main className="dash__main">
         <h1>{roleLabel(user.role)} dashboard</h1>
         <p className="dash__lede">Signed in as {user.email}</p>
+        {/* SCRUM-29 AC3 + AC4 + AC6 + AC7: same shared rule venue-service uses — coordinators and venue staff only */}
+        {/* if role is event coord or venue staff, we show the link that leads them to see the venue catalogue */}
+        {isRole(user.role) && canViewVenueCatalogue(user.role) && (
+          <nav className="dash__links">
+            <Link href="/venues">Venue catalogue</Link>
+          </nav>
+        )}
         {sections.map((section) => (
           <section className="dash__section" key={section.title}>
             <h2>{section.title}</h2>

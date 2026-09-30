@@ -103,11 +103,6 @@ describe("SCRUM-32/AC2 event details carried onto the form (32-S2)", () => {
     expect((await as("coordinator-1").get("/events/nope/venue-booking-form")).status).toBe(404);
   });
 
-  it("lists active venues for the picker", async () => {
-    const venues = new FakeVenueReader([aVenue(), aVenue({ id: "old", isActive: false })]);
-    const res = await setup({ venues }).coordinator.get("/venues");
-    expect(res.body.map((v: { id: string }) => v.id)).toEqual(["venue-1"]);
-  });
 });
 
 describe("SCRUM-32/AC3 only some event statuses allow a venue request (32-S3)", () => {

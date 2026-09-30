@@ -15,3 +15,8 @@ export function isRole(value: unknown): value is Role {
 export function canReviewEvents(role: Role): boolean {
   return role === "event_coordinator";
 }
+
+/** SCRUM-29: the venue catalogue can only be seen by event coordinator and venue staff */
+export function canViewVenueCatalogue(role: Role): boolean {
+  return role === "event_coordinator" || role === "venue_staff";
+}

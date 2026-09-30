@@ -7,6 +7,10 @@ export const SERVER_AUTH_URL = process.env.AUTH_SERVICE_URL ?? AUTH_URL;
 export const EVENT_URL = process.env.NEXT_PUBLIC_EVENT_SERVICE_URL ?? "http://localhost:4002";
 export const SERVER_EVENT_URL = process.env.EVENT_SERVICE_URL ?? EVENT_URL;
 
+// venue-service, same idea again.
+export const VENUE_URL = process.env.NEXT_PUBLIC_VENUE_SERVICE_URL ?? "http://localhost:4003";
+export const SERVER_VENUE_URL = process.env.VENUE_SERVICE_URL ?? VENUE_URL;
+
 export const SESSION_COOKIE = "cs_session";
 
 export interface ApiResult<T> {
