@@ -171,6 +171,46 @@ Notes:
   project's Auth → URL Configuration → Redirect URLs.
 - The session is an httpOnly cookie set by auth-service; logging out revokes it in Supabase.
 
+## Running the venue booking request module locally (SCRUM-36, 32, 33, 35, 60, 59)
+
+Runs the whole coordinator flow end to end: web, auth, event and venue services against a local Supabase.
+
+1. **Start Supabase** (Docker running): `supabase start`, then `supabase db reset` (applies migrations 01 to 07 and
+   `seed.sql`), then `supabase status -o env` to read the keys.
+2. **Create `.env` at the repo root** (git-ignored; the services read it via `--env-file=../../.env`):
+   ```bash
+   SUPABASE_URL=http://127.0.0.1:54321
+   SUPABASE_PUBLISHABLE_KEY=<PUBLISHABLE_KEY from status>
+   SUPABASE_SECRET_KEY=<SECRET_KEY from status>
+   WEB_ORIGIN=http://localhost:3000
+   ```
+3. **Start everything from the repo root** (not `apps/web`): `pnpm install`, then `pnpm dev`. This runs web on 3000,
+   auth-service on 4001, event-service on 4002 and venue-service on 4003. Stop any older dev server first: the web
+   app must be on port 3000, the origin the services allow.
+4. **Try the flow** at http://localhost:3000. Every seeded password is `ConnectSphere2026!` (accounts in the table
+   above); pick the matching role when signing in.
+   - **Submit and track (32, 33, 36):** sign in as the Event Coordinator (`rachel.tan@...`), open an event assigned to
+     her whose status is `approved`, `planning` or `awaiting_arrangements` (other statuses are refused with
+     `EVENT_NOT_ELIGIBLE`), and use the venue request link on its status panel. Submit, then check the list and detail
+     pages. Submit an overlapping slot to see the conflict message.
+   - **Withdraw (35):** on a pending request, choose Withdraw request and confirm.
+   - **Amend and accept a suggestion (60, 59):** these need a rejected request, and the Venue Staff approval screens
+     (SCRUM-37 to 40) are not built yet. Reject one in Supabase Studio (http://127.0.0.1:54323, SQL editor), then
+     reload the request as the coordinator:
+     ```sql
+     update venue_bookings
+     set status = 'rejected', review_notes = 'Renovation', reviewed_at = now(),
+         reviewed_by = (select id from users where role = 'venue_staff' limit 1),
+         suggested_venue_id = (select id from venues where id <> venue_id limit 1),
+         suggested_start_datetime = event_start_datetime + interval '1 day',
+         suggested_end_datetime = event_end_datetime + interval '1 day'
+     where id = '<request id>';
+     ```
+   - **Access control:** open the same request as the organiser or as another coordinator. You get "not found"
+     rather than the request (RLS; see the spec's "Not visible means not found").
+
+To run the automated checks instead, see Testing below.
+
 ## Testing
 
 Unit and integration tests use Vitest; `apps/web` end-to-end tests use Playwright.
