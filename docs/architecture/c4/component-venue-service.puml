@@ -28,7 +28,8 @@ Container_Boundary(venueSvc, "Venue Service") {
   Component(userReader, "User Reader", "readers/userReader.ts", "SCRUM-37: full names for the requester and the deciding Venue Staff member")
   Component(shared, "Shared Rules", "@spm-t5/shared", "Roles, period overlap, Singapore time, status mapping, error codes, input validation — same rules the web app uses")
 
-  Component(approval, "Approve and Reject Decisions", "Planned", "SCRUM-38 to 40 routes on top of the repository's decide")
+  Component(decisionRoutes, "Decision Routes", "routes/venueBookings.ts", "SCRUM-38/39: POST /venue-bookings/:id/approve and /reject, GET /events/:id/venue-booking; Venue Staff decide, only the assigned Coordinator reads the event booking")
+  Component(decisionSvc, "Decision Service", "services/decisionService.ts", "SCRUM-38/39: Venue Staff approve or reject a pending request (409 NOT_PENDING once decided, SLOT_IN_PAST, reason 1-500 chars); the event's approved venue for its Coordinator. SCRUM-40 adds the suggestion later")
   Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks")
 }
 
@@ -43,6 +44,9 @@ Rel(app, queueRoutes, "Routes /booking-queue requests")
 Rel(bookingRoutes, bookingSvc, "Submit, withdraw, amend, accept")
 Rel(bookingRoutes, trackingSvc, "List and detail")
 Rel(queueRoutes, queueSvc, "List and detail")
+Rel(decisionRoutes, decisionSvc, "Approve, reject, event booking")
+Rel(decisionSvc, repo, "Reads the request; conditional decide")
+Rel(decisionSvc, readers, "Event and venue lookups")
 Rel(queueSvc, repo, "Reads pending requests")
 Rel(queueSvc, readers, "Venue names")
 Rel(queueSvc, userReader, "Requester and decider names")
@@ -58,6 +62,6 @@ Rel(repo, db, "Reads/writes venue_bookings; the database constraint is the atomi
 Rel(readers, db, "Reads events, venues, users directly (shared database, ADR 0001)", "PostgREST")
 Rel(catalogue, db, "Reads venues with layouts and facilities", "PostgREST")
 
-Rel(app, approval, "Planned")
+Rel(app, decisionRoutes, "Routes approve and reject")
 Rel(app, availability, "Planned")
 @enduml
