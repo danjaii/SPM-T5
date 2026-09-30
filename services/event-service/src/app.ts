@@ -1,6 +1,7 @@
 import express from "express";
 import type { SupabaseDeps } from "./supabase";
 import { eventRoutes } from "./routes/events";
+import { eventRequestRoutes } from "./routes/eventRequests";
 
 // Exported separately from listen() so tests can mount the app without opening a port.
 export function createApp(deps: SupabaseDeps) {
@@ -24,6 +25,7 @@ export function createApp(deps: SupabaseDeps) {
     next();
   });
 
+  app.use("/events", eventRequestRoutes(deps));
   app.use("/events", eventRoutes(deps));
   return app;
 }

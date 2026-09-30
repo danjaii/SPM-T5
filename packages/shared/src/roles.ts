@@ -20,3 +20,8 @@ export function canReviewEvents(role: Role): boolean {
 export function canViewVenueCatalogue(role: Role): boolean {
   return role === "event_coordinator" || role === "venue_staff";
 }
+
+/** SCRUM-49: only event organisers create event requests */
+export function canCreateEventRequests(role: Role): boolean {
+  return role === "event_organiser";
+}
