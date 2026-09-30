@@ -61,6 +61,28 @@ export class BookingService {
     return withdrawn;
   }
 
+  /** The rejected request this caller may amend or accept a suggestion on (DR2, 60-S4, 60-S7). */
+  private async loadRejectedFor(caller: Caller, id: string): Promise<BookingRecord> {
+    const { bookings, events } = this.deps;
+    if (caller.role !== "event_coordinator") throw forbidden();
+    const original = await bookings.getById(id);
+    if (!original) throw notFound("Venue booking request not found.");
+    const event = await events.getById(original.eventId);
+    if (!event || event.assignedCoordinatorId !== caller.id) throw forbidden();
+    if (original.status !== "rejected") throw bookingError("NOT_REJECTED");
+    return original;
+  }
+
+  /**
+   * SCRUM-60: a new PENDING request for another venue, date or time that refers to a rejected one.
+   * The rejected request is never written. Every other rule is submit()'s, so nothing is duplicated.
+   */
+  async amend(caller: Caller, id: string, body: unknown): Promise<BookingRecord> {
+    const original = await this.loadRejectedFor(caller, id);
+    const fields = typeof body === "object" && body !== null ? body : {};
+    return this.submit(caller, { ...fields, eventId: original.eventId }, { amendsBookingId: original.id });
+  }
+
   async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<BookingRecord> {
     const { bookings, events, venues, now } = this.deps;
 

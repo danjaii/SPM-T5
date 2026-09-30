@@ -61,6 +61,16 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     }),
   );
 
+  // 60-S1: amend a rejected request to a different venue, date or time.
+  router.post(
+    "/venue-bookings/:id/amend",
+    asyncHandler(async (req, res) => {
+      const { caller, service } = await context(res.locals.user as SessionUser);
+      const booking = await service.amend(caller, String(req.params.id), req.body);
+      res.status(201).json(toBookingDto(booking));
+    }),
+  );
+
   // 32-S2: pre-fill for the request form. Same access rules as submitting.
   router.get(
     "/events/:eventId/venue-booking-form",
