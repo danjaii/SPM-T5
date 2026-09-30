@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
+import { VenueBookingActions } from "@/components/VenueBookingActions";
 import { VenueBookingDetail } from "@/components/VenueBookingDetail";
 import { getVenueBooking } from "@/lib/venueBookings";
 
@@ -23,7 +24,10 @@ export default async function VenueBookingPage({ params }: { params: Promise<{ i
       <main className="dash__main">
         <Link className="back-link" href="/venue-bookings">← Back to venue booking requests</Link>
         {"booking" in result ? (
-          <VenueBookingDetail booking={result.booking} />
+          <>
+            <VenueBookingDetail booking={result.booking} />
+            <VenueBookingActions booking={result.booking} />
+          </>
         ) : (
           <div className="alert alert--error" role="alert">{result.error}</div>
         )}

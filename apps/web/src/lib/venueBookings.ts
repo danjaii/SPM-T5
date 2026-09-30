@@ -101,19 +101,51 @@ export interface VenueBookingInputBody {
   endTime: string;
 }
 
-/** SCRUM-32: submit a venue booking request from the browser (sends the session cookie). */
-export async function submitVenueBooking(body: VenueBookingInputBody): Promise<ApiResult<{ id: string }>> {
+/** POSTs JSON to venue-service from the browser, sending the session cookie. */
+async function postToVenueService(path: string, body?: unknown): Promise<ApiResult<{ id: string }>> {
   try {
-    const res = await fetch(`${VENUE_URL}/venue-bookings`, {
+    const res = await fetch(`${VENUE_URL}${path}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(body ?? {}),
     });
     return { ok: res.ok, data: await res.json() };
   } catch {
     return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
   }
+}
+
+/** SCRUM-32: submit a venue booking request. */
+export const submitVenueBooking = (body: VenueBookingInputBody) => postToVenueService("/venue-bookings", body);
+
+/** SCRUM-35: withdraw a pending request. */
+export const withdrawVenueBooking = (id: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/withdraw`);
+
+/** SCRUM-60: amend a rejected request into a new one (the event comes from the rejected request). */
+export const amendVenueBooking = (id: string, body: Omit<VenueBookingInputBody, "eventId">) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/amend`, body);
+
+/** SCRUM-59: accept the suggested alternative on a rejected request. */
+export const acceptVenueSuggestion = (id: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/accept-suggestion`);
+
+/**
+ * Which actions the detail screen offers (35-S2, 60-S4, 59-S4). Only a PENDING request can be
+ * withdrawn; only a REJECTED one can be amended, and only while the event has no other active
+ * request; accepting also needs a suggestion. The server enforces all of this again.
+ */
+export function bookingActions(booking: Pick<VenueBookingDetailView, "id" | "status" | "suggestion" | "chain">) {
+  const otherActive = booking.chain.some(
+    (c) => c.id !== booking.id && (c.status === "PENDING" || c.status === "APPROVED"),
+  );
+  const rejected = booking.status === "REJECTED" && !otherActive;
+  return {
+    withdraw: booking.status === "PENDING",
+    amend: rejected,
+    acceptSuggestion: rejected && booking.suggestion !== null,
+  };
 }
 
 /** "PENDING" -> "Pending" */

@@ -4,16 +4,33 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { parseVenueBookingInput } from "@spm-t5/shared";
 import { Field } from "./Field";
-import { submitVenueBooking, type VenueBookingFormData, type VenueOption } from "@/lib/venueBookings";
+import {
+  submitVenueBooking,
+  type VenueBookingFormData,
+  type VenueBookingInputBody,
+  type VenueOption,
+} from "@/lib/venueBookings";
+
+type Slot = Omit<VenueBookingInputBody, "eventId">;
+
+interface Props {
+  form: VenueBookingFormData;
+  venues: VenueOption[];
+  /** SCRUM-60: start from the rejected request's slot and submit as an amendment instead. */
+  initial?: Partial<Slot>;
+  heading?: string;
+  submitLabel?: string;
+  submit?: (input: Slot) => ReturnType<typeof submitVenueBooking>;
+}
 
 // SCRUM-32/AC2: the coordinator picks a venue, date and time; the event's own details are shown read-only.
 // Validation is the shared parseVenueBookingInput, so the form and venue-service agree (32-S5).
-export function VenueBookingRequestForm({ form, venues }: { form: VenueBookingFormData; venues: VenueOption[] }) {
+export function VenueBookingRequestForm({ form, venues, initial, heading, submitLabel, submit }: Props) {
   const router = useRouter();
-  const [venueId, setVenueId] = useState("");
-  const [date, setDate] = useState(form.date ?? "");
-  const [startTime, setStartTime] = useState(form.startTime ?? "");
-  const [endTime, setEndTime] = useState(form.endTime ?? "");
+  const [venueId, setVenueId] = useState(initial?.venueId ?? "");
+  const [date, setDate] = useState(initial?.date ?? form.date ?? "");
+  const [startTime, setStartTime] = useState(initial?.startTime ?? form.startTime ?? "");
+  const [endTime, setEndTime] = useState(initial?.endTime ?? form.endTime ?? "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -31,7 +48,7 @@ export function VenueBookingRequestForm({ form, venues }: { form: VenueBookingFo
     setFieldErrors({});
 
     setSaving(true);
-    const { ok, data } = await submitVenueBooking({ eventId: form.eventId, ...input });
+    const { ok, data } = await (submit ?? ((slot) => submitVenueBooking({ eventId: form.eventId, ...slot })))(input);
     if (ok) {
       router.push(`/venue-bookings/${data.id}`);
       return;
@@ -43,7 +60,7 @@ export function VenueBookingRequestForm({ form, venues }: { form: VenueBookingFo
 
   return (
     <section className="event">
-      <h1>Request a venue</h1>
+      <h1>{heading ?? "Request a venue"}</h1>
       <p className="event__status">{form.eventName}</p>
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
@@ -77,7 +94,7 @@ export function VenueBookingRequestForm({ form, venues }: { form: VenueBookingFo
         <Field id="endTime" label="End time" type="time" value={endTime} error={fieldErrors.endTime}
           onChange={(e) => setEndTime(e.target.value)} />
 
-        <button className="btn" type="submit" disabled={saving}>{saving ? "Submitting…" : "Submit request"}</button>
+        <button className="btn" type="submit" disabled={saving}>{saving ? "Submitting…" : (submitLabel ?? "Submit request")}</button>
       </form>
     </section>
   );
