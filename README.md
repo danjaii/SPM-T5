@@ -189,6 +189,44 @@ The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm v
 doesn't try to run the Playwright specs. `apps/web/playwright.config.ts` starts `next dev` itself,
 so `test:e2e` needs no separately running server; run `npx playwright install` once to fetch browsers.
 
+### Database integration tests (local Supabase)
+
+`services/venue-service/tests/integration` runs against a real Postgres, so the migrations and
+constraints (slot exclusion, one active request per event) are checked for real. Without
+`SUPABASE_URL` and `SUPABASE_SECRET_KEY` these suites **skip silently**, so a green plain
+`pnpm vitest run` does not prove they passed. CI runs them in the `integration` job.
+
+Prerequisites: Docker Desktop running, and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)
+(`scoop install supabase` or `npm i -g supabase` on Windows, `brew install supabase/tap/supabase` on macOS).
+
+```bash
+supabase start           # first run pulls images (a few minutes); applies supabase/migrations, then seed.sql
+supabase status -o env   # prints API_URL and SECRET_KEY
+```
+
+Point the tests at it, then run them from the **repo root** (running through `pnpm --filter` fails to
+resolve the root Vitest projects):
+
+```bash
+# bash / WSL
+export SUPABASE_URL="<API_URL from status>"        # http://127.0.0.1:54321
+export SUPABASE_SECRET_KEY="<SECRET_KEY from status>"
+# PowerShell
+$env:SUPABASE_URL = "<API_URL>"; $env:SUPABASE_SECRET_KEY = "<SECRET_KEY>"
+
+pnpm vitest run --project @spm-t5/venue-service tests/integration --coverage.enabled=false
+```
+
+Useful extras:
+
+```bash
+supabase db reset   # re-apply all migrations + seed from scratch (do this after adding a migration)
+supabase stop       # shut the stack down (add --no-backup to also drop its data)
+```
+
+Tests create their own `IT-` prefixed venues and events in 2030 and clean up after themselves. If
+the run reports "Need a seeded event_organiser", the seed is missing: run `supabase db reset`.
+
 Every PR must pass the `CI / test` and `CI / e2e` checks before merge (see branch protection notes in
 `.github/workflows/README.md`).
 
