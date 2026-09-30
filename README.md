@@ -201,7 +201,7 @@ Prerequisites: Docker Desktop running, and the [Supabase CLI](https://supabase.c
 
 ```bash
 supabase start           # first run pulls images (a few minutes); applies supabase/migrations, then seed.sql
-supabase status -o env   # prints API_URL and SECRET_KEY
+supabase status -o env   # prints API_URL, SECRET_KEY and PUBLISHABLE_KEY
 ```
 
 Point the tests at it, then run them from the **repo root** (running through `pnpm --filter` fails to
@@ -211,11 +211,13 @@ resolve the root Vitest projects):
 # bash / WSL
 export SUPABASE_URL="<API_URL from status>"        # http://127.0.0.1:54321
 export SUPABASE_SECRET_KEY="<SECRET_KEY from status>"
+export SUPABASE_PUBLISHABLE_KEY="<PUBLISHABLE_KEY from status>"   # RLS tests sign in as seeded users
 # PowerShell
-$env:SUPABASE_URL = "<API_URL>"; $env:SUPABASE_SECRET_KEY = "<SECRET_KEY>"
+$env:SUPABASE_URL = "<API_URL>"; $env:SUPABASE_SECRET_KEY = "<SECRET_KEY>"; $env:SUPABASE_PUBLISHABLE_KEY = "<PUBLISHABLE_KEY>"
 # cmd.exe (no quotes; `set` only lasts for this window, so run the tests from the same one)
 set SUPABASE_URL=<API_URL>
 set SUPABASE_SECRET_KEY=<SECRET_KEY>
+set SUPABASE_PUBLISHABLE_KEY=<PUBLISHABLE_KEY>
 
 pnpm vitest run --project @spm-t5/venue-service tests/integration --coverage.enabled=false
 ```
@@ -226,6 +228,9 @@ Useful extras:
 supabase db reset   # re-apply all migrations + seed from scratch (do this after adding a migration)
 supabase stop       # shut the stack down (add --no-backup to also drop its data)
 ```
+
+The RLS suite (`bookingRls.test.ts`) also needs `SUPABASE_PUBLISHABLE_KEY`: it signs in as seeded users
+(password `ConnectSphere2026!`) and queries with their JWTs, and throws if the key is missing.
 
 Tests create their own `IT-` prefixed venues and events in 2030 and clean up after themselves. If
 the run reports "Need a seeded event_organiser", the seed is missing: run `supabase db reset`.
