@@ -8,6 +8,7 @@ import {
   periodsOverlap,
   sgtToUtc,
   utcToSgt,
+  VENUE_BOOKING_MESSAGES,
 } from "../src/venueBooking";
 
 const day = (start: string, end: string) => ({
@@ -143,5 +144,11 @@ describe("SCRUM-32 32-S5 — parseVenueBookingInput", () => {
 
   it("rejects a non-object body", () => {
     expect(parseVenueBookingInput(undefined, now)).toMatchObject({ ok: false });
+  });
+});
+
+describe("SCRUM-38/AC8 — SLOT_IN_PAST message (38-S8)", () => {
+  it("38-S8 has a standard message so the API and the UI say the same thing", () => {
+    expect(VENUE_BOOKING_MESSAGES.SLOT_IN_PAST).toBe("The requested time has already passed.");
   });
 });
