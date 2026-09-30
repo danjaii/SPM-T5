@@ -141,3 +141,16 @@ tr:last-child td { border-bottom: 0; }
   .dash__bar { padding: 12px 16px; }
   .dash__main { padding: 20px 16px; }
 }
+
+/* ---------- Venue booking requests (SCRUM-32/33) ---------- */
+.vb { max-width: 720px; }
+.vb h1 { font-size: 30px; font-weight: 700; }
+.vb h2 { font-size: 20px; font-weight: 700; margin: 28px 0 10px; }
+.vb__facts {
+  display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; margin: 0 0 20px;
+  padding: 20px 24px; background: #fff; border: 1px solid var(--border);
+}
+.vb__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.vb__facts dd { margin: 0; }
+.vb__note { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+.vb__list { margin: 0; padding: 14px 24px 14px 40px; background: #fff; border: 1px solid var(--border); line-height: 1.8; }
