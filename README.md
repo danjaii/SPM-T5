@@ -12,6 +12,7 @@ backed by one Supabase Postgres.
 - [Getting started](#getting-started)
 - [Feature walkthroughs](#feature-walkthroughs)
 - [Testing](#testing)
+- [Contributing](#contributing)
 - [CI](#ci)
 - [Database](#database)
 - [Current status](#current-status)
@@ -271,6 +272,21 @@ The RLS suite (`bookingRls.test.ts`) also needs `SUPABASE_PUBLISHABLE_KEY`: it s
 
 Tests create their own `IT-` prefixed venues and events in 2030 and clean up after themselves. If
 the run reports "Need a seeded event_organiser", the seed is missing: run `supabase db reset`.
+
+## Contributing
+
+Work is traced back to Jira stories, so a few conventions apply to every change:
+
+- **Git conventions** — branch names, commit and PR titles, and ticket references
+  (`SCRUM-<story>/AC<n>`) are defined in the "Git conventions" section of [`CLAUDE.md`](CLAUDE.md).
+  PRs target `main`, are squash-merged, and follow `.github/pull_request_template.md`.
+- **Specs** — feature specs (user stories, acceptance criteria, shared rules) live in
+  [`docs/specs/`](docs/specs/). Test names reference the spec's scenario IDs (e.g. `36-S4`); where a
+  spec disagrees with the schema, its "Implementation decisions" section wins.
+- **Tests first** — the team's TDD workflow is the skill at
+  [`.agents/skills/test-driven-development/SKILL.md`](.agents/skills/test-driven-development/SKILL.md)
+  (see also `writing-good-tests.md` beside it). Put the story/AC in test descriptions, e.g.
+  `describe('SCRUM-14/AC2 venue capacity filter', ...)`.
 
 ## CI
 
