@@ -9,6 +9,9 @@ export interface BookingRepository {
   /** True if a PENDING/APPROVED request already holds this venue over any part of the period. */
   hasHold(venueId: string, start: Date, end: Date): Promise<boolean>;
 
+  /** Every request ever made for the event, oldest first (DR6 active check, DR7 repeat guard). */
+  listByEvent(eventId: string): Promise<BookingRecord[]>;
+
   /**
    * Creates a PENDING request atomically. Throws BookingError:
    *  - SLOT_CONFLICT when the venue is held for an overlapping period (DR5, DR11)

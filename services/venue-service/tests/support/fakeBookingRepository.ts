@@ -43,6 +43,10 @@ export class FakeBookingRepository implements BookingRepository {
     );
   }
 
+  async listByEvent(eventId: string): Promise<BookingRecord[]> {
+    return this.rows.filter((r) => r.eventId === eventId);
+  }
+
   async insert(input: NewBooking): Promise<BookingRecord> {
     if (this.rows.some((r) => r.eventId === input.eventId && isHoldingDbStatus(r.status))) {
       throw bookingError("ACTIVE_REQUEST_EXISTS");
