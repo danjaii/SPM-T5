@@ -213,8 +213,9 @@ Parts of the repo are still scaffolding — some `services/*/src/index.ts` files
 `healthCheck()` stub and nothing else. Declared dependencies (express, zod) are real intent, not yet
 real code. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
-`component-venue-service.puml`). Its Venue Staff approval routes (SCRUM-37 to 40) are not built: the
-repository already has `listPending` and `decide` for them.
+`component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
+spec in `docs/specs/venue-booking-approval.md`). SCRUM-40 (suggested alternative) is not built: the
+`Decision` type and `suggested_*` columns are its seam.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
