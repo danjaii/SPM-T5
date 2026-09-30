@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { EVENT_STATUSES } from "@spm-t5/shared";
+import Link from "next/link";
+import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue } from "@spm-t5/shared";
 import { changeEventStatus, statusLabel, type EventStatusView } from "@/lib/events";
 
 // SCRUM-6/7: shows an event's current status. SCRUM-8: the assigned coordinator can also change it.
@@ -39,6 +40,16 @@ export function EventStatusPanel({ event }: { event: EventStatusView }) {
           {message.text}
         </div>
       )}
+
+      {/* SCRUM-32/AC3: the assigned coordinator can request a venue once the event is approved (32-S2, 32-S3). */}
+      {event.canChangeStatus &&
+        (canRequestVenue(status) ? (
+          <p>
+            <Link href={`/events/${event.id}/venue-request`}>Request a venue</Link>
+          </p>
+        ) : (
+          <p className="field__hint">{VENUE_BOOKING_MESSAGES.EVENT_NOT_ELIGIBLE}</p>
+        ))}
 
       {event.canChangeStatus && (
         <form className="event__form" onSubmit={onSubmit}>
