@@ -98,9 +98,13 @@ describe.skipIf(!hasDb)("SCRUM-33/SCRUM-32/SCRUM-35 venue_bookings row level sec
       expect(seen).toBe(all);
     });
 
-    it("an organiser reads only the requests for events they organise", async () => {
-      expect(await visibleIds(who.organiserA, [bookingA, bookingB])).toEqual([bookingA]);
-      expect(await visibleIds(who.organiserB, [bookingA, bookingB])).toEqual([bookingB]);
+    // Migration 08 (39-S7): the rejection reason is for Venue Staff and the assigned Coordinator only.
+    it("39-S7 an organiser reads no requests, even for events they organise", async () => {
+      expect(await visibleIds(who.organiserA, [bookingA, bookingB])).toEqual([]);
+      expect(await visibleIds(who.organiserB, [bookingA, bookingB])).toEqual([]);
+      const { data, error } = await who.organiserA.client.from("venue_bookings").select("id, review_notes").eq("event_id", eventA);
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
     });
 
     it.each(["technicalSupport", "attendee"] as const)("%s reads no requests at all", async (role) => {
