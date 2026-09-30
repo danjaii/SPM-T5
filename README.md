@@ -213,6 +213,9 @@ export SUPABASE_URL="<API_URL from status>"        # http://127.0.0.1:54321
 export SUPABASE_SECRET_KEY="<SECRET_KEY from status>"
 # PowerShell
 $env:SUPABASE_URL = "<API_URL>"; $env:SUPABASE_SECRET_KEY = "<SECRET_KEY>"
+# cmd.exe (no quotes; `set` only lasts for this window, so run the tests from the same one)
+set SUPABASE_URL=<API_URL>
+set SUPABASE_SECRET_KEY=<SECRET_KEY>
 
 pnpm vitest run --project @spm-t5/venue-service tests/integration --coverage.enabled=false
 ```
