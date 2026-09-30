@@ -1,4 +1,4 @@
-import type { BookingRecord, NewBooking } from "../domain/types";
+import type { BookingRecord, Decision, NewBooking } from "../domain/types";
 
 /**
  * Storage for venue booking requests. The real implementation is Postgres (venue_bookings); the
@@ -8,6 +8,27 @@ import type { BookingRecord, NewBooking } from "../domain/types";
 export interface BookingRepository {
   /** True if a PENDING/APPROVED request already holds this venue over any part of the period. */
   hasHold(venueId: string, start: Date, end: Date): Promise<boolean>;
+
+  /** PENDING requests, oldest first: the Venue Staff queue (seam for SCRUM-37). */
+  listPending(): Promise<BookingRecord[]>;
+
+  /**
+   * Withdraws the request if, and only if, it is still PENDING (SCRUM-35). One atomic conditional
+   * update, so a decision made at the same moment wins or loses cleanly (35-S5). Null when the
+   * request was not pending (or does not exist).
+   */
+  withdraw(id: string, by: string, at: Date): Promise<BookingRecord | null>;
+
+  /**
+   * Approves or rejects the request if, and only if, it is still PENDING (seam for SCRUM-38 to 40).
+   * A rejection may carry a reason and a suggested alternative. Null when it was not pending.
+   */
+  decide(
+    id: string,
+    decision: Decision,
+    by: string,
+    at: Date,
+  ): Promise<BookingRecord | null>;
 
   /** One request by id, or null (SCRUM-33 detail). */
   getById(id: string): Promise<BookingRecord | null>;

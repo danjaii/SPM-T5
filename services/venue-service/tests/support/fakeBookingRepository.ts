@@ -1,6 +1,6 @@
 import { isHoldingDbStatus, periodsOverlap } from "@spm-t5/shared";
 import { bookingError } from "../../src/domain/errors";
-import type { BookingRecord, NewBooking } from "../../src/domain/types";
+import type { BookingRecord, Decision, NewBooking } from "../../src/domain/types";
 import type { BookingRepository } from "../../src/repositories/bookingRepository";
 
 /**
@@ -41,6 +41,28 @@ export class FakeBookingRepository implements BookingRepository {
     return this.rows.some(
       (r) => r.venueId === venueId && isHoldingDbStatus(r.status) && periodsOverlap(r, { start, end }),
     );
+  }
+
+  async listPending(): Promise<BookingRecord[]> {
+    return this.rows.filter((r) => r.status === "requested").sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async withdraw(id: string, by: string, at: Date): Promise<BookingRecord | null> {
+    const row = this.rows.find((r) => r.id === id);
+    if (!row || row.status !== "requested") return null;
+    Object.assign(row, { status: "withdrawn", withdrawnBy: by, withdrawnAt: at });
+    return row;
+  }
+
+  async decide(id: string, decision: Decision, by: string, at: Date): Promise<BookingRecord | null> {
+    const row = this.rows.find((r) => r.id === id);
+    if (!row || row.status !== "requested") return null;
+    Object.assign(row, { status: decision.outcome, reviewedBy: by, reviewedAt: at });
+    if (decision.outcome === "rejected") {
+      row.reviewNotes = decision.reason ?? null;
+      row.suggestion = decision.suggestion ?? null;
+    }
+    return row;
   }
 
   async getById(id: string): Promise<BookingRecord | null> {

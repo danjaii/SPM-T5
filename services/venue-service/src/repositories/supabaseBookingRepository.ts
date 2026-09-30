@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { HOLDING_DB_STATUSES } from "@spm-t5/shared";
 import { bookingError } from "../domain/errors";
-import type { BookingRecord, NewBooking } from "../domain/types";
+import type { BookingRecord, Decision, NewBooking } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
@@ -86,6 +86,54 @@ export class SupabaseBookingRepository implements BookingRepository {
       .limit(1);
     if (error) throw new Error("Could not check the venue's availability.");
     return data.length > 0;
+  }
+
+  async listPending(): Promise<BookingRecord[]> {
+    const { data, error } = await this.db
+      .from("venue_bookings")
+      .select(BOOKING_COLUMNS)
+      .eq("status", "requested")
+      .order("created_at", { ascending: true });
+    if (error) throw new Error("Could not read the pending venue booking requests.");
+    return (data as unknown as Row[]).map(toBookingRecord);
+  }
+
+  /** The conditional `status = 'requested'` makes the transition atomic: only one of two racing callers matches. */
+  private async transitionFromPending(id: string, patch: Record<string, unknown>): Promise<BookingRecord | null> {
+    const { data, error } = await this.db
+      .from("venue_bookings")
+      .update(patch)
+      .eq("id", id)
+      .eq("status", "requested")
+      .select(BOOKING_COLUMNS)
+      .maybeSingle();
+    if (error) throw new Error("Could not update the venue booking request.", { cause: error });
+    return data ? toBookingRecord(data as unknown as Row) : null;
+  }
+
+  withdraw(id: string, by: string, at: Date): Promise<BookingRecord | null> {
+    return this.transitionFromPending(id, {
+      status: "withdrawn",
+      withdrawn_by: by,
+      withdrawn_at: at.toISOString(),
+    });
+  }
+
+  decide(id: string, decision: Decision, by: string, at: Date): Promise<BookingRecord | null> {
+    const patch: Record<string, unknown> = {
+      status: decision.outcome,
+      reviewed_by: by,
+      reviewed_at: at.toISOString(),
+    };
+    if (decision.outcome === "rejected") {
+      patch.review_notes = decision.reason ?? null;
+      if (decision.suggestion) {
+        patch.suggested_venue_id = decision.suggestion.venueId;
+        patch.suggested_start_datetime = decision.suggestion.start.toISOString();
+        patch.suggested_end_datetime = decision.suggestion.end.toISOString();
+      }
+    }
+    return this.transitionFromPending(id, patch);
   }
 
   async getById(id: string): Promise<BookingRecord | null> {

@@ -32,6 +32,15 @@ export interface BookingRecord {
   suggestion: { venueId: string; start: Date; end: Date } | null;
 }
 
+/** Venue Staff's decision on a pending request. Only a rejection carries a reason and a suggestion. */
+export type Decision =
+  | { outcome: "approved" }
+  | {
+      outcome: "rejected";
+      reason?: string;
+      suggestion?: { venueId: string; start: Date; end: Date };
+    };
+
 /** What the caller supplies to create a request. Status is always PENDING ("requested"). */
 export interface NewBooking {
   eventId: string;

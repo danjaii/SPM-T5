@@ -42,6 +42,25 @@ export class BookingService {
     this.slotRule = new SlotConflictRule(deps.bookings);
   }
 
+  /**
+   * SCRUM-35: withdraw a PENDING request. Only the event's assigned Coordinator may (35-S3), and only
+   * while it is PENDING (35-S2). The pre-check gives a clear refusal; the conditional update inside
+   * withdraw() is what settles a race with a decision (35-S5).
+   */
+  async withdraw(caller: Caller, id: string): Promise<BookingRecord> {
+    const { bookings, events, now } = this.deps;
+    if (caller.role !== "event_coordinator") throw forbidden();
+    const booking = await bookings.getById(id);
+    if (!booking) throw notFound("Venue booking request not found.");
+    const event = await events.getById(booking.eventId);
+    if (!event || event.assignedCoordinatorId !== caller.id) throw forbidden();
+    if (booking.status !== "requested") throw bookingError("NOT_PENDING");
+
+    const withdrawn = await bookings.withdraw(id, caller.id, now());
+    if (!withdrawn) throw bookingError("NOT_PENDING");
+    return withdrawn;
+  }
+
   async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<BookingRecord> {
     const { bookings, events, venues, now } = this.deps;
 

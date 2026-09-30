@@ -51,6 +51,16 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     }),
   );
 
+  // 35-S1: withdraw a pending request.
+  router.post(
+    "/venue-bookings/:id/withdraw",
+    asyncHandler(async (req, res) => {
+      const { caller, service } = await context(res.locals.user as SessionUser);
+      const booking = await service.withdraw(caller, String(req.params.id));
+      res.json(toBookingDto(booking));
+    }),
+  );
+
   // 32-S2: pre-fill for the request form. Same access rules as submitting.
   router.get(
     "/events/:eventId/venue-booking-form",

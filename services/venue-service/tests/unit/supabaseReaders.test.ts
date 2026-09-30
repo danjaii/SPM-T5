@@ -88,6 +88,69 @@ describe("SupabaseBookingRepository getById and listByEvents (SCRUM-33)", () => 
   });
 });
 
+describe("SupabaseBookingRepository seams: listPending, withdraw, decide (SCRUM-35, SCRUM-37 to 40)", () => {
+  const row = {
+    id: "b1",
+    event_id: "e1",
+    venue_id: "v1",
+    event_start_datetime: "2030-11-14T01:00:00.000Z",
+    event_end_datetime: "2030-11-14T09:00:00.000Z",
+    status: "withdrawn",
+    created_at: "2030-01-01T00:00:00.000Z",
+  };
+  const at = new Date("2030-02-01T00:00:00.000Z");
+
+  /** Like stubDb, but records the patch passed to update(). */
+  function recording(reply: Reply) {
+    const patches: unknown[] = [];
+    const chain: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "order"]) chain[m] = () => chain;
+    chain.update = (patch: unknown) => (patches.push(patch), chain);
+    chain.maybeSingle = async () => reply;
+    chain.then = (resolve: (r: Reply) => unknown) => resolve(reply);
+    return { repo: new SupabaseBookingRepository({ from: () => chain } as unknown as SupabaseClient), patches };
+  }
+
+  it("listPending maps rows and fails generically", async () => {
+    expect(await new SupabaseBookingRepository(stubDb({ data: [row], error: null })).listPending()).toHaveLength(1);
+    await expect(new SupabaseBookingRepository(stubDb({ data: null, error: { message: "s" } })).listPending()).rejects.toThrow(
+      "Could not read the pending venue booking requests.",
+    );
+  });
+
+  it("withdraw sets status, who and when; null when it was not pending", async () => {
+    const { repo, patches } = recording({ data: row, error: null });
+    expect(await repo.withdraw("b1", "u1", at)).toMatchObject({ id: "b1" });
+    expect(patches[0]).toEqual({ status: "withdrawn", withdrawn_by: "u1", withdrawn_at: at.toISOString() });
+    expect(await recording({ data: null, error: null }).repo.withdraw("b1", "u1", at)).toBeNull();
+    await expect(recording({ data: null, error: { message: "secret" } }).repo.withdraw("b1", "u1", at)).rejects.toThrow(
+      "Could not update the venue booking request.",
+    );
+  });
+
+  it("decide records the reviewer, and a rejection's reason and suggestion", async () => {
+    const approve = recording({ data: row, error: null });
+    await approve.repo.decide("b1", { outcome: "approved" }, "staff", at);
+    expect(approve.patches[0]).toEqual({ status: "approved", reviewed_by: "staff", reviewed_at: at.toISOString() });
+
+    const reject = recording({ data: row, error: null });
+    const end = new Date("2030-03-01T00:00:00.000Z");
+    await reject.repo.decide("b1", { outcome: "rejected", reason: "No", suggestion: { venueId: "v2", start: at, end } }, "staff", at);
+    expect(reject.patches[0]).toMatchObject({
+      status: "rejected",
+      review_notes: "No",
+      suggested_venue_id: "v2",
+      suggested_start_datetime: at.toISOString(),
+      suggested_end_datetime: end.toISOString(),
+    });
+
+    const bare = recording({ data: row, error: null });
+    await bare.repo.decide("b1", { outcome: "rejected" }, "staff", at);
+    expect(bare.patches[0]).toMatchObject({ review_notes: null });
+    expect(bare.patches[0]).not.toHaveProperty("suggested_venue_id");
+  });
+});
+
 describe("SupabaseVenueReader.getByIds", () => {
   it("returns nothing for no ids, maps rows and throws on errors", async () => {
     const failing = new SupabaseVenueReader(stubDb({ data: null, error: { message: "down" } }));
