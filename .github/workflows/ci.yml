@@ -81,12 +81,12 @@ jobs:
       - name: Export local connection details for the tests
         run: |
           supabase status -o env \
-            | grep -E '^(API_URL|SECRET_KEY)=' \
-            | sed -E 's/^API_URL=/SUPABASE_URL=/; s/^SECRET_KEY=/SUPABASE_SECRET_KEY=/' \
+            | grep -E '^(API_URL|SECRET_KEY|PUBLISHABLE_KEY)=' \
+            | sed -E 's/^API_URL=/SUPABASE_URL=/; s/^SECRET_KEY=/SUPABASE_SECRET_KEY=/; s/^PUBLISHABLE_KEY=/SUPABASE_PUBLISHABLE_KEY=/' \
             | tr -d '"' >> "$GITHUB_ENV"
 
       - name: Fail loudly if the database is not configured (otherwise the tests would silently skip)
-        run: test -n "$SUPABASE_URL" && test -n "$SUPABASE_SECRET_KEY"
+        run: test -n "$SUPABASE_URL" && test -n "$SUPABASE_SECRET_KEY" && test -n "$SUPABASE_PUBLISHABLE_KEY"
 
       - name: Integration tests
         run: pnpm vitest run --project @spm-t5/venue-service tests/integration --coverage.enabled=false

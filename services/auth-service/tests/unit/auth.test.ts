@@ -19,6 +19,7 @@ function createFake() {
     users: [], events: [], venues: [], venue_bookings: [], equipment: [], technical_support_requests: [], event_registrations: [],
   };
   const calls = { resetEmails: [] as { email: string; redirectTo?: string }[], signedOut: [] as string[], deleted: [] as string[] };
+  const selects: { table: string; columns: string }[] = []; // every select() the app issued, to pin PostgREST embeds
   let counter = 0;
   const failProfileInsert = { value: false };
   const failReads = { value: false };
@@ -27,7 +28,7 @@ function createFake() {
   const query = (table: string) => {
     let rows = [...(tables[table] ?? [])];
     const builder = {
-      select: () => builder,
+      select: (columns?: string) => { selects.push({ table, columns: columns ?? "" }); return builder; },
       eq: (col: string, val: unknown) => { rows = rows.filter((r) => r[col] === val); return builder; },
       in: (col: string, vals: unknown[]) => { rows = rows.filter((r) => vals.includes(r[col])); return builder; },
       order: () => builder,
@@ -100,7 +101,7 @@ function createFake() {
     return id;
   };
 
-  return { deps, tables, authUsers, sessions, calls, seedUser, failProfileInsert, failReads, signUpError };
+  return { deps, tables, authUsers, sessions, calls, selects, seedUser, failProfileInsert, failReads, signUpError };
 }
 
 let fake: ReturnType<typeof createFake>;
@@ -371,6 +372,19 @@ describe("US3 — Role based access", () => {
     fake.tables.events.push({ id: "evt-2", name: "My conference", organiser_id: organiser, status: "submitted" });
     const orgRes = await request(app).get("/dashboard").set("Cookie", await signInAs("org@example.com", "event_organiser"));
     expect(orgRes.body.sections[0].columns.some((c: Row) => c.linkKey)).toBe(false);
+  });
+
+  // venue_bookings has two FKs to venues (venue_id, suggested_venue_id); a bare `venues(name)` embed makes PostgREST
+  // answer PGRST201 and the whole dashboard 500s. The in-memory fake can't raise that, so pin the embed instead.
+  it.each(["event_coordinator", "venue_staff"])("SCRUM-32/AC1 %s dashboard names the venue FK when embedding venues", async (role) => {
+    fake.seedUser(`${role}@example.com`, role);
+    await sectionTitles(`${role}@example.com`, role);
+
+    const bookingSelects = fake.selects.filter((s) => s.table === "venue_bookings");
+    expect(bookingSelects).not.toHaveLength(0);
+    for (const { columns } of bookingSelects) {
+      expect(columns).toContain("venues!venue_bookings_venue_id_fkey(name)");
+    }
   });
 
   it("shows an attendee their registrations and only confirmed, bookable events in the catalogue", async () => {

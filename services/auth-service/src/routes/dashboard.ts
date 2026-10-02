@@ -4,6 +4,10 @@ import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
 type Row = Record<string, unknown>;
+
+// venue_bookings has two FKs to venues (venue_id, suggested_venue_id), so the embed must name one.
+const BOOKING_COLUMNS =
+  "status, event_start_datetime, event_end_datetime, event:events(name), venue:venues!venue_bookings_venue_id_fkey(name)";
 interface Section {
   title: string;
   /** linkKey: the row field holding a link for this column's value (the web app renders it as a link). */
@@ -77,7 +81,7 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
       const [events, bookings] = await Promise.all([
         rows(db.from("events").select("id, name, status, preferred_start_datetime, expected_attendance")
           .eq("assigned_coordinator_id", userId).order("preferred_start_datetime", { ascending: true }).limit(LIMIT)),
-        rows(db.from("venue_bookings").select("status, event_start_datetime, event_end_datetime, event:events(name), venue:venues(name)")
+        rows(db.from("venue_bookings").select(BOOKING_COLUMNS)
           .eq("requested_by", userId).order("event_start_datetime", { ascending: true }).limit(LIMIT)),
       ]);
       return [
@@ -104,7 +108,7 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
       const [venues, bookings] = await Promise.all([
         rows(db.from("venues").select("name, address, max_capacity, operating_hours_start, operating_hours_end, is_accessible")
           .eq("is_active", true).order("name").limit(LIMIT)),
-        rows(db.from("venue_bookings").select("status, event_start_datetime, event_end_datetime, event:events(name), venue:venues(name)")
+        rows(db.from("venue_bookings").select(BOOKING_COLUMNS)
           .in("status", ["requested", "tentative"]).order("event_start_datetime", { ascending: true }).limit(LIMIT)),
       ]);
       return [

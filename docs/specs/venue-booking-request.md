@@ -25,6 +25,7 @@ Where this spec meets the existing schema (`supabase/migrations/01_schema.sql`) 
 - **Start in the past.** Returns 422 with a field error (32-S5). The `SLOT_IN_PAST` code from DR12 is not used on submit.
 - **Suggestion `usedAt`.** Derived from the accepting request (`from_suggestion = true`, `amends_booking_id` = the rejected request); a unique index makes a second accept fail atomically.
 - **Scope.** Only the minimum seams for SCRUM-29 and SCRUM-37 to 40 are built here: a venue list for the form picker, a pending-queue query and a decide operation at repository level.
+- **Not visible means not found.** With per-role RLS (migration 07) a coordinator cannot read another coordinator's request, so for them it looks the same as an unknown id and the API answers 404 rather than 403. Either way access is denied and nothing about the request is revealed. Where a row is visible but the caller is not the assigned Coordinator, the answer is 403. The slot pre-check uses the `venue_slot_is_held` database function so RLS cannot hide a holder from it.
 - **Integration tests.** DB-backed tests (36-S4, 35-S5 and others) run against local Supabase and in a dedicated CI job.
 
 ## Story index

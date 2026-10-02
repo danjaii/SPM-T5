@@ -171,6 +171,46 @@ Notes:
   project's Auth → URL Configuration → Redirect URLs.
 - The session is an httpOnly cookie set by auth-service; logging out revokes it in Supabase.
 
+## Running the venue booking request module locally (SCRUM-36, 32, 33, 35, 60, 59)
+
+Runs the whole coordinator flow end to end: web, auth, event and venue services against a local Supabase.
+
+1. **Start Supabase** (Docker running): `supabase start`, then `supabase db reset` (applies migrations 01 to 07 and
+   `seed.sql`), then `supabase status -o env` to read the keys.
+2. **Create `.env` at the repo root** (git-ignored; the services read it via `--env-file=../../.env`):
+   ```bash
+   SUPABASE_URL=http://127.0.0.1:54321
+   SUPABASE_PUBLISHABLE_KEY=<PUBLISHABLE_KEY from status>
+   SUPABASE_SECRET_KEY=<SECRET_KEY from status>
+   WEB_ORIGIN=http://localhost:3000
+   ```
+3. **Start everything from the repo root** (not `apps/web`): `pnpm install`, then `pnpm dev`. This runs web on 3000,
+   auth-service on 4001, event-service on 4002 and venue-service on 4003. Stop any older dev server first: the web
+   app must be on port 3000, the origin the services allow.
+4. **Try the flow** at http://localhost:3000. Every seeded password is `ConnectSphere2026!` (accounts in the table
+   above); pick the matching role when signing in.
+   - **Submit and track (32, 33, 36):** sign in as the Event Coordinator (`rachel.tan@...`), open an event assigned to
+     her whose status is `approved`, `planning` or `awaiting_arrangements` (other statuses are refused with
+     `EVENT_NOT_ELIGIBLE`), and use the venue request link on its status panel. Submit, then check the list and detail
+     pages. Submit an overlapping slot to see the conflict message.
+   - **Withdraw (35):** on a pending request, choose Withdraw request and confirm.
+   - **Amend and accept a suggestion (60, 59):** these need a rejected request, and the Venue Staff approval screens
+     (SCRUM-37 to 40) are not built yet. Reject one in Supabase Studio (http://127.0.0.1:54323, SQL editor), then
+     reload the request as the coordinator:
+     ```sql
+     update venue_bookings
+     set status = 'rejected', review_notes = 'Renovation', reviewed_at = now(),
+         reviewed_by = (select id from users where role = 'venue_staff' limit 1),
+         suggested_venue_id = (select id from venues where id <> venue_id limit 1),
+         suggested_start_datetime = event_start_datetime + interval '1 day',
+         suggested_end_datetime = event_end_datetime + interval '1 day'
+     where id = '<request id>';
+     ```
+   - **Access control:** open the same request as the organiser or as another coordinator. You get "not found"
+     rather than the request (RLS; see the spec's "Not visible means not found").
+
+To run the automated checks instead, see Testing below.
+
 ## Testing
 
 Unit and integration tests use Vitest; `apps/web` end-to-end tests use Playwright.
@@ -188,6 +228,52 @@ The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm v
 `apps/web/vitest.config.ts` only picks up `tests/unit/**` (jsdom + Testing Library), so Vitest
 doesn't try to run the Playwright specs. `apps/web/playwright.config.ts` starts `next dev` itself,
 so `test:e2e` needs no separately running server; run `npx playwright install` once to fetch browsers.
+
+### Database integration tests (local Supabase)
+
+`services/venue-service/tests/integration` runs against a real Postgres, so the migrations and
+constraints (slot exclusion, one active request per event) are checked for real. Without
+`SUPABASE_URL` and `SUPABASE_SECRET_KEY` these suites **skip silently**, so a green plain
+`pnpm vitest run` does not prove they passed. CI runs them in the `integration` job.
+
+Prerequisites: Docker Desktop running, and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)
+(`scoop install supabase` or `npm i -g supabase` on Windows, `brew install supabase/tap/supabase` on macOS).
+
+```bash
+supabase start           # first run pulls images (a few minutes); applies supabase/migrations, then seed.sql
+supabase status -o env   # prints API_URL, SECRET_KEY and PUBLISHABLE_KEY
+```
+
+Point the tests at it, then run them from the **repo root** (running through `pnpm --filter` fails to
+resolve the root Vitest projects):
+
+```bash
+# bash / WSL
+export SUPABASE_URL="<API_URL from status>"        # http://127.0.0.1:54321
+export SUPABASE_SECRET_KEY="<SECRET_KEY from status>"
+export SUPABASE_PUBLISHABLE_KEY="<PUBLISHABLE_KEY from status>"   # RLS tests sign in as seeded users
+# PowerShell
+$env:SUPABASE_URL = "<API_URL>"; $env:SUPABASE_SECRET_KEY = "<SECRET_KEY>"; $env:SUPABASE_PUBLISHABLE_KEY = "<PUBLISHABLE_KEY>"
+# cmd.exe (no quotes; `set` only lasts for this window, so run the tests from the same one)
+set SUPABASE_URL=<API_URL>
+set SUPABASE_SECRET_KEY=<SECRET_KEY>
+set SUPABASE_PUBLISHABLE_KEY=<PUBLISHABLE_KEY>
+
+pnpm vitest run --project @spm-t5/venue-service tests/integration --coverage.enabled=false
+```
+
+Useful extras:
+
+```bash
+supabase db reset   # re-apply all migrations + seed from scratch (do this after adding a migration)
+supabase stop       # shut the stack down (add --no-backup to also drop its data)
+```
+
+The RLS suite (`bookingRls.test.ts`) also needs `SUPABASE_PUBLISHABLE_KEY`: it signs in as seeded users
+(password `ConnectSphere2026!`) and queries with their JWTs, and throws if the key is missing.
+
+Tests create their own `IT-` prefixed venues and events in 2030 and clean up after themselves. If
+the run reports "Need a seeded event_organiser", the seed is missing: run `supabase db reset`.
 
 Every PR must pass the `CI / test` and `CI / e2e` checks before merge (see branch protection notes in
 `.github/workflows/README.md`).
