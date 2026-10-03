@@ -239,7 +239,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     const { data: comments } = await deps
       .forUser(token)
       .from("event_comments")
-      .select("id, body, created_at, parent_comment_id, author:author_id(full_name)")
+      .select("id, comment_text, created_at, parent_comment_id, author:author_id(full_name)")
       .eq("event_id", req.params.id)
       .order("created_at", { ascending: true });
 
@@ -293,7 +293,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       can_comment,
       comments: (comments ?? []).map((c) => ({
         id: c.id,
-        body: c.body,
+        body: c.comment_text,
         created_at: c.created_at,
         parent_comment_id: (c.parent_comment_id as string | null) ?? null,
         author_name: embeddedName(c.author),
@@ -321,7 +321,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       id: commentId,
       event_id: req.params.id,
       author_id: authorId,
-      body,
+      comment_text: body,
       ...(parentCommentId !== null && { parent_comment_id: parentCommentId }),
     });
     const mentionedIds = [...body.matchAll(/@\[([^\]]+)\]/g)].map((m) => m[1]);

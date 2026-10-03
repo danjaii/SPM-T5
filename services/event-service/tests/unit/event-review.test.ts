@@ -1152,7 +1152,7 @@ describe("SCRUM-25/AC1 — Add a comment", () => {
     expect(fake.tables.event_comments[0]).toMatchObject({
       event_id: eventId,
       author_id: coordinator.id,
-      body: "Please provide more details.",
+      comment_text: "Please provide more details.",
     });
   });
 
@@ -1259,21 +1259,21 @@ describe("SCRUM-25/AC3 — View comment history", () => {
         id: crypto.randomUUID(),
         event_id: eventId,
         author_id: coordinator.id,
-        body: "Third comment",
+        comment_text: "Third comment",
         created_at: "2026-09-03T12:00:00.000Z",
       },
       {
         id: crypto.randomUUID(),
         event_id: eventId,
         author_id: coordinator.id,
-        body: "First comment",
+        comment_text: "First comment",
         created_at: "2026-09-01T12:00:00.000Z",
       },
       {
         id: crypto.randomUUID(),
         event_id: eventId,
         author_id: coordinator.id,
-        body: "Second comment",
+        comment_text: "Second comment",
         created_at: "2026-09-02T12:00:00.000Z",
       },
     ];
@@ -1354,7 +1354,7 @@ describe("SCRUM-26/AC1 — Reply to a comment", () => {
       id: parentCommentId,
       event_id: eventId,
       author_id: organiser.id,
-      body: "Please clarify the venue requirements.",
+      comment_text: "Please clarify the venue requirements.",
       created_at: "2026-09-02T10:00:00.000Z",
     });
 
@@ -1366,7 +1366,7 @@ describe("SCRUM-26/AC1 — Reply to a comment", () => {
     expect(res.status).toBe(201);
     const reply = fake.tables.event_comments.find((c) => c.parent_comment_id === parentCommentId);
     expect(reply).toBeDefined();
-    expect(reply?.body).toBe("We can accommodate that.");
+    expect(reply?.comment_text).toBe("We can accommodate that.");
     expect(reply?.parent_comment_id).toBe(parentCommentId);
   });
 });
@@ -1396,14 +1396,14 @@ describe("SCRUM-26/AC2 — Display reply details and visual hierarchy", () => {
         id: parentId,
         event_id: eventId,
         author_id: organiser.id,
-        body: "Please clarify the venue requirements.",
+        comment_text: "Please clarify the venue requirements.",
         created_at: "2026-09-02T10:00:00.000Z",
       },
       {
         id: replyId,
         event_id: eventId,
         author_id: coordinator.id,
-        body: "We can accommodate that.",
+        comment_text: "We can accommodate that.",
         created_at: "2026-09-02T11:00:00.000Z",
         parent_comment_id: parentId,
       },
@@ -1455,14 +1455,14 @@ describe("SCRUM-26/AC3 — Order replies oldest to newest", () => {
         id: parentId,
         event_id: eventId,
         author_id: organiser.id,
-        body: "What are the venue requirements?",
+        comment_text: "What are the venue requirements?",
         created_at: "2026-09-02T09:00:00.000Z",
       },
       {
         id: reply3Id,
         event_id: eventId,
         author_id: coordinator.id,
-        body: "Third reply.",
+        comment_text: "Third reply.",
         created_at: "2026-09-02T13:00:00.000Z",
         parent_comment_id: parentId,
       },
@@ -1470,7 +1470,7 @@ describe("SCRUM-26/AC3 — Order replies oldest to newest", () => {
         id: reply1Id,
         event_id: eventId,
         author_id: coordinator.id,
-        body: "First reply.",
+        comment_text: "First reply.",
         created_at: "2026-09-02T11:00:00.000Z",
         parent_comment_id: parentId,
       },
@@ -1478,7 +1478,7 @@ describe("SCRUM-26/AC3 — Order replies oldest to newest", () => {
         id: reply2Id,
         event_id: eventId,
         author_id: organiser.id,
-        body: "Second reply.",
+        comment_text: "Second reply.",
         created_at: "2026-09-02T12:00:00.000Z",
         parent_comment_id: parentId,
       },
@@ -1521,7 +1521,7 @@ describe("SCRUM-26/AC4 — Prevent empty replies", () => {
       id: parentId,
       event_id: eventId,
       author_id: organiser.id,
-      body: "What are the venue requirements?",
+      comment_text: "What are the venue requirements?",
       created_at: "2026-09-02T09:00:00.000Z",
     });
 
@@ -1553,7 +1553,7 @@ describe("SCRUM-26/AC4 — Prevent empty replies", () => {
       id: parentId,
       event_id: eventId,
       author_id: organiser.id,
-      body: "What are the venue requirements?",
+      comment_text: "What are the venue requirements?",
       created_at: "2026-09-02T09:00:00.000Z",
     });
 
@@ -1837,7 +1837,7 @@ describe("SCRUM-27/AC3 — Display mentions", () => {
     const commentId = crypto.randomUUID();
     fake.tables.event_comments.push({
       id: commentId, event_id: eventId, author_id: coordinator.id,
-      body: "Just a plain comment.",
+      comment_text: "Just a plain comment.",
       created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
     });
 
@@ -1869,7 +1869,7 @@ describe("SCRUM-27/AC3 — Display mentions", () => {
     });
     fake.tables.event_comments.push({
       id: commentId2, event_id: eventId, author_id: organiser.id,
-      body: "No mentions here.",
+      comment_text: "No mentions here.",
       created_at: "2026-09-01T12:00:00.000Z", parent_comment_id: null,
     });
     fake.tables.event_comment_mentions.push({ comment_id: commentId1, user_id: organiser.id });
@@ -2005,7 +2005,7 @@ describe("SCRUM-28/AC1 — Attach multiple files", () => {
 
     expect(res.status).toBe(201);
     expect(fake.tables.event_comment_attachments).toHaveLength(1);
-    const secondComment = fake.tables.event_comments.find((c) => c.body === "Second comment with attachment.");
+    const secondComment = fake.tables.event_comments.find((c) => c.comment_text === "Second comment with attachment.");
     expect(fake.tables.event_comment_attachments[0].comment_id).toBe(secondComment?.id);
   });
 
@@ -2028,7 +2028,7 @@ describe("SCRUM-28/AC1 — Attach multiple files", () => {
       id: parentId,
       event_id: eventId,
       author_id: organiser.id,
-      body: "Please provide the floor plan.",
+      comment_text: "Please provide the floor plan.",
       created_at: "2026-09-02T10:00:00.000Z",
     });
 
@@ -2068,7 +2068,7 @@ describe("SCRUM-28/AC5 — Display attachments", () => {
     const commentId = crypto.randomUUID();
     fake.tables.event_comments.push({
       id: commentId, event_id: eventId, author_id: coordinator.id,
-      body: "Please review the attached document.",
+      comment_text: "Please review the attached document.",
       created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
     });
     fake.tables.event_comment_attachments.push({
@@ -2100,7 +2100,7 @@ describe("SCRUM-28/AC5 — Display attachments", () => {
     const commentId = crypto.randomUUID();
     fake.tables.event_comments.push({
       id: commentId, event_id: eventId, author_id: coordinator.id,
-      body: "See attached files.",
+      comment_text: "See attached files.",
       created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
     });
     fake.tables.event_comment_attachments.push(
@@ -2134,7 +2134,7 @@ describe("SCRUM-28/AC5 — Display attachments", () => {
     const commentId = crypto.randomUUID();
     fake.tables.event_comments.push({
       id: commentId, event_id: eventId, author_id: coordinator.id,
-      body: "Just a plain comment.",
+      comment_text: "Just a plain comment.",
       created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
     });
 
@@ -2162,12 +2162,12 @@ describe("SCRUM-28/AC5 — Display attachments", () => {
     fake.tables.event_comments.push(
       {
         id: commentId1, event_id: eventId, author_id: coordinator.id,
-        body: "First comment with attachment.",
+        comment_text: "First comment with attachment.",
         created_at: "2026-09-01T11:00:00.000Z", parent_comment_id: null,
       },
       {
         id: commentId2, event_id: eventId, author_id: organiser.id,
-        body: "Second comment, no attachment.",
+        comment_text: "Second comment, no attachment.",
         created_at: "2026-09-01T12:00:00.000Z", parent_comment_id: null,
       },
     );
