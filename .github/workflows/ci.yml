@@ -89,7 +89,7 @@ jobs:
         run: test -n "$SUPABASE_URL" && test -n "$SUPABASE_SECRET_KEY" && test -n "$SUPABASE_PUBLISHABLE_KEY"
 
       - name: Integration tests
-        run: pnpm vitest run --project @spm-t5/venue-service tests/integration --coverage.enabled=false
+        run: pnpm vitest run --project @spm-t5/venue-service --project @spm-t5/event-service tests/integration --coverage.enabled=false
 
   e2e:
     needs: test
