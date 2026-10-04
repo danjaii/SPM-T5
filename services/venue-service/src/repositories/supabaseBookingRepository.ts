@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { HOLDING_DB_STATUSES } from "@spm-t5/shared";
 import { bookingError } from "../domain/errors";
-import type { BookingRecord, NewBooking } from "../domain/types";
+import type { BookingRecord, Decision, NewBooking } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
@@ -75,17 +74,95 @@ function translate(error: PgError): Error {
 export class SupabaseBookingRepository implements BookingRepository {
   constructor(private readonly db: SupabaseClient) {}
 
+  /**
+   * Asks the database through venue_slot_is_held (migration 07), a yes/no security definer helper:
+   * under RLS a coordinator cannot read other coordinators' requests, so a plain select here would
+   * never see the request holding the slot. The exclusion constraint remains the authority.
+   */
   async hasHold(venueId: string, start: Date, end: Date): Promise<boolean> {
+    const { data, error } = await this.db.rpc("venue_slot_is_held", {
+      p_venue_id: venueId,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+    });
+    if (error) throw new Error("Could not check the venue's availability.");
+    return data === true;
+  }
+
+  async listPending(): Promise<BookingRecord[]> {
     const { data, error } = await this.db
       .from("venue_bookings")
-      .select("id")
-      .eq("venue_id", venueId)
-      .in("status", [...HOLDING_DB_STATUSES])
-      .lt("event_start_datetime", end.toISOString())
-      .gt("event_end_datetime", start.toISOString())
-      .limit(1);
-    if (error) throw new Error("Could not check the venue's availability.");
-    return data.length > 0;
+      .select(BOOKING_COLUMNS)
+      .eq("status", "requested")
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw new Error("Could not read the pending venue booking requests.");
+    return (data as unknown as Row[]).map(toBookingRecord);
+  }
+
+  /** The conditional `status = 'requested'` makes the transition atomic: only one of two racing callers matches. */
+  private async transitionFromPending(id: string, patch: Record<string, unknown>): Promise<BookingRecord | null> {
+    const { data, error } = await this.db
+      .from("venue_bookings")
+      .update(patch)
+      .eq("id", id)
+      .eq("status", "requested")
+      .select(BOOKING_COLUMNS)
+      .maybeSingle();
+    if (error) throw new Error("Could not update the venue booking request.", { cause: error });
+    return data ? toBookingRecord(data as unknown as Row) : null;
+  }
+
+  withdraw(id: string, by: string, at: Date): Promise<BookingRecord | null> {
+    return this.transitionFromPending(id, {
+      status: "withdrawn",
+      withdrawn_by: by,
+      withdrawn_at: at.toISOString(),
+    });
+  }
+
+  decide(id: string, decision: Decision, by: string, at: Date): Promise<BookingRecord | null> {
+    const patch: Record<string, unknown> = {
+      status: decision.outcome,
+      reviewed_by: by,
+      reviewed_at: at.toISOString(),
+    };
+    if (decision.outcome === "rejected") {
+      patch.review_notes = decision.reason ?? null;
+      if (decision.suggestion) {
+        patch.suggested_venue_id = decision.suggestion.venueId;
+        patch.suggested_start_datetime = decision.suggestion.start.toISOString();
+        patch.suggested_end_datetime = decision.suggestion.end.toISOString();
+      }
+    }
+    return this.transitionFromPending(id, patch);
+  }
+
+  async getById(id: string): Promise<BookingRecord | null> {
+    const { data, error } = await this.db.from("venue_bookings").select(BOOKING_COLUMNS).eq("id", id).maybeSingle();
+    if (error) throw new Error("Could not read the venue booking request.");
+    return data ? toBookingRecord(data as unknown as Row) : null;
+  }
+
+  async listByEvents(eventIds: string[]): Promise<BookingRecord[]> {
+    if (eventIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from("venue_bookings")
+      .select(BOOKING_COLUMNS)
+      .in("event_id", eventIds)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error("Could not read your venue booking requests.");
+    return (data as unknown as Row[]).map(toBookingRecord);
+  }
+
+  async listByEvent(eventId: string): Promise<BookingRecord[]> {
+    const { data, error } = await this.db
+      .from("venue_bookings")
+      .select(BOOKING_COLUMNS)
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error("Could not read the event's venue booking requests.");
+    return (data as unknown as Row[]).map(toBookingRecord);
   }
 
   async insert(input: NewBooking): Promise<BookingRecord> {

@@ -9,7 +9,7 @@ Final user stories for the **Venue Booking Request** core feature (ConnectSphere
 - Part B cites shared rules as `DRn` (for example `DR2`). Those rules are in the appendix of this file.
 - Markers: **[DECIDED]** you chose it on 2026-09-29. **[PROPOSED]** a default, confirm or change. **[CUSTOMER]** needs a customer answer; an interim rule is given.
 - Amended stories: all 6 stories in this feature were rewritten. There are no unamended stories in this feature.
-- Other files: SCRUM-37, 38, 39 and 40 (queue, approve, reject, suggest) are in `venue-booking-approval-final.md`. SCRUM-29 (catalogue) is in `venue-catalogue-final.md`. Several tests here are integration tests with those stories.
+- Other files: SCRUM-37, 38, 39 and 40 (queue, approve, reject, suggest) are in `venue-booking-approval.md`. SCRUM-29 (catalogue) is in `venue-catalogue-final.md`. Several tests here are integration tests with those stories.
 - Global build order across all three files: SCRUM-29, 36, 32, 37, 38 and 39, 40, 33 and 35, 60, 59. SCRUM-57 and 58 are not in this sprint.
 
 ## Implementation decisions (2026-09-29)
@@ -25,6 +25,7 @@ Where this spec meets the existing schema (`supabase/migrations/01_schema.sql`) 
 - **Start in the past.** Returns 422 with a field error (32-S5). The `SLOT_IN_PAST` code from DR12 is not used on submit.
 - **Suggestion `usedAt`.** Derived from the accepting request (`from_suggestion = true`, `amends_booking_id` = the rejected request); a unique index makes a second accept fail atomically.
 - **Scope.** Only the minimum seams for SCRUM-29 and SCRUM-37 to 40 are built here: a venue list for the form picker, a pending-queue query and a decide operation at repository level.
+- **Not visible means not found.** With per-role RLS (migration 07) a coordinator cannot read another coordinator's request, so for them it looks the same as an unknown id and the API answers 404 rather than 403. Either way access is denied and nothing about the request is revealed. Where a row is visible but the caller is not the assigned Coordinator, the answer is 403. The slot pre-check uses the `venue_slot_is_held` database function so RLS cannot hide a holder from it.
 - **Integration tests.** DB-backed tests (36-S4, 35-S5 and others) run against local Supabase and in a dedicated CI job.
 
 ## Story index
