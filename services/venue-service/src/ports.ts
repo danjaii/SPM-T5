@@ -2,6 +2,7 @@ import type { SupabaseDeps } from "./supabase";
 import type { EventReader } from "./readers/eventReader";
 import { SupabaseEventReader } from "./readers/supabaseEventReader";
 import { SupabaseRoleReader, type RoleReader } from "./readers/roleReader";
+import { SupabaseUserReader, type UserReader } from "./readers/userReader";
 import { SupabaseVenueReader, type VenueReader } from "./readers/venueReader";
 import type { BookingRepository } from "./repositories/bookingRepository";
 import { SupabaseBookingRepository } from "./repositories/supabaseBookingRepository";
@@ -12,6 +13,7 @@ export interface Ports {
   events: EventReader;
   venues: VenueReader;
   roles: RoleReader;
+  users: UserReader;
 }
 
 export type PortsFactory = (accessToken: string) => Ports;
@@ -25,6 +27,7 @@ export function supabasePorts(deps: SupabaseDeps): PortsFactory {
       events: new SupabaseEventReader(db),
       venues: new SupabaseVenueReader(db),
       roles: new SupabaseRoleReader(db),
+      users: new SupabaseUserReader(db),
     };
   };
 }

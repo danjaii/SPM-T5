@@ -94,7 +94,8 @@ export class SupabaseBookingRepository implements BookingRepository {
       .from("venue_bookings")
       .select(BOOKING_COLUMNS)
       .eq("status", "requested")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
     if (error) throw new Error("Could not read the pending venue booking requests.");
     return (data as unknown as Row[]).map(toBookingRecord);
   }

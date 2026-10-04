@@ -2,6 +2,7 @@ import express from "express";
 import { errorHandler } from "./middlewares/errors";
 import { requireSession } from "./middlewares/session";
 import { supabasePorts, type PortsFactory } from "./ports";
+import { bookingQueueRoutes } from "./routes/bookingQueue";
 import { venueBookingRoutes } from "./routes/venueBookings";
 import { venueRoutes } from "./routes/venues";
 import type { SupabaseDeps } from "./supabase";
@@ -41,7 +42,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/venues", venueRoutes(deps));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
-  app.use(requireSession(deps), venueBookingRoutes(portsFor, now));
+  app.use(requireSession(deps), venueBookingRoutes(portsFor, now), bookingQueueRoutes(portsFor));
 
   app.use(errorHandler);
   return app;

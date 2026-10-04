@@ -44,7 +44,7 @@ export class FakeBookingRepository implements BookingRepository {
   }
 
   async listPending(): Promise<BookingRecord[]> {
-    return this.rows.filter((r) => r.status === "requested").sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return this.rows.filter((r) => r.status === "requested").sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
   }
 
   async withdraw(id: string, by: string, at: Date): Promise<BookingRecord | null> {

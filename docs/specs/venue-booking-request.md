@@ -9,7 +9,7 @@ Final user stories for the **Venue Booking Request** core feature (ConnectSphere
 - Part B cites shared rules as `DRn` (for example `DR2`). Those rules are in the appendix of this file.
 - Markers: **[DECIDED]** you chose it on 2026-09-29. **[PROPOSED]** a default, confirm or change. **[CUSTOMER]** needs a customer answer; an interim rule is given.
 - Amended stories: all 6 stories in this feature were rewritten. There are no unamended stories in this feature.
-- Other files: SCRUM-37, 38, 39 and 40 (queue, approve, reject, suggest) are in `venue-booking-approval-final.md`. SCRUM-29 (catalogue) is in `venue-catalogue-final.md`. Several tests here are integration tests with those stories.
+- Other files: SCRUM-37, 38, 39 and 40 (queue, approve, reject, suggest) are in `venue-booking-approval.md`. SCRUM-29 (catalogue) is in `venue-catalogue-final.md`. Several tests here are integration tests with those stories.
 - Global build order across all three files: SCRUM-29, 36, 32, 37, 38 and 39, 40, 33 and 35, 60, 59. SCRUM-57 and 58 are not in this sprint.
 
 ## Implementation decisions (2026-09-29)
