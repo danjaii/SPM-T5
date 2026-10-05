@@ -4,10 +4,12 @@ import {
   dbStatusToApi,
   HOLDING_DB_STATUSES,
   isHoldingDbStatus,
+  parseRejectionInput,
   parseVenueBookingInput,
   periodsOverlap,
   sgtToUtc,
   utcToSgt,
+  VENUE_BOOKING_MESSAGES,
 } from "../src/venueBooking";
 
 const day = (start: string, end: string) => ({
@@ -143,5 +145,54 @@ describe("SCRUM-32 32-S5 — parseVenueBookingInput", () => {
 
   it("rejects a non-object body", () => {
     expect(parseVenueBookingInput(undefined, now)).toMatchObject({ ok: false });
+  });
+});
+
+describe("SCRUM-38/AC8 — SLOT_IN_PAST message (38-S8)", () => {
+  it("38-S8 has a standard message so the API and the UI say the same thing", () => {
+    expect(VENUE_BOOKING_MESSAGES.SLOT_IN_PAST).toBe("The requested time has already passed.");
+  });
+});
+
+describe("SCRUM-39/AC2 — parseRejectionInput (39-S2)", () => {
+  it("39-S2 accepts a reason and stores it trimmed", () => {
+    expect(parseRejectionInput({ reason: "  Room under renovation until 2026-12-01 \n" })).toEqual({
+      ok: true,
+      data: { reason: "Room under renovation until 2026-12-01" },
+    });
+  });
+
+  it.each([
+    ["1 character", "x"],
+    ["500 characters", "x".repeat(500)],
+    ["500 characters once trimmed", `  ${"x".repeat(500)}  `],
+  ])("39-S2 accepts %s", (_name, reason) => {
+    expect(parseRejectionInput({ reason })).toMatchObject({ ok: true });
+  });
+
+  it.each([
+    ["empty", ""],
+    ["only spaces", "   \t "],
+    ["501 characters", "x".repeat(501)],
+  ])("39-S2 refuses %s, keyed by reason", (_name, reason) => {
+    expect(parseRejectionInput({ reason })).toEqual({ ok: false, fieldErrors: { reason: expect.any(String) } });
+  });
+
+  it.each([undefined, null, "text", { reason: 5 }, {}])("39-S2 refuses a missing or non-string reason (%j)", (body) => {
+    expect(parseRejectionInput(body)).toEqual({ ok: false, fieldErrors: { reason: expect.any(String) } });
+  });
+
+  it("gives different messages for missing and too long", () => {
+    expect(parseRejectionInput({ reason: "" })).toMatchObject({ fieldErrors: { reason: "Enter a reason for the rejection." } });
+    expect(parseRejectionInput({ reason: "x".repeat(501) })).toMatchObject({
+      fieldErrors: { reason: "The reason must be 500 characters or fewer." },
+    });
+  });
+
+  it("strips unknown keys, so an optional suggestion can be added later (SCRUM-40 seam)", () => {
+    expect(parseRejectionInput({ reason: "No", suggestion: { venueId: "v" }, extra: 1 })).toEqual({
+      ok: true,
+      data: { reason: "No" },
+    });
   });
 });

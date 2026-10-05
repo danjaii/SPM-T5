@@ -4,6 +4,7 @@ import { createApp } from "../../src/app";
 import type { SupabaseDeps } from "../../src/supabase";
 import { FakeBookingRepository } from "../support/fakeBookingRepository";
 import { FakeEventReader, anEvent } from "../support/fakeEventReader";
+import { FakeUserReader } from "../support/fakeUserReader";
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
 const NOW = new Date("2026-10-05T03:00:00.000Z");
@@ -28,7 +29,7 @@ function setup() {
     "tech-1": "technical_support_staff",
     "attendee-1": "attendee",
   });
-  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles }) });
+  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader() }) });
   const withdraw = (id: string, user = "coordinator-1") =>
     request(app).post(`/venue-bookings/${id}/withdraw`).set("Cookie", `cs_session=tok-${user}`);
   const pending = () => bookings.seed({ eventId: "event-1", venueId: "venue-1", ...SLOT });

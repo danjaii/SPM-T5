@@ -4,8 +4,9 @@
 title ConnectSphere — Component Diagram: Venue Service (C4 Level 3)
 ' Built so far: the read-only venue catalogue (SCRUM-29) and the venue booking request stories
 ' (docs/specs/venue-booking-request.md): SCRUM-36 double-hold rule, SCRUM-32 submit, SCRUM-33 track,
-' SCRUM-35 withdraw, SCRUM-60 amend, SCRUM-59 accept a suggestion. Components marked "Planned" come
-' with venue availability, search, suitability and the Venue Staff approval stories (SCRUM-37 to 40).
+' SCRUM-35 withdraw, SCRUM-60 amend, SCRUM-59 accept a suggestion, plus the Venue Staff pending queue
+' (docs/specs/venue-booking-approval.md, SCRUM-37). Components marked "Planned" come
+' with venue availability, search, suitability and the Venue Staff decision stories (SCRUM-38 to 40).
 
 Container(web, "Web App", "Next.js, React", "Venue catalogue (/venues, /venues/[id]); venue booking request form and my-bookings list/detail")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
@@ -19,12 +20,16 @@ Container_Boundary(venueSvc, "Venue Service") {
   Component(bookingRoutes, "Booking Routes", "routes/venueBookings.ts", "POST /venue-bookings, GET /venue-bookings (+ /:id), withdraw / amend / accept-suggestion, GET /events/:id/venue-booking-form")
   Component(bookingSvc, "Booking Service", "services/bookingService.ts", "Submit, amend and accept-suggestion through one path; withdraw (SCRUM-32/35/60/59)")
   Component(trackingSvc, "Tracking Service", "services/trackingService.ts", "SCRUM-33: the coordinator's requests, detail, rejection reason, suggestion, amendment chain")
+  Component(queueRoutes, "Booking Queue Routes", "routes/bookingQueue.ts", "SCRUM-37: GET /booking-queue and /booking-queue/:id, Venue Staff only (others 403), never cached")
+  Component(queueSvc, "Queue Service", "services/queueService.ts", "SCRUM-37: pending requests oldest first (created_at, then id) with the snapshotted event details and requester name; detail shows who decided, when and why")
   Component(slotRule, "Slot Conflict Rule", "services/slotConflictRule.ts", "SCRUM-36: friendly pre-check that a venue period is not held by a Pending/Approved request")
   Component(repo, "Booking Repository", "repositories/supabaseBookingRepository.ts", "Inserts requests; conditional withdraw/decide updates; turns constraint violations into SLOT_CONFLICT / ACTIVE_REQUEST_EXISTS / SUGGESTION_ALREADY_USED; retries a deadlock victim")
   Component(readers, "Readers", "readers/eventReader, venueReader, roleReader", "Read events (DR16), venue names and the caller's role as the caller, so RLS applies")
+  Component(userReader, "User Reader", "readers/userReader.ts", "SCRUM-37: full names for the requester and the deciding Venue Staff member")
   Component(shared, "Shared Rules", "@spm-t5/shared", "Roles, period overlap, Singapore time, status mapping, error codes, input validation — same rules the web app uses")
 
-  Component(approval, "Approval Queue and Decisions", "Planned", "SCRUM-37 to 40 routes on top of the repository's listPending / decide")
+  Component(decisionRoutes, "Decision Routes", "routes/venueBookings.ts", "SCRUM-38/39: POST /venue-bookings/:id/approve and /reject, GET /events/:id/venue-booking; Venue Staff decide, only the assigned Coordinator reads the event booking")
+  Component(decisionSvc, "Decision Service", "services/decisionService.ts", "SCRUM-38/39: Venue Staff approve or reject a pending request (409 NOT_PENDING once decided, SLOT_IN_PAST, reason 1-500 chars); the event's approved venue for its Coordinator. SCRUM-40 adds the suggestion later")
   Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks")
 }
 
@@ -35,8 +40,17 @@ Rel(app, errors, "Renders failures")
 Rel(app, catalogue, "Routes /venues requests")
 Rel(app, bookingRoutes, "Routes booking requests")
 Rel(catalogue, shared, "Checks the caller's role")
+Rel(app, queueRoutes, "Routes /booking-queue requests")
 Rel(bookingRoutes, bookingSvc, "Submit, withdraw, amend, accept")
 Rel(bookingRoutes, trackingSvc, "List and detail")
+Rel(queueRoutes, queueSvc, "List and detail")
+Rel(decisionRoutes, decisionSvc, "Approve, reject, event booking")
+Rel(decisionSvc, repo, "Reads the request; conditional decide")
+Rel(decisionSvc, readers, "Event and venue lookups")
+Rel(queueSvc, repo, "Reads pending requests")
+Rel(queueSvc, readers, "Venue names")
+Rel(queueSvc, userReader, "Requester and decider names")
+Rel(userReader, db, "Reads users.full_name", "PostgREST")
 Rel(bookingSvc, slotRule, "Checks the slot before inserting")
 Rel(bookingSvc, repo, "Reads history, inserts, withdraws")
 Rel(bookingSvc, readers, "Event, venue and role lookups")
@@ -48,6 +62,6 @@ Rel(repo, db, "Reads/writes venue_bookings; the database constraint is the atomi
 Rel(readers, db, "Reads events, venues, users directly (shared database, ADR 0001)", "PostgREST")
 Rel(catalogue, db, "Reads venues with layouts and facilities", "PostgREST")
 
-Rel(app, approval, "Planned")
+Rel(app, decisionRoutes, "Routes approve and reject")
 Rel(app, availability, "Planned")
 @enduml

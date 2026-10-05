@@ -59,6 +59,7 @@ export const VENUE_BOOKING_MESSAGES = {
   NOT_REJECTED: "Only a rejected request can be amended.",
   SUGGESTION_ALREADY_USED: "The suggested alternative has already been used.",
   NO_SUGGESTION: "This request has no suggested alternative.",
+  SLOT_IN_PAST: "The requested time has already passed.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -152,4 +153,34 @@ export function parseVenueBookingInput(body: unknown, now: Date): ParsedVenueBoo
 
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
   return { ok: true, data: { venueId, date, startTime, endTime, start, end } };
+}
+
+// ---------------------------------------------------------------------------
+// 39-S2: a rejection needs a reason, 1 to 500 characters once trimmed. Same schema in the reject
+// form (apps/web) and the API. Unknown keys are stripped, so SCRUM-40 can add an optional
+// `suggestion` to this object without breaking existing callers.
+// ---------------------------------------------------------------------------
+
+export const REJECTION_REASON_MAX_LENGTH = 500;
+
+const rejectionShape = z.object({
+  reason: z
+    .string({ required_error: "Enter a reason for the rejection.", invalid_type_error: "Enter a reason for the rejection." })
+    .trim()
+    .min(1, "Enter a reason for the rejection.")
+    .max(REJECTION_REASON_MAX_LENGTH, `The reason must be ${REJECTION_REASON_MAX_LENGTH} characters or fewer.`),
+});
+
+export type ParsedRejectionInput =
+  | { ok: true; data: { reason: string } }
+  | { ok: false; fieldErrors: Record<string, string> };
+
+/** Validates a reject body. The reason comes back trimmed. */
+export function parseRejectionInput(body: unknown): ParsedRejectionInput {
+  // Anything that is not an object is treated as an empty one, so the error is always keyed `reason`.
+  const parsed = rejectionShape.safeParse(typeof body === "object" && body !== null ? body : {});
+  if (parsed.success) return { ok: true, data: { reason: parsed.data.reason } };
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0] ?? "form")] ??= issue.message;
+  return { ok: false, fieldErrors };
 }
