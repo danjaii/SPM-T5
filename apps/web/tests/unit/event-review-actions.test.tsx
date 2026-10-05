@@ -1,0 +1,101 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import EventReviewActions from "@/components/EventReviewActions";
+
+// ---------------------------------------------------------------------------
+// SCRUM-24/AC3 — Confirm decision
+// ---------------------------------------------------------------------------
+describe("SCRUM-24/AC3 — Confirm decision", () => {
+  it("shows a confirmation dialog when the coordinator clicks Approve before firing the action", () => {
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
+    render(<EventReviewActions onApprove={onApprove} onReject={onReject} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /approve/i }));
+
+    // getByRole throws if the dialog is absent — its success IS the assertion
+    screen.getByRole("dialog");
+    expect(onApprove).not.toHaveBeenCalled();
+  });
+
+  it("shows a confirmation dialog when the coordinator clicks Reject before firing the action", () => {
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
+    render(<EventReviewActions onApprove={onApprove} onReject={onReject} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /reject/i }));
+
+    screen.getByRole("dialog");
+    expect(onReject).not.toHaveBeenCalled();
+  });
+
+  it("calls onApprove only after the coordinator confirms the approval dialog", () => {
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
+    render(<EventReviewActions onApprove={onApprove} onReject={onReject} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /approve/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(onApprove).toHaveBeenCalledOnce();
+    expect(onReject).not.toHaveBeenCalled();
+  });
+
+  it("does not call onApprove when the coordinator cancels the approval dialog", () => {
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
+    render(<EventReviewActions onApprove={onApprove} onReject={onReject} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /approve/i }));
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(onApprove).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("calls onReject only after the coordinator confirms the rejection dialog", () => {
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
+    render(<EventReviewActions onApprove={onApprove} onReject={onReject} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /reject/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(onReject).toHaveBeenCalledOnce();
+    expect(onApprove).not.toHaveBeenCalled();
+  });
+
+  it("does not call onReject when the coordinator cancels the rejection dialog", () => {
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
+    render(<EventReviewActions onApprove={onApprove} onReject={onReject} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /reject/i }));
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(onReject).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-24/AC5 — Authorisation
+// ---------------------------------------------------------------------------
+describe("SCRUM-24/AC5 — Authorisation", () => {
+  it("hides the Approve button when canReview is false", () => {
+    render(<EventReviewActions onApprove={vi.fn()} onReject={vi.fn()} canReview={false} />);
+    expect(screen.queryByRole("button", { name: /approve/i })).toBeNull();
+  });
+
+  it("hides the Reject button when canReview is false", () => {
+    render(<EventReviewActions onApprove={vi.fn()} onReject={vi.fn()} canReview={false} />);
+    expect(screen.queryByRole("button", { name: /reject/i })).toBeNull();
+  });
+
+  it("shows both buttons when canReview is true", () => {
+    render(<EventReviewActions onApprove={vi.fn()} onReject={vi.fn()} canReview={true} />);
+    screen.getByRole("button", { name: /approve/i });
+    screen.getByRole("button", { name: /reject/i });
+  });
+});
