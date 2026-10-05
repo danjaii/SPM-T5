@@ -59,6 +59,7 @@ export const VENUE_BOOKING_MESSAGES = {
   NOT_REJECTED: "Only a rejected request can be amended.",
   SUGGESTION_ALREADY_USED: "The suggested alternative has already been used.",
   NO_SUGGESTION: "This request has no suggested alternative.",
+  SLOT_IN_PAST: "The requested time has already passed.",
 } as const;
 
 // ---------------------------------------------------------------------------

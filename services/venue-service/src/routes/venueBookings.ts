@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { utcToSgt } from "@spm-t5/shared";
-import { toBookingDto } from "../domain/dto";
+import { toBookingDto, toDecisionDto } from "../domain/dto";
 import { asyncHandler } from "../middlewares/errors";
 import type { SessionUser } from "../middlewares/session";
 import type { PortsFactory } from "../ports";
 import { assertMayRequestFor, BookingService } from "../services/bookingService";
+import { DecisionService } from "../services/decisionService";
 import { TrackingService } from "../services/trackingService";
 
-/** Routes for SCRUM-32 (submit) and SCRUM-33 (track). Session middleware is mounted by the caller. */
+/** Routes for SCRUM-32 (submit), SCRUM-33 (track) and SCRUM-38 (approve). Session middleware is mounted by the caller. */
 export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
   const router = Router();
 
@@ -20,6 +21,7 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
       caller: { id: user.id, role },
       service: new BookingService({ ...ports, now }),
       tracking: new TrackingService(ports),
+      decisions: new DecisionService({ ...ports, now }),
     };
   }
 
@@ -78,6 +80,24 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
       const { caller, service } = await context(res.locals.user as SessionUser);
       const booking = await service.acceptSuggestion(caller, String(req.params.id));
       res.status(201).json(toBookingDto(booking));
+    }),
+  );
+
+  // 38-S1: Venue Staff approve a pending request.
+  router.post(
+    "/venue-bookings/:id/approve",
+    asyncHandler(async (req, res) => {
+      const { caller, decisions } = await context(res.locals.user as SessionUser);
+      res.json(toDecisionDto(await decisions.approve(caller, String(req.params.id))));
+    }),
+  );
+
+  // 38-S4: the venue booking an event ended up with, for its assigned Coordinator. Null until approved.
+  router.get(
+    "/events/:eventId/venue-booking",
+    asyncHandler(async (req, res) => {
+      const { caller, decisions } = await context(res.locals.user as SessionUser);
+      res.set("Cache-Control", "no-store").json(await decisions.approvedBookingFor(caller, String(req.params.eventId)));
     }),
   );
 

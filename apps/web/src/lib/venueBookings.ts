@@ -88,6 +88,27 @@ export const amendVenueBooking = (id: string, body: Omit<VenueBookingInputBody, 
 export const acceptVenueSuggestion = (id: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/accept-suggestion`);
 
+/** SCRUM-38: Venue Staff approve a pending request. */
+export const approveVenueBooking = (id: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/approve`);
+
+/** GET /events/:id/venue-booking (38-S4): the event's approved venue, as its Coordinator sees it. */
+export interface EventVenueBookingView {
+  venueName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+/**
+ * Which decisions Venue Staff are offered (38-S2). Only a PENDING request can be decided; the server
+ * enforces this again, so a stale screen just gets a NOT_PENDING refusal.
+ */
+export function decisionActions(status: VenueBookingStatus | undefined) {
+  const pending = status === "PENDING";
+  return { approve: pending, reject: pending };
+}
+
 /**
  * Which actions the detail screen offers (35-S2, 60-S4, 59-S4). Only a PENDING request can be
  * withdrawn; only a REJECTED one can be amended, and only while the event has no other active

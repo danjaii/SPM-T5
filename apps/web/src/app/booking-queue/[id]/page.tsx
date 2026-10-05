@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BookingQueueDetail } from "@/components/BookingQueueDetail";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
+import { VenueStaffDecision } from "@/components/VenueStaffDecision";
 import { getQueuedBooking } from "@/lib/bookingQueueServer";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,11 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
       <main className="dash__main">
         <Link className="back-link" href="/booking-queue">← Back to pending booking requests</Link>
         {"booking" in result ? (
-          <BookingQueueDetail booking={result.booking} />
+          <>
+            <BookingQueueDetail booking={result.booking} />
+            {/* SCRUM-38/39: renders only while the request is PENDING; the server checks again. */}
+            <VenueStaffDecision booking={{ id: result.booking.id, status: result.booking.status }} />
+          </>
         ) : (
           <div className="alert alert--error" role="alert">{result.error}</div>
         )}
