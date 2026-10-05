@@ -17,7 +17,7 @@ const deps = {
   },
 } as unknown as SupabaseDeps;
 
-// Decisions (SCRUM-38) and the queue (SCRUM-37) mounted together, over HTTP.
+// Decisions (SCRUM-38/39) and the queue (SCRUM-37) mounted together, over HTTP.
 function setup() {
   const bookings = new FakeBookingRepository(() => NOW);
   const events = new FakeEventReader([anEvent()]);
@@ -39,6 +39,17 @@ describe("SCRUM-38/AC1 an approved request leaves the pending queue", () => {
     expect((await queue()).map((r) => r.id)).toEqual([row.id]);
 
     expect((await post(`/venue-bookings/${row.id}/approve`)).status).toBe(200);
+    expect(await queue()).toEqual([]);
+  });
+});
+
+describe("SCRUM-39/AC1 a rejected request leaves the pending queue", () => {
+  it("39-S1 a rejected request no longer appears in GET /booking-queue", async () => {
+    const { queue, post, pending } = setup();
+    const row = pending();
+
+    const res = await post(`/venue-bookings/${row.id}/reject`, { reason: "Room under renovation until 2026-12-01" });
+    expect(res.status).toBe(200);
     expect(await queue()).toEqual([]);
   });
 });
