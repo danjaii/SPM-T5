@@ -528,6 +528,19 @@ insert into venue_bookings (id, event_id, venue_id, requested_by, reviewed_by, s
   ('0b6e094c-68f0-52f3-9e4d-645e9a31a010', 'cf7c6764-e48a-52ad-a642-88787b22208d', 'd0122eac-ac35-594d-8583-ea6820f8a81a', 'cc683354-03a1-51a9-80ca-c785b306c7de', '55732bb5-6de7-5b6c-80c0-0646094b1f53', 'cancelled', '2026-09-29 07:00:00', '2026-09-29 09:00:00', '2026-09-30 17:00:00', '2026-09-30 18:30:00', 'Was confirmed, released after the Event Organiser cancelled the retreat.', '2026-08-30 09:00:00', '2026-09-01 09:00:00'),
   ('c99b2b08-5de3-5abe-b071-c3ba8266eb15', 'ccef8558-8685-5ab8-b1be-8774c4a94baf', 'c3bb3d12-237d-5f83-a6bd-4782c74e61bd', 'cc683354-03a1-51a9-80ca-c785b306c7de', '55732bb5-6de7-5b6c-80c0-0646094b1f53', 'confirmed', '2026-06-05 08:00:00', '2026-06-05 10:00:00', '2026-06-05 12:00:00', '2026-06-05 13:30:00', 'Confirmed, U-shape layout for 48.', '2026-05-06 10:00:00', '2026-05-08 10:00:00');
 
+-- Seeded bookings bypass venue-service, so they have no submission snapshot (migration 06) and the
+-- request list and queue show a blank event name. Copy the event's details in the same way
+-- bookingService does at submission: venue requirements are the preferred room layout's name.
+update venue_bookings b set
+  snapshot_event_name          = e.name,
+  snapshot_expected_attendance = e.expected_attendance,
+  snapshot_venue_requirements  = rl.name,
+  snapshot_accessibility_needs = e.accessibility_requirements
+from events e
+left join room_layouts rl on rl.id = e.preferred_room_layout_id
+where b.event_id = e.id
+  and b.snapshot_event_name is null;
+
 -- ============================================================================
 -- EQUIPMENT
 -- ============================================================================
