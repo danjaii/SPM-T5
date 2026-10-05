@@ -73,7 +73,9 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: "latest" makes the action query the GitHub API unauthenticated, which hits the shared
+          # runner rate limit. Matches the local CLI; bump deliberately.
+          version: 2.119.0
 
       - name: Start local Supabase (applies supabase/migrations, then seed.sql)
         run: supabase start
