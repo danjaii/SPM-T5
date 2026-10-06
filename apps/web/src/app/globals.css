@@ -161,16 +161,57 @@ tr:last-child td { border-bottom: 0; }
 .back-link { display: inline-block; margin-bottom: 20px; font-size: 14px; }
 .event { max-width: 560px; }
 .event h1 { font-size: 30px; font-weight: 700; }
-.event__status { display: flex; align-items: center; gap: 10px; margin: 10px 0 28px; color: var(--muted); font-size: 14px; }
+.event__status { display: flex; align-items: center; gap: 10px; margin: 10px 0 28px; color: var(--subtle); font-size: 14px; }
 .status-badge {
   padding: 4px 10px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--steel-dark); background: var(--selected); border: 1px solid var(--steel);
 }
 .event__form { padding: 24px; background: #fff; border: 1px solid var(--border); }
-.event h2 { font-size: 20px; font-weight: 700; margin: 28px 0 10px; }
 .event__missing { color: var(--subtle); font-style: italic; }
-.event__actions { margin-bottom: 24px; }
-.event__actions .btn, .btn--inline { display: inline-block; width: auto; padding: 10px 18px; }
+
+/* ---------- Event details page layout (SCRUM-23/24/42/43/45) ----------
+   One centred column; every section is a heading + white card with the same spacing, so the page reads
+   top to bottom: header, actions, request details, coordinator, history, venue, change status. */
+.event-page { max-width: 820px; margin: 0 auto; }
+.event-header h1 { font-size: 30px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.event-header .event__status { margin: 12px 0 0; }
+.event-panel > .alert { margin: 20px 0 0; }
+.event-panel > .field__hint { margin: 12px 0 0; }
+.event-section { margin-top: 36px; }
+.event-section h2 { font-size: 20px; font-weight: 700; margin: 0 0 12px; }
+.event-section .venue__facts, .event-section .vb__facts, .event-section .event__form { margin: 0; }
+.event-card { padding: 20px 24px; background: #fff; border: 1px solid var(--border); line-height: 1.6; }
+.event-card p { margin: 0; }
+.event-card--quiet { color: var(--subtle); }
+.event-card--table { padding: 0; overflow-x: auto; }
+.event-card--table table { min-width: 520px; }
+.event-card__step { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.event-card .field:last-child { margin-bottom: 0; }
+
+/* Buttons sit in a row with even gaps and wrap onto new lines on narrow screens */
+.event-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.event-buttons .btn { width: auto; padding: 10px 18px; font-size: 15px; text-align: center; text-decoration: none; }
+.event-panel > .event-buttons { margin-top: 24px; }
+
+.event-coordinator { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.event-coordinator__name { font-weight: 600; }
+.event-coordinator .btn { width: auto; padding: 8px 16px; font-size: 15px; }
+.event-quote { margin: 12px 0 0; padding: 10px 14px; border-left: 3px solid var(--steel); background: var(--field); white-space: pre-wrap; }
+.alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
+
+/* Fact lists: label column beside the value on wide screens, stacked on phones */
+.event-section .venue__facts dt, .event-section .vb__facts dt { padding-top: 4px; }
+.event-section .venue__facts dd, .event-section .vb__facts dd { overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+  .event-header h1 { font-size: 24px; }
+  .event-section { margin-top: 28px; }
+  .event-card { padding: 16px; }
+  .event-section .venue__facts, .event-section .vb__facts { grid-template-columns: 1fr; gap: 2px; padding: 16px; }
+  .event-section .venue__facts dd, .event-section .vb__facts dd { margin-bottom: 12px; }
+  .event-section .venue__facts dd:last-child, .event-section .vb__facts dd:last-child { margin-bottom: 0; }
+  .event-buttons .btn { flex: 1 1 auto; }
+}
 .field select, .field textarea {
   width: 100%; padding: 11px 12px; font: inherit; color: var(--ink);
   background: var(--field); border: 1px solid var(--border); border-radius: 0;
@@ -185,9 +226,9 @@ tr:last-child td { border-bottom: 0; }
   display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; margin: 0;
   padding: 20px 24px; background: #fff; border: 1px solid var(--border);
 }
-.venue__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.venue__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); padding-top: 3px; }
 .venue__facts dd { margin: 0; }
-.venue__note { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+.venue__note { display: block; color: var(--subtle); font-size: 14px; margin-top: 2px; }
 .venue__list { margin: 0; padding: 14px 24px 14px 40px; background: #fff; border: 1px solid var(--border); line-height: 1.8; }
 
 @media (max-width: 800px) {
@@ -208,9 +249,9 @@ tr:last-child td { border-bottom: 0; }
   display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; margin: 0 0 20px;
   padding: 20px 24px; background: #fff; border: 1px solid var(--border);
 }
-.vb__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.vb__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); padding-top: 3px; }
 .vb__facts dd { margin: 0; }
-.vb__note { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+.vb__note { display: block; color: var(--subtle); font-size: 14px; margin-top: 2px; }
 .vb__list { margin: 0; padding: 14px 24px 14px 40px; background: #fff; border: 1px solid var(--border); line-height: 1.8; }
 
 .vb__actions { margin-top: 8px; }

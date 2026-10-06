@@ -18,6 +18,8 @@ const FULL: EventDetailView = {
   equipment_requirements_notes: "2 projectors, 4 wireless mics",
   submitted_at: "2026-10-01T02:00:00Z",
   organiser_name: "Sam Tan",
+  point_of_contact_name: null,
+  canAssign: false,
 };
 
 const EMPTY: EventDetailView = {
