@@ -57,3 +57,17 @@ describe("SCRUM-71 — Attendee dashboard page", () => {
   // end of AC11
 });
 // end of SCRUM-71
+
+describe("SCRUM-83 — Attendee dashboard page", () => {
+  // AC15: the attendee reaches their "My registrations" page from the dashboard
+  it("SCRUM-83/AC15 links to the attendee's My registrations page", async () => {
+    getDashboard.mockResolvedValue(dashboard);
+    getUpcomingEvents.mockResolvedValue({ events: [] });
+
+    render(await AttendeeDashboard());
+
+    expect(screen.getByRole("link", { name: "My registrations" }).getAttribute("href")).toBe("/registrations");
+  });
+  // end of AC15
+});
+// end of SCRUM-83
