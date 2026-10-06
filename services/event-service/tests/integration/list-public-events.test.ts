@@ -144,8 +144,9 @@ describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
   });
   // end of AC3
 
-  // AC7: the facts event-service needs to pick a label; "Event Full" counts only places held (Confirmed, Pending)
-  it("SCRUM-71/AC7 returns the status, capacity and registration window, and counts only active registrations", async () => {
+  // AC7: the facts event-service needs to pick a label; "Event Full" counts only places held, which since
+  // SCRUM-83/AC13 (migration 11) is Confirmed only: a Pending registration doesn't take a slot
+  it("SCRUM-71/AC7 returns the status, capacity and registration window, and counts only Confirmed registrations (SCRUM-83/AC13)", async () => {
     const eventId = await newEvent({
       status: "confirmed",
       registration_required: true,
@@ -169,7 +170,7 @@ describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
         registration_capacity: 50,
         registration_opens_at: REGISTRATION_OPENS,
         registration_closes_at: REGISTRATION_CLOSES,
-        active_registrations: 2,
+        active_registrations: 1,
       }),
     );
   });

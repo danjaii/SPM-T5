@@ -33,6 +33,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             <EventStatusPanel event={result.event} />
             <EventRequestDetails event={result.event} />
             <EventVenueBooking booking={venueBooking} />
+            {/* SCRUM-83/AC15: the registration information page (only this page's viewers, organisers and
+                coordinators, can open it; RLS decides whose registrations they see) */}
+            <Link href={`/events/${id}/registrations`}>View registrations</Link>
           </>
         ) : (
           <div className="alert alert--error" role="alert">{result.error}</div>

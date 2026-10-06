@@ -2,6 +2,7 @@ import express from "express";
 import type { SupabaseDeps } from "./supabase";
 import { eventRoutes } from "./routes/events";
 import { upcomingEventRoutes } from "./routes/upcomingEvents";
+import { registrationRoutes } from "./routes/registrations";
 import { cors } from "./middlewares/cors";
 
 // Exported separately from listen() so tests can mount the app without opening a port.
@@ -12,6 +13,7 @@ export function createApp(deps: SupabaseDeps) {
 
   // Before eventRoutes: its GET /events/:id would otherwise treat "upcoming" as an event id
   app.use("/events", upcomingEventRoutes(deps));
+  app.use("/events", registrationRoutes(deps));
   app.use("/events", eventRoutes(deps));
   return app;
 }
