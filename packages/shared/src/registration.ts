@@ -1,0 +1,34 @@
+import { z } from "zod";
+
+// SCRUM-83: the event registration form's rules, shared by event-service and apps/web so both check the same way.
+
+export const registrationFormSchema = z.object({
+  // SCRUM-83/AC10: required; spaces alone don't count
+  name: z.string().trim().min(1, "Name is required."),
+  // SCRUM-83/AC11: must look like an email address
+  email: z.string().trim().email("Enter a valid email address."),
+  // SCRUM-83/AC10: required; spaces alone don't count
+  // SCRUM-83/AC11: an optional +, then 8 to 15 digits, with single spaces or hyphens allowed between them
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Contact number is required.")
+    .regex(/^\+?(?:\d[\s-]?){7,14}\d$/, "Enter a valid contact number."),
+});
+
+export type RegistrationForm = z.infer<typeof registrationFormSchema>;
+
+/** SCRUM-83/AC10: checks a submitted form. On failure, one message per field, to show next to that field. */
+export function validateRegistrationForm(
+  input: unknown,
+): { ok: true; form: RegistrationForm } | { ok: false; errors: Record<string, string> } {
+  const parsed = registrationFormSchema.safeParse(input);
+  if (parsed.success) return { ok: true, form: parsed.data };
+
+  const errors: Record<string, string> = {};
+  for (const issue of parsed.error.issues) {
+    const field = String(issue.path[0]);
+    if (!errors[field]) errors[field] = issue.message;
+  }
+  return { ok: false, errors };
+}
