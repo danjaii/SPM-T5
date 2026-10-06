@@ -9,7 +9,7 @@ RUN pnpm --filter @spm-t5/notification-service run build
 
 FROM node:20-slim
 RUN corepack enable
-ENV NODE_ENV=production
+ENV NODE_ENV=production PORT=4000
 WORKDIR /repo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/shared/package.json packages/shared/
