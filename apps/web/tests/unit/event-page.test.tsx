@@ -12,7 +12,7 @@ import EventPage from "@/app/events/[id]/page";
 const open = async (id: string) => render(await EventPage({ params: Promise.resolve({ id }) }));
 
 describe("Event status page route (/events/[id])", () => {
-  beforeEach(() => getApprovedVenueBooking.mockResolvedValue(null));
+  beforeEach(() => getApprovedVenueBooking.mockReset().mockResolvedValue(null));
 
   it("shows the event it was asked for", async () => {
     getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "approved", canChangeStatus: false } });
@@ -24,12 +24,52 @@ describe("Event status page route (/events/[id])", () => {
     expect(screen.getByRole("link", { name: /back to dashboard/i }).getAttribute("href")).toBe("/dashboard");
   });
 
+  // SCRUM-83/AC15: the event's organiser and coordinator (the only viewers of this page) reach its registrations from here
+  it("SCRUM-83/AC15 links to the event's registration information page", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "confirmed", canChangeStatus: false } });
+
+    await open("evt-1");
+
+    expect(screen.getByRole("link", { name: "View registrations" }).getAttribute("href")).toBe("/events/evt-1/registrations");
+  });
+
   it("shows event-service's message when the event can't be shown", async () => {
     getEvent.mockResolvedValue({ error: "Event not found." });
 
     await open("missing");
 
     expect(screen.getByRole("alert").textContent).toBe("Event not found.");
+  });
+
+  it("SCRUM-23/AC1, AC2: shows the full request details alongside the status", async () => {
+    getEvent.mockResolvedValue({
+      event: {
+        id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: false,
+        purpose: "Annual industry conference", preferred_start_datetime: null, preferred_end_datetime: null,
+        expected_attendance: 250, preferred_layout_name: "Theatre", accessibility_requirements: null,
+        equipment_requirements_notes: null, submitted_at: "2026-10-01T02:00:00Z", organiser_name: "Sam Tan",
+      },
+    });
+
+    await open("evt-1");
+
+    expect(screen.getByText("Submitted", { selector: ".status-badge" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Request details" })).toBeTruthy();
+    expect(screen.getByText("Sam Tan")).toBeTruthy();
+    expect(screen.getByText("Annual industry conference")).toBeTruthy();
+  });
+
+  it.each([
+    ["a role that may not view events", "You are not allowed to view this event's status."],
+    ["someone else's event", "Event not found."],
+  ])("SCRUM-23/AC4: hides the request details for %s", async (_case, error) => {
+    getEvent.mockResolvedValue({ error });
+
+    await open("evt-1");
+
+    expect(screen.getByRole("alert").textContent).toBe(error);
+    expect(screen.queryByRole("heading", { name: "Request details" })).toBeNull();
+    expect(getApprovedVenueBooking).not.toHaveBeenCalled();
   });
 
   it("SCRUM-38/AC4 38-S4: shows the approved venue booking under the event", async () => {

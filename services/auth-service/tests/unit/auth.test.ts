@@ -273,7 +273,19 @@ describe("US3 — Role based access", () => {
     const res = await request(app).get("/dashboard").set("Cookie", cookie);
 
     expect(res.body.sections).toHaveLength(1);
-    expect(res.body.sections[0].rows).toEqual([expect.objectContaining({ event: "Tech Summit", status: "registered" })]);
+    // A registered registration reads "confirmed" since SCRUM-83/AC15 (statuses in the attendee's words)
+    expect(res.body.sections[0].rows).toEqual([expect.objectContaining({ event: "Tech Summit", status: "confirmed" })]);
+  });
+
+  // SCRUM-83/AC15: registrations show in the attendee's words, as on "My registrations": a new registration is
+  // stored as 'waitlisted' but is Pending to the attendee
+  it("SCRUM-83/AC15 shows an attendee's waitlisted registration as pending", async () => {
+    const me = fake.seedUser("att@example.com", "attendee");
+    fake.tables.event_registrations.push({ attendee_id: me, status: "waitlisted", event: { name: "Tech Summit" } });
+    const cookie = await signInAs("att@example.com", "attendee");
+    const res = await request(app).get("/dashboard").set("Cookie", cookie);
+
+    expect(res.body.sections[0].rows).toEqual([expect.objectContaining({ event: "Tech Summit", status: "pending" })]);
   });
 
   it("tells the web app who the signed-in user is and their role", async () => {

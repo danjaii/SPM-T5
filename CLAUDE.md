@@ -67,9 +67,9 @@ below plus `apps/web`; none of them are implemented yet (see Current state).
 
 Equipment/technical-support (#15-17) is owned by `equipment-service` (renamed from
 `coordinator-service`, which no longer exists — coordinator assignment moved to `event-service`,
-see #5). **Open question:** attendee registration (#18) still isn't assigned to any service in
-`docs/architecture/c4/container.puml` — confirm ownership (most likely `event-service`) before
-building it, and update the container diagram either way per the Conventions rule below.
+see #5). Attendee registration (#18) is owned by `event-service` (SCRUM-83: register, My
+registrations, and an event's registrations for its organiser and coordinator); withdrawal is not
+built yet.
 
 ## Commands
 
@@ -227,8 +227,8 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` only; the other tables
-  are still blanket.
+  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
+  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket.
 - Services that are still stubs export `healthCheck()` but never call `listen()`, so their
   containers start and exit immediately under `docker compose up`.
 

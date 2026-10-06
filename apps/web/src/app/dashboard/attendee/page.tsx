@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DashboardView } from "@/components/DashboardView";
 import { UpcomingEventList } from "@/components/UpcomingEventList";
 import { getDashboard } from "@/lib/dashboard";
@@ -18,6 +19,8 @@ export default async function AttendeeDashboard() {
       {/* SCRUM-71/AC1: the List of events, one card per upcoming event */}
       <section className="dash__section">
         <h2>List of events</h2>
+        {/* SCRUM-83/AC15: the attendee's registrations, from event-service */}
+        <Link href="/registrations">My registrations</Link>
         {"events" in upcoming ? (
           <UpcomingEventList events={upcoming.events} />
         ) : (

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Role } from "@spm-t5/shared";
+import { registrationStatus, type Role } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
@@ -166,7 +166,8 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
             { key: "event", label: "Event" }, { key: "start", label: "Starts" },
             { key: "status", label: "Status" }, { key: "registered", label: "Registered on" },
           ],
-          rows: registrations.map((r) => ({ event: cell(nested(r.event, "name")), start: date(nested(r.event, "preferred_start_datetime")), status: status(r.status), registered: date(r.registered_at) })),
+          // SCRUM-83/AC15: statuses in the attendee's words (waitlisted is pending), as on "My registrations"
+          rows: registrations.map((r) => ({ event: cell(nested(r.event, "name")), start: date(nested(r.event, "preferred_start_datetime")), status: registrationStatus(r.status) ?? status(r.status), registered: date(r.registered_at) })),
         },
       ];
     }
