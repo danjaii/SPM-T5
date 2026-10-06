@@ -681,6 +681,7 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       organiser_name: "Alice Johnson",
       point_of_contact_name: null,
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
+      canReview: false, // SCRUM-24/AC5: only the assigned coordinator may approve or reject
     });
   });
 
@@ -725,6 +726,7 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       organiser_name: "Bob Smith",
       point_of_contact_name: null,
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
+      canReview: false, // SCRUM-24/AC5: only the assigned coordinator may approve or reject
     });
   });
 });
@@ -1037,6 +1039,7 @@ describe("SCRUM-24/AC2 — Reject a request", () => {
       status: "submitted",
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
     };
     fake.tables.events.push(event);
 
@@ -1062,6 +1065,7 @@ describe("SCRUM-24/AC2 — Reject a request", () => {
       status: "submitted",
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
     });
 
     const res = await request(createApp(fake.deps))
@@ -1111,6 +1115,7 @@ describe("SCRUM-24/AC1 — Approve a request", () => {
       status: "submitted",
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
     };
     fake.tables.events.push(event);
 
@@ -1121,6 +1126,96 @@ describe("SCRUM-24/AC1 — Approve a request", () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("approved");
     expect(event.status).toBe("approved");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-24/AC1, AC2 — Only requests awaiting a decision can be approved or rejected
+// ---------------------------------------------------------------------------
+describe("SCRUM-24/AC1, AC2 — Decision only on requests awaiting one", () => {
+  const decide = (action: "approve" | "reject") => async (status: string) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status, organiser_id: organiser.id, assigned_coordinator_id: coordinator.id };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${event.id}/${action}`)
+      .set("Cookie", coordinator.cookie)
+      .send({ reason: "Venue not available." });
+    return { res, event };
+  };
+
+  it.each(["approve", "reject"] as const)("lets a coordinator %s a request that is under review", async (action) => {
+    const { res, event } = await decide(action)("under_review");
+
+    expect(res.status).toBe(200);
+    expect(event.status).toBe(action === "approve" ? "approved" : "rejected");
+  });
+
+  it.each([
+    ["approve", "approved"],
+    ["approve", "cancelled"],
+    ["reject", "rejected"],
+    ["reject", "draft"],
+  ] as const)("refuses to %s a request that is %s, leaving it unchanged", async (action, status) => {
+    const { res, event } = await decide(action)(status);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Only submitted or under-review requests can be approved or rejected." });
+    expect(event.status).toBe(status);
+  });
+
+  it.each(["approve", "reject"] as const)("returns 404 when asked to %s an event that doesn't exist", async (action) => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${crypto.randomUUID()}/${action}`)
+      .set("Cookie", coordinator.cookie)
+      .send({ reason: "Venue not available." });
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-24/AC5 — Only the assigned coordinator may approve or reject
+// ---------------------------------------------------------------------------
+describe("SCRUM-24/AC5 — Only the assigned coordinator decides", () => {
+  const attempt = async (action: "approve" | "reject", assignTo: "someone else" | "nobody") => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const assigned = fake.signIn("event_coordinator");
+    const otherCoordinator = fake.signIn("event_coordinator");
+    const event = {
+      id: crypto.randomUUID(),
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: assignTo === "someone else" ? assigned.id : null,
+    };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${event.id}/${action}`)
+      .set("Cookie", otherCoordinator.cookie)
+      .send({ reason: "Venue not available." });
+    return { res, event };
+  };
+
+  it.each([
+    ["approve", "someone else"],
+    ["reject", "someone else"],
+    ["approve", "nobody"],
+    ["reject", "nobody"],
+  ] as const)("refuses a coordinator who tries to %s an event assigned to %s", async (action, assignTo) => {
+    const { res, event } = await attempt(action, assignTo);
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "Only the coordinator assigned to this event can approve or reject it." });
+    expect(event.status).toBe("submitted");
   });
 });
 

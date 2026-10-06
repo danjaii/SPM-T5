@@ -6,6 +6,8 @@ export interface EventStatusView {
   status: string;
   /** Whether the viewer may change the status (event-service decides: the assigned coordinator only). */
   canChangeStatus: boolean;
+  /** SCRUM-24/AC5: whether the viewer may approve or reject (event-service decides: the assigned coordinator only). */
+  canReview: boolean;
 }
 
 /** SCRUM-23/AC2: the full request, as GET /events/:id returns it. Optional fields are null when not provided. */
@@ -45,3 +47,25 @@ export async function changeEventStatus(
     return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
   }
 }
+
+type EventSummary = { id: string; name: string; status: string };
+
+async function decide(id: string, action: "approve" | "reject", body: object): Promise<ApiResult<EventSummary>> {
+  try {
+    const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(id)}/${action}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
+  }
+}
+
+/** SCRUM-24/AC1: approve a request awaiting a decision. */
+export const approveEvent = (id: string) => decide(id, "approve", {});
+
+/** SCRUM-24/AC2: reject a request awaiting a decision; the reason is required. */
+export const rejectEvent = (id: string, reason: string) => decide(id, "reject", { reason });

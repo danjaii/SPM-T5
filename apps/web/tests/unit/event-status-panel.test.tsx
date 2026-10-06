@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 
-const event = { id: "evt-1", name: "Tech Summit", status: "under_review", canChangeStatus: false };
+const event = { id: "evt-1", name: "Tech Summit", status: "under_review", canChangeStatus: false, canReview: false };
 
 /** Pretends event-service answered the browser's request with this status code and JSON body. */
 function mockServer(status: number, body: unknown) {
@@ -58,5 +58,24 @@ describe("Event status page", () => {
 
     expect(await screen.findByText("Only the coordinator assigned to this event can change its status.")).toBeTruthy();
     expect(screen.getByText("Under review", { selector: ".status-badge" })).toBeTruthy(); // the shown status stays the same
+  });
+});
+
+describe("SCRUM-24 — Decision on the event page", () => {
+  it("AC4: shows the new status once the request is approved", async () => {
+    mockServer(200, { id: "evt-1", name: "Tech Summit", status: "approved" });
+    render(<EventStatusPanel event={{ ...event, canReview: true }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Approve request" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, approve" }));
+
+    expect(await screen.findByText("Status updated to Approved.")).toBeTruthy();
+    expect(screen.getByText("Approved", { selector: ".status-badge" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve request" })).toBeNull(); // no second decision
+  });
+
+  it("AC5: shows no decision to someone who may not review", () => {
+    render(<EventStatusPanel event={event} />);
+    expect(screen.queryByRole("heading", { name: "Decision" })).toBeNull();
   });
 });
