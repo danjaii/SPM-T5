@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@12.6.0",
   "scripts": {
-    "dev": "pnpm --parallel --filter @spm-t5/web --filter @spm-t5/auth-service --filter @spm-t5/event-service --filter @spm-t5/venue-service run dev",
+    "dev": "pnpm --parallel --filter @spm-t5/web --filter @spm-t5/auth-service --filter @spm-t5/event-service --filter @spm-t5/venue-service --filter @spm-t5/equipment-service run dev",
     "test:all": "pnpm -r --if-present run test",
     "lint:all": "pnpm -r --if-present run lint",
     "build:all": "pnpm -r --if-present run build"
