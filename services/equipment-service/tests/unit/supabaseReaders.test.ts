@@ -1,10 +1,14 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { describe, expect, it } from "vitest";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { describe, expect, it, vi } from "vitest";
 import { supabasePorts } from "../../src/ports";
 import { SupabaseEquipmentReader } from "../../src/readers/equipmentReader";
 import { SupabaseReservationReader } from "../../src/readers/reservationReader";
 import { SupabaseRoleReader } from "../../src/readers/roleReader";
 import { createSupabaseDeps, type SupabaseDeps } from "../../src/supabase";
+
+// A pretend Supabase library: a real createClient opens a live connection, which needs WebSocket (Node 22+).
+// CI's test job runs Node 20, so the real one would fail there. Nothing in this file needs a real connection.
+vi.mock("@supabase/supabase-js", () => ({ createClient: vi.fn(() => ({})) }));
 
 // ----------------------------------------------------------------------------
 // Pretend Supabase: records every query it is asked (table, filters, order) and gives back a set reply.
@@ -136,9 +140,15 @@ describe("SCRUM-18 Supabase readers", () => {
   it("createSupabaseDeps refuses to start without the Supabase settings, and connects when they are set", () => {
     expect(() => createSupabaseDeps({})).toThrow(/SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be set/);
 
-    const deps = createSupabaseDeps({ SUPABASE_URL: "http://localhost:54321", SUPABASE_PUBLISHABLE_KEY: "sb_publishable_x" });
-    expect(deps.anon).toBeDefined();
-    expect(deps.forUser("tok")).toBeDefined();
+    createSupabaseDeps({ SUPABASE_URL: "http://localhost:54321", SUPABASE_PUBLISHABLE_KEY: "sb_publishable_x" }).forUser("tok-1");
+
+    // createClient is the pretend one from vi.mock above, so no real connection (and no WebSocket) is needed.
+    expect(vi.mocked(createClient)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(createClient).mock.calls[0].slice(0, 2)).toEqual(["http://localhost:54321", "sb_publishable_x"]);
+    // The second connection carries the user's login token, so queries run as that user.
+    expect(vi.mocked(createClient).mock.calls[1][2]).toMatchObject({
+      global: { headers: { Authorization: "Bearer tok-1" } },
+    });
   });
   // end of wiring
 });
