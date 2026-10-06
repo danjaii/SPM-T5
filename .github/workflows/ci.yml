@@ -19,6 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # On a pull request this checkout is the PR combined with the latest main, so two migrations that share a
+      # number (one from the PR, one already on main) fail here, before merging. Fast, so it runs first.
+      - name: Check migration numbers are unique
+        run: bash scripts/check-migration-numbers.sh
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
