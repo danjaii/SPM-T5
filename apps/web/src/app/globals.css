@@ -163,7 +163,7 @@ tr:last-child td { border-bottom: 0; }
 .event-card h3 { font-size: 17px; font-weight: 700; }
 .event-card__when, .event-card__location { font-size: 14px; color: var(--subtle); }
 .event-card__registration { margin-top: auto; padding-top: 8px; font-size: 14px; font-weight: 600; color: var(--ok); }
-.event-card .btn { width: auto; margin-top: auto; padding: 8px 18px; font-size: 14px; text-decoration: none; }
+.event-card .btn { align-self: flex-end; width: auto; margin-top: auto; padding: 8px 18px; font-size: 14px; text-decoration: none; }
 
 /* ---------- Event status page (SCRUM-6/7/8) ---------- */
 .back-link { display: inline-block; margin-bottom: 20px; font-size: 14px; }
