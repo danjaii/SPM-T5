@@ -366,3 +366,20 @@ describe("CORS for the web app", () => {
     expect((await request(app).get("/health")).body).toEqual({ status: "ok", service: "auth-service" });
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-71 — View Event Information: the List of events is on the attendee dashboard
+// ---------------------------------------------------------------------------
+describe("SCRUM-71 — Back to the List of events after signing in", () => {
+  // AC6: a guest sent to the sign-in page returns to the list afterwards, because an attendee's sign-in
+  // lands on /dashboard/attendee, where the List of events is
+  it("SCRUM-71/AC6 sends an attendee to the attendee dashboard after signing in", async () => {
+    fake.seedUser("alicia@example.com", "attendee");
+    const res = await login("alicia@example.com", "Passw0rd!", "attendee");
+
+    expect(res.status).toBe(200);
+    expect(res.body.redirectTo).toBe("/dashboard/attendee");
+  });
+  // end of AC6
+});
+// end of SCRUM-71

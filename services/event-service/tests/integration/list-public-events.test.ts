@@ -12,6 +12,8 @@ const ORGANISER = "jason.chua@techconnect.example.com";
 // A far-future slot, written the way the database sends timestamps back
 const START = "2031-03-03T02:00:00+00:00";
 const END = "2031-03-03T04:00:00+00:00";
+const REGISTRATION_OPENS = "2031-02-01T00:00:00+00:00";
+const REGISTRATION_CLOSES = "2031-03-01T00:00:00+00:00";
 
 describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
@@ -19,6 +21,7 @@ describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
   const venueIds: string[] = [];
   let attendee: Actor;
   let organiserId: string;
+  let attendeeIds: string[]; // seeded attendees, to register for events
 
   async function newVenue(name: string, address: string): Promise<string> {
     const { data, error } = await admin.from("venues").insert({ name, address, max_capacity: 100 }).select("id").single();
@@ -52,15 +55,23 @@ describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
     if (error) throw new Error(error.message);
   }
 
+  async function register(eventId: string, attendeeId: string, status: string) {
+    const { error } = await admin.from("event_registrations").insert({ event_id: eventId, attendee_id: attendeeId, status });
+    if (error) throw new Error(error.message);
+  }
+
   beforeAll(async () => {
     attendee = await signInAs(ATTENDEE);
     const { data, error } = await admin.from("users").select("id").eq("email", ORGANISER).single();
     if (error) throw new Error(error.message);
     organiserId = data.id as string;
+    const { data: attendees, error: attendeesError } = await admin.from("users").select("id").eq("role", "attendee").limit(4);
+    if (attendeesError) throw new Error(attendeesError.message);
+    attendeeIds = (attendees ?? []).map((a) => a.id as string);
   });
 
   afterAll(async () => {
-    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds); // cascades venue bookings
+    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds); // cascades bookings, registrations
     if (venueIds.length > 0) await admin.from("venues").delete().in("id", venueIds);
   });
 
@@ -132,5 +143,62 @@ describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
     );
   });
   // end of AC3
+
+  // AC7: the facts event-service needs to pick a label; "Event Full" counts only places held (Confirmed, Pending)
+  it("SCRUM-71/AC7 returns the status, capacity and registration window, and counts only active registrations", async () => {
+    const eventId = await newEvent({
+      status: "confirmed",
+      registration_required: true,
+      registration_capacity: 50,
+      registration_opens_at: REGISTRATION_OPENS,
+      registration_closes_at: REGISTRATION_CLOSES,
+    });
+    const [confirmed, pending, withdrawn, rejected] = attendeeIds;
+    await register(eventId, confirmed, "registered");
+    await register(eventId, pending, "waitlisted");
+    await register(eventId, withdrawn, "withdrawn");
+    await register(eventId, rejected, "cancelled");
+
+    const { data, error } = await attendee.client.rpc("list_public_events");
+
+    expect(error).toBeNull();
+    expect(data).toContainEqual(
+      expect.objectContaining({
+        id: eventId,
+        status: "confirmed",
+        registration_capacity: 50,
+        registration_opens_at: REGISTRATION_OPENS,
+        registration_closes_at: REGISTRATION_CLOSES,
+        active_registrations: 2,
+      }),
+    );
+  });
+
+  // AC7: a cancelled event stays on the list, so its card can say "Cancelled" (rather than just vanishing)
+  it("SCRUM-71/AC7 also lists a cancelled event, with its cancelled status", async () => {
+    const eventId = await newEvent({ status: "cancelled", registration_required: true });
+
+    const { data, error } = await attendee.client.rpc("list_public_events");
+
+    expect(error).toBeNull();
+    expect(data).toContainEqual(expect.objectContaining({ id: eventId, status: "cancelled" }));
+  });
+  // end of AC7
+
+  // AC10: each attendee sees their own registration, never someone else's (auth.uid() inside the function)
+  it("SCRUM-71/AC10 returns the caller's own registration status, and null where only others registered", async () => {
+    const mine = await newEvent({ status: "confirmed", registration_required: true });
+    const othersOnly = await newEvent({ status: "confirmed", registration_required: true });
+    const someoneElse = attendeeIds.find((id) => id !== attendee.userId)!;
+    await register(mine, attendee.userId, "waitlisted");
+    await register(othersOnly, someoneElse, "registered");
+
+    const { data, error } = await attendee.client.rpc("list_public_events");
+
+    expect(error).toBeNull();
+    expect(data).toContainEqual(expect.objectContaining({ id: mine, my_registration_status: "waitlisted" }));
+    expect(data).toContainEqual(expect.objectContaining({ id: othersOnly, my_registration_status: null }));
+  });
+  // end of AC10
 });
 // end of SCRUM-71

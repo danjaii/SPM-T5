@@ -41,5 +41,19 @@ describe("SCRUM-71 — Attendee dashboard page", () => {
     expect(within(section).getByRole("heading", { name: "Tech Summit" })).toBeTruthy();
   });
   // end of AC1
+
+  // AC11: if the list couldn't be loaded, say so (not "No upcoming events"); the rest of the dashboard still shows
+  it("SCRUM-71/AC11 shows why the List of events couldn't be loaded, and keeps the rest of the dashboard", async () => {
+    getDashboard.mockResolvedValue(dashboard);
+    getUpcomingEvents.mockResolvedValue({ error: "We couldn't load upcoming events. Please try again." });
+
+    render(await AttendeeDashboard());
+
+    const section = screen.getByRole("heading", { name: "List of events" }).closest("section")!;
+    expect(within(section).getByRole("alert").textContent).toBe("We couldn't load upcoming events. Please try again.");
+    expect(within(section).queryByText("No upcoming events")).toBeNull();
+    expect(screen.getByRole("heading", { name: "My registrations & tickets" })).toBeTruthy();
+  });
+  // end of AC11
 });
 // end of SCRUM-71

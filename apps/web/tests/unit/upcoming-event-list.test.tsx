@@ -13,6 +13,8 @@ function anEvent(overrides: Partial<UpcomingEvent> = {}): UpcomingEvent {
     start_at: "2026-12-12T11:00:00Z",
     end_at: "2026-12-12T13:00:00Z",
     venue: { name: "Orchid Hall", address: "Level 3, East Wing" },
+    availability: "open",
+    my_registration: null,
     ...overrides,
   };
 }
@@ -35,5 +37,113 @@ describe("SCRUM-71 — List of events cards", () => {
     expect(within(cards[1]).getByRole("heading", { name: "Design Meetup" })).toBeTruthy();
   });
   // end of AC1
+
+  // AC3: the location shows both the venue's name and its address
+  it("SCRUM-71/AC3 shows the venue name and address as the location", () => {
+    render(<UpcomingEventList events={[anEvent({ venue: { name: "Orchid Hall", address: "Level 3, East Wing" } })]} />);
+
+    expect(within(screen.getByRole("article")).getByText("Orchid Hall, Level 3, East Wing")).toBeTruthy();
+  });
+
+  // AC3: an event whose venue booking isn't agreed yet has no venue; say so instead of showing "null, null"
+  it("SCRUM-71/AC3 says the venue is to be confirmed when it isn't known yet", () => {
+    render(<UpcomingEventList events={[anEvent({ venue: { name: null, address: null } })]} />);
+
+    const card = screen.getByRole("article");
+    expect(within(card).getByText("Venue to be confirmed")).toBeTruthy();
+    expect(within(card).queryByText(/null/)).toBeNull();
+  });
+  // end of AC3
+
+  // AC4: date and time read like "Sat, 12 Dec 2026, 7:00 PM – 9:00 PM", in Singapore time (UTC+8)
+  it("SCRUM-71/AC4 shows the date and time as 'Sat, 12 Dec 2026, 7:00 PM – 9:00 PM' in Singapore time", () => {
+    // 11:00 and 13:00 UTC are 7 PM and 9 PM in Singapore
+    render(<UpcomingEventList events={[anEvent({ start_at: "2026-12-12T11:00:00Z", end_at: "2026-12-12T13:00:00Z" })]} />);
+
+    expect(within(screen.getByRole("article")).getByText("Sat, 12 Dec 2026, 7:00 PM – 9:00 PM")).toBeTruthy();
+  });
+
+  // AC4: the end time is optional on an event; without one, show the start only
+  it("SCRUM-71/AC4 shows only the start when the event has no end time", () => {
+    render(<UpcomingEventList events={[anEvent({ start_at: "2026-12-12T11:00:00Z", end_at: null })]} />);
+
+    expect(within(screen.getByRole("article")).getByText("Sat, 12 Dec 2026, 7:00 PM")).toBeTruthy();
+  });
+  // end of AC4
+
+  // AC7: the one label event-service picked is shown on the card; an open event has no label
+  it("SCRUM-71/AC7 shows the Cancelled, Event Full or Registration Closed label", () => {
+    render(
+      <UpcomingEventList
+        events={[
+          anEvent({ id: "evt-cancelled", name: "Cancelled Gala", availability: "cancelled" }),
+          anEvent({ id: "evt-full", name: "Full Workshop", availability: "full" }),
+          anEvent({ id: "evt-closed", name: "Closed Forum", availability: "closed" }),
+          anEvent({ id: "evt-open", name: "Open Meetup", availability: "open" }),
+        ]}
+      />,
+    );
+
+    const [cancelled, full, closed, open] = screen.getAllByRole("article");
+    expect(within(cancelled).getByText("Cancelled")).toBeTruthy();
+    expect(within(full).getByText("Event Full")).toBeTruthy();
+    expect(within(closed).getByText("Registration Closed")).toBeTruthy();
+    expect(within(open).queryByText(/Cancelled|Event Full|Registration Closed/)).toBeNull();
+  });
+  // end of AC7
+
+  // AC8: an open event invites the attendee to register, linking to that event's registration form
+  it("SCRUM-71/AC8 shows a Register button on an open event, linking to its registration form", () => {
+    render(<UpcomingEventList events={[anEvent({ id: "evt-42", availability: "open" })]} />);
+
+    const register = within(screen.getByRole("article")).getByRole("link", { name: "Register" });
+    expect(register.getAttribute("href")).toBe("/events/evt-42/register");
+  });
+  // end of AC8
+
+  // AC9: nobody can register for a cancelled, full or closed event, so there's no Register button to press
+  it("SCRUM-71/AC9 has no Register button on cancelled, full or closed events", () => {
+    render(
+      <UpcomingEventList
+        events={[
+          anEvent({ id: "evt-cancelled", availability: "cancelled" }),
+          anEvent({ id: "evt-full", availability: "full" }),
+          anEvent({ id: "evt-closed", availability: "closed" }),
+        ]}
+      />,
+    );
+
+    for (const card of screen.getAllByRole("article")) {
+      expect(within(card).queryByRole("link", { name: "Register" })).toBeNull();
+    }
+  });
+  // end of AC9
+
+  // AC10: with an active registration, the card shows its status instead of the Register button
+  it("SCRUM-71/AC10 shows the attendee's Confirmed or Pending registration instead of the Register button", () => {
+    render(
+      <UpcomingEventList
+        events={[
+          anEvent({ id: "evt-confirmed", my_registration: "confirmed" }),
+          anEvent({ id: "evt-pending", my_registration: "pending" }),
+        ]}
+      />,
+    );
+
+    const [confirmed, pending] = screen.getAllByRole("article");
+    expect(within(confirmed).getByText("Your registration: Confirmed")).toBeTruthy();
+    expect(within(pending).getByText("Your registration: Pending")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Register" })).toBeNull();
+  });
+  // end of AC10
+
+  // AC11: an empty list gets a friendly message, not an empty space
+  it("SCRUM-71/AC11 shows 'No upcoming events' when there are none", () => {
+    render(<UpcomingEventList events={[]} />);
+
+    expect(screen.getByText("No upcoming events")).toBeTruthy();
+    expect(screen.queryByRole("article")).toBeNull();
+  });
+  // end of AC11
 });
 // end of SCRUM-71
