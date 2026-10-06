@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EventRequestDetails } from "@/components/EventRequestDetails";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBooking } from "@/components/EventVenueBooking";
 import { Logo } from "@/components/Logo";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Event status · ConnectSphere" };
 
-// SCRUM-6/7/8: view an event's status; the assigned coordinator can also change it.
+// SCRUM-6/7/8: view an event's status; the assigned coordinator can also change it. SCRUM-23: the full request.
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const result = await getEvent(id);
@@ -30,6 +31,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         {"event" in result ? (
           <>
             <EventStatusPanel event={result.event} />
+            <EventRequestDetails event={result.event} />
             <EventVenueBooking booking={venueBooking} />
           </>
         ) : (
