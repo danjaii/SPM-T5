@@ -218,6 +218,9 @@ spec in `docs/specs/venue-booking-approval.md`). SCRUM-40 (suggested alternative
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 read-only availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`, diagram in
 `component-equipment-service.puml`); the equipment catalogue and reservations are not built yet.
+`event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
+`docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `14_event_change_requests_insert.sql`);
+approving or rejecting a request, and applying it to the event, is not built yet.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
