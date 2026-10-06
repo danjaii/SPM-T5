@@ -18,6 +18,23 @@ export const registrationFormSchema = z.object({
 
 export type RegistrationForm = z.infer<typeof registrationFormSchema>;
 
+/** SCRUM-83: a registration's status in the words the attendee sees. */
+export type RegistrationStatus = "pending" | "confirmed" | "rejected" | "withdrawn";
+
+// The registration_status enum has no Pending/Confirmed/Rejected, so (the mapping agreed for SCRUM-71):
+// waitlisted is Pending, registered is Confirmed, cancelled is Rejected
+const REGISTRATION_STATUSES: Record<string, RegistrationStatus> = {
+  waitlisted: "pending",
+  registered: "confirmed",
+  cancelled: "rejected",
+  withdrawn: "withdrawn",
+};
+
+/** SCRUM-83: a registration_status from the database in the attendee's words (undefined if it isn't one). */
+export function registrationStatus(dbStatus: unknown): RegistrationStatus | undefined {
+  return typeof dbStatus === "string" ? REGISTRATION_STATUSES[dbStatus] : undefined;
+}
+
 /** SCRUM-83/AC10: checks a submitted form. On failure, one message per field, to show next to that field. */
 export function validateRegistrationForm(
   input: unknown,

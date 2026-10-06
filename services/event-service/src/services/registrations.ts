@@ -1,3 +1,4 @@
+import { registrationStatus } from "@spm-t5/shared";
 import { availabilityOf, myRegistration, type Availability, type PublicEventRow } from "./upcomingEvents";
 
 // SCRUM-83: why a registration is refused, for each state a List of events card can show (SCRUM-71/AC7)
@@ -5,18 +6,6 @@ const REFUSALS: Partial<Record<Availability, string>> = {
   cancelled: "This event has been cancelled.", // SCRUM-83/AC17
   closed: "Registration closed.", // SCRUM-83/AC3
   full: "Event full.", // SCRUM-83/AC4
-};
-
-/** SCRUM-83: a registration's status in the words the attendee sees. */
-export type RegistrationStatus = "pending" | "confirmed" | "rejected" | "withdrawn";
-
-// The registration_status enum has no Pending/Confirmed/Rejected, so (the mapping agreed for SCRUM-71):
-// waitlisted is Pending, registered is Confirmed, cancelled is Rejected
-const STATUSES: Record<string, RegistrationStatus> = {
-  waitlisted: "pending",
-  registered: "confirmed",
-  cancelled: "rejected",
-  withdrawn: "withdrawn",
 };
 
 interface EmbeddedEvent {
@@ -40,7 +29,7 @@ export function toMyRegistration(row: MyRegistrationRow) {
   const event = Array.isArray(row.event) ? row.event[0] : row.event;
   return {
     id: row.id,
-    status: STATUSES[row.status],
+    status: registrationStatus(row.status),
     registered_at: row.registered_at,
     event: {
       id: event.id,
@@ -64,7 +53,7 @@ export interface EventRegistrationRow {
 export function toEventRegistration(row: EventRegistrationRow) {
   return {
     id: row.id,
-    status: STATUSES[row.status],
+    status: registrationStatus(row.status),
     registered_at: row.registered_at,
     name: row.registration_details.name,
     email: row.registration_details.email,

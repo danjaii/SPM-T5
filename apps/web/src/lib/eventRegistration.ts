@@ -1,4 +1,4 @@
-import type { RegistrationForm } from "@spm-t5/shared";
+import type { RegistrationForm, RegistrationStatus } from "@spm-t5/shared";
 import { EVENT_URL, type ApiResult } from "./api";
 import type { UpcomingEvent } from "./getUpcomingEvents";
 
@@ -13,7 +13,7 @@ export interface RegistrationFormData {
 }
 
 /** SCRUM-83: a registration's status in the words the attendee sees, as event-service sends it. */
-export type RegistrationStatus = "pending" | "confirmed" | "rejected" | "withdrawn";
+export type { RegistrationStatus };
 
 export const STATUS_LABELS: Record<RegistrationStatus, string> = {
   pending: "Pending",
