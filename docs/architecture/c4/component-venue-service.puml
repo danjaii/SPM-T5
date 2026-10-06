@@ -6,9 +6,9 @@ title ConnectSphere — Component Diagram: Venue Service (C4 Level 3)
 ' (docs/specs/venue-booking-request.md): SCRUM-36 double-hold rule, SCRUM-32 submit, SCRUM-33 track,
 ' SCRUM-35 withdraw, SCRUM-60 amend, SCRUM-59 accept a suggestion, plus the Venue Staff pending queue
 ' (docs/specs/venue-booking-approval.md, SCRUM-37). Components marked "Planned" come
-' with venue availability, search, suitability and the Venue Staff decision stories (SCRUM-38 to 40).
+' with the availability calendar, suitability and the Venue Staff decision stories (SCRUM-38 to 40).
 
-Container(web, "Web App", "Next.js, React", "Venue catalogue (/venues, /venues/[id]); venue booking request form and my-bookings list/detail")
+Container(web, "Web App", "Next.js, React", "Venue catalogue (/venues, /venues/[id]); venue search (/venues/search); venue booking request form and my-bookings list/detail")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
 ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "venue_bookings (overlap exclusion constraint, one active request per event, one suggestion acceptance), venues, room_layouts, facilities, events, users")
 
@@ -30,7 +30,9 @@ Container_Boundary(venueSvc, "Venue Service") {
 
   Component(decisionRoutes, "Decision Routes", "routes/venueBookings.ts", "SCRUM-38/39: POST /venue-bookings/:id/approve and /reject, GET /events/:id/venue-booking; Venue Staff decide, only the assigned Coordinator reads the event booking")
   Component(decisionSvc, "Decision Service", "services/decisionService.ts", "SCRUM-38/39: Venue Staff approve or reject a pending request (409 NOT_PENDING once decided, SLOT_IN_PAST, reason 1-500 chars); the event's approved venue for its Coordinator. SCRUM-40 adds the suggestion later")
-  Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks")
+  Component(searchRoutes, "Venue Search Routes", "routes/venues.ts", "SCRUM-65: GET /venues/search (date, start, end, plus attendance, location, layout, accessibility, facilities) and GET /venues/search-options; coordinators and venue staff only; validation shared with the web form")
+  Component(searchSvc, "Venue Search Service", "services/venueSearchService.ts, readers/venueSearchReader.ts", "SCRUM-65: venues free for the period (available_venues) that meet every criterion given: capacity >= attendance (the layout's own capacity when a layout is chosen), location, accessibility, layout, all facilities")
+  Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks, shown as a calendar")
 }
 
 Rel(web, app, "Catalogue and booking requests (server-side and browser)", "HTTPS/JSON, session cookie")
@@ -63,5 +65,9 @@ Rel(readers, db, "Reads events, venues, users directly (shared database, ADR 000
 Rel(catalogue, db, "Reads venues with layouts and facilities", "PostgREST")
 
 Rel(app, decisionRoutes, "Routes approve and reject")
+Rel(app, searchRoutes, "Routes venue search requests")
+Rel(searchRoutes, searchSvc, "Searches")
+Rel(searchSvc, db, "available_venues() (security definer, migration 13) for free venues; venues with layouts and facilities for the filters", "PostgREST RPC")
+Rel(searchRoutes, shared, "parseVenueSearchInput")
 Rel(app, availability, "Planned")
 @enduml
