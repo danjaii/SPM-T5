@@ -184,6 +184,14 @@ th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text
 tr:last-child td { border-bottom: 0; }
 .empty { padding: 18px 14px; color: var(--subtle); }
 
+/* ---------- Attendee List of events (SCRUM-71) ---------- */
+.event-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.event-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 18px; background: #fff; border: 1px solid var(--line); }
+.event-card h3 { font-size: 17px; font-weight: 700; }
+.event-card__when, .event-card__location { font-size: 14px; color: var(--subtle); }
+.event-card__registration { margin-top: auto; padding-top: 8px; font-size: 14px; font-weight: 600; color: var(--ok); }
+.event-card .btn { align-self: flex-end; width: auto; margin-top: auto; padding: 8px 18px; font-size: 14px; text-decoration: none; }
+
 /* ---------- Event status page (SCRUM-6/7/8) ---------- */
 .back-link { display: inline-block; margin-bottom: 20px; font-size: 14px; }
 .event { max-width: 560px; }
