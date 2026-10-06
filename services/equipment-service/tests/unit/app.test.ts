@@ -1,7 +1,7 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
-import { FakeEquipmentReader, FakeReservationReader, anEquipment, fakeDeps, fakeRoles } from "../support/fakes";
+import { FakeEquipmentReader, FakeReservationReader, anEquipment, fakeDeps, fakeRoles, FakeReservationWriter, FakeEventReader } from "../support/fakes";
 
 // ----------------------------------------------------------------------------
 // Browser access (CORS): the web app on localhost:3000 calls equipment-service on localhost:4004 straight
@@ -15,6 +15,8 @@ const app = createApp(fakeDeps, {
     equipment: new FakeEquipmentReader([anEquipment()]),
     reservations: new FakeReservationReader(),
     roles: fakeRoles(),
+    writer: new FakeReservationWriter(),
+    events: new FakeEventReader(),
   }),
 });
 
@@ -31,10 +33,11 @@ describe("SCRUM-18 browser access to equipment-service", () => {
   });
 
   it("answers the browser's 'may I?' check (OPTIONS) before the real request, without needing a login", async () => {
-    const res = await request(app).options("/equipment-availability").set("Origin", "http://localhost:3000");
-
+    // SCRUM-19: reserving is a POST, so the browser must be told POST is allowed too.
+    const res = await request(app).options("/equipment-reservations").set("Origin", "http://localhost:3000");
+    // the browser asks which methods the service allows; it must now say POST is allowed too, not just GET
     expect(res.status).toBe(204);
-    expect(res.headers["access-control-allow-methods"]).toBe("GET,OPTIONS");
+    expect(res.headers["access-control-allow-methods"]).toBe("GET,POST,OPTIONS");
   });
 
   it("gives any other website no permission", async () => {
@@ -59,6 +62,8 @@ describe("SCRUM-18 unexpected failures", () => {
         equipment: { list: () => Promise.reject(new Error("database down: secret detail")) },
         reservations: new FakeReservationReader(),
         roles: fakeRoles(),
+        writer: new FakeReservationWriter(),
+        events: new FakeEventReader(),
       }),
     });
 

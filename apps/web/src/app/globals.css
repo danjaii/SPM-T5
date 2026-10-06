@@ -167,6 +167,50 @@ a { color: var(--steel-dark); }
 .equipment-check input::-webkit-calendar-picker-indicator { cursor: pointer; }
 @media (max-width: 800px) { .equipment-check { grid-template-columns: 1fr; gap: 24px; } }
 
+/* SCRUM-19 reserve equipment page: the fields on the left, the equipment to choose from on the right as cards.
+   The equipment sits in the DOM right after the event (so the tab order follows the steps); the grid just places it
+   in the second column. On narrow screens everything stacks in that same order. */
+.reserve-form { width: 100%; }
+.reserve-form__grid { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); column-gap: 48px; align-items: start; }
+.reserve-form__grid > * { grid-column: 1; }
+.reserve-form__grid > .equipment-picker { grid-column: 2; grid-row: 1 / span 6; }
+.reserve-form .alert { max-width: 420px; }
+.reserve-form .field label { font-size: 15px; color: var(--ink); }
+.reserve-form input::-webkit-calendar-picker-indicator { cursor: pointer; }
+/* Hide the browser's "dd-mm-yyyy" and "--:-- --" hints while the date or a time is empty (same idea as the SCRUM-18 page).
+   Edge/Chrome only; a value typed by keyboard stays hidden until it is complete. */
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-text,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-day-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-month-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-year-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-hour-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-minute-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-ampm-field { color: transparent; }
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-day-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-month-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-year-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-hour-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-minute-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-ampm-field:focus {
+  color: transparent !important;
+  background-color: transparent !important;
+}
+.equipment-picker__label { margin: 0 0 8px; font-size: 15px; color: var(--ink); }
+.equipment-picker__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.equipment-card {
+  padding: 14px 16px; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+  background: #fff; border: 1px solid var(--line);
+}
+.equipment-card:hover:not(:disabled) { border-color: var(--steel); }
+.equipment-card[aria-pressed="true"] { border: 2px solid var(--steel); padding: 13px 15px; background: #f3f6fa; font-weight: 600; }
+.equipment-card:disabled { opacity: 0.5; cursor: not-allowed; }
+.equipment-card:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+@media (max-width: 800px) {
+  .reserve-form__grid { grid-template-columns: 1fr; }
+  .reserve-form__grid > .equipment-picker { grid-column: 1; grid-row: auto; }
+}
+
 /* ---------- Dashboard ---------- */
 .dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; background: var(--navy); color: #fff; }
 .dash__who { display: flex; align-items: center; gap: 20px; font-size: 14px; }
