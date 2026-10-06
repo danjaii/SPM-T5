@@ -11,6 +11,10 @@ export const SERVER_EVENT_URL = process.env.EVENT_SERVICE_URL ?? EVENT_URL;
 export const VENUE_URL = process.env.NEXT_PUBLIC_VENUE_SERVICE_URL ?? "http://localhost:4003";
 export const SERVER_VENUE_URL = process.env.VENUE_SERVICE_URL ?? VENUE_URL;
 
+// equipment-service (SCRUM-18), same idea again.
+export const EQUIPMENT_URL = process.env.NEXT_PUBLIC_EQUIPMENT_SERVICE_URL ?? "http://localhost:4004";
+export const SERVER_EQUIPMENT_URL = process.env.EQUIPMENT_SERVICE_URL ?? EQUIPMENT_URL;
+
 export const SESSION_COOKIE = "cs_session";
 
 export interface ApiResult<T> {

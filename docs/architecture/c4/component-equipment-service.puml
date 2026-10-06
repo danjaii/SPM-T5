@@ -1,0 +1,37 @@
+@startuml component-equipment-service
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title ConnectSphere — Component Diagram: Equipment Service (C4 Level 3)
+' Built so far: the equipment availability check (docs/specs/equipment-availability.md, SCRUM-18).
+' Components marked "Planned" come with the equipment catalogue, request and reservation stories.
+
+Container(web, "Web App", "Next.js, React", "Check equipment availability page (/equipment-availability), Technical Support Staff only")
+System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "equipment (total_quantity, operational_status), equipment_reservations, users")
+
+Container_Boundary(equipmentSvc, "Equipment Service") {
+  Component(app, "App", "Express (app.ts, server.ts)", "CORS for the web app's origin (GET); injectable clock and data ports; mounts routes; error handler")
+  Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
+  Component(errors, "Error Handler", "middlewares/errors.ts, domain/errors.ts", "ServiceError -> 403/422 with a code and message; anything unexpected -> generic 500")
+  Component(routes, "Equipment Routes", "routes/equipment.ts", "SCRUM-18: GET /equipment (name suggestions) and GET /equipment-availability, never cached")
+  Component(availabilitySvc, "Availability Service", "services/availabilityService.ts", "SCRUM-18: Technical Support Staff only (others 403); matches the name ignoring case; counts approved/reserved holds at their peak in the period; unusable equipment has none available")
+  Component(readers, "Readers", "readers/equipmentReader, reservationReader, roleReader", "Read the catalogue, overlapping reservations and the caller's role as the caller, so RLS applies")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "parseAvailabilityInput: the input checks (same prompts as the web form), Singapore time")
+
+  Component(catalogue, "Equipment Catalogue", "Planned", "Technical Support Staff maintain equipment and its operational status")
+  Component(reservations, "Reservations", "Planned", "Request, approve and reserve equipment for an event slot")
+}
+
+Rel(web, app, "Name suggestions (server-side) and availability checks (browser)", "HTTPS/JSON, session cookie")
+Rel(app, session, "Requires a signed-in caller")
+Rel(session, supabaseAuth, "Verifies session token", "HTTPS")
+Rel(app, errors, "Renders failures")
+Rel(app, routes, "Routes /equipment and /equipment-availability")
+Rel(routes, availabilitySvc, "Options and check")
+Rel(availabilitySvc, shared, "Checks the input")
+Rel(availabilitySvc, readers, "Catalogue, reservations, role")
+Rel(readers, db, "Reads equipment, equipment_reservations, users directly (shared database, ADR 0001)", "PostgREST")
+
+Rel(app, catalogue, "Planned")
+Rel(app, reservations, "Planned")
+@enduml

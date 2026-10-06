@@ -1,0 +1,3 @@
+# Shell scripts must keep Linux line endings everywhere, or bash fails with "$'\r': command not found"
+# (on CI, and on Windows machines with core.autocrlf=true).
+*.sh text eol=lf
