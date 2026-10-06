@@ -156,13 +156,9 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
       ];
     }
     case "attendee": {
-      const [registrations, catalogue] = await Promise.all([
-        rows(db.from("event_registrations").select("status, registered_at, event:events(name, preferred_start_datetime)")
-          .eq("attendee_id", userId).order("registered_at", { ascending: false }).limit(LIMIT)),
-        rows(db.from("events").select("name, description, preferred_start_datetime, registration_capacity")
-          .eq("status", "confirmed").eq("registration_required", true)
-          .order("preferred_start_datetime", { ascending: true }).limit(LIMIT)),
-      ]);
+      // SCRUM-71/AC1: the List of events (which replaced "Events open for booking") comes from event-service
+      const registrations = await rows(db.from("event_registrations").select("status, registered_at, event:events(name, preferred_start_datetime)")
+        .eq("attendee_id", userId).order("registered_at", { ascending: false }).limit(LIMIT));
       return [
         {
           title: "My registrations & tickets",
@@ -171,14 +167,6 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
             { key: "status", label: "Status" }, { key: "registered", label: "Registered on" },
           ],
           rows: registrations.map((r) => ({ event: cell(nested(r.event, "name")), start: date(nested(r.event, "preferred_start_datetime")), status: status(r.status), registered: date(r.registered_at) })),
-        },
-        {
-          title: "Events open for booking",
-          columns: [
-            { key: "name", label: "Event" }, { key: "description", label: "About" },
-            { key: "start", label: "Starts" }, { key: "capacity", label: "Capacity" },
-          ],
-          rows: catalogue.map((e) => ({ name: cell(e.name), description: cell(e.description), start: date(e.preferred_start_datetime), capacity: cell(e.registration_capacity) })),
         },
       ];
     }
