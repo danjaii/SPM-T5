@@ -211,7 +211,8 @@ describe("US3 — Role based access", () => {
     ["event_coordinator", ["Events I coordinate", "My venue booking requests"]],
     ["venue_staff", ["Venues", "Booking requests awaiting review"]],
     ["technical_support_staff", ["Equipment", "Technical support requests"]],
-    ["attendee", ["My registrations & tickets", "Events open for booking"]],
+    // SCRUM-71/AC1: the attendee's List of events comes from event-service now, not this endpoint
+    ["attendee", ["My registrations & tickets"]],
   ])("%s only sees its own dashboard sections", async (role, expected) => {
     fake.seedUser(`${role}@example.com`, role);
     expect(await sectionTitles(`${role}@example.com`, role)).toEqual(expected);
@@ -263,18 +264,16 @@ describe("US3 — Role based access", () => {
     }
   });
 
-  it("shows an attendee their registrations and only confirmed, bookable events in the catalogue", async () => {
+  // SCRUM-71/AC1: the old "Events open for booking" table is gone; the List of events replaces it (event-service)
+  it("shows an attendee their registrations, and no events catalogue table", async () => {
     const me = fake.seedUser("att@example.com", "attendee");
     fake.tables.event_registrations.push({ attendee_id: me, status: "registered", event: { name: "Tech Summit" } });
-    fake.tables.events.push(
-      { name: "Open day", status: "confirmed", registration_required: true },
-      { name: "Private draft", status: "draft", registration_required: true },
-    );
+    fake.tables.events.push({ name: "Open day", status: "confirmed", registration_required: true });
     const cookie = await signInAs("att@example.com", "attendee");
     const res = await request(app).get("/dashboard").set("Cookie", cookie);
 
+    expect(res.body.sections).toHaveLength(1);
     expect(res.body.sections[0].rows).toEqual([expect.objectContaining({ event: "Tech Summit", status: "registered" })]);
-    expect(res.body.sections[1].rows.map((r: Row) => r.name)).toEqual(["Open day"]);
   });
 
   it("tells the web app who the signed-in user is and their role", async () => {
@@ -367,3 +366,20 @@ describe("CORS for the web app", () => {
     expect((await request(app).get("/health")).body).toEqual({ status: "ok", service: "auth-service" });
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-71 — View Event Information: the List of events is on the attendee dashboard
+// ---------------------------------------------------------------------------
+describe("SCRUM-71 — Back to the List of events after signing in", () => {
+  // AC6: a guest sent to the sign-in page returns to the list afterwards, because an attendee's sign-in
+  // lands on /dashboard/attendee, where the List of events is
+  it("SCRUM-71/AC6 sends an attendee to the attendee dashboard after signing in", async () => {
+    fake.seedUser("alicia@example.com", "attendee");
+    const res = await login("alicia@example.com", "Passw0rd!", "attendee");
+
+    expect(res.status).toBe(200);
+    expect(res.body.redirectTo).toBe("/dashboard/attendee");
+  });
+  // end of AC6
+});
+// end of SCRUM-71

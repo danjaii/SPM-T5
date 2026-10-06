@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { canViewVenueCatalogue, isRole } from "@spm-t5/shared";
 import { roleLabel } from "@/lib/roles";
 import { BfcacheGuard } from "./BfcacheGuard";
@@ -15,7 +16,8 @@ export interface DashboardData {
   }[];
 }
 
-export function DashboardView({ data }: { data: DashboardData }) {
+/** children: extra sections a role's page adds below the tables (e.g. the attendee's List of events, SCRUM-71). */
+export function DashboardView({ data, children }: { data: DashboardData; children?: ReactNode }) {
   const { user, sections } = data;
   return (
     <>
@@ -31,7 +33,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
       </header>
       <main className="dash__main">
         <h1>{roleLabel(user.role)} dashboard</h1>
-        <p className="dash__lede">Signed in as {user.email}</p>
+        <p className="dash__lede">Signed in as {user.fullName}</p>
         {/* SCRUM-29 AC3 + AC4 + AC6 + AC7: same shared rule venue-service uses — coordinators and venue staff only */}
         {/* if role is event coord or venue staff, we show the link that leads them to see the venue catalogue */}
         {isRole(user.role) && canViewVenueCatalogue(user.role) && (
@@ -39,6 +41,12 @@ export function DashboardView({ data }: { data: DashboardData }) {
             <Link href="/venues">Venue catalogue</Link>
             {/* SCRUM-37/AC7: the pending request queue is for venue staff only */}
             {user.role === "venue_staff" && <Link href="/booking-queue">Pending booking requests</Link>}
+          </nav>
+        )}
+        {/* SCRUM-18 (18-S13): the equipment availability check is for Technical Support Staff only */}
+        {user.role === "technical_support_staff" && (
+          <nav className="dash__links">
+            <Link href="/equipment-availability">Check equipment availability</Link>
           </nav>
         )}
         {sections.map((section) => (
@@ -67,6 +75,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
             </div>
           </section>
         ))}
+        {children}
       </main>
     </>
   );

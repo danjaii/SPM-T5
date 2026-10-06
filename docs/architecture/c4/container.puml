@@ -23,7 +23,7 @@ System_Ext(emailProvider, "Email/SMS Provider")
 Rel(user, web, "Uses", "HTTPS")
 
 Rel(web, authSvc, "Verifies session/role", "HTTPS/JSON")
-Rel(web, eventSvc, "Create/read/update event requests; assign/reassign coordinators", "HTTPS/JSON")
+Rel(web, eventSvc, "Create/read/update event requests; assign/reassign coordinators; list upcoming events for attendees", "HTTPS/JSON")
 Rel(web, venueSvc, "Check venues; submit, track, withdraw and amend venue booking requests", "HTTPS/JSON")
 Rel(web, equipmentSvc, "Check/reserve equipment", "HTTPS/JSON")
 
