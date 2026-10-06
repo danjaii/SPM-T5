@@ -2405,3 +2405,121 @@ describe("SCRUM-25/AC4 — Prevent empty comments", () => {
     expect(res.body.error).toBeDefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-44 — Organiser views the review outcome
+// ---------------------------------------------------------------------------
+describe("SCRUM-44 — View event request review outcome", () => {
+  /** An event by Adrian (organiser) in the given status, with Rachel (coordinator) as the decider in its history. */
+  const setup = (status: string, history: (coordinatorId: string) => Row[] = () => []) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Adrian Foo");
+    const coordinator = fake.signIn("event_coordinator", "Rachel Tan");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({ id: eventId, name: "Investor Briefing", status, organiser_id: organiser.id });
+    fake.tables.event_status_history = history(coordinator.id).map((h) => ({ event_id: eventId, ...h }));
+    const outcome = (cookie: string, id = eventId) =>
+      request(createApp(fake.deps)).get(`/events/${id}/outcome`).set("Cookie", cookie);
+    return { fake, organiser, coordinator, eventId, outcome };
+  };
+
+  it("AC1, AC4: shows an approval, when it was made and who made it", async () => {
+    const { organiser, outcome } = setup("approved", (c) => [
+      { old_status: "submitted", new_status: "under_review", changed_by: c, reason: null, changed_at: "2026-09-01T02:00:00Z" },
+      { old_status: "under_review", new_status: "approved", changed_by: c, reason: null, changed_at: "2026-09-02T03:00:00Z" },
+    ]);
+
+    const res = await outcome(organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      decision: { outcome: "approved", decided_at: "2026-09-02T03:00:00Z", reason: null, decided_by_name: "Rachel Tan" },
+    });
+  });
+
+  it("AC2, AC3: shows a rejection with the coordinator's reason", async () => {
+    const { organiser, outcome } = setup("rejected", (c) => [
+      { old_status: "submitted", new_status: "rejected", changed_by: c, reason: "Venue too small.", changed_at: "2026-09-02T03:00:00Z" },
+    ]);
+
+    const res = await outcome(organiser.cookie);
+
+    expect(res.body.decision).toMatchObject({ outcome: "rejected", reason: "Venue too small." });
+  });
+
+  it("AC4: keeps showing the approval after the event moves on to planning", async () => {
+    const { organiser, outcome } = setup("planning", (c) => [
+      { old_status: "under_review", new_status: "approved", changed_by: c, reason: null, changed_at: "2026-09-02T03:00:00Z" },
+      { old_status: "approved", new_status: "planning", changed_by: c, reason: null, changed_at: "2026-09-05T03:00:00Z" },
+    ]);
+
+    expect((await outcome(organiser.cookie)).body.decision).toMatchObject({ outcome: "approved" });
+  });
+
+  it("AC4: shows the most recent decision when there were several", async () => {
+    const { organiser, outcome } = setup("approved", (c) => [
+      { old_status: "under_review", new_status: "rejected", changed_by: c, reason: "First try.", changed_at: "2026-09-01T03:00:00Z" },
+      { old_status: "under_review", new_status: "approved", changed_by: c, reason: null, changed_at: "2026-09-09T03:00:00Z" },
+    ]);
+
+    expect((await outcome(organiser.cookie)).body.decision).toMatchObject({ outcome: "approved", decided_at: "2026-09-09T03:00:00Z" });
+  });
+
+  it.each(["draft", "submitted", "under_review", "returned"])(
+    "AC5: shows no decision while the request is %s, even if an older one exists",
+    async (status) => {
+      const { organiser, outcome } = setup(status, (c) => [
+        { old_status: "under_review", new_status: "rejected", changed_by: c, reason: "Old.", changed_at: "2026-09-01T03:00:00Z" },
+      ]);
+
+      const res = await outcome(organiser.cookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ decision: null });
+    },
+  );
+
+  it("AC5: shows no decision for an event cancelled before anyone decided", async () => {
+    const { organiser, outcome } = setup("cancelled");
+
+    expect((await outcome(organiser.cookie)).body).toEqual({ decision: null });
+  });
+
+  it("AC6: lets a coordinator see the outcome too", async () => {
+    const { coordinator, outcome } = setup("approved", (c) => [
+      { old_status: "under_review", new_status: "approved", changed_by: c, reason: null, changed_at: "2026-09-02T03:00:00Z" },
+    ]);
+
+    expect((await outcome(coordinator.cookie)).status).toBe(200);
+  });
+
+  it("AC6: hides another organiser's event as if it didn't exist", async () => {
+    const { fake, outcome } = setup("approved");
+    const stranger = fake.signIn("event_organiser", "Someone Else");
+
+    const res = await outcome(stranger.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Event not found." });
+  });
+
+  it.each(["attendee", "venue_staff", "technical_support_staff"])("AC6: refuses a %s", async (role) => {
+    const { fake, outcome } = setup("approved");
+    const other = fake.signIn(role);
+
+    expect((await outcome(other.cookie)).status).toBe(403);
+  });
+
+  it("returns 404 for an event that doesn't exist", async () => {
+    const { coordinator, outcome } = setup("approved");
+
+    expect((await outcome(coordinator.cookie, crypto.randomUUID())).status).toBe(404);
+  });
+
+  it("returns 401 when not signed in", async () => {
+    const { eventId } = setup("approved");
+    const fake = createFake();
+
+    expect((await request(createApp(fake.deps)).get(`/events/${eventId}/outcome`)).status).toBe(401);
+  });
+});

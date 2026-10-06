@@ -3,7 +3,7 @@
 
 title ConnectSphere — Component Diagram: Event Service (C4 Level 3)
 ' Built so far: event status management (SCRUM-6 view as coordinator, SCRUM-7 view as organiser,
-' SCRUM-8 edit status), event review and approval (SCRUM-22 to 28, 45), coordinator assignment
+' SCRUM-8 edit status), event review and approval (SCRUM-22 to 28, 44, 45), coordinator assignment
 ' (SCRUM-41 to 43), the attendee's List of events (SCRUM-71) and attendee registration (SCRUM-83).
 ' Components marked "Planned" are not built yet. Copy this file per service as it gets built out.
 
@@ -17,7 +17,7 @@ Container_Boundary(eventSvc, "Event Service") {
   Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin; mounts /events")
   Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
   Component(eventRoutes, "Event Status Routes", "routes/events.ts", "GET /events/:id — coordinators: any event; organisers: only events they submitted; others 403. Returns canChangeStatus / canReview / canAssign for the page. PATCH /events/:id/status — assigned coordinator only (also Start review)")
-  Component(reviewRoutes, "Review & Approval Routes", "routes/events.ts", "GET /events (review queue: search, status and date filters, own + unassigned), GET /events/my-events, POST /events/:id/approve, POST /events/:id/reject (reason required) — assigned coordinator only, Submitted / Under review only")
+  Component(reviewRoutes, "Review & Approval Routes", "routes/events.ts", "GET /events (review queue: search, status and date filters, own + unassigned), GET /events/my-events, POST /events/:id/approve, POST /events/:id/reject (reason required) — assigned coordinator only, Submitted / Under review only. GET /events/:id/outcome — latest approve/reject with reason, time and decider; none while awaiting a decision (SCRUM-44)")
   Component(commentRoutes, "Comment Routes", "routes/events.ts", "GET/POST /events/:id/comments (threaded replies, mentions, attachments), GET /events/:id/mentionable-users, GET /events/:id/attachments/signed-url")
   Component(assignRoutes, "Coordinator Assignment Routes", "routes/events.ts", "GET /events/:id/eligible-coordinators, POST /events/:id/assign-coordinator — unassigned: any coordinator claims it for themselves; assigned: only the assigned coordinator reassigns. GET /events/:id/assignment-history (with names)")
   Component(upcomingRoutes, "Upcoming Events Route", "routes/upcomingEvents.ts", "GET /events/upcoming — any signed-in user; mounted before the /events/:id routes; 500 (not []) when the data cannot be loaded")
@@ -54,7 +54,7 @@ Rel(eventRoutes, shared, "Checks role and status values")
 Rel(reviewRoutes, shared, "Checks canReviewEvents and canDecideEvent")
 Rel(assignRoutes, shared, "Checks roles")
 Rel(eventRoutes, supabaseDeps, "Queries events and users; calls change_event_status()")
-Rel(reviewRoutes, supabaseDeps, "Queries events and users; calls change_event_status() to approve/reject")
+Rel(reviewRoutes, supabaseDeps, "Queries events and users; calls change_event_status() to approve/reject; reads event_status_history for the outcome")
 Rel(commentRoutes, supabaseDeps, "Reads/writes comments, mentions, attachments; creates signed URLs")
 Rel(assignRoutes, supabaseDeps, "Calls assign_coordinator(); reads coordinator_assignment_logs and users")
 Rel(upcomingRoutes, supabaseDeps, "Calls list_public_events() (security definer: supplies each public event's venue, Confirmed registration count and the caller's own active registration)")

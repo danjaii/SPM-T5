@@ -9,6 +9,9 @@ async function lookUpRole(deps: SupabaseDeps, { id, token }: SessionUser): Promi
   return isRole(profile?.role) ? profile.role : undefined;
 }
 
+// SCRUM-44/AC5: statuses in which a request is still waiting on the organiser or the coordinator.
+const AWAITING_DECISION = ["draft", "submitted", "under_review", "returned"];
+
 // SCRUM-41/AC9: refusal shown to a coordinator who tries to reassign someone else's event.
 const REASSIGN_NOT_OWNER = "Only the coordinator assigned to this event can reassign it.";
 
@@ -198,6 +201,60 @@ export function eventRoutes(deps: SupabaseDeps) {
       submitted_at: (event.submitted_at as string | null) ?? null,
       organiser_name: embeddedName(event.organiser),
       point_of_contact_name: pointOfContactName,
+    });
+  });
+
+  // SCRUM-44: the review outcome of an event request — the coordinator's approve/reject decision, its reason and
+  // when it was made. AC6: the same people as GET /:id (coordinators; organisers for their own events only).
+  router.get("/:id/outcome", requireSession(deps), async (req, res) => {
+    const { id: userId, token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    const isCoordinator = role !== undefined && canReviewEvents(role);
+    const isOrganiser = role === "event_organiser";
+    if (!isCoordinator && !isOrganiser) {
+      return res.status(403).json({ error: "You are not allowed to view this event's review outcome." });
+    }
+
+    let query = deps.forUser(token).from("events").select("id, status").eq("id", req.params.id);
+    if (isOrganiser) query = query.eq("organiser_id", userId);
+    const { data: event } = await query.maybeSingle();
+    // AC6: someone else's event looks exactly like one that doesn't exist
+    if (!event) return res.status(404).json({ error: "Event not found." });
+
+    // AC5: while the request is still with the organiser or the coordinator, there is no decision to show,
+    // even if an older one exists (e.g. it was returned and resubmitted after a decision)
+    if (AWAITING_DECISION.includes(event.status as string)) return res.json({ decision: null });
+
+    const { data: history } = await deps
+      .forUser(token)
+      .from("event_status_history")
+      .select("new_status, reason, changed_at, changed_by")
+      .eq("event_id", req.params.id)
+      .in("new_status", ["approved", "rejected"])
+      .order("changed_at", { ascending: false });
+    const latest = history?.[0];
+    // e.g. cancelled before anyone decided
+    if (!latest) return res.json({ decision: null });
+
+    let decidedByName: string | null = null;
+    if (latest.changed_by) {
+      const { data: who } = await deps
+        .forUser(token)
+        .from("users")
+        .select("full_name")
+        .eq("id", latest.changed_by)
+        .maybeSingle();
+      decidedByName = (who?.full_name as string | null) ?? null;
+    }
+
+    // AC1-AC4: outcome, when, the reason (rejections always have one; approvals may not) and who decided
+    return res.json({
+      decision: {
+        outcome: latest.new_status,
+        decided_at: latest.changed_at,
+        reason: (latest.reason as string | null) ?? null,
+        decided_by_name: decidedByName,
+      },
     });
   });
 
