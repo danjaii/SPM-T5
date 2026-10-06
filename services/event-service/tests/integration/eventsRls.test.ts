@@ -316,12 +316,9 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
       }
     });
 
-    it("SCRUM-91 nobody writes sessions, documents or change requests through the API yet", async () => {
+    it("SCRUM-91 nobody writes sessions or documents through the API yet (change requests: SCRUM-66, eventChangeRequestRls.test.ts)", async () => {
       const attempts = [
         who.coordinatorA.client.from("event_documents").insert({ event_id: eventA, file_name: "x", file_url: "x" }),
-        who.organiserA.client
-          .from("event_change_requests")
-          .insert({ event_id: eventA, requested_by: who.organiserA.userId, change_description: "x" }),
         who.coordinatorA.client
           .from("event_sessions")
           .insert({ event_id: eventA, session_name: "x", session_date: "2031-06-15", start_time: "09:00", end_time: "10:00", sequence_no: 9 }),
