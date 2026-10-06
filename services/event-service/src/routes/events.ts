@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { canReviewEvents, isEventStatus, isRole, type Role } from "@spm-t5/shared";
+import { canDecideEvent, canReviewEvents, isEventStatus, isRole, type Role } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
@@ -7,6 +7,31 @@ import { requireSession, type SessionUser } from "../middlewares/session";
 async function lookUpRole(deps: SupabaseDeps, { id, token }: SessionUser): Promise<Role | undefined> {
   const { data: profile } = await deps.forUser(token).from("users").select("role").eq("id", id).maybeSingle();
   return isRole(profile?.role) ? profile.role : undefined;
+}
+
+/**
+ * SCRUM-24: why the caller may not decide on this event, as an HTTP status and message; undefined if they may.
+ * Only the assigned coordinator (AC5) may decide, and only while the request is awaiting a decision (AC1, AC2).
+ */
+async function decisionRefusal(
+  deps: SupabaseDeps,
+  { id: userId, token }: SessionUser,
+  eventId: unknown,
+): Promise<{ status: number; error: string } | undefined> {
+  const { data: event } = await deps
+    .forUser(token)
+    .from("events")
+    .select("status, assigned_coordinator_id")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!event) return { status: 404, error: "Event not found." };
+  if (event.assigned_coordinator_id !== userId) {
+    return { status: 403, error: "Only the coordinator assigned to this event can approve or reject it." };
+  }
+  if (!canDecideEvent(event.status as string)) {
+    return { status: 409, error: "Only submitted or under-review requests can be approved or rejected." };
+  }
+  return undefined;
 }
 
 /** The event fields GET /events/:id selects. Typed by hand because the project has no generated database types. */
@@ -135,6 +160,8 @@ export function eventRoutes(deps: SupabaseDeps) {
 
     // For the UI: whether this viewer may change the status (SCRUM-8 AC4 + AC6), so the page knows to show the dropdown
     const canChangeStatus = isCoordinator && event.assigned_coordinator_id === userId;
+    // SCRUM-24/AC5: only the assigned coordinator may approve or reject; the UI also needs canDecideEvent(status)
+    const canReview = canChangeStatus;
     // SCRUM-42/AC5: look up the assigned coordinator's name as the organiser's point of contact
     let pointOfContactName: string | null = null;
     if (event.assigned_coordinator_id) {
@@ -152,6 +179,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       name: event.name,
       status: event.status,
       canChangeStatus,
+      canReview,
       purpose: (event.purpose as string | null) ?? null,
       preferred_start_datetime: (event.preferred_start_datetime as string | null) ?? null,
       preferred_end_datetime: (event.preferred_end_datetime as string | null) ?? null,
@@ -165,7 +193,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     });
   });
 
-  // SCRUM-24/AC2: an authorised coordinator rejects a submitted event request with a mandatory reason
+  // SCRUM-24/AC2: the assigned coordinator rejects a submitted event request with a mandatory reason
   router.post("/:id/reject", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -176,6 +204,8 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (!reason) {
       return res.status(400).json({ error: "A reason is required to reject an event." });
     }
+    const refusal = await decisionRefusal(deps, res.locals.user as SessionUser, req.params.id);
+    if (refusal) return res.status(refusal.status).json({ error: refusal.error });
     const { data: event } = await deps
       .forUser(token)
       .rpc("change_event_status", {
@@ -188,13 +218,15 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.json(event);
   });
 
-  // SCRUM-24/AC1: an authorised coordinator approves a submitted event request
+  // SCRUM-24/AC1: the assigned coordinator approves a submitted event request
   router.post("/:id/approve", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
     if (role === undefined || !canReviewEvents(role)) {
       return res.status(403).json({ error: "You are not allowed to approve this event." });
     }
+    const refusal = await decisionRefusal(deps, res.locals.user as SessionUser, req.params.id);
+    if (refusal) return res.status(refusal.status).json({ error: refusal.error });
     const { data: event } = await deps
       .forUser(token)
       .rpc("change_event_status", {

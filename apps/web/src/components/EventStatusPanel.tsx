@@ -2,10 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue } from "@spm-t5/shared";
+import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview } from "@spm-t5/shared";
 import { changeEventStatus, statusLabel, type EventStatusView } from "@/lib/events";
+import { EventReviewActions } from "./EventReviewActions";
 
 // SCRUM-6/7: shows an event's current status. SCRUM-8: the assigned coordinator can also change it.
+// SCRUM-45: the assigned coordinator starts the review. SCRUM-24: they also approve or reject it.
 export function EventStatusPanel({ event }: { event: EventStatusView }) {
   const [status, setStatus] = useState(event.status);
   const [newStatus, setNewStatus] = useState(event.status);
@@ -13,19 +15,28 @@ export function EventStatusPanel({ event }: { event: EventStatusView }) {
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string }>();
   const [saving, setSaving] = useState(false);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  function showStatus(saved: string) {
+    setStatus(saved);
+    setNewStatus(saved);
+    setMessage({ kind: "ok", text: `Status updated to ${statusLabel(saved)}.` });
+  }
+
+  async function save(target: string, why: string) {
     setMessage(undefined);
     setSaving(true);
-    const { ok, data } = await changeEventStatus(event.id, newStatus, reason);
+    const { ok, data } = await changeEventStatus(event.id, target, why);
     if (ok) {
-      setStatus(data.status);
+      showStatus(data.status);
       setReason("");
-      setMessage({ kind: "ok", text: `Status updated to ${statusLabel(data.status)}.` });
     } else {
       setMessage({ kind: "error", text: data.error ?? "We couldn't update the status. Please try again." });
     }
     setSaving(false);
+  }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    return save(newStatus, reason);
   }
 
   return (
@@ -40,6 +51,17 @@ export function EventStatusPanel({ event }: { event: EventStatusView }) {
           {message.text}
         </div>
       )}
+
+      {/* SCRUM-45/AC1, AC3, AC5: only the assigned coordinator, and only while the request is submitted. */}
+      {event.canChangeStatus && canStartReview(status) && (
+        <p>
+          <button className="btn btn--inline" type="button" disabled={saving} onClick={() => save("under_review", "")}>
+            {saving ? "Starting…" : "Start review"}
+          </button>
+        </p>
+      )}
+
+      <EventReviewActions eventId={event.id} status={status} canReview={event.canReview} onDecided={showStatus} />
 
       {/* SCRUM-32/AC3: the assigned coordinator can request a venue once the event is approved (32-S2, 32-S3). */}
       {event.canChangeStatus &&
