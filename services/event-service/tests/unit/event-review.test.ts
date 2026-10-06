@@ -681,6 +681,8 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       organiser_name: "Alice Johnson",
       point_of_contact_name: null,
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
+      isOrganiser: false, // SCRUM-66
+      canRequestChange: false, // SCRUM-66: only an organiser may
     });
   });
 
@@ -725,6 +727,8 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       organiser_name: "Bob Smith",
       point_of_contact_name: null,
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
+      isOrganiser: false, // SCRUM-66
+      canRequestChange: false, // SCRUM-66: only an organiser may
     });
   });
 });
