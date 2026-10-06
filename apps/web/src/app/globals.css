@@ -202,6 +202,8 @@ tr:last-child td { border-bottom: 0; }
   color: var(--steel-dark); background: var(--selected); border: 1px solid var(--steel);
 }
 .event__form { padding: 24px; background: #fff; border: 1px solid var(--border); }
+.event h2 { font-size: 20px; font-weight: 700; margin: 28px 0 10px; }
+.event__missing { color: var(--subtle); font-style: italic; }
 .field select, .field textarea {
   width: 100%; padding: 11px 12px; font: inherit; color: var(--ink);
   background: var(--field); border: 1px solid var(--border); border-radius: 0;

@@ -150,3 +150,14 @@ describe("SCRUM-22/AC2 — access control on the screen", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
 });
+
+describe("SCRUM-23/AC1 — open a request from the list", () => {
+  it("links each request to its details page", async () => {
+    mockServices({ me: coordinator, events: { status: 200, body: ROWS } });
+    render(<ReviewQueue />);
+
+    const link = await screen.findByRole("link", { name: "Annual Gala" });
+    expect(link.getAttribute("href")).toBe("/events/1");
+    expect(screen.getByRole("link", { name: "Tech Summit" }).getAttribute("href")).toBe("/events/2");
+  });
+});

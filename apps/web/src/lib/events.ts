@@ -8,6 +8,19 @@ export interface EventStatusView {
   canChangeStatus: boolean;
 }
 
+/** SCRUM-23/AC2: the full request, as GET /events/:id returns it. Optional fields are null when not provided. */
+export interface EventDetailView extends EventStatusView {
+  purpose: string | null;
+  preferred_start_datetime: string | null;
+  preferred_end_datetime: string | null;
+  expected_attendance: number | null;
+  preferred_layout_name: string | null;
+  accessibility_requirements: string | null;
+  equipment_requirements_notes: string | null;
+  submitted_at: string | null;
+  organiser_name: string | null;
+}
+
 /** "under_review" -> "Under review" */
 export const statusLabel = (status: string) => {
   const words = status.replace(/_/g, " ");
