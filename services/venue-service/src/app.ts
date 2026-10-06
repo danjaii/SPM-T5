@@ -1,6 +1,7 @@
 import express from "express";
 import { errorHandler } from "./middlewares/errors";
 import { requireSession } from "./middlewares/session";
+import type { VenueSearchReader } from "./readers/venueSearchReader";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { bookingQueueRoutes } from "./routes/bookingQueue";
 import { venueBookingRoutes } from "./routes/venueBookings";
@@ -12,6 +13,8 @@ export interface AppOptions {
   now?: () => Date;
   /** Where data comes from; tests pass fakes. Defaults to Supabase queries as the caller. */
   ports?: PortsFactory;
+  /** Where the venue search (SCRUM-65) reads from; tests pass a fake. Defaults to Supabase as the caller. */
+  venueSearch?: (accessToken: string) => VenueSearchReader;
 }
 
 // Exported separately from listen() so tests can mount the app without opening a port.
@@ -39,7 +42,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   });
 
   // SCRUM-29: the read-only venue catalogue, GET /venues and /venues/:id (coordinators and venue staff).
-  app.use("/venues", venueRoutes(deps));
+  app.use("/venues", venueRoutes(deps, options.venueSearch, now));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
   app.use(requireSession(deps), venueBookingRoutes(portsFor, now), bookingQueueRoutes(portsFor));
