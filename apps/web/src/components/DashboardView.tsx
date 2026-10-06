@@ -39,6 +39,8 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
         {isRole(user.role) && canViewVenueCatalogue(user.role) && (
           <nav className="dash__links">
             <Link href="/venues">Venue catalogue</Link>
+            {/* SCRUM-65: searching venues for an event is for event coordinators */}
+            {user.role === "event_coordinator" && <Link href="/venues/search">Search venues</Link>}
             {/* SCRUM-37/AC7: the pending request queue is for venue staff only */}
             {user.role === "venue_staff" && <Link href="/booking-queue">Pending booking requests</Link>}
           </nav>
