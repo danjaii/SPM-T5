@@ -140,6 +140,33 @@ a { color: var(--steel-dark); }
 .alert--error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 .alert--ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
 
+/* SCRUM-18 equipment availability page: the form on the left, the result on the right, larger labels.
+   On narrow screens the result drops below the form. */
+.equipment-check { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 48px; align-items: start; }
+.equipment-check .field label { font-size: 15px; color: var(--ink); }
+/* Hide the browser's own "dd----yyyy" hint while no date is picked, even when the box is clicked; pick a date with
+   the calendar icon. (The hint is drawn by the browser, so it can only be made see-through, not removed.
+   Edge/Chrome only. A date typed by keyboard stays hidden until it is complete.) */
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-text,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-day-field,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-month-field,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-year-field { color: transparent; }
+/* Clicking the box highlights the day part ("dd") as a blue block in the browser's own colours; hide that too.
+   !important because the browser's highlight style otherwise wins. */
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-day-field:focus,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-month-field:focus,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-year-field:focus {
+  color: transparent !important;
+  background-color: transparent !important;
+}
+.equipment-check__result .alert { padding: 18px 20px; font-size: 16px; }
+.equipment-check__result .alert h2 { font-size: 24px; margin-bottom: 8px; }
+.equipment-check__result .alert p { margin: 6px 0 0; }
+/* The calendar and clock icons are clickable, so show the hand cursor over them. */
+.equipment-check input::-webkit-calendar-picker-indicator { cursor: pointer; }
+@media (max-width: 800px) { .equipment-check { grid-template-columns: 1fr; gap: 24px; } }
+
 /* ---------- Dashboard ---------- */
 .dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; background: var(--navy); color: #fff; }
 .dash__who { display: flex; align-items: center; gap: 20px; font-size: 14px; }

@@ -43,6 +43,12 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
             {user.role === "venue_staff" && <Link href="/booking-queue">Pending booking requests</Link>}
           </nav>
         )}
+        {/* SCRUM-18 (18-S13): the equipment availability check is for Technical Support Staff only */}
+        {user.role === "technical_support_staff" && (
+          <nav className="dash__links">
+            <Link href="/equipment-availability">Check equipment availability</Link>
+          </nav>
+        )}
         {sections.map((section) => (
           <section className="dash__section" key={section.title}>
             <h2>{section.title}</h2>
