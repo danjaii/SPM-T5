@@ -225,8 +225,9 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` only; the other tables
-  are still blanket.
+  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings`, `08_event_review_tables.sql`
+  for the review tables and `11_events_rls.sql` for `events` and its history tables; the other tables
+  are still blanket (tracked in SCRUM-92 and SCRUM-93).
 - Services that are still stubs export `healthCheck()` but never call `listen()`, so their
   containers start and exit immediately under `docker compose up`.
 

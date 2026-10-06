@@ -316,6 +316,7 @@ rather than editing an applied one.
 | `05_venue_booking_withdrawn.sql` | Adds the withdrawn state for venue bookings |
 | `06_venue_booking_requests.sql` | Venue booking request schema; slot-exclusion and one-active-request-per-event constraints |
 | `07_venue_bookings_rls.sql` | Per-role/own-row RLS for `venue_bookings` |
+| `11_events_rls.sql` | Per-role RLS for `events`, its history tables, sessions, documents and change requests; narrows `events` UPDATE to `status` and `assigned_coordinator_id`; trigger so only the assigned coordinator changes status (SCRUM-91) |
 
 ## Current status
 
@@ -323,8 +324,9 @@ This is the release-1 build. `auth-service`, `event-service` and `venue-service`
 the Venue Staff approval routes (SCRUM-37 to 40) are not. `equipment-service` and
 `notification-service` are still `healthCheck()` stubs that never call `listen()`.
 
-RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`):
-any authenticated user can access every row. Per-role/own-row policies for the rest are pending.
+RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`),
+the event review tables (`08`) and `events` with its history tables (`11_events_rls.sql`): on the rest,
+any authenticated user can access every row. Per-role/own-row policies for those are pending (SCRUM-92, SCRUM-93).
 
 ## Dependency notes
 
