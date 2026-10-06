@@ -216,8 +216,10 @@ real code. `venue-service` is built out for the venue catalogue (SCRUM-29) and v
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
 spec in `docs/specs/venue-booking-approval.md`). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
-read-only availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`, diagram in
-`component-equipment-service.puml`); the equipment catalogue and reservations are not built yet.
+availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
+for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
+`reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`); the equipment
+catalogue and equipment requests/approval are not built yet.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
