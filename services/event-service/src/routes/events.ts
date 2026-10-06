@@ -517,12 +517,12 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(409).json({ error: "This coordinator is already assigned to the event." });
     }
     // SCRUM-42/AC3 + AC6, SCRUM-43/AC2: assign and record who assigned, who was assigned, the previous
-    // coordinator and when, together (see supabase/migrations/11_assign_coordinator.sql)
+    // coordinator and when, together (see supabase/migrations/13_assign_coordinator.sql)
     const { data: assigned, error } = await deps
       .forUser(token)
       .rpc("assign_coordinator", { p_event_id: req.params.id, p_coordinator_id: coordinatorId })
       .maybeSingle();
-    // A failed call (e.g. migration 11 not applied to this database) is a server fault, not a missing event
+    // A failed call (e.g. migration 13 not applied to this database) is a server fault, not a missing event
     if (error) {
       console.error("assign_coordinator failed:", error.message);
       return res.status(500).json({ error: "We couldn't assign the coordinator. Please try again." });

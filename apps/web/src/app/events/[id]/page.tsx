@@ -40,6 +40,15 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 canAssign={result.event.canAssign}
               />
               <EventVenueBooking booking={venueBooking} />
+              {/* SCRUM-83/AC15: the registration information page (only this page's viewers, organisers and
+                  coordinators, can open it; RLS decides whose registrations they see) */}
+              <section className="event-section" aria-labelledby="registrations-heading">
+                <h2 id="registrations-heading">Registrations</h2>
+                <div className="event-detail-card event-detail-card--row">
+                  <p>See who has registered for this event.</p>
+                  <Link className="btn btn--secondary" href={`/events/${id}/registrations`}>View registrations</Link>
+                </div>
+              </section>
             </EventStatusPanel>
           ) : (
             <div className="alert alert--error" role="alert">{result.error}</div>

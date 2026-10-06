@@ -1,3 +1,4 @@
+-- (Numbered 13: 11 and 12 were taken on main by event_registrations and reserve_equipment.)
 -- SCRUM-42/AC3 + AC6, SCRUM-41/AC3 + AC7: assign (or reassign) an event's coordinator and record it in
 -- coordinator_assignment_logs together, all-or-nothing. Before this, event-service updated events and then
 -- inserted the log as two separate calls, so a failed insert left an assignment with no history (SCRUM-43/AC4).

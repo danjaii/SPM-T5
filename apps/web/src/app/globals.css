@@ -140,6 +140,77 @@ a { color: var(--steel-dark); }
 .alert--error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 .alert--ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
 
+/* SCRUM-18 equipment availability page: the form on the left, the result on the right, larger labels.
+   On narrow screens the result drops below the form. */
+.equipment-check { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 48px; align-items: start; }
+.equipment-check .field label { font-size: 15px; color: var(--ink); }
+/* Hide the browser's own "dd----yyyy" hint while no date is picked, even when the box is clicked; pick a date with
+   the calendar icon. (The hint is drawn by the browser, so it can only be made see-through, not removed.
+   Edge/Chrome only. A date typed by keyboard stays hidden until it is complete.) */
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-text,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-day-field,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-month-field,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-year-field { color: transparent; }
+/* Clicking the box highlights the day part ("dd") as a blue block in the browser's own colours; hide that too.
+   !important because the browser's highlight style otherwise wins. */
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-day-field:focus,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-month-field:focus,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-year-field:focus {
+  color: transparent !important;
+  background-color: transparent !important;
+}
+.equipment-check__result .alert { padding: 18px 20px; font-size: 16px; }
+.equipment-check__result .alert h2 { font-size: 24px; margin-bottom: 8px; }
+.equipment-check__result .alert p { margin: 6px 0 0; }
+/* The calendar and clock icons are clickable, so show the hand cursor over them. */
+.equipment-check input::-webkit-calendar-picker-indicator { cursor: pointer; }
+@media (max-width: 800px) { .equipment-check { grid-template-columns: 1fr; gap: 24px; } }
+
+/* SCRUM-19 reserve equipment page: the fields on the left, the equipment to choose from on the right as cards.
+   The equipment sits in the DOM right after the event (so the tab order follows the steps); the grid just places it
+   in the second column. On narrow screens everything stacks in that same order. */
+.reserve-form { width: 100%; }
+.reserve-form__grid { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); column-gap: 48px; align-items: start; }
+.reserve-form__grid > * { grid-column: 1; }
+.reserve-form__grid > .equipment-picker { grid-column: 2; grid-row: 1 / span 6; }
+.reserve-form .alert { max-width: 420px; }
+.reserve-form .field label { font-size: 15px; color: var(--ink); }
+.reserve-form input::-webkit-calendar-picker-indicator { cursor: pointer; }
+/* Hide the browser's "dd-mm-yyyy" and "--:-- --" hints while the date or a time is empty (same idea as the SCRUM-18 page).
+   Edge/Chrome only; a value typed by keyboard stays hidden until it is complete. */
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-text,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-day-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-month-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-year-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-hour-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-minute-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-ampm-field { color: transparent; }
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-day-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-month-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-year-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-hour-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-minute-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-ampm-field:focus {
+  color: transparent !important;
+  background-color: transparent !important;
+}
+.equipment-picker__label { margin: 0 0 8px; font-size: 15px; color: var(--ink); }
+.equipment-picker__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.equipment-card {
+  padding: 14px 16px; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+  background: #fff; border: 1px solid var(--line);
+}
+.equipment-card:hover:not(:disabled) { border-color: var(--steel); }
+.equipment-card[aria-pressed="true"] { border: 2px solid var(--steel); padding: 13px 15px; background: #f3f6fa; font-weight: 600; }
+.equipment-card:disabled { opacity: 0.5; cursor: not-allowed; }
+.equipment-card:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+@media (max-width: 800px) {
+  .reserve-form__grid { grid-template-columns: 1fr; }
+  .reserve-form__grid > .equipment-picker { grid-column: 1; grid-row: auto; }
+}
+
 /* ---------- Dashboard ---------- */
 .dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; background: var(--navy); color: #fff; }
 .dash__who { display: flex; align-items: center; gap: 20px; font-size: 14px; }
@@ -156,6 +227,14 @@ th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8;
 th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
 tr:last-child td { border-bottom: 0; }
 .empty { padding: 18px 14px; color: var(--subtle); }
+
+/* ---------- Attendee List of events (SCRUM-71) ---------- */
+.event-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.event-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 18px; background: #fff; border: 1px solid var(--line); }
+.event-card h3 { font-size: 17px; font-weight: 700; }
+.event-card__when, .event-card__location { font-size: 14px; color: var(--subtle); }
+.event-card__registration { margin-top: auto; padding-top: 8px; font-size: 14px; font-weight: 600; color: var(--ok); }
+.event-card .btn { align-self: flex-end; width: auto; margin-top: auto; padding: 8px 18px; font-size: 14px; text-decoration: none; }
 
 /* ---------- Event status page (SCRUM-6/7/8) ---------- */
 .back-link { display: inline-block; margin-bottom: 20px; font-size: 14px; }
@@ -180,19 +259,21 @@ tr:last-child td { border-bottom: 0; }
 .event-section { margin-top: 36px; }
 .event-section h2 { font-size: 20px; font-weight: 700; margin: 0 0 12px; }
 .event-section .venue__facts, .event-section .vb__facts, .event-section .event__form { margin: 0; }
-.event-card { padding: 20px 24px; background: #fff; border: 1px solid var(--border); line-height: 1.6; }
-.event-card p { margin: 0; }
-.event-card--quiet { color: var(--subtle); }
-.event-card--table { padding: 0; overflow-x: auto; }
-.event-card--table table { min-width: 520px; }
-.event-card__step { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-.event-card .field:last-child { margin-bottom: 0; }
+.event-detail-card { padding: 20px 24px; background: #fff; border: 1px solid var(--border); line-height: 1.6; }
+.event-detail-card p { margin: 0; }
+.event-detail-card--quiet { color: var(--subtle); }
+.event-detail-card--table { padding: 0; overflow-x: auto; }
+.event-detail-card--table table { min-width: 520px; }
+.event-detail-card__step { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.event-detail-card .field:last-child { margin-bottom: 0; }
 
 /* Buttons sit in a row with even gaps and wrap onto new lines on narrow screens */
 .event-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
 .event-buttons .btn { width: auto; padding: 10px 18px; font-size: 15px; text-align: center; text-decoration: none; }
 .event-panel > .event-buttons { margin-top: 24px; }
 
+.event-detail-card--row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.event-detail-card--row .btn { width: auto; padding: 8px 16px; font-size: 15px; text-decoration: none; }
 .event-coordinator { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .event-coordinator__name { font-weight: 600; }
 .event-coordinator .btn { width: auto; padding: 8px 16px; font-size: 15px; }
@@ -206,7 +287,7 @@ tr:last-child td { border-bottom: 0; }
 @media (max-width: 640px) {
   .event-header h1 { font-size: 24px; }
   .event-section { margin-top: 28px; }
-  .event-card { padding: 16px; }
+  .event-detail-card { padding: 16px; }
   .event-section .venue__facts, .event-section .vb__facts { grid-template-columns: 1fr; gap: 2px; padding: 16px; }
   .event-section .venue__facts dd, .event-section .vb__facts dd { margin-bottom: 12px; }
   .event-section .venue__facts dd:last-child, .event-section .vb__facts dd:last-child { margin-bottom: 0; }

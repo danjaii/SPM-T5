@@ -1,0 +1,492 @@
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+import { createApp } from "../../src/app";
+import type { SupabaseDeps } from "../../src/supabase";
+
+// ---------------------------------------------------------------------------
+// Fake Supabase (in memory) so tests never touch the real database
+// ---------------------------------------------------------------------------
+type Row = Record<string, unknown>;
+
+const HOUR = 60 * 60 * 1000;
+/** A time relative to now, e.g. fromNow(24 * HOUR) is this time tomorrow. */
+const fromNow = (ms: number) => new Date(Date.now() + ms).toISOString();
+
+/** One row as the list_public_events() database function returns it (supabase/migrations/10_list_public_events.sql). */
+function eventRow(overrides: Row = {}): Row {
+  return {
+    id: "evt-1",
+    name: "Tech Summit",
+    status: "confirmed",
+    start_at: fromNow(24 * HOUR),
+    end_at: fromNow(26 * HOUR),
+    venue_name: "Orchid Hall",
+    venue_address: "Level 3, East Wing",
+    registration_capacity: null,
+    registration_opens_at: null,
+    registration_closes_at: null,
+    active_registrations: 0,
+    my_registration_status: null,
+    ...overrides,
+  };
+}
+
+/** The cookie a signed-in attendee's browser sends. */
+const ATTENDEE = "cs_session=token-attendee";
+/** The cookie a signed-in event organiser's browser sends. */
+const ORGANISER = "cs_session=token-organiser";
+/** Who each login token belongs to. */
+const USER_IDS: Record<string, string> = { "token-attendee": "attendee-1", "token-organiser": "organiser-1" };
+
+/** What the attendee types into the registration form. */
+const VALID_FORM = { name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "+65 9123 4567" };
+
+/** The signed-in attendee's row in the users table (supabase/migrations/01_schema.sql). */
+const PROFILE: Row = { full_name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "+65 9123 4567" };
+
+/**
+ * One event_registrations row, as `select("…, event:events(…)")` returns it: the event comes embedded.
+ * Belongs to attendee-1 for a Pending registration of evt-1 unless overridden.
+ */
+function registrationRow(overrides: Row = {}): Row {
+  return {
+    id: "reg-1",
+    event_id: "evt-1",
+    attendee_id: "attendee-1",
+    status: "waitlisted",
+    registered_at: "2026-10-01T02:00:00Z",
+    registration_details: VALID_FORM,
+    event: { id: "evt-1", name: "Tech Summit", preferred_start_datetime: "2026-12-12T11:00:00Z", preferred_end_datetime: "2026-12-12T13:00:00Z" },
+    ...overrides,
+  };
+}
+
+/**
+ * Pretends to be Supabase: one signed-in attendee (attendee-1, whose users row is `profile`), and
+ * list_public_events() answering with `events`. `registrations` are the event_registrations table's rows.
+ * Every insert is recorded in `inserts`, so a test can check what would have been written to the database.
+ * Given `insertError`, every insert fails with it, the way supabase-js reports a refused insert.
+ * Given `readError`, every table read fails with it the same way (no data, and an error object).
+ */
+function createFake(
+  events: Row[],
+  {
+    insertError = null,
+    readError = null,
+    profile = PROFILE,
+    registrations = [],
+  }: {
+    insertError?: { code: string; message: string } | null;
+    readError?: { message: string } | null;
+    profile?: Row;
+    registrations?: Row[];
+  } = {},
+) {
+  // The tables a query can read. (The fake ignores the select() column list, so rows are stored already shaped.)
+  const tables: Record<string, Row[]> = {
+    users: [{ id: "attendee-1", ...profile }],
+    event_registrations: registrations,
+  };
+  const inserts: { table: string; row: Row }[] = [];
+  const deps = {
+    anon: {
+      auth: {
+        getUser: async (token: string) =>
+          USER_IDS[token]
+            ? { data: { user: { id: USER_IDS[token] } }, error: null }
+            : { data: { user: null }, error: { message: "bad token" } },
+      },
+    },
+    forUser: () => ({
+      from: (table: string) => ({
+        // Reads: the rows of `table` whose `column` equals `value`, either as one row (maybeSingle) or as a list (await)
+        select: () => ({
+          eq: (column: string, value: unknown) => {
+            const found = (tables[table] ?? []).filter((row) => row[column] === value);
+            return {
+              maybeSingle: async () => (readError ? { data: null, error: readError } : { data: found[0] ?? null, error: null }),
+              then: (resolve: (result: unknown) => void) =>
+                resolve(readError ? { data: null, error: readError } : { data: found, error: null }),
+            };
+          },
+        }),
+        insert: async (row: Row) => {
+          inserts.push({ table, row });
+          return { data: null, error: insertError };
+        },
+      }),
+      rpc: async (fn: string) => {
+        if (fn !== "list_public_events") throw new Error(`fake has no function ${fn}`);
+        return { data: events, error: null };
+      },
+    }),
+  } as unknown as SupabaseDeps;
+  return { deps, inserts };
+}
+// end of fake Supabase
+
+// ---------------------------------------------------------------------------
+// SCRUM-83 — Register for an event (POST /events/:id/registrations)
+// ---------------------------------------------------------------------------
+describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", () => {
+  // AC12: a successful submission creates a registration with the status Pending
+  // (Pending is stored as 'waitlisted', the mapping agreed for SCRUM-71)
+  it("SCRUM-83/AC12 creates the registration as Pending", async () => {
+    const fake = createFake([eventRow()]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ event_name: "Tech Summit", status: "pending" });
+    expect(fake.inserts).toEqual([
+      {
+        table: "event_registrations",
+        row: { event_id: "evt-1", attendee_id: "attendee-1", status: "waitlisted", registration_details: VALID_FORM },
+      },
+    ]);
+  });
+  // end of AC12
+
+  // AC10: a missing required field is refused with an error for that field, and nothing is created
+  it("SCRUM-83/AC10 refuses a form with no contact number and creates no registration", async () => {
+    const fake = createFake([eventRow()]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send({ ...VALID_FORM, phone: "" });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ errors: { phone: "Contact number is required." } });
+    expect(fake.inserts).toEqual([]);
+  });
+  // end of AC10
+
+  // AC11: the email must be in a valid format
+  it("SCRUM-83/AC11 refuses a badly formatted email and creates no registration", async () => {
+    const fake = createFake([eventRow()]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send({ ...VALID_FORM, email: "alicia.example.com" });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ errors: { email: "Enter a valid email address." } });
+    expect(fake.inserts).toEqual([]);
+  });
+
+  // AC11: the contact number must be in a valid format: an optional +, then 8 to 15 digits (spaces and hyphens allowed)
+  it("SCRUM-83/AC11 refuses a badly formatted contact number and creates no registration", async () => {
+    const fake = createFake([eventRow()]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send({ ...VALID_FORM, phone: "9123-abcd" });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ errors: { phone: "Enter a valid contact number." } });
+    expect(fake.inserts).toEqual([]);
+  });
+  // end of AC11
+
+  // AC3: with a registration deadline, registration closes at the deadline
+  it("SCRUM-83/AC3 refuses a registration once the registration deadline has passed", async () => {
+    const fake = createFake([eventRow({ registration_closes_at: fromNow(-1 * HOUR) })]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Registration closed." });
+    expect(fake.inserts).toEqual([]);
+  });
+
+  // AC3: with no registration deadline, registration closes when the event starts
+  it("SCRUM-83/AC3 refuses a registration once an event with no deadline has started", async () => {
+    const started = eventRow({ registration_closes_at: null, start_at: fromNow(-1 * HOUR), end_at: fromNow(1 * HOUR) });
+    const fake = createFake([started]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Registration closed." });
+    expect(fake.inserts).toEqual([]);
+  });
+  // end of AC3
+
+  // AC4: once Confirmed registrations equal the capacity, the event is full and nobody else can register
+  it("SCRUM-83/AC4 refuses a registration when Confirmed registrations equal the capacity", async () => {
+    const fake = createFake([eventRow({ registration_capacity: 50, active_registrations: 50 })]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Event full." });
+    expect(fake.inserts).toEqual([]);
+  });
+  // end of AC4
+
+  // AC17: the event was cancelled after the attendee opened the form, so the submission is refused.
+  // (The full and closed cases of AC17 are the AC3 and AC4 tests: those are checked at submit time too.)
+  // "The profile isn't changed": the fake has no update(), so any attempt to change a profile would fail this test.
+  it("SCRUM-83/AC17 refuses a registration for an event cancelled while the form was open", async () => {
+    const fake = createFake([eventRow({ status: "cancelled" })]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This event has been cancelled." });
+    expect(fake.inserts).toEqual([]);
+  });
+  // end of AC17
+
+  // AC5: only one active registration (Pending = waitlisted, Confirmed = registered) per attendee per event
+  it.each(["waitlisted", "registered"])(
+    "SCRUM-83/AC5 refuses a second registration while the attendee's one is %s",
+    async (myStatus) => {
+      const fake = createFake([eventRow({ my_registration_status: myStatus })]);
+
+      const res = await request(createApp(fake.deps))
+        .post("/events/evt-1/registrations")
+        .set("Cookie", ATTENDEE)
+        .send(VALID_FORM);
+
+      expect(res.status).toBe(409);
+      expect(res.body).toEqual({ error: "You already have an active registration for this event." });
+      expect(fake.inserts).toEqual([]);
+    },
+  );
+  // end of AC5
+
+  // AC6: a Withdrawn or Rejected (stored as 'cancelled') registration isn't active, so the attendee can register again,
+  // and that creates a new registration (the database keeps the earlier one: see the integration tests)
+  it.each(["withdrawn", "cancelled"])(
+    "SCRUM-83/AC6 lets an attendee register again after their registration was %s",
+    async (previousStatus) => {
+      const fake = createFake([eventRow({ my_registration_status: previousStatus })]);
+
+      const res = await request(createApp(fake.deps))
+        .post("/events/evt-1/registrations")
+        .set("Cookie", ATTENDEE)
+        .send(VALID_FORM);
+
+      expect(res.status).toBe(201);
+      expect(fake.inserts).toHaveLength(1);
+    },
+  );
+  // end of AC6
+
+  // AC16: a repeated submit (e.g. a double-click) creates only one registration. Two requests at the same moment
+  // both pass the AC5 check, so the database's one-active-registration rule refuses the second insert (23505);
+  // the attendee must get the AC5 message, not a server error or a false success.
+  it("SCRUM-83/AC16 refuses a repeated submit that the database turned away as a duplicate", async () => {
+    const duplicate = { code: "23505", message: "duplicate key value violates unique constraint" };
+    const fake = createFake([eventRow()], { insertError: duplicate });
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "You already have an active registration for this event." });
+  });
+  // end of AC16
+
+  // AC12: only a registration that was really saved is reported as Pending; any other database failure is an error
+  it("SCRUM-83/AC12 reports an error, not a Pending registration, when the database fails to save it", async () => {
+    const outage = { code: "08006", message: "connection failure" };
+    const fake = createFake([eventRow()], { insertError: outage });
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't save your registration. Please try again." });
+  });
+
+  // AC12: a registration is only created for an event listed for attendees (unknown id, or not a public event: 404)
+  it("SCRUM-83/AC12 refuses to register for an event that isn't listed for attendees", async () => {
+    const fake = createFake([eventRow({ id: "evt-1" })]);
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-unknown/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Event not found." });
+    expect(fake.inserts).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-83 — The registration form's data (GET /events/:id/registration-form)
+// ---------------------------------------------------------------------------
+describe("SCRUM-83 — Registration form data (GET /events/:id/registration-form)", () => {
+  // AC7: the form shows the event's name, date and time, and location
+  it("SCRUM-83/AC7 returns the event's name, start and end time, and venue", async () => {
+    const row = eventRow();
+    const fake = createFake([row]);
+
+    const res = await request(createApp(fake.deps)).get("/events/evt-1/registration-form").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.event).toMatchObject({
+      id: "evt-1",
+      name: "Tech Summit",
+      start_at: row.start_at,
+      end_at: row.end_at,
+      venue: { name: "Orchid Hall", address: "Level 3, East Wing" },
+    });
+  });
+
+  // AC7: no form for an event that isn't listed for attendees (unknown id, or not a public event)
+  it("SCRUM-83/AC7 answers 404 for an event that isn't listed for attendees", async () => {
+    const fake = createFake([eventRow({ id: "evt-1" })]);
+
+    const res = await request(createApp(fake.deps)).get("/events/evt-unknown/registration-form").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Event not found." });
+  });
+  // end of AC7
+
+  // AC8: name, contact number and email come prefilled from the attendee's account and profile
+  it("SCRUM-83/AC8 prefills name, email and contact number from the attendee's profile", async () => {
+    const fake = createFake([eventRow()]);
+
+    const res = await request(createApp(fake.deps)).get("/events/evt-1/registration-form").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.prefill).toEqual({
+      name: "Alicia Fernandez",
+      email: "alicia.fernandez@example.com",
+      phone: "+65 9123 4567",
+    });
+  });
+  // end of AC8
+
+  // AC9: no contact number in the profile means an empty field (the attendee must fill it in: see AC10)
+  it("SCRUM-83/AC9 prefills an empty contact number when the profile has none", async () => {
+    const fake = createFake([eventRow()], { profile: { ...PROFILE, phone: null } });
+
+    const res = await request(createApp(fake.deps)).get("/events/evt-1/registration-form").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.prefill.phone).toBe("");
+  });
+  // end of AC9
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-83 — The attendee's "My registrations" (GET /events/my-registrations)
+// ---------------------------------------------------------------------------
+describe("SCRUM-83 — My registrations (GET /events/my-registrations)", () => {
+  // AC15: the new registration appears on the attendee's "My registrations" page.
+  // AC6: earlier (Withdrawn/Rejected) registrations stay in the history, so they're listed too.
+  it("SCRUM-83/AC15 lists the attendee's own registrations, earlier ones included", async () => {
+    const withdrawn = registrationRow({ id: "reg-old", status: "withdrawn", registered_at: "2026-09-01T02:00:00Z" });
+    const pending = registrationRow({ id: "reg-new", status: "waitlisted", registered_at: "2026-10-01T02:00:00Z" });
+    const someoneElses = registrationRow({ id: "reg-other", attendee_id: "attendee-2" });
+    const fake = createFake([], { registrations: [withdrawn, pending, someoneElses] });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    const event = { id: "evt-1", name: "Tech Summit", start_at: "2026-12-12T11:00:00Z", end_at: "2026-12-12T13:00:00Z" };
+    expect(res.body).toHaveLength(2);
+    expect(res.body).toEqual(
+      expect.arrayContaining([
+        { id: "reg-old", status: "withdrawn", registered_at: "2026-09-01T02:00:00Z", event },
+        { id: "reg-new", status: "pending", registered_at: "2026-10-01T02:00:00Z", event },
+      ]),
+    );
+  });
+
+  // AC15: an empty list must mean there are none, so a failed database call is an error (as in SCRUM-71/AC11)
+  it("SCRUM-83/AC15 reports an error, not an empty list, when loading registrations fails", async () => {
+    const fake = createFake([], { registrations: [registrationRow()], readError: { message: "connection failure" } });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't load your registrations. Please try again." });
+  });
+  // end of AC15
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-83 — The event's registrations, for organisers and coordinators (GET /events/:id/registrations)
+// Who may see them is RLS's job (supabase/migrations/11_event_registrations.sql), tested in tests/integration.
+// ---------------------------------------------------------------------------
+describe("SCRUM-83 — Event registrations (GET /events/:id/registrations)", () => {
+  // AC15: the new registration appears on the registration information page seen by organisers and coordinators
+  it("SCRUM-83/AC15 lists the event's registrations with each attendee's details and status", async () => {
+    const alicia = registrationRow({ id: "reg-1", attendee_id: "attendee-1", status: "waitlisted" });
+    const ben = registrationRow({
+      id: "reg-2",
+      attendee_id: "attendee-2",
+      status: "registered",
+      registered_at: "2026-10-02T02:00:00Z",
+      registration_details: { name: "Ben Lim", email: "ben.lim@example.com", phone: "81234567" },
+    });
+    const otherEvent = registrationRow({ id: "reg-3", event_id: "evt-2" });
+    const fake = createFake([], { registrations: [alicia, ben, otherEvent] });
+
+    const res = await request(createApp(fake.deps)).get("/events/evt-1/registrations").set("Cookie", ORGANISER);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body).toEqual(
+      expect.arrayContaining([
+        {
+          id: "reg-1",
+          status: "pending",
+          registered_at: "2026-10-01T02:00:00Z",
+          name: "Alicia Fernandez",
+          email: "alicia.fernandez@example.com",
+          phone: "+65 9123 4567",
+        },
+        {
+          id: "reg-2",
+          status: "confirmed",
+          registered_at: "2026-10-02T02:00:00Z",
+          name: "Ben Lim",
+          email: "ben.lim@example.com",
+          phone: "81234567",
+        },
+      ]),
+    );
+  });
+
+  // AC15: an empty list must mean nobody has registered, so a failed database call is an error
+  it("SCRUM-83/AC15 reports an error, not an empty list, when loading the event's registrations fails", async () => {
+    const fake = createFake([], { registrations: [registrationRow()], readError: { message: "connection failure" } });
+
+    const res = await request(createApp(fake.deps)).get("/events/evt-1/registrations").set("Cookie", ORGANISER);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't load this event's registrations. Please try again." });
+  });
+  // end of AC15
+});
+// end of SCRUM-83

@@ -19,6 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # On a pull request this checkout is the PR combined with the latest main, so two migrations that share a
+      # number (one from the PR, one already on main) fail here, before merging. Fast, so it runs first.
+      - name: Check migration numbers are unique
+        run: bash scripts/check-migration-numbers.sh
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -91,7 +96,7 @@ jobs:
         run: test -n "$SUPABASE_URL" && test -n "$SUPABASE_SECRET_KEY" && test -n "$SUPABASE_PUBLISHABLE_KEY"
 
       - name: Integration tests
-        run: pnpm vitest run --project @spm-t5/venue-service --project @spm-t5/event-service --project @spm-t5/auth-service tests/integration --coverage.enabled=false
+        run: pnpm vitest run --project @spm-t5/venue-service --project @spm-t5/event-service --project @spm-t5/auth-service --project @spm-t5/equipment-service tests/integration --coverage.enabled=false
 
   e2e:
     needs: test

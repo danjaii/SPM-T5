@@ -93,7 +93,7 @@ export function CoordinatorAssignment({ eventId, coordinatorName, canAssign }: P
         <h2 id="coordinator-heading">Coordinator</h2>
         {error && <div className="alert alert--error" role="alert">{error}</div>}
 
-        <div className="event-card">
+        <div className="event-detail-card">
           <div className="event-coordinator">
             <p className="event-coordinator__name">
               {current ?? <span className="event__missing">Not yet assigned</span>}
@@ -106,7 +106,7 @@ export function CoordinatorAssignment({ eventId, coordinatorName, canAssign }: P
           </div>
 
           {step.kind === "none" && (
-            <div className="event-card__step">
+            <div className="event-detail-card__step">
               <p className="alert alert--info" role="status">{NO_ELIGIBLE}</p>
               <div className="event-buttons">
                 <button className="btn btn--secondary" type="button" onClick={() => setStep({ kind: "idle" })}>
@@ -117,7 +117,7 @@ export function CoordinatorAssignment({ eventId, coordinatorName, canAssign }: P
           )}
 
           {step.kind === "choose" && (
-            <div className="event-card__step">
+            <div className="event-detail-card__step">
               {current ? (
                 <div className="field">
                   <label htmlFor="coordinator-choice">New coordinator</label>
@@ -147,11 +147,11 @@ export function CoordinatorAssignment({ eventId, coordinatorName, canAssign }: P
       <section className="event-section" aria-labelledby="history-heading">
         <h2 id="history-heading">Assignment history</h2>
         {history === undefined ? (
-          <p className="event-card event-card--quiet" role="status">Loading history…</p>
+          <p className="event-detail-card event-detail-card--quiet" role="status">Loading history…</p>
         ) : history.length === 0 ? (
-          <p className="event-card event-card--quiet">{NO_HISTORY}</p>
+          <p className="event-detail-card event-detail-card--quiet">{NO_HISTORY}</p>
         ) : (
-          <div className="event-card event-card--table">
+          <div className="event-detail-card event-detail-card--table">
             <table>
               <thead>
                 <tr>

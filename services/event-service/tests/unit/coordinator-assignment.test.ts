@@ -120,7 +120,7 @@ function createFake() {
     forUser: (token: string) => ({
       from: (table: string) => makeQuery(table),
       rpc: (fn: string, args: Row) => ({
-        // Stands in for assign_coordinator (11_assign_coordinator.sql): update + log together
+        // Stands in for assign_coordinator (13_assign_coordinator.sql): update + log together
         maybeSingle: async () => {
           if (fn !== "assign_coordinator") return { data: null, error: null };
           const event = tables.events.find((e) => e.id === args.p_event_id);

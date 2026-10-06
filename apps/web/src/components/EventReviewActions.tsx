@@ -56,7 +56,7 @@ export function EventReviewActions({ eventId, status, canReview, onDecided }: Pr
       <h2 id="decision-heading">Decision</h2>
       {error && <div className="alert alert--error" role="alert">{error}</div>}
 
-      <div className="event-card">
+      <div className="event-detail-card">
         {step === "idle" && (
           <>
             <p>Review the request details below, then record your decision.</p>

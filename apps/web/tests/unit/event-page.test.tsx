@@ -29,6 +29,15 @@ describe("Event status page route (/events/[id])", () => {
     expect(screen.getByRole("link", { name: /back to dashboard/i }).getAttribute("href")).toBe("/dashboard");
   });
 
+  // SCRUM-83/AC15: the event's organiser and coordinator (the only viewers of this page) reach its registrations from here
+  it("SCRUM-83/AC15 links to the event's registration information page", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "confirmed", canChangeStatus: false } });
+
+    await open("evt-1");
+
+    expect(screen.getByRole("link", { name: "View registrations" }).getAttribute("href")).toBe("/events/evt-1/registrations");
+  });
+
   it("shows event-service's message when the event can't be shown", async () => {
     getEvent.mockResolvedValue({ error: "Event not found." });
 
@@ -59,7 +68,7 @@ describe("Event status page route (/events/[id])", () => {
     await open("evt-1");
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(["Request details", "Coordinator", "Assignment history", "Change status"]);
+    expect(headings).toEqual(["Request details", "Coordinator", "Assignment history", "Registrations", "Change status"]);
   });
 
   it("SCRUM-23/AC1, AC2: shows the full request details alongside the status", async () => {

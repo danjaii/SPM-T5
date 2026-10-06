@@ -3,13 +3,13 @@
 
 title ConnectSphere — Component Diagram: Event Service (C4 Level 3)
 ' Built so far: event status management (SCRUM-6 view as coordinator, SCRUM-7 view as organiser,
-' SCRUM-8 edit status), event review and approval (SCRUM-22 to 28, 45) and coordinator assignment
-' (SCRUM-41 to 43). Components marked "Planned" are not built yet. Copy this file per service as it
-' gets built out.
+' SCRUM-8 edit status), event review and approval (SCRUM-22 to 28, 45), coordinator assignment
+' (SCRUM-41 to 43), the attendee's List of events (SCRUM-71) and attendee registration (SCRUM-83).
+' Components marked "Planned" are not built yet. Copy this file per service as it gets built out.
 
-Container(web, "Web App", "Next.js, React", "Review queue (/events/review); event page (/events/[id]): request details, start review, approve/reject, coordinator assignment + history, status change")
+Container(web, "Web App", "Next.js, React", "Review queue (/events/review); event page (/events/[id]): request details, start review, approve/reject, coordinator assignment + history, status change; attendee dashboard List of events (/dashboard/attendee); registration form (/events/[id]/register), My registrations (/registrations), an event's registrations (/events/[id]/registrations)")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
-ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "events, users, event_status_history, event_comments, event_comment_mentions, event_comment_attachments, coordinator_assignment_logs; change_event_status() and assign_coordinator() functions")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "events, users, event_status_history, event_comments, event_comment_mentions, event_comment_attachments, coordinator_assignment_logs, event_registrations (RLS: own rows, the event's organiser and assigned coordinator); change_event_status(), assign_coordinator() and list_public_events() functions")
 Container(storage, "Supabase Storage", "event-attachments bucket", "Comment attachment files")
 Container(notificationSvc, "Notification Service", "Node.js/TypeScript", "Planned: reacts to status changes")
 
@@ -20,7 +20,11 @@ Container_Boundary(eventSvc, "Event Service") {
   Component(reviewRoutes, "Review & Approval Routes", "routes/events.ts", "GET /events (review queue: search, status and date filters, own + unassigned), GET /events/my-events, POST /events/:id/approve, POST /events/:id/reject (reason required) — assigned coordinator only, Submitted / Under review only")
   Component(commentRoutes, "Comment Routes", "routes/events.ts", "GET/POST /events/:id/comments (threaded replies, mentions, attachments), GET /events/:id/mentionable-users, GET /events/:id/attachments/signed-url")
   Component(assignRoutes, "Coordinator Assignment Routes", "routes/events.ts", "GET /events/:id/eligible-coordinators, POST /events/:id/assign-coordinator — unassigned: any coordinator claims it for themselves; assigned: only the assigned coordinator reassigns. GET /events/:id/assignment-history (with names)")
-  Component(shared, "Shared Rules", "@spm-t5/shared", "isRole, canReviewEvents, EVENT_STATUSES / isEventStatus, canDecideEvent, canStartReview — same rules the web app uses")
+  Component(upcomingRoutes, "Upcoming Events Route", "routes/upcomingEvents.ts", "GET /events/upcoming — any signed-in user; mounted before the /events/:id routes; 500 (not []) when the data cannot be loaded")
+  Component(upcomingRules, "Upcoming Events Rules", "services/upcomingEvents.ts", "Hides started events, sorts soonest first, picks one label (cancelled > full > closed) and maps the caller's active registration")
+  Component(registrationRoutes, "Registration Routes", "routes/registrations.ts", "GET /events/:id/registration-form, POST /events/:id/registrations (Pending; 409 when closed, full, cancelled or already registered), GET /events/my-registrations, GET /events/:id/registrations; mounted before the /events/:id routes")
+  Component(registrationRules, "Registration Rules", "services/registrations.ts", "Why a registration is refused (reuses the List of events labels and active-registration rule); maps statuses to Pending/Confirmed/Rejected/Withdrawn")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "isRole, canReviewEvents, EVENT_STATUSES / isEventStatus, canDecideEvent, canStartReview, registrationFormSchema — same rules the web app uses")
   Component(supabaseDeps, "Supabase Client", "supabase.ts", "Publishable key + caller's token, so every query runs as the user (RLS applies)")
 
   Component(draftMgr, "Draft Manager", "Planned", "Save/resume incomplete event requests")
@@ -32,10 +36,19 @@ Rel(app, eventRoutes, "Routes /events requests")
 Rel(app, reviewRoutes, "Routes /events requests")
 Rel(app, commentRoutes, "Routes /events requests")
 Rel(app, assignRoutes, "Routes /events requests")
+Rel(app, upcomingRoutes, "Routes /events/upcoming")
+Rel(app, registrationRoutes, "Routes registration requests")
 Rel(eventRoutes, session, "Requires a signed-in caller")
 Rel(reviewRoutes, session, "Requires a signed-in caller")
 Rel(commentRoutes, session, "Requires a signed-in caller")
 Rel(assignRoutes, session, "Requires a signed-in caller")
+Rel(upcomingRoutes, session, "Requires a signed-in caller")
+Rel(upcomingRoutes, upcomingRules, "Turns rows into the List of events")
+Rel(registrationRoutes, session, "Requires a signed-in caller")
+Rel(registrationRoutes, registrationRules, "Checks the event is open and the attendee has no active registration")
+Rel(registrationRules, upcomingRules, "Reuses availabilityOf() and myRegistration()")
+Rel(registrationRoutes, shared, "Validates name, email and contact number")
+Rel(registrationRoutes, supabaseDeps, "Calls list_public_events(); reads users (prefill); reads/inserts event_registrations")
 Rel(session, supabaseAuth, "Verifies session token", "HTTPS")
 Rel(eventRoutes, shared, "Checks role and status values")
 Rel(reviewRoutes, shared, "Checks canReviewEvents and canDecideEvent")
@@ -44,11 +57,13 @@ Rel(eventRoutes, supabaseDeps, "Queries events and users; calls change_event_sta
 Rel(reviewRoutes, supabaseDeps, "Queries events and users; calls change_event_status() to approve/reject")
 Rel(commentRoutes, supabaseDeps, "Reads/writes comments, mentions, attachments; creates signed URLs")
 Rel(assignRoutes, supabaseDeps, "Calls assign_coordinator(); reads coordinator_assignment_logs and users")
+Rel(upcomingRoutes, supabaseDeps, "Calls list_public_events() (security definer: supplies each public event's venue, Confirmed registration count and the caller's own active registration)")
 Rel(supabaseDeps, db, "Reads; status change + history and assignment + log each written in one transaction", "PostgREST / RPC")
 Rel(supabaseDeps, storage, "Creates signed download URLs for attachments", "HTTPS")
 
 Rel(app, draftMgr, "Planned")
 Rel(app, submitMgr, "Planned")
 Rel(reviewRoutes, notificationSvc, "Planned: notifies on status change and mentions", "HTTPS/JSON")
+Rel(registrationRoutes, notificationSvc, "Planned: in-app notification when a registration is created (SCRUM-83/AC14)", "HTTPS/JSON")
 
 @enduml
