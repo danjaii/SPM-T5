@@ -48,7 +48,7 @@ export function LoginForm() {
 
       <div className="auth__links">
         <Link href="/forgot-password">Forgot password</Link>
-        <span>Client organisation? <Link href="/register">Request access</Link></span>
+        <span>New here? <Link href="/register">Create an attendee account</Link></span>
       </div>
     </form>
   );

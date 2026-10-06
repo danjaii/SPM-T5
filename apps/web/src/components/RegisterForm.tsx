@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import type { Role } from "@spm-t5/shared";
 import { postJson } from "@/lib/api";
 import { Field } from "./Field";
-import { RolePicker } from "./RolePicker";
 
 export function RegisterForm() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("attendee");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string>();
   const [success, setSuccess] = useState<string>();
@@ -22,9 +20,12 @@ export function RegisterForm() {
     setErrors({});
     setFormError(undefined);
     setSubmitting(true);
-    const { ok, data } = await postJson("/auth/register", { fullName, email, password, role });
+    const { ok, data } = await postJson("/auth/register", { fullName, email, password, confirmPassword });
     setSubmitting(false);
     if (ok) return setSuccess(data.message ?? "Registration successful.");
+    // SCRUM-12/AC8: keep the name and email, but never leave a password sitting in the form after a failure.
+    setPassword("");
+    setConfirmPassword("");
     setErrors(data.fieldErrors ?? {});
     if (!data.fieldErrors) setFormError(data.error);
   }
@@ -52,10 +53,10 @@ export function RegisterForm() {
       <Field id="email" label="Work email" type="email" autoComplete="username" placeholder="name@company.com"
         value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} required />
       <Field id="password" label="Password" type="password" autoComplete="new-password"
-        hint="At least 8 characters, with a letter, a number and a symbol."
+        hint="At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol."
         value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} required />
-
-      <RolePicker legend="Register as" value={role} onChange={setRole} error={errors.role} />
+      <Field id="confirmPassword" label="Confirm password" type="password" autoComplete="new-password"
+        value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} error={errors.confirmPassword} required />
 
       <button className="btn" type="submit" disabled={submitting}>{submitting ? "Creating account…" : "Create account"}</button>
 
