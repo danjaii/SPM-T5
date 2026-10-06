@@ -25,3 +25,8 @@ export const DECIDABLE_EVENT_STATUSES = ["submitted", "under_review"] as const s
 export function canDecideEvent(status: string): boolean {
   return (DECIDABLE_EVENT_STATUSES as readonly string[]).includes(status);
 }
+
+// SCRUM-45/AC3: review can only begin on a request that has been submitted and not yet picked up.
+export function canStartReview(status: string): boolean {
+  return status === "submitted";
+}

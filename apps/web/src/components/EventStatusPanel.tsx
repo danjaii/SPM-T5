@@ -2,12 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue } from "@spm-t5/shared";
+import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview } from "@spm-t5/shared";
 import { changeEventStatus, statusLabel, type EventStatusView } from "@/lib/events";
 import { EventReviewActions } from "./EventReviewActions";
 
 // SCRUM-6/7: shows an event's current status. SCRUM-8: the assigned coordinator can also change it.
-// SCRUM-24: the assigned coordinator also approves or rejects it.
+// SCRUM-45: the assigned coordinator starts the review. SCRUM-24: they also approve or reject it.
 export function EventStatusPanel({ event }: { event: EventStatusView }) {
   const [status, setStatus] = useState(event.status);
   const [newStatus, setNewStatus] = useState(event.status);
@@ -50,6 +50,15 @@ export function EventStatusPanel({ event }: { event: EventStatusView }) {
         <div className={`alert alert--${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
           {message.text}
         </div>
+      )}
+
+      {/* SCRUM-45/AC1, AC3, AC5: only the assigned coordinator, and only while the request is submitted. */}
+      {event.canChangeStatus && canStartReview(status) && (
+        <p>
+          <button className="btn btn--inline" type="button" disabled={saving} onClick={() => save("under_review", "")}>
+            {saving ? "Starting…" : "Start review"}
+          </button>
+        </p>
       )}
 
       <EventReviewActions eventId={event.id} status={status} canReview={event.canReview} onDecided={showStatus} />
