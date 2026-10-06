@@ -1,4 +1,7 @@
-
+-- Every timestamp below is written without a zone and means Singapore local time. The app stores
+-- UTC and shows Asia/Singapore (DR3 in docs/specs/venue-booking-request.md), so read them as
+-- Singapore time; without this, Postgres would take them as UTC and they would show 8 hours late.
+set timezone = 'Asia/Singapore';
 
 -- ============================================================================
 -- AUTH USERS
