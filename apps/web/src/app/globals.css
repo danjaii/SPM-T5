@@ -294,6 +294,13 @@ tr:last-child td { border-bottom: 0; }
 .comment__author { font-weight: 600; }
 .comment__meta time { color: var(--subtle); font-size: 14px; }
 .comment .comment__body { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* SCRUM-26/AC2: replies indented under the comment they answer */
+.comments--replies { margin: 12px 0 0; padding-left: 16px; border-left: 2px solid var(--border); }
+.comments--replies .comment + .comment { margin-top: 12px; padding-top: 12px; }
+.comment__reply { margin-top: 8px; padding: 0; background: none; border: 0; color: var(--steel-dark); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.comment__reply:hover { text-decoration: underline; }
+.comment__reply:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.comment-form > .alert { margin: 0 0 12px; }
 .alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
 
 /* Fact lists: label column beside the value on wide screens, stacked on phones */
