@@ -141,6 +141,11 @@ function createFake() {
             data: { signedUrl: `https://fake-storage/${path}?token=signed` },
             error: null,
           }),
+          // SCRUM-28/AC1: a path under "refused/" stands in for the bucket's insert policy saying no
+          createSignedUploadUrl: async (path: string) =>
+            path.startsWith("refused/")
+              ? { data: null, error: { message: "new row violates row-level security policy" } }
+              : { data: { signedUrl: `https://fake-storage/upload/${path}?token=up`, token: "up", path }, error: null },
         }),
       },
     }),
@@ -2199,6 +2204,114 @@ describe("SCRUM-28/AC1 — Attach multiple files", () => {
       file_name: "floor-plan.pdf",
       storage_path: "attachments/floor-plan.pdf",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-28/AC1, AC4–AC6 — Upload URL for a staged file
+// ---------------------------------------------------------------------------
+describe("SCRUM-28/AC1, AC4-AC6 — Upload URL for a staged file", () => {
+  const setup = (eventId: string = crypto.randomUUID()) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const otherOrganiser = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+    const venueStaff = fake.signIn("venue_staff");
+    fake.tables.events.push({ id: eventId, name: "Tech Summit", status: "submitted", organiser_id: organiser.id });
+    const ask = (cookie: string, body: object, id = eventId) =>
+      request(createApp(fake.deps)).post(`/events/${id}/attachments/upload-url`).set("Cookie", cookie).send(body);
+    return { eventId, organiser, otherOrganiser, coordinator, venueStaff, ask };
+  };
+  const pdf = { file_name: "floor plan (v2).pdf", content_type: "application/pdf", size: 2048 };
+
+  it("AC1, AC4: gives a coordinator an upload URL under the event's own folder", async () => {
+    const { eventId, coordinator, ask } = setup();
+
+    const res = await ask(coordinator.cookie, pdf);
+
+    expect(res.status).toBe(200);
+    expect(res.body.storage_path).toMatch(new RegExp(`^${eventId}/[0-9a-f-]{36}/floor_plan_v2_.pdf$`));
+    expect(res.body.upload_url).toBe(`https://fake-storage/upload/${res.body.storage_path}?token=up`);
+  });
+
+  it("AC1: gives the event's organiser an upload URL, and two files with one name different paths", async () => {
+    const { organiser, ask } = setup();
+
+    const first = await ask(organiser.cookie, pdf);
+    const second = await ask(organiser.cookie, pdf);
+
+    expect(first.status).toBe(200);
+    expect(first.body.storage_path).not.toBe(second.body.storage_path);
+  });
+
+  it("AC5: refuses an unsupported file type", async () => {
+    const { coordinator, ask } = setup();
+
+    const res = await ask(coordinator.cookie, { ...pdf, file_name: "setup.exe", content_type: "application/x-msdownload" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("This file type is not supported. Attach an image, video or document.");
+  });
+
+  it("AC6: refuses a file over 10 MB", async () => {
+    const { coordinator, ask } = setup();
+
+    const res = await ask(coordinator.cookie, { ...pdf, size: 10 * 1024 * 1024 + 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("This file is larger than the 10 MB limit.");
+  });
+
+  it.each([
+    ["no file name", { ...pdf, file_name: "  " }],
+    ["no size", { file_name: "a.pdf", content_type: "application/pdf" }],
+    ["a negative size", { ...pdf, size: -1 }],
+  ])("returns 400 for %s", async (_label, body) => {
+    const { coordinator, ask } = setup();
+
+    const res = await ask(coordinator.cookie, body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("file_name, content_type and size are required.");
+  });
+
+  it("treats a missing content type as unsupported", async () => {
+    const { coordinator, ask } = setup();
+
+    const res = await ask(coordinator.cookie, { file_name: "a.pdf", size: 10 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("This file type is not supported. Attach an image, video or document.");
+  });
+
+  it("returns 403 to roles that can't see the conversation, and to another event's organiser", async () => {
+    const { venueStaff, otherOrganiser, ask } = setup();
+
+    expect((await ask(venueStaff.cookie, pdf)).status).toBe(403);
+    expect((await ask(otherOrganiser.cookie, pdf)).status).toBe(403);
+  });
+
+  it("returns 404 for an event that doesn't exist", async () => {
+    const { coordinator, ask } = setup();
+
+    expect((await ask(coordinator.cookie, pdf, crypto.randomUUID())).status).toBe(404);
+  });
+
+  it("returns 500 when storage won't issue the URL", async () => {
+    const { coordinator, ask } = setup("refused");
+
+    const res = await ask(coordinator.cookie, pdf);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("Could not prepare the upload. Please try again.");
+  });
+
+  it("returns 401 when not signed in", async () => {
+    const { eventId } = setup();
+
+    const res = await request(createApp(createFake().deps)).post(`/events/${eventId}/attachments/upload-url`).send(pdf);
+
+    expect(res.status).toBe(401);
   });
 });
 

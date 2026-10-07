@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ATTACHMENT_TYPES, attachmentProblem } from "@spm-t5/shared";
 import {
   addEventComment,
+  fetchAttachmentUrl,
   fetchEventComments,
   fetchMentionableUsers,
+  requestUploadUrl,
+  uploadFile,
+  type Attachment,
   type CoordinatorOption,
   type EventComment,
   type EventComments as Comments,
@@ -52,13 +57,13 @@ export function mentionQuery(beforeCursor: string): string | undefined {
   return /(?:^|\s)@([^@\n]{0,30})$/.exec(beforeCursor)?.[1];
 }
 
+/** Someone who can be mentioned: only people with a name are offered. */
+type Named = CoordinatorOption & { full_name: string };
+
 /**
  * SCRUM-27/AC2: the box shows "@Full Name"; event-service stores "@[userId]". Longer names go first so
  * "@Ann Lee" isn't half-replaced by a mention of "Ann".
  */
-/** Someone who can be mentioned: only people with a name are offered. */
-type Named = CoordinatorOption & { full_name: string };
-
 export function encodeMentions(text: string, picked: Named[]): string {
   return [...picked]
     .sort((a, b) => b.full_name.length - a.full_name.length)
@@ -80,7 +85,32 @@ function CommentBody({ comment }: { comment: EventComment }) {
   );
 }
 
-function CommentView({ comment }: { comment: EventComment }) {
+// SCRUM-28/AC2: a comment's files by name. AC3: selecting one opens it through a short-lived signed link.
+function Attachments({ eventId, files }: { eventId: string; files: Attachment[] }) {
+  const [error, setError] = useState<string>();
+
+  async function open(file: Attachment) {
+    setError(undefined);
+    const { ok, data } = await fetchAttachmentUrl(eventId, file.storage_path);
+    if (ok) window.open(data.signed_url, "_blank", "noopener");
+    else setError(`We couldn't open ${file.file_name}. Please try again.`);
+  }
+
+  return (
+    <>
+      <ul className="attachments" aria-label="Attachments">
+        {files.map((f) => (
+          <li key={f.storage_path}>
+            <button className="attachment" type="button" onClick={() => open(f)}>{f.file_name}</button>
+          </li>
+        ))}
+      </ul>
+      {error && <p className="field__error" role="alert">{error}</p>}
+    </>
+  );
+}
+
+function CommentView({ eventId, comment }: { eventId: string; comment: EventComment }) {
   return (
     <>
       <p className="comment__meta">
@@ -88,9 +118,13 @@ function CommentView({ comment }: { comment: EventComment }) {
         <time dateTime={comment.created_at}>{formatDateTime(comment.created_at)}</time>
       </p>
       <CommentBody comment={comment} />
+      {comment.attachments.length > 0 && <Attachments eventId={eventId} files={comment.attachments} />}
     </>
   );
 }
+
+const formatSize = (bytes: number) =>
+  bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
 interface FormProps {
   id: string;
@@ -98,15 +132,18 @@ interface FormProps {
   label: string;
   submitLabel: string;
   required: string;
-  /** Posts the trimmed text; resolves to an error message, or undefined once it is saved. */
-  onPost: (text: string) => Promise<string | undefined>;
+  /** Posts the trimmed text and the uploaded files; resolves to an error message, or undefined once it is saved. */
+  onPost: (text: string, attachments: Attachment[]) => Promise<string | undefined>;
   onCancel?: () => void;
 }
 
 // SCRUM-25/AC1, AC4, SCRUM-26/AC1, AC4: a comment or reply box that won't post empty text.
 // SCRUM-27/AC1, AC2: typing "@" and a name offers the people who can see the event; picking one mentions them.
+// SCRUM-28/AC1, AC4-AC6: files are checked as they're chosen, staged, and uploaded when the comment is posted.
 function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCancel }: FormProps) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [text, setText] = useState("");
   const [textError, setTextError] = useState<string>();
   const [error, setError] = useState<string>();
@@ -163,6 +200,30 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
     }
   }
 
+  // SCRUM-28/AC1: stage the chosen files; AC5, AC6: turn away any that can't be attached, saying why
+  function choose(e: React.ChangeEvent<HTMLInputElement>) {
+    const chosen = [...e.target.files!];
+    e.target.value = ""; // so choosing the same file again still fires
+    const refused = chosen.flatMap((f) => {
+      const problem = attachmentProblem(f);
+      return problem ? [`${f.name}: ${problem}`] : [];
+    });
+    setFileErrors(refused);
+    setFiles((staged) => [...staged, ...chosen.filter((f) => !attachmentProblem(f))]);
+  }
+
+  async function upload(): Promise<Attachment[] | string> {
+    const uploaded: Attachment[] = [];
+    for (const file of files) {
+      const { ok, data } = await requestUploadUrl(eventId, file);
+      if (!ok || !(await uploadFile(data.upload_url, file))) {
+        return `We couldn't upload ${file.name}. ${(!ok && data.error) || "Please try again."}`;
+      }
+      uploaded.push({ file_name: file.name, storage_path: data.storage_path });
+    }
+    return uploaded;
+  }
+
   async function post(e: React.FormEvent) {
     e.preventDefault();
     setError(undefined);
@@ -172,11 +233,15 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
     }
     setTextError(undefined);
     setBusy(true);
-    const failure = await onPost(encodeMentions(text.trim(), picked));
+    const uploaded = await upload();
+    const failure =
+      typeof uploaded === "string" ? uploaded : await onPost(encodeMentions(text.trim(), picked), uploaded);
     if (failure) setError(failure);
     else {
       setText("");
       setPicked([]);
+      setFiles([]);
+      setFileErrors([]);
     }
     setBusy(false);
   }
@@ -232,6 +297,38 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
         )}
         {textError && <p id={`${id}-error`} className="field__error" role="alert">{textError}</p>}
       </div>
+      <div className="field">
+        <label htmlFor={`${id}-files`}>Attach files</label>
+        <input
+          id={`${id}-files`}
+          type="file"
+          multiple
+          accept={ATTACHMENT_TYPES.join(",")}
+          aria-describedby={`${id}-files-hint`}
+          onChange={choose}
+        />
+        <p id={`${id}-files-hint`} className="field__hint">Images, videos or documents, up to 10 MB each.</p>
+        {fileErrors.map((msg) => <p key={msg} className="field__error" role="alert">{msg}</p>)}
+        {files.length > 0 && (
+          <ul className="staged-files" aria-label="Files to attach">
+            {files.map((f, i) => (
+              <li key={`${f.name}-${i}`}>
+                <span>{f.name}</span>
+                <span className="staged-files__size">{formatSize(f.size)}</span>
+                <button
+                  className="comment__reply"
+                  type="button"
+                  aria-label={`Remove ${f.name}`}
+                  disabled={busy}
+                  onClick={() => setFiles((staged) => staged.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="event-buttons">
         <button className="btn" type="submit" disabled={busy}>{busy ? "Posting…" : submitLabel}</button>
         {onCancel && (
@@ -244,7 +341,7 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
 
 // SCRUM-25: the conversation on an event request between its organiser and the coordinators. event-service
 // returns the comments oldest first and decides who may post (can_comment); RLS decides who may read them.
-// SCRUM-26: replies, nested under the comment they answer. SCRUM-27: @mentions in comments and replies.
+// SCRUM-26: replies, nested under the comment they answer. SCRUM-27: @mentions. SCRUM-28: file attachments.
 export function EventComments({ eventId }: { eventId: string }) {
   const [data, setData] = useState<Comments | null>();
   const [replyingTo, setReplyingTo] = useState<string>();
@@ -260,8 +357,8 @@ export function EventComments({ eventId }: { eventId: string }) {
     };
   }, [eventId, reload]);
 
-  const post = (parentId?: string) => async (text: string) => {
-    const { ok, data } = await addEventComment(eventId, text, parentId);
+  const post = (parentId?: string) => async (text: string, attachments: Attachment[]) => {
+    const { ok, data } = await addEventComment(eventId, text, parentId, attachments);
     if (!ok) return data.error ?? `We couldn't post your ${parentId ? "reply" : "comment"}. Please try again.`;
     setReplyingTo(undefined);
     setReload((n) => n + 1);
@@ -284,13 +381,13 @@ export function EventComments({ eventId }: { eventId: string }) {
             <ol className="comments">
               {toThreads(data.comments).map(({ comment, replies }) => (
                 <li key={comment.id} className="comment">
-                  <CommentView comment={comment} />
+                  <CommentView eventId={eventId} comment={comment} />
 
                   {replies.length > 0 && (
                     <ol className="comments comments--replies" aria-label={`Replies to ${comment.author_name ?? "this comment"}`}>
                       {replies.map((r) => (
                         <li key={r.id} className="comment">
-                          <CommentView comment={r} />
+                          <CommentView eventId={eventId} comment={r} />
                         </li>
                       ))}
                     </ol>
