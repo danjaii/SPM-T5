@@ -220,7 +220,10 @@ spec in `docs/specs/venue-booking-approval.md`). Venue search (SCRUM-65; spec in
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
 `reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`); the equipment
-catalogue and equipment requests/approval are not built yet.
+catalogue and equipment requests/approval are not built yet. `auth-service` also serves a user's own profile
+(SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
+separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
+can be changed.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
