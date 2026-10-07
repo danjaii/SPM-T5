@@ -11,7 +11,7 @@ export function createFake() {
   const authUsers: AuthUser[] = [];
   const sessions = new Map<string, string>(); // access token -> user id
   const tables: Record<string, Row[]> = {
-    users: [], events: [], venues: [], venue_bookings: [], equipment: [], technical_support_requests: [], event_registrations: [], organisations: [],
+    users: [], events: [], venues: [], venue_bookings: [], equipment: [], technical_support_requests: [], event_registrations: [], organisations: [], role_responsibilities: [],
   };
   const calls = { resetEmails: [] as { email: string; redirectTo?: string }[], signedOut: [] as string[], deleted: [] as string[] };
   const selects: { table: string; columns: string }[] = []; // every select() the app issued, to pin PostgREST embeds
@@ -29,7 +29,12 @@ export function createFake() {
       eq: (col: string, val: unknown) => { rows = rows.filter((r) => r[col] === val); return builder; },
       in: (col: string, vals: unknown[]) => { rows = rows.filter((r) => vals.includes(r[col])); return builder; },
       update: (values: Row) => { changes = values; return builder; },
-      order: () => builder,
+      // sorts by the column when the rows have comparable values there; rows without one keep their order
+      order: (col?: string, opts?: { ascending?: boolean }) => {
+        const dir = opts?.ascending === false ? -1 : 1;
+        if (col) rows.sort((a, b) => (typeof a[col] === "number" && typeof b[col] === "number" ? ((a[col] as number) - (b[col] as number)) * dir : 0));
+        return builder;
+      },
       limit: () => builder,
       maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
       insert: async (row: Row) => {

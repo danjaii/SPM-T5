@@ -14,6 +14,10 @@ export interface ProfileView {
   role: Role;
   /** Event Organisers only. */
   organisation: { name: string } | null;
+  /** Internal users only (SCRUM-69): `null` when none is recorded, and for everyone else. */
+  department: string | null;
+  /** Internal users only (SCRUM-69): what their role is responsible for. Empty for everyone else. */
+  responsibilities: string[];
   // we want to show organisation name if the person is an event organiser
 }
 

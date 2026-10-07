@@ -155,6 +155,12 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
         },
       ];
     }
+    // Week 7 customer changes: two new internal roles. Their dashboards (the Lead's queue, the Safety Officer's checks) belong to
+    // their own stories, so until then they get an empty one.
+    case "event_coordinator_lead":
+    case "safety_officer":
+      return [];
+
     case "attendee": {
       // SCRUM-71/AC1: the List of events (which replaced "Events open for booking") comes from event-service
       const registrations = await rows(db.from("event_registrations").select("status, registered_at, event:events(name, preferred_start_datetime)")

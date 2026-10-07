@@ -26,6 +26,8 @@ const profile = {
   communicationPreferences: { email: true, sms: false },
   role: "event_coordinator",
   organisation: null,
+  department: "Event Coordination",
+  responsibilities: ["Search for venues and submit venue booking requests"],
 };
 
 /** Pretends auth-service answers with a status and a JSON body. */
