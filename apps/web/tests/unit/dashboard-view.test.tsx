@@ -73,4 +73,15 @@ describe("Dashboard tables", () => {
     else expect(link).toBeNull();
   });
   // end of SCRUM-19 dashboard link
+
+  // SCRUM-68: every signed-in user has a profile, so every role gets the link to it.
+  // Every role comes from the shared ROLES list, so a role added later is checked too.
+
+  // make a link for user to go into their profile 
+  it.each(ROLES)("SCRUM-68: for a %s, shows a 'My profile' link to /profile", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    expect(screen.getByRole("link", { name: "My profile" }).getAttribute("href")).toBe("/profile");
+  });
+  // end of SCRUM-68 dashboard link
 });
