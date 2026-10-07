@@ -301,6 +301,14 @@ tr:last-child td { border-bottom: 0; }
 .comment__reply:hover { text-decoration: underline; }
 .comment__reply:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
 .comment-form > .alert { margin: 0 0 12px; }
+/* SCRUM-27: @mentions, set apart in posted comments (AC3) and offered as you type (AC1) */
+.mention { padding: 0 3px; background: var(--selected); color: var(--steel-dark); font-weight: 600; }
+.mention-field { position: relative; }
+.mention-menu { position: absolute; left: 0; right: 0; z-index: 10; margin-top: 4px; background: #fff; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }
+.mention-menu ul { list-style: none; margin: 0; padding: 4px 0; }
+.mention-menu li { padding: 8px 12px; cursor: pointer; }
+.mention-menu li[aria-selected="true"], .mention-menu li:hover { background: var(--selected); color: var(--steel-dark); }
+.mention-menu__empty { padding: 8px 12px; color: var(--subtle); }
 .alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
 
 /* Fact lists: label column beside the value on wide screens, stacked on phones */
