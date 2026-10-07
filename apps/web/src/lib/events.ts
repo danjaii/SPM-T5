@@ -152,14 +152,18 @@ export interface EventComments {
 export const fetchEventComments = (id: string) =>
   getFromEventService<EventComments>(`${encodeURIComponent(id)}/comments`);
 
-/** SCRUM-25/AC1: add a comment to the event. */
-export async function addEventComment(id: string, body: string): Promise<ApiResult<Record<string, never>>> {
+/** SCRUM-25/AC1: add a comment to the event. SCRUM-26/AC1: or, with parentCommentId, a reply to one of its comments. */
+export async function addEventComment(
+  id: string,
+  body: string,
+  parentCommentId?: string,
+): Promise<ApiResult<Record<string, never>>> {
   try {
     const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(id)}/comments`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify(parentCommentId ? { body, parent_comment_id: parentCommentId } : { body }),
     });
     return { ok: res.ok, data: await res.json() };
   } catch {

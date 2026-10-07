@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { COMMENT_REQUIRED, EventComments, NO_COMMENTS } from "@/components/EventComments";
+import { COMMENT_REQUIRED, EventComments, NO_COMMENTS, REPLY_REQUIRED } from "@/components/EventComments";
 
 type Reply = { status: number; body: unknown };
 
@@ -181,5 +181,151 @@ describe("SCRUM-25/AC5 — Comment permissions", () => {
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await vi.waitFor(() => expect(container.innerHTML).toBe(""));
+  });
+});
+
+const reply = (id: string, parent: string, author: string, body: string, created_at: string) => ({
+  ...comment(id, author, body, created_at),
+  parent_comment_id: parent,
+});
+
+const REPLY_1 = reply("r1", "c1", "Olivia Org", "About 120.", "2026-09-01T04:00:00Z");
+const REPLY_2 = reply("r2", "c1", "Rachel Tan", "Thanks, noted.", "2026-09-01T05:00:00Z");
+
+const replyButtons = () => screen.getAllByRole("button", { name: "Reply" });
+const replyBox = () => screen.getByLabelText(/^Reply to /);
+
+describe("SCRUM-26/AC1 — Reply to a comment", () => {
+  it("posts the reply with its parent comment and shows it in the thread", async () => {
+    const fetchMock = mockEventService([thread([FIRST]), thread([FIRST, REPLY_1])], { status: 201, body: {} });
+    setup();
+    await screen.findByText(FIRST.body);
+
+    fireEvent.click(replyButtons()[0]);
+    expect(replyBox().id).toBe("reply-c1");
+    expect(screen.getByLabelText("Reply to Rachel Tan")).toBeTruthy();
+    fireEvent.change(replyBox(), { target: { value: "  About 120. " } });
+    fireEvent.click(screen.getByRole("button", { name: "Post reply" }));
+
+    expect(await screen.findByText(REPLY_1.body)).toBeTruthy();
+    const [, init] = posts(fetchMock)[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ body: "About 120.", parent_comment_id: "c1" });
+    expect(screen.queryByLabelText(/^Reply to /)).toBeNull(); // the reply box closes once posted
+  });
+
+  it("cancelling closes the reply box without posting", async () => {
+    const fetchMock = mockEventService([thread([FIRST])], { status: 201, body: {} });
+    setup();
+    await screen.findByText(FIRST.body);
+
+    fireEvent.click(replyButtons()[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByLabelText(/^Reply to /)).toBeNull();
+    expect(replyButtons()).toHaveLength(1);
+    expect(posts(fetchMock)).toHaveLength(0);
+  });
+
+  it("opens one reply box at a time", async () => {
+    mockEventService([thread([FIRST, comment("c3", "Marcus Lim", "Venue confirmed.", "2026-09-02T01:00:00Z")])]);
+    setup();
+    await screen.findByText("Venue confirmed.");
+
+    fireEvent.click(replyButtons()[0]);
+    fireEvent.click(replyButtons()[0]); // the first comment's button is gone, so this is the second one
+
+    expect(screen.getAllByLabelText(/^Reply to /)).toHaveLength(1);
+    expect(screen.getByLabelText("Reply to Marcus Lim")).toBeTruthy();
+  });
+
+  it("keeps the reply open with the server's message when posting fails", async () => {
+    mockEventService([thread([FIRST])], { status: 400, body: {} });
+    setup();
+    await screen.findByText(FIRST.body);
+
+    fireEvent.click(replyButtons()[0]);
+    fireEvent.change(replyBox(), { target: { value: "About 120." } });
+    fireEvent.click(screen.getByRole("button", { name: "Post reply" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("We couldn't post your reply. Please try again.");
+    expect((replyBox() as HTMLTextAreaElement).value).toBe("About 120.");
+  });
+
+  it("offers no Reply to a viewer who can't take part", async () => {
+    mockEventService([thread([FIRST, REPLY_1], false)]);
+    setup();
+    await screen.findByText(REPLY_1.body);
+
+    expect(screen.queryByRole("button", { name: "Reply" })).toBeNull();
+  });
+});
+
+describe("SCRUM-26/AC2 — Display reply details and visual hierarchy", () => {
+  it("nests each reply, with its author, date and time, and text, under its parent comment", async () => {
+    mockEventService([thread([FIRST, SECOND, REPLY_1])]);
+    setup();
+
+    const replies = within(await screen.findByRole("list", { name: "Replies to Rachel Tan" }));
+    const item = within(replies.getByRole("listitem"));
+    expect(item.getByText("Olivia Org")).toBeTruthy();
+    expect(item.getByText("About 120.")).toBeTruthy();
+    expect(item.getByText(/1 Sept 2026/).textContent).toMatch(/12:00/); // 04:00 UTC is 12:00 in Singapore
+    expect(replies.queryByText(SECOND.body)).toBeNull(); // a top-level comment stays at the top level
+  });
+
+  it("keeps a reply to a reply in the same thread, one level deep", async () => {
+    const nested = reply("r9", "r1", "Marcus Lim", "Same here.", "2026-09-01T06:00:00Z");
+    mockEventService([thread([FIRST, REPLY_1, nested])]);
+    setup();
+
+    const replies = within(await screen.findByRole("list", { name: "Replies to Rachel Tan" }));
+    expect(replies.getAllByRole("listitem").map((li) => li.querySelector(".comment__body")!.textContent))
+      .toEqual(["About 120.", "Same here."]);
+    expect(replies.queryByRole("list")).toBeNull();
+  });
+
+  it("shows a reply whose parent it can't see as a comment of its own", async () => {
+    mockEventService([thread([reply("r5", "gone", "Olivia Org", "Orphaned reply.", "2026-09-01T04:00:00Z")])]);
+    setup();
+
+    expect(await screen.findByText("Orphaned reply.")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: /^Replies to / })).toBeNull();
+  });
+
+  it("names the thread of an unknown author generically", async () => {
+    mockEventService([thread([{ ...FIRST, author_name: null }, REPLY_1])]);
+    setup();
+    await screen.findByText(REPLY_1.body);
+
+    expect(screen.getByRole("list", { name: "Replies to this comment" })).toBeTruthy();
+    fireEvent.click(replyButtons()[0]);
+    expect(screen.getByLabelText("Reply to this comment")).toBeTruthy();
+  });
+});
+
+describe("SCRUM-26/AC3 — Order replies oldest to newest", () => {
+  it("lists a thread's replies in event-service's oldest-first order", async () => {
+    mockEventService([thread([FIRST, SECOND, REPLY_1, REPLY_2])]);
+    setup();
+
+    const replies = within(await screen.findByRole("list", { name: "Replies to Rachel Tan" }));
+    expect(replies.getAllByRole("listitem").map((li) => li.querySelector(".comment__body")!.textContent))
+      .toEqual([REPLY_1.body, REPLY_2.body]);
+  });
+});
+
+describe("SCRUM-26/AC4 — Prevent empty replies", () => {
+  it.each(["", "  \n "])("doesn't post %j and says text is required", async (text) => {
+    const fetchMock = mockEventService([thread([FIRST])], { status: 201, body: {} });
+    setup();
+    await screen.findByText(FIRST.body);
+
+    fireEvent.click(replyButtons()[0]);
+    fireEvent.change(replyBox(), { target: { value: text } });
+    fireEvent.click(screen.getByRole("button", { name: "Post reply" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(REPLY_REQUIRED);
+    expect(replyBox().getAttribute("aria-invalid")).toBe("true");
+    expect(posts(fetchMock)).toHaveLength(0);
   });
 });
