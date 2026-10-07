@@ -1,18 +1,23 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getEvent } = vi.hoisted(() => ({ getEvent: vi.fn() }));
 const { getApprovedVenueBooking } = vi.hoisted(() => ({ getApprovedVenueBooking: vi.fn() }));
 vi.mock("@/lib/getEvent", () => ({ getEvent }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getApprovedVenueBooking }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 
 import EventPage from "@/app/events/[id]/page";
 
 const open = async (id: string) => render(await EventPage({ params: Promise.resolve({ id }) }));
 
 describe("Event status page route (/events/[id])", () => {
-  beforeEach(() => getApprovedVenueBooking.mockReset().mockResolvedValue(null));
+  beforeEach(() => {
+    getApprovedVenueBooking.mockReset().mockResolvedValue(null);
+    // CoordinatorAssignment loads the assignment history from the browser
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
 
   it("shows the event it was asked for", async () => {
     getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "approved", canChangeStatus: false } });
@@ -39,6 +44,31 @@ describe("Event status page route (/events/[id])", () => {
     await open("missing");
 
     expect(screen.getByRole("alert").textContent).toBe("Event not found.");
+  });
+
+  it("SCRUM-42/AC5, AC8: shows the assigned coordinator and, for coordinators, the reassign action", async () => {
+    getEvent.mockResolvedValue({
+      event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: false, canReview: false,
+        canAssign: true, point_of_contact_name: "Alice Coord" },
+    });
+
+    await open("evt-1");
+
+    expect(screen.getByRole("heading", { name: "Coordinator" })).toBeTruthy();
+    expect(screen.getByText("Alice Coord")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reassign coordinator" })).toBeTruthy();
+  });
+
+  it("SCRUM-23/AC2: reads top to bottom — details, coordinator, then the manual status change", async () => {
+    getEvent.mockResolvedValue({
+      event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: true, canReview: false,
+        canAssign: true, point_of_contact_name: "Alice Coord", organiser_name: "Sam Tan" },
+    });
+
+    await open("evt-1");
+
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings).toEqual(["Request details", "Coordinator", "Assignment history", "Registrations", "Change status"]);
   });
 
   it("SCRUM-23/AC1, AC2: shows the full request details alongside the status", async () => {
