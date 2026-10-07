@@ -2,13 +2,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sgtToUtc } from "@spm-t5/shared";
 
-const { getEvent, getChangeRequests, refresh } = vi.hoisted(() => ({
+const { getEvent, getChangeRequests, getEventOutcome, refresh } = vi.hoisted(() => ({
   getEvent: vi.fn(),
   getChangeRequests: vi.fn(),
+  getEventOutcome: vi.fn().mockResolvedValue(null),
   refresh: vi.fn(),
 }));
 const { getApprovedVenueBooking } = vi.hoisted(() => ({ getApprovedVenueBooking: vi.fn() }));
-vi.mock("@/lib/getEvent", () => ({ getEvent, getChangeRequests }));
+vi.mock("@/lib/getEvent", () => ({ getEvent, getChangeRequests, getEventOutcome }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getApprovedVenueBooking }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh }) }));
 
@@ -21,6 +22,9 @@ const event = {
   name: "Tech Summit",
   status: "submitted",
   canChangeStatus: false,
+  canReview: false,
+  canAssign: false,
+  point_of_contact_name: null,
   isOrganiser: true,
   canRequestChange: true,
   purpose: null,
