@@ -26,6 +26,8 @@ describe("SCRUM-68 profile page (/profile)", () => {
         communicationPreferences: { email: true, sms: false },
         role: "event_coordinator",
         organisation: null,
+        department: "Event Coordination",
+        responsibilities: ["Search for venues and submit venue booking requests"],
       },
     });
 

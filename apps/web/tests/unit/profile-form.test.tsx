@@ -15,6 +15,8 @@ const profile: ProfileView = {
   communicationPreferences: { email: true, sms: false },
   role: "event_coordinator",
   organisation: null,
+  department: null,
+  responsibilities: [],
 };
 
 // end of test setup
@@ -65,6 +67,45 @@ describe("SCRUM-68/AC1 profile form: viewing", () => {
     render(<ProfileForm profile={contactDiffers} save={vi.fn()} />);
 
     expect(screen.getByText("You still sign in with rachel@example.com.")).toBeTruthy();
+  });
+
+  // A staff member sees their department and what their role is responsible for, as plain text.
+  it("69-S7: shows a staff member's department and responsibilities", () => {
+    const staff: ProfileView = {
+      ...profile,
+      department: "Event Coordination",
+      responsibilities: ["Search for venues and submit venue booking requests", "Monitor the outstanding arrangements and confirm the event"],
+    };
+
+    render(<ProfileForm profile={staff} save={vi.fn()} />);
+
+    expect(screen.getByText("Department")).toBeTruthy();
+    expect(screen.getByText("Event Coordination")).toBeTruthy();
+    expect(screen.getByText("Responsibilities")).toBeTruthy();
+    expect(screen.getByText("Search for venues and submit venue booking requests")).toBeTruthy();
+    expect(screen.getByText("Monitor the outstanding arrangements and confirm the event")).toBeTruthy();
+  });
+
+  // If no department is recorded for a staff member, the page says so. That is the point of the story: they can see whether
+  // their role information is recorded.
+  it("69-S8: says 'Not recorded' when a staff member has no department", () => {
+    const staff: ProfileView = { ...profile, department: null, responsibilities: ["Reserve equipment for events"] };
+
+    render(<ProfileForm profile={staff} save={vi.fn()} />);
+
+    expect(screen.getByText("Department")).toBeTruthy();
+    expect(screen.getByText("Not recorded")).toBeTruthy();
+  });
+
+  // Event Organisers and Attendees are not staff, so they see neither line. Only the role (and, for organisers, the organisation)
+  // describe them.
+  it.each(["event_organiser", "attendee"] as const)("69-S9: shows no department or responsibilities to a %s", (role) => {
+    const outsider: ProfileView = { ...profile, role, department: null, responsibilities: [] };
+
+    render(<ProfileForm profile={outsider} save={vi.fn()} />);
+
+    expect(screen.queryByText("Department")).toBeNull();
+    expect(screen.queryByText("Responsibilities")).toBeNull();
   });
   // end of viewing
 });

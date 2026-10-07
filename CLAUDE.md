@@ -31,9 +31,11 @@ there, not as a string literal in a service.
 | Role | Access | Primary responsibilities |
 | ----- | ----- | ----- |
 | `event_organiser` | External | Creates/edits event requests (drafts & submitted), tracks approval status, requests post-submission changes, registers attendees. |
-| `event_coordinator` | Internal | Reviews/approves event requests, requests clarifications, assigns coordinators, searches venues, submits venue booking requests. |
+| `event_coordinator` | Internal | Manages the events assigned to them: reviews/approves event requests, requests clarifications, searches venues, submits venue booking requests. |
+| `event_coordinator_lead` | Internal | Added by the week 7 customer changes. Oversees incoming event requests (the unassigned queue), assigns and reassigns Event Coordinators, views all coordinator assignments and active events. |
 | `venue_staff` | Internal | Maintains the venue catalogue, approves/rejects venue bookings, sets layout options, flags unavailability (maintenance/renovation). |
 | `technical_support_staff` | Internal | Maintains the equipment catalogue, checks availability, approves/reserves equipment, handles maintenance statuses. |
+| `safety_officer` | Internal | Added by the week 7 customer changes. Runs the Operational Safety Check after venue and technical arrangements are confirmed: approves, rejects or requests changes before the event can proceed to preparation. |
 | `attendee` | External | Browses confirmed public events, registers/withdraws within capacity limits and registration windows. |
 
 ### Feature scope (release 1)
@@ -222,7 +224,9 @@ for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved ato
 catalogue and equipment requests/approval are not built yet. `auth-service` also serves a user's own profile
 (SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
 separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
-can be changed.
+can be changed. Staff (internal users) also see their department and responsibilities
+(SCRUM-69). The shared role list now has seven roles: the Event Coordinator Lead and the Safety Officer (week 7 customer
+changes) exist as roles (migration 16), but have no accounts, dashboards or sign-in option yet.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any

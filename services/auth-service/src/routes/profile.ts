@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { validateProfileUpdate } from "@spm-t5/shared";
+import { isInternalRole, isRole, responsibilitiesFor, validateProfileUpdate } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
@@ -19,7 +19,7 @@ export function profileRoutes(deps: SupabaseDeps) {
     const db = deps.forUser(token);
     const { data: profile } = await db
       .from("users")
-      .select("full_name, email, phone, communication_preferences, role, organisation_id")
+      .select("full_name, email, phone, communication_preferences, role, organisation_id, department")
       .eq("id", id)
       .maybeSingle();
 
@@ -30,6 +30,9 @@ export function profileRoutes(deps: SupabaseDeps) {
       if (found) organisation = { name: found.name };
     }
 
+    // SCRUM-69: only internal users have a department and responsibilities to show; for everyone else they are empty
+    const internal = isRole(profile?.role) && isInternalRole(profile.role);
+
     return {
       fullName: profile?.full_name,
       email: profile?.email,
@@ -38,6 +41,8 @@ export function profileRoutes(deps: SupabaseDeps) {
       communicationPreferences: profile?.communication_preferences,
       role: profile?.role,
       organisation,
+      department: internal ? (profile?.department ?? null) : null,
+      responsibilities: internal && isRole(profile?.role) ? [...responsibilitiesFor(profile.role)] : [],
     };
   }
 

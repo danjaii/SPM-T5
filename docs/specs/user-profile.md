@@ -1,6 +1,7 @@
-# User Profile: Final User Story
+# User Profile: Final User Stories
 
-User story for **View and Update Profile** (ConnectSphere, IS212), compiled 2026-10-07.
+User stories for **View and Update Profile** (SCRUM-68) and **View Department and Responsibilities for Internal Users**
+(SCRUM-69) (ConnectSphere, IS212), compiled 2026-10-07 and 2026-10-08.
 
 - Scenario numbers are the test IDs: `68-S3` means SCRUM-68, Scenario 3.
 - Markers: **[DECIDED]** the team chose it. **[PROPOSED]** a default, confirm or change.
@@ -8,10 +9,9 @@ User story for **View and Update Profile** (ConnectSphere, IS212), compiled 2026
 | Key | Title | Depends on |
 | --- | --- | --- |
 | SCRUM-68 | View and Update Profile | none (reads and writes `users` from `01_schema.sql`; the column grants in `03_users_role_privilege.sql` already stop a user changing their role) |
+| SCRUM-69 | View Department and Responsibilities for Internal Users | SCRUM-68 (adds two read-only lines to its page and its `GET /profile`) |
 
-The second profile story (an internal user sees their department and responsibilities) is a separate Jira story and is
-**not** part of this one. It will add two read-only lines to the same page. `users.department` exists; there is no
-`responsibilities` column, so that story decides where those come from.
+SCRUM-69 is written below the SCRUM-68 scenarios.
 
 ## Implementation decisions (2026-10-07)
 
@@ -118,3 +118,51 @@ my changes and should keep my previous details.
 | 68-S18 | (none) | Not signed in | 401 from the service; the page sends the visitor to sign in |
 | 68-S19 | (none) | Only some fields are sent | only those fields change; the others keep their values |
 | 68-S20 | AC1 | The contact email differs from the login email | the page also says "You still sign in with <login email>." |
+
+---
+
+## SCRUM-69 View Department and Responsibilities for Internal Users
+
+**User story.** As an internal user, I want to see my department and responsibilities on my profile, so that I can
+confirm my role information is recorded correctly.
+
+### Implementation decisions (2026-10-08)
+
+- **Who is internal.** The five roles CLAUDE.md marks Internal: `event_coordinator`, `event_coordinator_lead`,
+  `venue_staff`, `technical_support_staff` and `safety_officer`. The last two of the five are the new roles from the
+  customer's week 7 changes (changes 5 and 6), added to the shared `ROLES` list and, by migration 16, to the database.
+  `isInternalRole` in `packages/shared` says so, so the page and the service agree. **[DECIDED]**
+- **Department** is the stored `users.department` (for example "Event Coordination", "Venue Operations", "Technical
+  Support"). It is read-only: the profile update already refuses a `department` field (68-S14/S16). **[DECIDED]**
+- **Responsibilities** are not stored anywhere (there is no column). They are fixed text for each internal role, kept
+  once in `packages/shared` (one entry per role, so a role cannot be left out) and taken from the Week 1 Customer Briefing
+  (its "Main Responsibility" table and event planning process) and the week 7 customer changes. The Event Coordinator no
+  longer "assigns coordinators": that moved to the Event Coordinator Lead. **[PROPOSED]** Confirm with the team that fixed
+  text for each role is acceptable.
+- **Migration 16** only adds the two role values. Accounts and departments for them, login, dashboards and access rules belong to
+  their own stories (SCRUM-75 and the Safety Officer stories). Until then their dashboard is empty and they are not offered on
+  the sign-in role picker. **[DECIDED]**
+- **Response.** `GET /profile` also returns `department` (`string | null`) and `responsibilities` (`string[]`).
+  For an external role (Event Organiser, Attendee) they are `null` and `[]`, whatever the stored data says.
+  **[DECIDED]**
+- **On the page.** An internal user sees "Department" and "Responsibilities" (a short list) as plain text, next to the
+  role. If no department is recorded the page says "Not recorded", because the point of the story is to let the user
+  see whether their role information is recorded correctly. External users see neither line. **[DECIDED]**
+
+### Acceptance criteria
+
+*AC1.* Given that I am an internal user, when I open my profile, I should see my department and responsibilities.
+
+### Scenarios
+
+| ID | AC | Scenario | Expected |
+| --- | --- | --- | --- |
+| 69-S1 | AC1 | `isInternalRole` is asked about each role | true for coordinator, venue staff and technical support; false for organiser and attendee |
+| 69-S2 | AC1 | The responsibilities of each internal role are asked for | each role gets its own list, taken from the roles table in CLAUDE.md |
+| 69-S3 | AC1 | The responsibilities of an external role are asked for | an empty list |
+| 69-S4 | AC1 | An internal user's `GET /profile` | includes their department and their role's responsibilities |
+| 69-S5 | AC1 | An external user's `GET /profile` | `department` is `null` and `responsibilities` is `[]`, even if a department is stored |
+| 69-S6 | AC1 | An internal user with no department recorded opens `GET /profile` | `department` is `null` |
+| 69-S7 | AC1 | An internal user opens the profile page | Department and Responsibilities are shown as plain text |
+| 69-S8 | AC1 | An internal user with no department recorded opens the page | the Department line says "Not recorded" |
+| 69-S9 | AC1 | An Event Organiser or Attendee opens the page | neither line is shown |
