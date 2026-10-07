@@ -26,9 +26,13 @@ services:
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
     ports: ["3000:3000"]
     environment:
-      # Server-side calls (route guard, dashboard) use the compose network; the browser uses NEXT_PUBLIC_AUTH_SERVICE_URL.
+      # Server-side calls (route guard, dashboard, event and venue pages) use the compose network, where every
+      # service listens on 4000; the browser uses the NEXT_PUBLIC_*_SERVICE_URL host ports instead.
       AUTH_SERVICE_URL: http://auth-service:4000
-    depends_on: [event-service, auth-service]
+      EVENT_SERVICE_URL: http://event-service:4000
+      VENUE_SERVICE_URL: http://venue-service:4000
+      EQUIPMENT_SERVICE_URL: http://equipment-service:4000
+    depends_on: [auth-service, event-service, venue-service, equipment-service]
 
   auth-service:
     <<: *service

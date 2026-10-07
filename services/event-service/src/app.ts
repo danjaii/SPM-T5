@@ -4,12 +4,16 @@ import { eventRoutes } from "./routes/events";
 import { upcomingEventRoutes } from "./routes/upcomingEvents";
 import { registrationRoutes } from "./routes/registrations";
 import { cors } from "./middlewares/cors";
+import { healthCheck } from "./index";
 
 // Exported separately from listen() so tests can mount the app without opening a port.
 export function createApp(deps: SupabaseDeps) {
   const app = express();
   app.use(cors());
   app.use(express.json()); // read JSON request bodies, e.g. { "status": "approved" }
+
+  // SCRUM-94: liveness check for docker compose and CI; no session needed
+  app.get("/health", (_req, res) => res.json(healthCheck()));
 
   // Before eventRoutes: its GET /events/:id would otherwise treat "upcoming" as an event id
   app.use("/events", upcomingEventRoutes(deps));

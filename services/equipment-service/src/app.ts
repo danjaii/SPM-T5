@@ -4,6 +4,7 @@ import { requireSession } from "./middlewares/session";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { equipmentRoutes } from "./routes/equipment";
 import type { SupabaseDeps } from "./supabase";
+import { healthCheck } from "./index";
 
 export interface AppOptions {
   /** The clock, injected so tests can decide what "in the past" means. */
@@ -38,6 +39,9 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
     if (req.method === "OPTIONS") return res.sendStatus(204);
     next();
   });
+
+  // SCRUM-94: liveness check for docker compose and CI; before the session check, so no login needed
+  app.get("/health", (_req, res) => res.json(healthCheck()));
 
   // Everything needs a signed-in caller. Routes are added as each story lands.
   app.use(requireSession(deps), equipmentRoutes(portsFor, now));
