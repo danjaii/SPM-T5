@@ -1,18 +1,40 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { COMMENT_REQUIRED, EventComments, NO_COMMENTS, REPLY_REQUIRED } from "@/components/EventComments";
+import {
+  COMMENT_REQUIRED,
+  encodeMentions,
+  EventComments,
+  mentionQuery,
+  NO_COMMENTS,
+  NO_MATCHES,
+  REPLY_REQUIRED,
+} from "@/components/EventComments";
 
 type Reply = { status: number; body: unknown };
 
-/** Fakes event-service: GET /comments answers with each of `threads` in turn (the last one repeats), POST with `post`. */
-function mockEventService(threads: Reply[], post?: Reply | "offline") {
+/** SCRUM-27/AC1, AC5: who event-service says may be mentioned on the event. */
+const PEOPLE = [
+  { id: "u-rachel", full_name: "Rachel Tan" },
+  { id: "u-marcus", full_name: "Marcus Lim" },
+  { id: "u-olivia", full_name: "Olivia Org" },
+];
+
+/**
+ * Fakes event-service: GET /comments answers with each of `threads` in turn (the last one repeats), POST with
+ * `post`, and GET /mentionable-users with `people`.
+ */
+function mockEventService(
+  threads: Reply[],
+  post?: Reply | "offline",
+  people: Reply = { status: 200, body: PEOPLE },
+) {
   let gets = 0;
-  const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === "POST") {
       if (post === "offline") throw new TypeError("Failed to fetch");
       return { ok: post!.status < 400, status: post!.status, json: async () => post!.body };
     }
-    const reply = threads[Math.min(gets++, threads.length - 1)];
+    const reply = url.endsWith("/mentionable-users") ? people : threads[Math.min(gets++, threads.length - 1)];
     return { ok: reply.status < 400, status: reply.status, json: async () => reply.body };
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -327,5 +349,231 @@ describe("SCRUM-26/AC4 — Prevent empty replies", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(REPLY_REQUIRED);
     expect(replyBox().getAttribute("aria-invalid")).toBe("true");
     expect(posts(fetchMock)).toHaveLength(0);
+  });
+});
+
+const menu = () => screen.queryByRole("listbox", { name: "People you can mention" });
+const options = () => within(menu()!).getAllByRole("option").map((o) => o.textContent);
+const mentionSearches = (fetchMock: ReturnType<typeof mockEventService>) =>
+  fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/mentionable-users"));
+const sentBody = (fetchMock: ReturnType<typeof mockEventService>) =>
+  JSON.parse(((posts(fetchMock)[0] as unknown[])[1] as RequestInit).body as string);
+
+/** Renders an empty conversation and waits for the comment box. */
+async function ready(post?: Reply, people?: Reply) {
+  const fetchMock = mockEventService([thread([])], post, people);
+  setup();
+  await screen.findByText(NO_COMMENTS);
+  return fetchMock;
+}
+
+describe("SCRUM-27/AC1 — Search for users", () => {
+  it("typing @ and part of a name lists the matching people who can see the event", async () => {
+    const fetchMock = await ready();
+
+    type("Hi @ra");
+
+    expect(await screen.findByRole("listbox", { name: "People you can mention" })).toBeTruthy();
+    expect(options()).toEqual(["Rachel Tan"]);
+    expect(box().getAttribute("aria-expanded")).toBe("true");
+    expect(mentionSearches(fetchMock)[0][0]).toBe("http://localhost:4002/events/evt-1/mentionable-users");
+  });
+
+  it("a bare @ lists everyone, and later keystrokes filter without asking event-service again", async () => {
+    const fetchMock = await ready();
+
+    type("@");
+    await screen.findByRole("listbox");
+    expect(options()).toEqual(["Rachel Tan", "Marcus Lim", "Olivia Org"]);
+    type("@mar");
+
+    expect(options()).toEqual(["Marcus Lim"]);
+    expect(mentionSearches(fetchMock)).toHaveLength(1);
+  });
+
+  it("says when nobody matches", async () => {
+    await ready();
+
+    type("@zz");
+
+    expect((await screen.findByText(NO_MATCHES)).getAttribute("role")).toBe("status");
+    expect(menu()).toBeNull();
+  });
+
+  it("offers nobody when event-service won't say who can be mentioned", async () => {
+    await ready(undefined, { status: 403, body: { error: "You are not allowed to search for users on this event." } });
+
+    type("@ra");
+
+    expect(await screen.findByText(NO_MATCHES)).toBeTruthy();
+  });
+
+  it("doesn't open for an @ inside a word, such as an email address", async () => {
+    const fetchMock = await ready();
+
+    type("mail rachel@ra");
+
+    expect(menu()).toBeNull();
+    expect(mentionSearches(fetchMock)).toHaveLength(0);
+  });
+
+  it("closes on Escape and when the box loses focus", async () => {
+    await ready();
+
+    type("@ra");
+    await screen.findByRole("listbox");
+    fireEvent.keyDown(box(), { key: "Escape" });
+    expect(menu()).toBeNull();
+
+    type("@ma");
+    await screen.findByRole("listbox");
+    fireEvent.blur(box());
+    expect(menu()).toBeNull();
+  });
+
+  it.each([
+    ["@", ""],
+    ["Hi @Rachel T", "Rachel T"],
+    ["line one\n@ma", "ma"],
+    ["no mention", undefined],
+    ["rachel@ra", undefined],
+    ["@" + "x".repeat(31), undefined],
+  ])("mentionQuery(%j) is %j", (text, expected) => {
+    expect(mentionQuery(text)).toBe(expected);
+  });
+});
+
+describe("SCRUM-27/AC2 — Add a mention", () => {
+  it("clicking a person puts their name in the text and posts it as a mention", async () => {
+    const fetchMock = await ready({ status: 201, body: {} });
+
+    type("Hi @ra");
+    await screen.findByRole("listbox");
+    fireEvent.mouseDown(screen.getByRole("option", { name: "Rachel Tan" }));
+
+    expect((box() as HTMLTextAreaElement).value).toBe("Hi @Rachel Tan ");
+    expect(menu()).toBeNull();
+    type("Hi @Rachel Tan can you check?");
+    fireEvent.click(postButton());
+
+    await vi.waitFor(() => expect(posts(fetchMock)).toHaveLength(1));
+    expect(sentBody(fetchMock)).toEqual({ body: "Hi @[u-rachel] can you check?" });
+  });
+
+  it("arrow keys move through the list and Enter picks", async () => {
+    await ready();
+
+    type("@");
+    await screen.findByRole("listbox");
+    expect(screen.getByRole("option", { selected: true }).textContent).toBe("Rachel Tan");
+    fireEvent.keyDown(box(), { key: "ArrowDown" });
+    expect(box().getAttribute("aria-activedescendant")).toBe("new-comment-mentions-1");
+    fireEvent.keyDown(box(), { key: "ArrowUp" });
+    fireEvent.keyDown(box(), { key: "ArrowUp" }); // wraps round to the last person
+    expect(screen.getByRole("option", { selected: true }).textContent).toBe("Olivia Org");
+    fireEvent.keyDown(box(), { key: "Enter" });
+
+    expect((box() as HTMLTextAreaElement).value).toBe("@Olivia Org ");
+  });
+
+  it("Tab picks too, and other keys are left to the box", async () => {
+    await ready();
+
+    type("@mar");
+    await screen.findByRole("listbox");
+    fireEvent.keyDown(box(), { key: "a" });
+    expect(menu()).toBeTruthy();
+    fireEvent.keyDown(box(), { key: "Tab" });
+
+    expect((box() as HTMLTextAreaElement).value).toBe("@Marcus Lim ");
+  });
+
+  it("keys do nothing special while the list is closed", async () => {
+    await ready();
+
+    type("hello");
+    fireEvent.keyDown(box(), { key: "ArrowDown" });
+    fireEvent.keyDown(box(), { key: "Enter" });
+
+    expect((box() as HTMLTextAreaElement).value).toBe("hello");
+    expect(menu()).toBeNull();
+  });
+
+  it("skips people without a name", async () => {
+    await ready(undefined, { status: 200, body: [...PEOPLE, { id: "u-nameless", full_name: null }] });
+
+    type("@");
+    await screen.findByRole("listbox");
+
+    expect(options()).toEqual(["Rachel Tan", "Marcus Lim", "Olivia Org"]);
+  });
+
+  it("Enter with no matches doesn't pick anyone", async () => {
+    await ready();
+
+    type("@zz");
+    await screen.findByText(NO_MATCHES);
+    fireEvent.keyDown(box(), { key: "Enter" });
+
+    expect((box() as HTMLTextAreaElement).value).toBe("@zz");
+  });
+
+  it("works in a reply box, and mentioning the same person twice sends both", async () => {
+    const fetchMock = mockEventService([thread([FIRST])], { status: 201, body: {} });
+    setup();
+    await screen.findByText(FIRST.body);
+    fireEvent.click(replyButtons()[0]);
+
+    fireEvent.change(replyBox(), { target: { value: "@ol" } });
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "Olivia Org" }));
+    fireEvent.change(replyBox(), { target: { value: "@Olivia Org and @ol" } });
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "Olivia Org" }));
+    fireEvent.click(screen.getByRole("button", { name: "Post reply" }));
+
+    await vi.waitFor(() => expect(posts(fetchMock)).toHaveLength(1));
+    expect(sentBody(fetchMock)).toEqual({ body: "@[u-olivia] and @[u-olivia]", parent_comment_id: "c1" });
+  });
+
+  it("encodes longer names first, so one name inside another isn't split", () => {
+    const ann = { id: "u-ann", full_name: "Ann" };
+    const annLee = { id: "u-ann-lee", full_name: "Ann Lee" };
+
+    expect(encodeMentions("@Ann Lee and @Ann", [ann, annLee])).toBe("@[u-ann-lee] and @[u-ann]");
+    expect(encodeMentions("no mentions", [])).toBe("no mentions");
+  });
+
+  it("a name the writer edited after picking is posted as plain text", async () => {
+    const fetchMock = await ready({ status: 201, body: {} });
+
+    type("@ra");
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "Rachel Tan" }));
+    type("@Rachel please");
+    fireEvent.click(postButton());
+
+    await vi.waitFor(() => expect(posts(fetchMock)).toHaveLength(1));
+    expect(sentBody(fetchMock)).toEqual({ body: "@Rachel please" });
+  });
+});
+
+describe("SCRUM-27/AC3 — Display mentions", () => {
+  it("shows each mention as the person's name, set apart from the text", async () => {
+    mockEventService([thread([{
+      ...FIRST,
+      body: "Thanks @[u-olivia], looping in @[u-marcus].",
+      mentions: [{ user_id: "u-olivia", full_name: "Olivia Org" }, { user_id: "u-marcus", full_name: "Marcus Lim" }],
+    }])]);
+    setup();
+
+    const body = await screen.findByText(/Thanks/, { selector: ".comment__body" });
+    expect(body.textContent).toBe("Thanks @Olivia Org, looping in @Marcus Lim.");
+    expect([...body.querySelectorAll(".mention")].map((m) => m.textContent)).toEqual(["@Olivia Org", "@Marcus Lim"]);
+  });
+
+  it("shows a mention it can't name as an unknown user", async () => {
+    mockEventService([thread([{ ...FIRST, body: "Ask @[u-gone]", mentions: [] }])]);
+    setup();
+
+    const body = await screen.findByText(/Ask/, { selector: ".comment__body" });
+    expect(body.querySelector(".mention")!.textContent).toBe("@Unknown user");
   });
 });
