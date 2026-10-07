@@ -235,7 +235,8 @@ a { color: var(--steel-dark); }
 .profile-facts div { display: grid; gap: 2px; }
 .profile-facts dt, .profile-role h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--subtle); }
 .profile-facts dd { margin: 0; font-size: 16px; font-weight: 600; }
-.profile-facts dd[data-missing] { font-weight: 400; font-style: italic; color: var(--subtle); }
+.profile-facts dd[data-missing], .profile-missing { font-weight: 400; font-style: italic; color: var(--subtle); }
+.profile-missing { margin: 0; font-size: 16px; }
 .profile-role h3 { margin: 0 0 10px; }
 .profile-responsibilities { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .profile-responsibilities li { position: relative; padding-left: 26px; font-size: 15px; line-height: 1.4; }

@@ -134,11 +134,14 @@ confirm my role information is recorded correctly.
   `isInternalRole` in `packages/shared` says so, so the page and the service agree. **[DECIDED]**
 - **Department** is the stored `users.department` (for example "Event Coordination", "Venue Operations", "Technical
   Support"). It is read-only: the profile update already refuses a `department` field (68-S14/S16). **[DECIDED]**
-- **Responsibilities** are not stored anywhere (there is no column). They are fixed text for each internal role, kept
-  once in `packages/shared` (one entry per role, so a role cannot be left out) and taken from the Week 1 Customer Briefing
-  (its "Main Responsibility" table and event planning process) and the week 7 customer changes. The Event Coordinator no
-  longer "assigns coordinators": that moved to the Event Coordinator Lead. **[PROPOSED]** Confirm with the team that fixed
-  text for each role is acceptable.
+- **Responsibilities** are stored once for each role, not for each person, in a new lookup table `role_responsibilities`
+  (`role`, `position`, `description`; migration 17), like `event_categories` and `room_layouts`. A staff member's profile shows
+  their own department (from their `users` row) and their role's rows, in order of `position`. The table is read-only for
+  signed-in users (nobody changes it through the app), so the wording can change without a new release. The data dictionary has
+  no such table, so this adds one; the rows are inserted by the migration. The wording follows the Week 1 Customer Briefing (its
+  "Main Responsibility" table and event planning process) and the week 7 customer changes. The Event Coordinator no longer
+  "assigns coordinators": that moved to the Event Coordinator Lead. **[DECIDED]** Whoever creates accounts for a role must make
+  sure the role has rows, or the profile says "Not recorded".
 - **Migration 16** only adds the two role values. Accounts and departments for them, login, dashboards and access rules belong to
   their own stories (SCRUM-75 and the Safety Officer stories). Until then their dashboard is empty and they are not offered on
   the sign-in role picker. **[DECIDED]**
@@ -158,11 +161,11 @@ confirm my role information is recorded correctly.
 | ID | AC | Scenario | Expected |
 | --- | --- | --- | --- |
 | 69-S1 | AC1 | `isInternalRole` is asked about each role | true for coordinator, venue staff and technical support; false for organiser and attendee |
-| 69-S2 | AC1 | The responsibilities of each internal role are asked for | each role gets its own list, taken from the roles table in CLAUDE.md |
-| 69-S3 | AC1 | The responsibilities of an external role are asked for | an empty list |
-| 69-S4 | AC1 | An internal user's `GET /profile` | includes their department and their role's responsibilities |
+| 69-S2 | AC1 | The two new roles are looked up in the shared role list | `event_coordinator_lead` and `safety_officer` exist and are internal |
+| 69-S4 | AC1 | An internal user's `GET /profile` | includes their department and the rows of their role in `role_responsibilities`, in order of `position`; another role's rows are not included |
 | 69-S5 | AC1 | An external user's `GET /profile` | `department` is `null` and `responsibilities` is `[]`, even if a department is stored |
 | 69-S6 | AC1 | An internal user with no department recorded opens `GET /profile` | `department` is `null` |
 | 69-S7 | AC1 | An internal user opens the profile page | Department and Responsibilities are shown as plain text |
 | 69-S8 | AC1 | An internal user with no department recorded opens the page | the Department line says "Not recorded" |
 | 69-S9 | AC1 | An Event Organiser or Attendee opens the page | neither line is shown |
+| 69-S10 | AC1 | A staff member whose role has no rows in `role_responsibilities` opens the page | the Responsibilities section says "Not recorded" |

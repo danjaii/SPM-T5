@@ -161,11 +161,15 @@ export function ProfileForm({ profile, save = saveProfile }: Props) {
         {internal && (
           <section aria-labelledby="responsibilities-heading">
             <h3 id="responsibilities-heading">Responsibilities</h3>
-            <ul className="profile-responsibilities">
-              {profile.responsibilities.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+            {profile.responsibilities.length === 0 ? (
+              <p className="profile-missing">Not recorded</p>
+            ) : (
+              <ul className="profile-responsibilities">
+                {profile.responsibilities.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
       </aside>

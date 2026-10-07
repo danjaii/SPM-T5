@@ -97,6 +97,17 @@ describe("SCRUM-68/AC1 profile form: viewing", () => {
     expect(screen.getByText("Not recorded")).toBeTruthy();
   });
 
+  // The responsibilities are stored for each role. If none are stored for a staff member's role, the page says so, just as it
+  // does for a missing department.
+  it("69-S10: says 'Not recorded' when no responsibilities are stored for a staff member's role", () => {
+    const staff: ProfileView = { ...profile, department: "Event Coordination", responsibilities: [] };
+
+    render(<ProfileForm profile={staff} save={vi.fn()} />);
+
+    expect(screen.getByText("Responsibilities")).toBeTruthy();
+    expect(screen.getByText("Not recorded")).toBeTruthy();
+  });
+
   // Event Organisers and Attendees are not staff, so they see neither line. Only the role (and, for organisers, the organisation)
   // describe them.
   it.each(["event_organiser", "attendee"] as const)("69-S9: shows no department or responsibilities to a %s", (role) => {

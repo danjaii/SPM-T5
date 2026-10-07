@@ -1,4 +1,3 @@
-import { responsibilitiesFor } from "@spm-t5/shared";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
@@ -46,7 +45,7 @@ describe("SCRUM-68/AC1 view profile", () => {
       role: "event_coordinator",
       organisation: null,
       department: null, // none recorded for this user
-      responsibilities: responsibilitiesFor("event_coordinator"),
+      responsibilities: [], // none stored in this test
     });
   });
   // An Event Organiser also sees which organisation they belong to (by name, as plain information).
@@ -79,15 +78,25 @@ describe("SCRUM-68/AC1 view profile", () => {
   // A staff member opens their profile.
   // They see their department.
   // They also see what their role does.
-  it("69-S4: also shows an internal user's department and their role's responsibilities", async () => {
+  it("69-S4: also shows an internal user's department and their role's responsibilities, in order", async () => {
     const id = fake.seedUser("rachel@example.com", "event_coordinator");
     Object.assign(fake.tables.users.find((u) => u.id === id)!, { department: "Event Coordination" });
+    // The responsibilities are stored once for each role, not for each person. They are stored out of order on purpose,
+    // and another role's row is there too: only this role's rows come back, in order of position.
+    fake.tables.role_responsibilities.push(
+      { role: "event_coordinator", position: 2, description: "Search for venues and submit venue booking requests" },
+      { role: "venue_staff", position: 1, description: "Prepare venues for events" },
+      { role: "event_coordinator", position: 1, description: "Act as the main internal point of contact" },
+    );
 
     const res = await request(app).get("/profile").set("Cookie", await signInAs("rachel@example.com", "event_coordinator"));
 
     expect(res.status).toBe(200);
     expect(res.body.department).toBe("Event Coordination");
-    expect(res.body.responsibilities).toEqual(responsibilitiesFor("event_coordinator"));
+    expect(res.body.responsibilities).toEqual([
+      "Act as the main internal point of contact",
+      "Search for venues and submit venue booking requests",
+    ]);
   });
 
   // Event Organisers and Attendees are not staff. They get no department and no responsibilities, even if a department was stored
@@ -107,12 +116,13 @@ describe("SCRUM-68/AC1 view profile", () => {
   // page can say "Not recorded".
   it("69-S6: gives no department, but still the responsibilities, when a staff member has none recorded", async () => {
     fake.seedUser("kenneth@example.com", "venue_staff");
+    fake.tables.role_responsibilities.push({ role: "venue_staff", position: 1, description: "Prepare venues for events" });
 
     const res = await request(app).get("/profile").set("Cookie", await signInAs("kenneth@example.com", "venue_staff"));
 
     expect(res.status).toBe(200);
     expect(res.body.department).toBeNull();
-    expect(res.body.responsibilities).toEqual(responsibilitiesFor("venue_staff"));
+    expect(res.body.responsibilities).toEqual(["Prepare venues for events"]);
   });
   // end of view profile
 });
