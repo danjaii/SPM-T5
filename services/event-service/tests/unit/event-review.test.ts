@@ -1760,6 +1760,61 @@ describe("SCRUM-27/AC1 — Search for users", () => {
 });
 
 // ---------------------------------------------------------------------------
+// SCRUM-27/AC5 — Restrict mentions
+// ---------------------------------------------------------------------------
+describe("SCRUM-27/AC5 — Restrict mentions", () => {
+  const setup = () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Olivia Org");
+    const otherOrganiser = fake.signIn("event_organiser", "Oscar Other");
+    const coordinator = fake.signIn("event_coordinator", "Carl Coord");
+    const coordinator2 = fake.signIn("event_coordinator", "Cora Coord");
+    fake.signIn("venue_staff", "Vera Venue");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({ id: eventId, name: "Tech Summit", status: "submitted", organiser_id: organiser.id });
+    const search = (cookie: string, query = "") =>
+      request(createApp(fake.deps)).get(`/events/${eventId}/mentionable-users?query=${query}`).set("Cookie", cookie);
+    return { fake, organiser, otherOrganiser, coordinator, coordinator2, eventId, search };
+  };
+  const names = (body: unknown) => (body as { full_name: string }[]).map((u) => u.full_name).sort();
+
+  it("offers the coordinators and this event's organiser, not another event's organiser or other roles", async () => {
+    const { coordinator, search } = setup();
+
+    const res = await search(coordinator.cookie);
+
+    expect(res.status).toBe(200);
+    expect(names(res.body)).toEqual(["Cora Coord", "Olivia Org"]);
+  });
+
+  it("doesn't offer the caller to themselves", async () => {
+    const { organiser, search } = setup();
+
+    const res = await search(organiser.cookie);
+
+    expect(names(res.body)).toEqual(["Carl Coord", "Cora Coord"]);
+  });
+
+  it("refuses an organiser searching on someone else's event", async () => {
+    const { otherOrganiser, search } = setup();
+
+    const res = await search(otherOrganiser.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 for an event that doesn't exist", async () => {
+    const { fake, coordinator } = setup();
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${crypto.randomUUID()}/mentionable-users`)
+      .set("Cookie", coordinator.cookie);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCRUM-27/AC2 — Add a mention
 // ---------------------------------------------------------------------------
 describe("SCRUM-27/AC2 — Add a mention", () => {
