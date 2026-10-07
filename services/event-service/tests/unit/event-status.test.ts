@@ -340,6 +340,22 @@ describe("SCRUM-8 — Edit event status", () => {
     expect((await view(otherCoordinator.cookie)).body.canChangeStatus).toBe(false);
     expect((await view(organiser.cookie)).body.canChangeStatus).toBe(false);
   });
+
+  // SCRUM-24/AC5: approve/reject actions are offered to the assigned coordinator only
+  it("SCRUM-24/AC5: tells only the assigned coordinator they can approve or reject", async () => {
+    const fake = createFake();
+    const assigned = fake.signIn("event_coordinator");
+    const otherCoordinator = fake.signIn("event_coordinator");
+    const organiser = fake.signIn("event_organiser");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", assigned_coordinator_id: assigned.id, organiser_id: organiser.id };
+    fake.tables.events.push(event);
+    const app = createApp(fake.deps);
+    const view = (cookie: string) => request(app).get(`/events/${event.id}`).set("Cookie", cookie);
+
+    expect((await view(assigned.cookie)).body.canReview).toBe(true);
+    expect((await view(otherCoordinator.cookie)).body.canReview).toBe(false);
+    expect((await view(organiser.cookie)).body.canReview).toBe(false);
+  });
   // end of UI support
 });
 // end of SCRUM-8

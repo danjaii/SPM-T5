@@ -9,7 +9,7 @@ import { VenueBookingRequestForm } from "@/components/VenueBookingRequestForm";
 
 const NOT_ELIGIBLE = "The event must be approved before a venue can be requested.";
 
-const panelEvent = (status: string, canChangeStatus = true) => ({ id: "evt-1", name: "Tech Summit", status, canChangeStatus });
+const panelEvent = (status: string, canChangeStatus = true) => ({ id: "evt-1", name: "Tech Summit", status, canChangeStatus, canReview: false });
 
 const form = {
   eventId: "evt-1",

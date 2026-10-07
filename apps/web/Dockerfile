@@ -1,6 +1,6 @@
 # Build context is the repo root (see docker-compose.yml): the lockfile and
 # packages/shared live there, not in this folder.
-FROM node:20-slim AS build
+FROM node:22-slim AS build
 RUN corepack enable
 WORKDIR /repo
 COPY . .
@@ -12,7 +12,7 @@ ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @spm-t5/web run build
 
-FROM node:20-slim
+FROM node:22-slim
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build /repo/apps/web/.next/standalone ./

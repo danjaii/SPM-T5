@@ -34,12 +34,12 @@ export function EventRequestDetails({ event }: { event: EventDetailView }) {
   ];
 
   return (
-    <section className="event" aria-labelledby="request-details">
+    <section className="event-section" aria-labelledby="request-details">
       <h2 id="request-details">Request details</h2>
       <dl className="venue__facts">
         {rows.map(([label, value]) => (
           <Fragment key={label}>
-            <dt className="text-black">{label}</dt>
+            <dt>{label}</dt>
             <dd>
               <Value>{value}</Value>
             </dd>
