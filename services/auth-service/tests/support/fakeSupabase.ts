@@ -11,21 +11,24 @@ export function createFake() {
   const authUsers: AuthUser[] = [];
   const sessions = new Map<string, string>(); // access token -> user id
   const tables: Record<string, Row[]> = {
-    users: [], events: [], venues: [], venue_bookings: [], equipment: [], technical_support_requests: [], event_registrations: [],
+    users: [], events: [], venues: [], venue_bookings: [], equipment: [], technical_support_requests: [], event_registrations: [], organisations: [],
   };
   const calls = { resetEmails: [] as { email: string; redirectTo?: string }[], signedOut: [] as string[], deleted: [] as string[] };
   const selects: { table: string; columns: string }[] = []; // every select() the app issued, to pin PostgREST embeds
   let counter = 0;
   const failProfileInsert = { value: false };
   const failReads = { value: false };
+  const failUpdates = { value: false };
   const signUpError = { value: null as null | { status: number; code: string; message: string } };
 
   const query = (table: string) => {
     let rows = [...(tables[table] ?? [])];
+    let changes: Row | undefined; // set by update(): applied to the matching rows when the query is awaited
     const builder = {
       select: (columns?: string) => { selects.push({ table, columns: columns ?? "" }); return builder; },
       eq: (col: string, val: unknown) => { rows = rows.filter((r) => r[col] === val); return builder; },
       in: (col: string, vals: unknown[]) => { rows = rows.filter((r) => vals.includes(r[col])); return builder; },
+      update: (values: Row) => { changes = values; return builder; },
       order: () => builder,
       limit: () => builder,
       maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
@@ -35,7 +38,17 @@ export function createFake() {
         tables[table].push(row);
         return { error: null };
       },
-      then: (resolve: (v: unknown) => unknown) => resolve(failReads.value ? { data: null, error: { message: "db down" } } : { data: rows, error: null }),
+      then: (resolve: (v: unknown) => unknown) => {
+        if (changes) {
+          if (failUpdates.value) return resolve({ error: { message: "db down" } });
+          // like the real users.email unique constraint (Postgres error 23505)
+          const taken = changes.email !== undefined && (tables[table] ?? []).some((r) => r.email === changes!.email && !rows.includes(r));
+          if (taken) return resolve({ error: { code: "23505", message: "duplicate key value violates unique constraint" } });
+          rows.forEach((r) => Object.assign(r, changes));
+          return resolve({ error: null });
+        }
+        return resolve(failReads.value ? { data: null, error: { message: "db down" } } : { data: rows, error: null });
+      },
     };
     return builder;
   };
@@ -96,5 +109,5 @@ export function createFake() {
     return id;
   };
 
-  return { deps, tables, authUsers, sessions, calls, selects, seedUser, failProfileInsert, failReads, signUpError };
+  return { deps, tables, authUsers, sessions, calls, selects, seedUser, failProfileInsert, failReads, failUpdates, signUpError };
 }
