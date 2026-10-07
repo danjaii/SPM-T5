@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import type { EquipmentInfo } from "../../src/readers/equipmentReader";
 import type { ReservationInfo } from "../../src/readers/reservationReader";
-import { FakeEquipmentReader, FakeReservationReader, aReservation, anEquipment, fakeDeps, fakeRoles } from "../support/fakes";
+import { FakeEquipmentReader, FakeReservationReader, aReservation, anEquipment, fakeDeps, fakeRoles, FakeReservationWriter, FakeEventReader } from "../support/fakes";
 
 // ----------------------------------------------------------------------------
 // Test setup: the app with fake data, and a helper to ask it about availability.
@@ -20,6 +20,8 @@ function setup(equipment: EquipmentInfo[] = [anEquipment()], reservations: Reser
       equipment: new FakeEquipmentReader(equipment),
       reservations: new FakeReservationReader(reservations),
       roles: fakeRoles(),
+      writer: new FakeReservationWriter(),
+      events: new FakeEventReader(),
     }),
   });
   const get = (path: string, user: string | null = "tech-1") => {
@@ -455,20 +457,21 @@ describe("SCRUM-18 Check Equipment Availability", () => {
   // Equipment names for the form's suggestions (18-S11): GET /equipment lists the catalogue, so the user can
   // pick a name instead of guessing it. Same access rule as the check itself.
   describe("SCRUM-18 equipment names for the form's suggestions", () => {
-    it("lists every item in name order, including ones that are not usable", async () => {
+    // SCRUM-19 (equipment cards): each item also carries its type and total quantity.
+    it("lists every item in name order, with type and total quantity, including ones that are not usable", async () => {
       const { get } = setup([
         anEquipment({ id: "eq-z", name: "Whiteboard Easel" }),
         anEquipment(),
         anEquipment({ id: "eq-led", name: "LED Wall Panel", operationalStatus: "damaged" }),
       ]);
-
+      // lets user see the equipment names in the catalogue
       const res = await get("/equipment");
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual([
-        { id: "eq-led", name: "LED Wall Panel", operationalStatus: "damaged" },
-        { id: "eq-projector", name: "Projector Unit", operationalStatus: "available" },
-        { id: "eq-z", name: "Whiteboard Easel", operationalStatus: "available" },
+        { id: "eq-led", name: "LED Wall Panel", type: "AV", totalQuantity: 10, operationalStatus: "damaged" },
+        { id: "eq-projector", name: "Projector Unit", type: "AV", totalQuantity: 10, operationalStatus: "available" },
+        { id: "eq-z", name: "Whiteboard Easel", type: "AV", totalQuantity: 10, operationalStatus: "available" },
       ]);
     });
 

@@ -9,6 +9,12 @@ async function lookUpRole(deps: SupabaseDeps, { id, token }: SessionUser): Promi
   return isRole(profile?.role) ? profile.role : undefined;
 }
 
+// SCRUM-44/AC5: statuses in which a request is still waiting on the organiser or the coordinator.
+const AWAITING_DECISION = ["draft", "submitted", "under_review", "returned"];
+
+// SCRUM-41/AC9: refusal shown to a coordinator who tries to reassign someone else's event.
+const REASSIGN_NOT_OWNER = "Only the coordinator assigned to this event can reassign it.";
+
 /**
  * SCRUM-24: why the caller may not decide on this event, as an HTTP status and message; undefined if they may.
  * Only the assigned coordinator (AC5) may decide, and only while the request is awaiting a decision (AC1, AC2).
@@ -162,6 +168,10 @@ export function eventRoutes(deps: SupabaseDeps) {
     const canChangeStatus = isCoordinator && event.assigned_coordinator_id === userId;
     // SCRUM-24/AC5: only the assigned coordinator may approve or reject; the UI also needs canDecideEvent(status)
     const canReview = canChangeStatus;
+    // SCRUM-42/AC8 + SCRUM-41/AC9: any coordinator may claim an unassigned event; only the assigned
+    // coordinator may reassign it. POST /:id/assign-coordinator enforces the same rule.
+    const assignedTo = event.assigned_coordinator_id ?? null;
+    const canAssign = isCoordinator && (assignedTo === null || assignedTo === userId);
     // SCRUM-42/AC5: look up the assigned coordinator's name as the organiser's point of contact
     let pointOfContactName: string | null = null;
     if (event.assigned_coordinator_id) {
@@ -180,6 +190,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       status: event.status,
       canChangeStatus,
       canReview,
+      canAssign,
       purpose: (event.purpose as string | null) ?? null,
       preferred_start_datetime: (event.preferred_start_datetime as string | null) ?? null,
       preferred_end_datetime: (event.preferred_end_datetime as string | null) ?? null,
@@ -190,6 +201,60 @@ export function eventRoutes(deps: SupabaseDeps) {
       submitted_at: (event.submitted_at as string | null) ?? null,
       organiser_name: embeddedName(event.organiser),
       point_of_contact_name: pointOfContactName,
+    });
+  });
+
+  // SCRUM-44: the review outcome of an event request — the coordinator's approve/reject decision, its reason and
+  // when it was made. AC6: the same people as GET /:id (coordinators; organisers for their own events only).
+  router.get("/:id/outcome", requireSession(deps), async (req, res) => {
+    const { id: userId, token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    const isCoordinator = role !== undefined && canReviewEvents(role);
+    const isOrganiser = role === "event_organiser";
+    if (!isCoordinator && !isOrganiser) {
+      return res.status(403).json({ error: "You are not allowed to view this event's review outcome." });
+    }
+
+    let query = deps.forUser(token).from("events").select("id, status").eq("id", req.params.id);
+    if (isOrganiser) query = query.eq("organiser_id", userId);
+    const { data: event } = await query.maybeSingle();
+    // AC6: someone else's event looks exactly like one that doesn't exist
+    if (!event) return res.status(404).json({ error: "Event not found." });
+
+    // AC5: while the request is still with the organiser or the coordinator, there is no decision to show,
+    // even if an older one exists (e.g. it was returned and resubmitted after a decision)
+    if (AWAITING_DECISION.includes(event.status as string)) return res.json({ decision: null });
+
+    const { data: history } = await deps
+      .forUser(token)
+      .from("event_status_history")
+      .select("new_status, reason, changed_at, changed_by")
+      .eq("event_id", req.params.id)
+      .in("new_status", ["approved", "rejected"])
+      .order("changed_at", { ascending: false });
+    const latest = history?.[0];
+    // e.g. cancelled before anyone decided
+    if (!latest) return res.json({ decision: null });
+
+    let decidedByName: string | null = null;
+    if (latest.changed_by) {
+      const { data: who } = await deps
+        .forUser(token)
+        .from("users")
+        .select("full_name")
+        .eq("id", latest.changed_by)
+        .maybeSingle();
+      decidedByName = (who?.full_name as string | null) ?? null;
+    }
+
+    // AC1-AC4: outcome, when, the reason (rejections always have one; approvals may not) and who decided
+    return res.json({
+      decision: {
+        outcome: latest.new_status,
+        decided_at: latest.changed_at,
+        reason: (latest.reason as string | null) ?? null,
+        decided_by_name: decidedByName,
+      },
     });
   });
 
@@ -398,10 +463,22 @@ export function eventRoutes(deps: SupabaseDeps) {
 
   // SCRUM-42/AC1: list eligible (active, event_coordinator) coordinators for a given event
   router.get("/:id/eligible-coordinators", requireSession(deps), async (req, res) => {
-    const { token } = res.locals.user as SessionUser;
+    const { id: callerId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
     if (role === undefined || !canReviewEvents(role)) {
       return res.status(403).json({ error: "You are not allowed to view eligible coordinators." });
+    }
+    const { data: event } = await deps
+      .forUser(token)
+      .from("events")
+      .select("assigned_coordinator_id")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (!event) return res.status(404).json({ error: "Event not found." });
+    const current = (event.assigned_coordinator_id as string | null) ?? null;
+    // SCRUM-41/AC9: only the assigned coordinator may hand an assigned event over
+    if (current !== null && current !== callerId) {
+      return res.status(403).json({ error: REASSIGN_NOT_OWNER });
     }
     const { data: coordinators } = await deps
       .forUser(token)
@@ -409,8 +486,11 @@ export function eventRoutes(deps: SupabaseDeps) {
       .select("id, full_name")
       .eq("role", "event_coordinator")
       .eq("is_active", true);
+    // SCRUM-42: an unassigned event can only be claimed, so the caller is the only choice.
+    // SCRUM-41/AC2 + AC10: when reassigning, the coordinator already assigned isn't a choice.
+    const eligible = (coordinators ?? []).filter((u) => (current === null ? u.id === callerId : u.id !== current));
     return res.json(
-      (coordinators ?? []).map((u) => ({ id: u.id, full_name: u.full_name })),
+      eligible.map((u) => ({ id: u.id, full_name: u.full_name })),
     );
   });
 
@@ -429,7 +509,24 @@ export function eventRoutes(deps: SupabaseDeps) {
       .select("event_id, coordinator_id, previous_coordinator_id, assigned_by, assigned_at")
       .eq("event_id", req.params.id)
       .order("assigned_at", { ascending: true });
-    return res.json(logs ?? []);
+
+    // SCRUM-43/AC2: names for display, looked up in one query (people may since have been deactivated)
+    const ids = [...new Set((logs ?? []).flatMap((l) => [l.coordinator_id, l.previous_coordinator_id, l.assigned_by]))]
+      .filter((id): id is string => typeof id === "string");
+    const { data: people } = ids.length
+      ? await deps.forUser(token).from("users").select("id, full_name").in("id", ids)
+      : { data: [] };
+    const nameOf = new Map((people ?? []).map((p) => [p.id as string, p.full_name as string | null]));
+    const name = (id: unknown) => (typeof id === "string" ? nameOf.get(id) ?? null : null);
+
+    return res.json(
+      (logs ?? []).map((l) => ({
+        ...l,
+        coordinator_name: name(l.coordinator_id),
+        previous_coordinator_name: name(l.previous_coordinator_id),
+        assigned_by_name: name(l.assigned_by),
+      })),
+    );
   });
 
   // SCRUM-42/AC3: assign an eligible coordinator to a given event
@@ -463,23 +560,31 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (!event) {
       return res.status(404).json({ error: "Event not found." });
     }
-    await deps
+    const current = (event.assigned_coordinator_id as string | null) ?? null;
+    // SCRUM-42: an unassigned event is claimed by the caller for themselves
+    if (current === null && coordinatorId !== callerId) {
+      return res.status(403).json({ error: "An unassigned event can only be assigned to yourself." });
+    }
+    // SCRUM-41/AC9: only the assigned coordinator may hand an assigned event over
+    if (current !== null && current !== callerId) {
+      return res.status(403).json({ error: REASSIGN_NOT_OWNER });
+    }
+    // SCRUM-41/AC10: reassigning to the coordinator who already has it is not a change
+    if (current === coordinatorId) {
+      return res.status(409).json({ error: "This coordinator is already assigned to the event." });
+    }
+    // SCRUM-42/AC3 + AC6, SCRUM-43/AC2: assign and record who assigned, who was assigned, the previous
+    // coordinator and when, together (see supabase/migrations/13_assign_coordinator.sql)
+    const { data: assigned, error } = await deps
       .forUser(token)
-      .from("events")
-      .update({ assigned_coordinator_id: coordinatorId })
-      .eq("id", req.params.id);
-    // SCRUM-42/AC6: record who assigned, who was assigned, and when
-    // SCRUM-43/AC2: record the previous coordinator for history display
-    await deps
-      .forUser(token)
-      .from("coordinator_assignment_logs")
-      .insert({
-        event_id: req.params.id,
-        coordinator_id: coordinatorId,
-        previous_coordinator_id: (event.assigned_coordinator_id as string | null) ?? null,
-        assigned_by: callerId,
-        assigned_at: new Date().toISOString(),
-      });
+      .rpc("assign_coordinator", { p_event_id: req.params.id, p_coordinator_id: coordinatorId })
+      .maybeSingle();
+    // A failed call (e.g. migration 13 not applied to this database) is a server fault, not a missing event
+    if (error) {
+      console.error("assign_coordinator failed:", error.message);
+      return res.status(500).json({ error: "We couldn't assign the coordinator. Please try again." });
+    }
+    if (!assigned) return res.status(404).json({ error: "Event not found." });
     return res.json({ assigned_coordinator_id: coordinatorId });
   });
 

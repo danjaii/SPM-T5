@@ -28,7 +28,7 @@ These override the text below where they conflict.
   considered. **[DECIDED]**
 - **Why a database function.** Row-level security (migrations 07 and 09) hides other coordinators' bookings from a
   coordinator, so a search run as the coordinator would wrongly show a venue as free. Migration
-  `13_venue_search.sql` adds `available_venues(p_start, p_end) returns setof uuid`, `security definer`, executable by
+  `14_venue_search.sql` adds `available_venues(p_start, p_end) returns setof uuid`, `security definer`, executable by
   `authenticated` only. It returns venue ids only, never who holds what. **[DECIDED]**
 - **Period.** A date plus a start and end time, Singapore time, same day. The date must not be before today
   (Singapore time); today itself is allowed. **[DECIDED]**

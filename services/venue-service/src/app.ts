@@ -7,6 +7,7 @@ import { bookingQueueRoutes } from "./routes/bookingQueue";
 import { venueBookingRoutes } from "./routes/venueBookings";
 import { venueRoutes } from "./routes/venues";
 import type { SupabaseDeps } from "./supabase";
+import { healthCheck } from "./index";
 
 export interface AppOptions {
   /** The clock, injected so tests can decide what "in the past" means (32-S5). */
@@ -40,6 +41,9 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
     if (req.method === "OPTIONS") return res.sendStatus(204);
     next();
   });
+
+  // SCRUM-94: liveness check for docker compose and CI; before the session check, so no login needed
+  app.get("/health", (_req, res) => res.json(healthCheck()));
 
   // SCRUM-29: the read-only venue catalogue, GET /venues and /venues/:id (coordinators and venue staff).
   app.use("/venues", venueRoutes(deps, options.venueSearch, now));
