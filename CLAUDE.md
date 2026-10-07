@@ -221,7 +221,7 @@ for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved ato
 `reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`); the equipment
 catalogue and equipment requests/approval are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
-`docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `14_event_change_requests_insert.sql`);
+`docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
 approving or rejecting a request, and applying it to the event, is not built yet.
 
 Known gaps to fix rather than work around:
@@ -231,9 +231,9 @@ Known gaps to fix rather than work around:
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
   new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings`, `08_event_review_tables.sql`
-  for the review tables, `11_events_rls.sql` for `events` and its history tables and
-  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket (tracked in
-  SCRUM-92 and SCRUM-93).
+  for the review tables, `11_event_registrations.sql` for `event_registrations` and `14_events_rls.sql`
+  for `events` and its history tables; the other tables are still blanket (tracked in SCRUM-92 and
+  SCRUM-93).
 - Services that are still stubs export `healthCheck()` but never call `listen()`, so their
   containers start and exit immediately under `docker compose up`.
 

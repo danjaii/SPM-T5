@@ -7,7 +7,7 @@ User story for **Submit an Event Change Request** (ConnectSphere, IS212), compil
 
 | Key | Title | Depends on |
 | --- | --- | --- |
-| SCRUM-66 | [Event Change Request] Submit an Event Change Request | `event_change_requests` from `01_schema.sql`; events RLS from `11_events_rls.sql` (SCRUM-91) |
+| SCRUM-66 | [Event Change Request] Submit an Event Change Request | `event_change_requests` from `01_schema.sql`; events RLS from `14_events_rls.sql` (SCRUM-91) |
 
 Approving or rejecting a change request, and applying it to the event, is a later story. This story only records the
 request.
@@ -28,7 +28,7 @@ These override the text below where they conflict.
 
   `GET /events/:id` also returns `isOrganiser` and `canRequestChange` so the page knows whether to show the form.
 - **Which statuses.** A request is allowed in every status except `draft`, `cancelled`, `rejected` and `completed`
-  (`canRequestChange` in `packages/shared`, mirrored by the INSERT policy in `14_event_change_requests_insert.sql`).
+  (`canRequestChange` in `packages/shared`, mirrored by the INSERT policy in `15_event_change_requests_insert.sql`).
   `returned` is allowed. **[DECIDED]**
 - **The event is not touched.** Organisers have no UPDATE on `events` (migration 11), and the route only inserts a
   request, so the event's details stay as they are until a request is approved. **[DECIDED]**

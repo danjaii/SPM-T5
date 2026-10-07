@@ -6,7 +6,7 @@ import { sgtToUtc, utcToSgt } from "./venueBooking";
 
 // ---------------------------------------------------------------------------
 // 66-S1..S3 (AC1-AC3): which event statuses allow a change request. Must match the INSERT policy
-// in supabase/migrations/14_event_change_requests_insert.sql.
+// in supabase/migrations/15_event_change_requests_insert.sql.
 // ---------------------------------------------------------------------------
 
 export const CHANGE_REQUEST_BLOCKED_STATUSES = ["draft", "cancelled", "rejected", "completed"] as const;

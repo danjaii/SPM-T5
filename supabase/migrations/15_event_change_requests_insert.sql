@@ -1,5 +1,5 @@
 -- ConnectSphere: let an event organiser submit a change request (SCRUM-66)
--- Follows 11_events_rls.sql (SCRUM-91), which left event_change_requests with a SELECT policy only.
+-- Follows 14_events_rls.sql (SCRUM-91), which left event_change_requests with a SELECT policy only.
 --
 --   INSERT  the event's own organiser, in their own name (requested_by = auth.uid()), as a
 --           pending request, and only while the event is past draft and not cancelled, rejected
