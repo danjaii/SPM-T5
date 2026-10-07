@@ -5,8 +5,8 @@ import type { EventVenueBookingView } from "@/lib/venueBookings";
 export function EventVenueBooking({ booking }: { booking: EventVenueBookingView | null }) {
   if (!booking) return null;
   return (
-    <section className="event">
-      <h2>Venue booking</h2>
+    <section className="event-section" aria-labelledby="venue-booking-heading">
+      <h2 id="venue-booking-heading">Venue booking</h2>
       <dl className="vb__facts">
         <dt>Venue</dt>
         <dd>{booking.venueName}</dd>
