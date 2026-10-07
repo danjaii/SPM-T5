@@ -287,6 +287,13 @@ tr:last-child td { border-bottom: 0; }
 .outcome__reason { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .outcome__reason h3 { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); margin-bottom: 6px; }
 .outcome__reason p { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* SCRUM-25: comments on an event request, oldest first */
+.comments { list-style: none; margin: 0; padding: 0; }
+.comment + .comment { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.comment .comment__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.comment__author { font-weight: 600; }
+.comment__meta time { color: var(--subtle); font-size: 14px; }
+.comment .comment__body { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
 
 /* Fact lists: label column beside the value on wide screens, stacked on phones */
