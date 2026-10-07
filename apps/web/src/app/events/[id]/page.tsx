@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { canDecideEvent } from "@spm-t5/shared";
 import { CoordinatorAssignment } from "@/components/CoordinatorAssignment";
+import { EventComments } from "@/components/EventComments";
 import { EventRequestDetails } from "@/components/EventRequestDetails";
 import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
@@ -19,6 +20,7 @@ export const metadata: Metadata = { title: "Event status · ConnectSphere" };
 // SCRUM-6/7/8: view an event's status; the assigned coordinator can also change it. SCRUM-23: the full request.
 // SCRUM-42/41/43: who coordinates it, (re)assigning them, and the assignment history.
 // SCRUM-44: the review outcome (decision, when, by whom, why).
+// SCRUM-25: the conversation between the organiser and the coordinators.
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const result = await getEvent(id);
@@ -51,6 +53,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 coordinatorName={result.event.point_of_contact_name}
                 canAssign={result.event.canAssign}
               />
+              <EventComments eventId={result.event.id} />
               <EventVenueBooking booking={venueBooking} />
               {/* SCRUM-83/AC15: the registration information page (only this page's viewers, organisers and
                   coordinators, can open it; RLS decides whose registrations they see) */}
