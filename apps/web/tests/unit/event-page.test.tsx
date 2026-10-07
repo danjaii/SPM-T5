@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getEvent } = vi.hoisted(() => ({ getEvent: vi.fn() }));
+const { getEvent, getEventOutcome } = vi.hoisted(() => ({ getEvent: vi.fn(), getEventOutcome: vi.fn() }));
 const { getApprovedVenueBooking } = vi.hoisted(() => ({ getApprovedVenueBooking: vi.fn() }));
-vi.mock("@/lib/getEvent", () => ({ getEvent }));
+vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getApprovedVenueBooking }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 
@@ -14,6 +14,7 @@ const open = async (id: string) => render(await EventPage({ params: Promise.reso
 describe("Event status page route (/events/[id])", () => {
   beforeEach(() => {
     getApprovedVenueBooking.mockReset().mockResolvedValue(null);
+    getEventOutcome.mockReset().mockResolvedValue(null);
     // CoordinatorAssignment loads the assignment history from the browser
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] }));
   });
@@ -119,5 +120,63 @@ describe("Event status page route (/events/[id])", () => {
 
     expect(screen.queryByText("Orchid Hall")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Venue booking" })).toBeNull();
+  });
+});
+
+describe("SCRUM-44 — review outcome on the event page", () => {
+  const organiserView = (status: string) => ({
+    event: { id: "evt-1", name: "Tech Summit", status, canChangeStatus: false, canReview: false, canAssign: false, point_of_contact_name: "Rachel Tan" },
+  });
+
+  beforeEach(() => {
+    getApprovedVenueBooking.mockReset().mockResolvedValue(null);
+    getEventOutcome.mockReset().mockResolvedValue(null);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("AC2, AC3: shows the organiser a rejection and its reason, first after the status", async () => {
+    getEvent.mockResolvedValue(organiserView("rejected"));
+    getEventOutcome.mockResolvedValue({ outcome: "rejected", decided_at: "2026-09-02T03:00:00Z", reason: "Venue too small.", decided_by_name: "Rachel Tan" });
+
+    await open("evt-1");
+
+    expect(getEventOutcome).toHaveBeenCalledWith("evt-1");
+    expect(screen.getAllByRole("heading", { level: 2 })[0].textContent).toBe("Review outcome");
+    expect(screen.getByText("Venue too small.")).toBeTruthy();
+  });
+
+  it.each(["submitted", "under_review"])("AC5: tells the organiser a %s request is still being reviewed", async (status) => {
+    getEvent.mockResolvedValue(organiserView(status));
+
+    await open("evt-1");
+
+    expect(screen.getByRole("heading", { name: "Review outcome" })).toBeTruthy();
+    expect(screen.getByText(/still being reviewed/)).toBeTruthy();
+  });
+
+  it.each(["draft", "returned", "cancelled"])("AC5: says nothing about review for a %s request with no decision", async (status) => {
+    getEvent.mockResolvedValue(organiserView(status));
+
+    await open("evt-1");
+
+    expect(screen.queryByRole("heading", { name: "Review outcome" })).toBeNull();
+  });
+
+  it("leaves the pending note out for the assigned coordinator, who has the Decision actions instead", async () => {
+    getEvent.mockResolvedValue({ event: { ...organiserView("submitted").event, canChangeStatus: true, canReview: true } });
+
+    await open("evt-1");
+
+    expect(screen.queryByText(/still being reviewed/)).toBeNull();
+    expect(screen.getByRole("heading", { name: "Decision" })).toBeTruthy();
+  });
+
+  it("AC6: loads no outcome when the event itself can't be shown", async () => {
+    getEvent.mockResolvedValue({ error: "Event not found." });
+
+    await open("evt-1");
+
+    expect(getEventOutcome).not.toHaveBeenCalled();
   });
 });

@@ -124,3 +124,11 @@ export async function assignCoordinator(
     return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
   }
 }
+
+/** SCRUM-44: the coordinator's decision on a request, from GET /events/:id/outcome; null while there is none. */
+export interface ReviewDecision {
+  outcome: "approved" | "rejected";
+  decided_at: string;
+  reason: string | null;
+  decided_by_name: string | null;
+}

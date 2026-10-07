@@ -278,6 +278,15 @@ tr:last-child td { border-bottom: 0; }
 .event-coordinator__name { font-weight: 600; }
 .event-coordinator .btn { width: auto; padding: 8px 16px; font-size: 15px; }
 .event-quote { margin: 12px 0 0; padding: 10px 14px; border-left: 3px solid var(--steel); background: var(--field); white-space: pre-wrap; }
+/* SCRUM-44: review outcome, a coloured badge for the decision plus when, by whom and why */
+.outcome { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.outcome-badge { padding: 4px 12px; font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid; }
+.outcome-badge--approved { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
+.outcome-badge--rejected { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+.outcome__when { color: var(--subtle); font-size: 14px; }
+.outcome__reason { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.outcome__reason h3 { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); margin-bottom: 6px; }
+.outcome__reason p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
 
 /* Fact lists: label column beside the value on wide screens, stacked on phones */
