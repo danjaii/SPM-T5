@@ -10,7 +10,7 @@ export interface PublicEventRow {
   registration_capacity: number | null;
   registration_opens_at: string | null;
   registration_closes_at: string | null;
-  /** Registrations that hold a place: registered (Confirmed) and waitlisted (Pending). */
+  /** Registrations that hold a place: registered (Confirmed) only; a Pending one doesn't (SCRUM-83/AC13, migration 11). */
   active_registrations: number;
   /** The caller's own registration for this event, if any (registration_status enum). */
   my_registration_status: string | null;
@@ -38,6 +38,8 @@ export function availabilityOf(row: PublicEventRow, now: Date): Availability {
   // Outside the registration window: it has closed, or (decided with the team) it hasn't opened yet
   if (row.registration_closes_at !== null && new Date(row.registration_closes_at) <= now) return "closed";
   if (row.registration_opens_at !== null && new Date(row.registration_opens_at) > now) return "closed";
+  // SCRUM-83/AC3: with no deadline (or a deadline after the start), registration closes when the event starts
+  if (new Date(row.start_at) <= now) return "closed";
   return "open";
 }
 
@@ -53,6 +55,19 @@ export function myRegistration(status: string | null): MyRegistration {
   return (status && ACTIVE_REGISTRATIONS[status]) || null;
 }
 
+/** SCRUM-71/AC1: what one card needs: name, date and time, and location. SCRUM-83/AC7: the registration form shows the same. */
+export function toUpcomingEvent(row: PublicEventRow, now: Date): UpcomingEvent {
+  return {
+    id: row.id,
+    name: row.name,
+    start_at: row.start_at,
+    end_at: row.end_at,
+    venue: { name: row.venue_name, address: row.venue_address },
+    availability: availabilityOf(row, now),
+    my_registration: myRegistration(row.my_registration_status),
+  };
+}
+
 /** SCRUM-71: turns the database rows into the List of events, as it stands at `now`. */
 export function toUpcomingEvents(rows: PublicEventRow[], now: Date): UpcomingEvent[] {
   return rows
@@ -60,14 +75,5 @@ export function toUpcomingEvents(rows: PublicEventRow[], now: Date): UpcomingEve
     .filter((row) => new Date(row.start_at) > now)
     // SCRUM-71/AC5: soonest first
     .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at))
-    // SCRUM-71/AC1: what each card needs: name, date and time, and location
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      start_at: row.start_at,
-      end_at: row.end_at,
-      venue: { name: row.venue_name, address: row.venue_address },
-      availability: availabilityOf(row, now),
-      my_registration: myRegistration(row.my_registration_status),
-    }));
+    .map((row) => toUpcomingEvent(row, now));
 }

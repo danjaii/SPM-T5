@@ -8,6 +8,7 @@ const FULL: EventDetailView = {
   name: "Tech Summit",
   status: "submitted",
   canChangeStatus: false,
+  canReview: true,
   purpose: "Annual industry conference",
   preferred_start_datetime: "2026-11-14T01:00:00Z", // 9:00 am in Singapore
   preferred_end_datetime: "2026-11-14T09:00:00Z", // 5:00 pm in Singapore
@@ -17,6 +18,8 @@ const FULL: EventDetailView = {
   equipment_requirements_notes: "2 projectors, 4 wireless mics",
   submitted_at: "2026-10-01T02:00:00Z",
   organiser_name: "Sam Tan",
+  point_of_contact_name: null,
+  canAssign: false,
 };
 
 const EMPTY: EventDetailView = {

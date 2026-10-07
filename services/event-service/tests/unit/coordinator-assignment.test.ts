@@ -1,5 +1,5 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../../src/app";
 import type { SupabaseDeps } from "../../src/supabase";
 
@@ -14,13 +14,15 @@ function createFake() {
 
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
+    const inFilters: Array<[string, unknown[]]> = [];
     const orClauses: string[] = [];
     let pendingUpdate: Row | null = null;
     let pendingInsert: Row | null = null;
 
     const applyFilters = () => {
       let rows = (tables[table] ?? []).filter((r) =>
-        filters.every(([col, val]) => r[col] === val),
+        filters.every(([col, val]) => r[col] === val) &&
+        inFilters.every(([col, vals]) => vals.includes(r[col])),
       );
       if (orClauses.length > 0) {
         rows = rows.filter((r) =>
@@ -45,6 +47,10 @@ function createFake() {
       select: (_cols: string) => builder,
       eq: (col: string, val: unknown) => {
         filters.push([col, val]);
+        return builder;
+      },
+      in: (col: string, vals: unknown[]) => {
+        inFilters.push([col, vals]);
         return builder;
       },
       or: (filter: string) => {
@@ -111,10 +117,26 @@ function createFake() {
         },
       },
     },
-    forUser: (_token: string) => ({
+    forUser: (token: string) => ({
       from: (table: string) => makeQuery(table),
-      rpc: (_fn: string, _args: Row) => ({
-        maybeSingle: async () => ({ data: null, error: null }),
+      rpc: (fn: string, args: Row) => ({
+        // Stands in for assign_coordinator (13_assign_coordinator.sql): update + log together
+        maybeSingle: async () => {
+          if (fn !== "assign_coordinator") return { data: null, error: null };
+          const event = tables.events.find((e) => e.id === args.p_event_id);
+          if (!event) return { data: null, error: null };
+          const previous = (event.assigned_coordinator_id as string | null | undefined) ?? null;
+          event.assigned_coordinator_id = args.p_coordinator_id;
+          tables.coordinator_assignment_logs.push({
+            id: crypto.randomUUID(),
+            event_id: args.p_event_id,
+            coordinator_id: args.p_coordinator_id,
+            previous_coordinator_id: previous,
+            assigned_by: sessions.get(token),
+            assigned_at: new Date().toISOString(),
+          });
+          return { data: { assigned_coordinator_id: args.p_coordinator_id, previous_coordinator_id: previous }, error: null };
+        },
       }),
     }),
   } as unknown as SupabaseDeps;
@@ -133,7 +155,7 @@ function createFake() {
 // SCRUM-42/AC1 — View eligible coordinators
 // ---------------------------------------------------------------------------
 describe("SCRUM-42/AC1 — View eligible coordinators", () => {
-  it("returns eligible coordinators (active, event_coordinator role) for an unassigned event", async () => {
+  it("offers only the caller for an unassigned event, which can only be claimed", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser", "Alice Johnson");
     const coordinator = fake.signIn("event_coordinator", "Bob Lee");
@@ -154,8 +176,8 @@ describe("SCRUM-42/AC1 — View eligible coordinators", () => {
 
     expect(res.status).toBe(200);
     const ids = (res.body as { id: string }[]).map((u) => u.id);
-    expect(ids).toContain(coordinator.id);
-    expect(ids).toContain(coordinator2.id);
+    expect(ids).toEqual([coordinator.id]);
+    expect(ids).not.toContain(coordinator2.id);
     expect(ids).not.toContain(organiser.id);
   });
 
@@ -273,10 +295,10 @@ describe("SCRUM-42/AC1 — View eligible coordinators", () => {
 // SCRUM-42/AC3 — Assign coordinator to event
 // ---------------------------------------------------------------------------
 describe("SCRUM-42/AC3 — Assign coordinator to event", () => {
-  it("assigns an eligible coordinator to an unassigned event", async () => {
+  it("lets a coordinator claim an unassigned event for themselves", async () => {
     const fake = createFake();
-    const caller = fake.signIn("event_coordinator", "Alice Coord");
     const assignee = fake.signIn("event_coordinator", "Bob Coord");
+    const caller = assignee;
 
     const eventId = crypto.randomUUID();
     fake.tables.events.push({
@@ -617,8 +639,8 @@ describe("SCRUM-42/AC5 — Coordinator as organiser's point of contact", () => {
 describe("SCRUM-42/AC6 — Record assignment", () => {
   it("inserts a log entry with event_id, coordinator_id, assigned_by, and assigned_at on successful assignment", async () => {
     const fake = createFake();
-    const caller = fake.signIn("event_coordinator", "Alice Coord");
     const assignee = fake.signIn("event_coordinator", "Bob Coord");
+    const caller = assignee; // an unassigned event is claimed by the coordinator themselves
 
     const eventId = crypto.randomUUID();
     fake.tables.events.push({
@@ -868,8 +890,8 @@ describe("SCRUM-43/AC2 — Display assignment information", () => {
 
   it("records previous_coordinator_id from the event when assigning a coordinator", async () => {
     const fake = createFake();
-    const caller = fake.signIn("event_coordinator", "Alice Coord");
     const existing = fake.signIn("event_coordinator", "Carol Coord");
+    const caller = existing; // SCRUM-41/AC9: only the assigned coordinator may reassign
     const newAssignee = fake.signIn("event_coordinator", "Bob Coord");
 
     const eventId = crypto.randomUUID();
@@ -912,14 +934,14 @@ describe("SCRUM-43/AC4 — Preserve historical records", () => {
     // First assignment
     const res1 = await request(createApp(fake.deps))
       .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", coordinator.cookie)
+      .set("Cookie", assignee1.cookie) // claims it
       .send({ coordinator_id: assignee1.id });
     expect(res1.status).toBe(200);
 
     // Second assignment — reassign to a different coordinator
     const res2 = await request(createApp(fake.deps))
       .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", coordinator.cookie)
+      .set("Cookie", assignee1.cookie) // hands it over
       .send({ coordinator_id: assignee2.id });
     expect(res2.status).toBe(200);
 
@@ -945,12 +967,12 @@ describe("SCRUM-43/AC4 — Preserve historical records", () => {
 
     await request(createApp(fake.deps))
       .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", coordinator.cookie)
+      .set("Cookie", assignee1.cookie) // claims it
       .send({ coordinator_id: assignee1.id });
 
     await request(createApp(fake.deps))
       .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", coordinator.cookie)
+      .set("Cookie", assignee1.cookie) // hands it over
       .send({ coordinator_id: assignee2.id });
 
     const res = await request(createApp(fake.deps))
@@ -1088,5 +1110,207 @@ describe("SCRUM-43/AC5 — Access control", () => {
       .get(`/events/${eventId}/assignment-history`);
 
     expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-41/AC2, AC10 — The current coordinator is not a reassignment choice
+// ---------------------------------------------------------------------------
+describe("SCRUM-41/AC2, AC10 — Prevent reassigning to the same coordinator", () => {
+  const setup = () => {
+    const fake = createFake();
+    const current = fake.signIn("event_coordinator", "Alice Coord");
+    const other = fake.signIn("event_coordinator", "Bob Coord");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      organiser_id: crypto.randomUUID(), assigned_coordinator_id: current.id,
+    });
+    return { fake, current, other, eventId };
+  };
+
+  it("leaves the assigned coordinator out of the eligible list", async () => {
+    const { fake, current, other, eventId } = setup();
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/eligible-coordinators`)
+      .set("Cookie", current.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ id: other.id, full_name: "Bob Coord" }]);
+  });
+
+  it("refuses to reassign to the coordinator already assigned, recording nothing", async () => {
+    const { fake, current, eventId } = setup();
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", current.cookie)
+      .send({ coordinator_id: current.id });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This coordinator is already assigned to the event." });
+    expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-42/AC3 — A failed database call is reported as a server error
+// ---------------------------------------------------------------------------
+describe("SCRUM-42/AC3 — Assignment database failure", () => {
+  it("returns 500, not 'Event not found', when assign_coordinator fails", async () => {
+    const fake = createFake();
+    const caller = fake.signIn("event_coordinator");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({ id: eventId, name: "Tech Summit", status: "submitted", organiser_id: crypto.randomUUID() });
+    const real = fake.deps.forUser;
+    const deps = {
+      ...fake.deps,
+      forUser: (token: string) => ({
+        ...real(token),
+        rpc: () => ({
+          maybeSingle: async () => ({ data: null, error: { message: "function assign_coordinator does not exist" } }),
+        }),
+      }),
+    } as unknown as SupabaseDeps;
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await request(createApp(deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", caller.cookie)
+      .send({ coordinator_id: caller.id });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't assign the coordinator. Please try again." });
+    expect(logged).toHaveBeenCalledWith("assign_coordinator failed:", "function assign_coordinator does not exist");
+    logged.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-43/AC2 — History shows people by name
+// ---------------------------------------------------------------------------
+describe("SCRUM-43/AC2 — Assignment history names", () => {
+  it("returns the names of the new coordinator, the previous one and who made the change", async () => {
+    const fake = createFake();
+    const alice = fake.signIn("event_coordinator", "Alice Coord");
+    const bob = fake.signIn("event_coordinator", "Bob Coord");
+    const carol = fake.signIn("event_coordinator", "Carol Coord", false); // since deactivated: still named
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({ id: eventId, name: "Tech Summit", status: "submitted", organiser_id: crypto.randomUUID() });
+    fake.tables.coordinator_assignment_logs.push(
+      { event_id: eventId, coordinator_id: carol.id, previous_coordinator_id: null, assigned_by: alice.id, assigned_at: "2026-09-01T10:00:00.000Z" },
+      { event_id: eventId, coordinator_id: bob.id, previous_coordinator_id: carol.id, assigned_by: carol.id, assigned_at: "2026-09-02T10:00:00.000Z" },
+    );
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${eventId}/assignment-history`)
+      .set("Cookie", alice.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ coordinator_name: "Carol Coord", previous_coordinator_name: null, assigned_by_name: "Alice Coord" });
+    expect(res.body[1]).toMatchObject({ coordinator_name: "Bob Coord", previous_coordinator_name: "Carol Coord", assigned_by_name: "Carol Coord" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-42/AC8 — Whether the viewer may assign
+// ---------------------------------------------------------------------------
+describe("SCRUM-42/AC8 — Assignment action availability", () => {
+  it("tells coordinators they can assign, and organisers they can't", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const organiser = fake.signIn("event_organiser");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({ id: eventId, name: "Tech Summit", status: "submitted", organiser_id: organiser.id });
+    const view = (cookie: string) => request(createApp(fake.deps)).get(`/events/${eventId}`).set("Cookie", cookie);
+
+    expect((await view(coordinator.cookie)).body.canAssign).toBe(true);
+    expect((await view(organiser.cookie)).body.canAssign).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-42 + SCRUM-41/AC9 — Claim an unassigned event; only the owner hands it over
+// ---------------------------------------------------------------------------
+describe("SCRUM-42, SCRUM-41/AC9 — Who may assign", () => {
+  const setup = (assigned: "nobody" | "alice") => {
+    const fake = createFake();
+    const alice = fake.signIn("event_coordinator", "Alice Coord");
+    const bob = fake.signIn("event_coordinator", "Bob Coord");
+    const carol = fake.signIn("event_coordinator", "Carol Coord");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted", organiser_id: crypto.randomUUID(),
+      assigned_coordinator_id: assigned === "alice" ? alice.id : null,
+    });
+    const assign = (cookie: string, coordinatorId: string) =>
+      request(createApp(fake.deps))
+        .post(`/events/${eventId}/assign-coordinator`)
+        .set("Cookie", cookie)
+        .send({ coordinator_id: coordinatorId });
+    const eligible = (cookie: string) =>
+      request(createApp(fake.deps)).get(`/events/${eventId}/eligible-coordinators`).set("Cookie", cookie);
+    const view = (cookie: string) => request(createApp(fake.deps)).get(`/events/${eventId}`).set("Cookie", cookie);
+    return { fake, alice, bob, carol, eventId, assign, eligible, view };
+  };
+
+  it("refuses to assign an unassigned event to someone else", async () => {
+    const { fake, alice, bob, eventId, assign } = setup("nobody");
+
+    const res = await assign(alice.cookie, bob.id);
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "An unassigned event can only be assigned to yourself." });
+    expect(fake.tables.events.find((e) => e.id === eventId)?.assigned_coordinator_id).toBeNull();
+    expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
+  });
+
+  it("lets the assigned coordinator hand the event to another coordinator", async () => {
+    const { fake, alice, bob, eventId, assign } = setup("alice");
+
+    const res = await assign(alice.cookie, bob.id);
+
+    expect(res.status).toBe(200);
+    expect(fake.tables.events.find((e) => e.id === eventId)?.assigned_coordinator_id).toBe(bob.id);
+  });
+
+  it.each(["bob", "carol"] as const)("refuses a reassignment by another coordinator (to %s)", async (target) => {
+    const { fake, alice, bob, carol, eventId, assign } = setup("alice");
+
+    const res = await assign(bob.cookie, target === "bob" ? bob.id : carol.id);
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "Only the coordinator assigned to this event can reassign it." });
+    expect(fake.tables.events.find((e) => e.id === eventId)?.assigned_coordinator_id).toBe(alice.id);
+    expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
+  });
+
+  it("refuses the eligible list to a coordinator who isn't assigned", async () => {
+    const { bob, eligible } = setup("alice");
+
+    const res = await eligible(bob.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 for the eligible list of an event that doesn't exist", async () => {
+    const fake = createFake();
+    const alice = fake.signIn("event_coordinator");
+
+    const res = await request(createApp(fake.deps))
+      .get(`/events/${crypto.randomUUID()}/eligible-coordinators`)
+      .set("Cookie", alice.cookie);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("offers assignment to any coordinator while unassigned, then only to the assigned one", async () => {
+    const unassigned = setup("nobody");
+    expect((await unassigned.view(unassigned.bob.cookie)).body.canAssign).toBe(true);
+
+    const assigned = setup("alice");
+    expect((await assigned.view(assigned.alice.cookie)).body.canAssign).toBe(true);
+    expect((await assigned.view(assigned.bob.cookie)).body.canAssign).toBe(false);
   });
 });

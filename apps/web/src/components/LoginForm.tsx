@@ -8,7 +8,17 @@ import { postJson } from "@/lib/api";
 import { Field } from "./Field";
 import { RolePicker } from "./RolePicker";
 
-export function LoginForm() {
+/** SCRUM-83/AC2: only a path on this site; "//host" and "/\host" are other sites to a browser (an open redirect). */
+function isSafePath(path: string | undefined): path is string {
+  return !!path && path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\");
+}
+
+interface Props {
+  /** SCRUM-83/AC2: where to go after signing in (e.g. the registration form a guest selected), instead of the dashboard. */
+  next?: string;
+}
+
+export function LoginForm({ next }: Props = {}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +33,7 @@ export function LoginForm() {
     const { ok, data } = await postJson<{ redirectTo: string }>("/auth/login", { email, password, role });
     if (ok) {
       // replace, so "Back" from the dashboard never returns to a filled-in sign-in form
-      router.replace(data.redirectTo);
+      router.replace(isSafePath(next) ? next : data.redirectTo);
       return;
     }
     setError(data.error ?? "Invalid email, password or role.");

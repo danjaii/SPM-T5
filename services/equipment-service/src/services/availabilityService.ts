@@ -13,6 +13,8 @@ export interface Caller {
 export interface EquipmentOption {
   id: string;
   name: string;
+  type: string | null;
+  totalQuantity: number;
   operationalStatus: string;
 }
 
@@ -87,7 +89,7 @@ export class AvailabilityService {
     this.requireTechnicalSupport(caller);
     const items = await this.ports.equipment.list();
     return items
-      .map(({ id, name, operationalStatus }) => ({ id, name, operationalStatus }))
+      .map(({ id, name, type, totalQuantity, operationalStatus }) => ({ id, name, type, totalQuantity, operationalStatus }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
