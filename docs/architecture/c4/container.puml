@@ -8,7 +8,7 @@ Person(user, "User", "Organiser / Coordinator / Venue Staff / Tech Support / Att
 System_Boundary(connectsphere, "ConnectSphere") {
   Container(web, "Web App", "Next.js, React", "Server-rendered UI; role-based views and forms")
 
-  Container(authSvc, "Auth Service", "Node.js/TypeScript", "Wraps Supabase Auth; issues role/permission checks")
+  Container(authSvc, "Auth Service", "Node.js/TypeScript", "Wraps Supabase Auth; issues role/permission checks; a user's own profile (view and update)")
   Container(eventSvc, "Event Service", "Node.js/TypeScript", "Event request creation, drafts, review, approval workflow, coordinator assignment, attendee registration")
   Container(venueSvc, "Venue Service", "Node.js/TypeScript", "Venue availability, booking requests, double-hold prevention, capacity checks")
   Container(equipmentSvc, "Equipment Service", "Node.js/TypeScript", "Equipment catalogue, availability checks, reservations")

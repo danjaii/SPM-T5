@@ -17,6 +17,10 @@ on:
 jobs:
   render:
     runs-on: ubuntu-latest
+    # The push step commits the re-rendered SVGs back to main, which needs write access to repo contents.
+    # GITHUB_TOKEN is read-only by default, so grant it explicitly (PR runs only read, but the job-level grant is harmless).
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
