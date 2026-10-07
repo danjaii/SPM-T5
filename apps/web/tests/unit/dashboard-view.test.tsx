@@ -60,4 +60,17 @@ describe("Dashboard tables", () => {
   });
   // if role is technical support staff, we can see the link. Else, no
   // end of SCRUM-18 dashboard link
+
+  // we want to test that if the person is technical support staff, they can see the link to reserve equipment
+
+  // SCRUM-19: only Technical Support Staff see the link to reserve equipment.
+  // Every role comes from the shared ROLES list, so a role added later is checked too.
+  it.each(ROLES)("SCRUM-19: for a %s, shows the 'Reserve equipment' link only if Technical Support Staff", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    const link = screen.queryByRole("link", { name: "Reserve equipment" });
+    if (role === "technical_support_staff") expect(link?.getAttribute("href")).toBe("/equipment-reservation");
+    else expect(link).toBeNull();
+  });
+  // end of SCRUM-19 dashboard link
 });

@@ -17,6 +17,19 @@ function isRealDate(date: string): boolean {
   return probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day;
 }
 
+/**
+ * The quantity rule, shared by SCRUM-18 (checking availability) and SCRUM-19 (reserving): a whole number of at least
+ * 1. Returns the message to show, or undefined when the quantity is fine. Spaces around it are ignored, and a
+ * quantity left out entirely counts as empty.
+ */
+export function quantityError(value: unknown): string | undefined {
+  const quantity = String(value ?? "").trim();
+  if (quantity === "") return "Please enter the quantity required.";
+  // Digits only (so no "-", "." or letters), and not 0.
+  if (!/^\d+$/.test(quantity) || Number(quantity) < 1) return "Please enter a whole number of at least 1.";
+  return undefined;
+}
+
 /** A checked, cleaned-up question, ready to work with. */
 export interface AvailabilityInput {
   equipmentName: string;
@@ -54,36 +67,78 @@ export function parseAvailabilityInput(body: unknown, now: Date): ParsedAvailabi
   const startTime = text(query.startTime);
   const endTime = text(query.endTime);
 
+  const period = { date, startTime, endTime };
+
   // AC4 + AC6: collect a prompt for every missing field, then refuse once, so the user sees them all together.
-  const missing: Record<string, string> = {};
+  const missing: Record<string, string> = { ...periodMissing(period) };
   if (equipmentName === "") missing.equipmentName = "Please enter the equipment name.";
-  if (quantity === "") missing.quantity = "Please enter the quantity required.";
-  if (date === "") missing.date = "Please enter a date.";
-  if (startTime === "") missing.startTime = "Please enter a start time.";
-  if (endTime === "") missing.endTime = "Please enter an end time.";
+  if (quantity === "") missing.quantity = quantityError(quantity)!;
   if (Object.keys(missing).length > 0) return { ok: false, fieldErrors: missing };
 
   // AC7: everything is filled in, but is it valid? First the format of each field...
-  const invalid: Record<string, string> = {};
+  const invalid: Record<string, string> = { ...periodFormatErrors(period) };
   // 18-S12: digits only (so no "-", "." or letters), and not 0.
-  if (!/^\d+$/.test(quantity) || Number(quantity) < 1) invalid.quantity = "Please enter a whole number of at least 1.";
+  const quantityProblem = quantityError(quantity);
+  if (quantityProblem) invalid.quantity = quantityProblem;
+  if (Object.keys(invalid).length > 0) return { ok: false, fieldErrors: invalid };
+
+  // ...then whether the period itself makes sense.
+  const timing = periodTimingError(period, now);
+  if (!timing.ok) return { ok: false, fieldErrors: timing.fieldErrors };
+
+  return {
+    ok: true,
+    data: { equipmentName, quantity: Number(quantity), date, startTime, endTime, start: timing.start, end: timing.end },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The date and time period rules, shared by SCRUM-18 (checking availability) and SCRUM-19 (reserving), in the
+// three stages both use: missing, wrong format, then whether the period makes sense.
+// ---------------------------------------------------------------------------
+
+/** A period as typed: a date (YYYY-MM-DD) and a start and end time (HH:MM), Singapore time, already trimmed. */
+export interface PeriodFields {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+/** Stage 1: a prompt for each of the date, start time and end time that is empty. */
+export function periodMissing({ date, startTime, endTime }: PeriodFields): Record<string, string> {
+  const missing: Record<string, string> = {};
+  if (date === "") missing.date = "Please enter a date.";
+  if (startTime === "") missing.startTime = "Please enter a start time.";
+  if (endTime === "") missing.endTime = "Please enter an end time.";
+  return missing;
+}
+
+/** Stage 2: a message for each field that is filled in but in the wrong format, or a date that does not exist. */
+export function periodFormatErrors({ date, startTime, endTime }: PeriodFields): Record<string, string> {
+  const invalid: Record<string, string> = {};
   if (!DATE_FORMAT.test(date)) invalid.date = "Please enter the date as YYYY-MM-DD.";
   else if (!isRealDate(date)) invalid.date = "Please enter a real date.";
   if (!TIME_FORMAT.test(startTime)) invalid.startTime = "Please enter the start time as HH:MM.";
   if (!TIME_FORMAT.test(endTime)) invalid.endTime = "Please enter the end time as HH:MM.";
-  if (Object.keys(invalid).length > 0) return { ok: false, fieldErrors: invalid };
+  return invalid;
+}
 
+/**
+ * Stage 3 (only for a period that passed stages 1 and 2): the end must be after the start, and the start must not
+ * be before `now`. On success, the period as the UTC instants the database uses.
+ */
+export function periodTimingError(
+  { date, startTime, endTime }: PeriodFields,
+  now: Date,
+): { ok: true; start: Date; end: Date } | { ok: false; fieldErrors: Record<string, string> } {
   // The form's date and times are Singapore time; the database stores UTC.
   const start = sgtToUtc(date, startTime);
   const end = sgtToUtc(date, endTime);
-
-  // ...then whether the period itself makes sense.
   if (end.getTime() <= start.getTime()) {
     return { ok: false, fieldErrors: { endTime: "The end time must be after the start time." } };
   }
   if (start.getTime() < now.getTime()) {
     return { ok: false, fieldErrors: { startTime: "The date and time must not be in the past." } };
   }
-
-  return { ok: true, data: { equipmentName, quantity: Number(quantity), date, startTime, endTime, start, end } };
+  return { ok: true, start, end };
 }

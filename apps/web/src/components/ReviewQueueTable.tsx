@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReviewQueueItem } from "@/lib/eventsApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,7 +21,12 @@ export function ReviewQueueTable({ events }: { events: ReviewQueueItem[] }) {
       <TableBody>
         {events.map((event) => (
           <TableRow key={event.id}>
-            <TableCell className="font-medium">{event.name}</TableCell>
+            <TableCell className="font-medium">
+              {/* SCRUM-23/AC1: open the full request from the list */}
+              <Link href={`/events/${encodeURIComponent(event.id)}`} className="underline-offset-4 hover:underline">
+                {event.name}
+              </Link>
+            </TableCell>
             <TableCell>{event.organiser_name ?? "—"}</TableCell>
             <TableCell>
               <EventStatusBadge status={event.status} />

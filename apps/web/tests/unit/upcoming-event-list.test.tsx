@@ -119,6 +119,42 @@ describe("SCRUM-71 — List of events cards", () => {
   });
   // end of AC9
 
+  // ---------------------------------------------------------------------------
+  // SCRUM-83 — Register for an event, from the cards
+  // ---------------------------------------------------------------------------
+
+  // SCRUM-83/AC1: the attendee can click "Register" on each event card, each leading to that event's form
+  it("SCRUM-83/AC1 gives each open event card its own Register link", () => {
+    render(
+      <UpcomingEventList
+        events={[anEvent({ id: "evt-1", name: "Tech Summit" }), anEvent({ id: "evt-2", name: "Design Meetup" })]}
+      />,
+    );
+
+    const [first, second] = screen.getAllByRole("article");
+    expect(within(first).getByRole("link", { name: "Register" }).getAttribute("href")).toBe("/events/evt-1/register");
+    expect(within(second).getByRole("link", { name: "Register" }).getAttribute("href")).toBe("/events/evt-2/register");
+  });
+
+  // SCRUM-83/AC3: when registration has closed, Register is hidden and the attendee sees "Registration closed"
+  // (the label's capitalisation comes from SCRUM-71/AC7, so it's matched without case)
+  it("SCRUM-83/AC3 hides Register and says registration is closed on a closed event", () => {
+    render(<UpcomingEventList events={[anEvent({ availability: "closed" })]} />);
+
+    const card = screen.getByRole("article");
+    expect(within(card).getByText(/registration closed/i)).toBeTruthy();
+    expect(within(card).queryByRole("link", { name: "Register" })).toBeNull();
+  });
+
+  // SCRUM-83/AC4: when Confirmed registrations equal the capacity, the attendee sees "Event full" and can't register
+  it("SCRUM-83/AC4 hides Register and says the event is full on a full event", () => {
+    render(<UpcomingEventList events={[anEvent({ availability: "full" })]} />);
+
+    const card = screen.getByRole("article");
+    expect(within(card).getByText(/event full/i)).toBeTruthy();
+    expect(within(card).queryByRole("link", { name: "Register" })).toBeNull();
+  });
+
   // AC10: with an active registration, the card shows its status instead of the Register button
   it("SCRUM-71/AC10 shows the attendee's Confirmed or Pending registration instead of the Register button", () => {
     render(

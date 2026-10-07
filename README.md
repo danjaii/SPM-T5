@@ -45,8 +45,7 @@ backed by one Supabase Postgres.
 | `equipment-service` | 4004 | Equipment catalogue, availability checks, reservations, technical support (formerly `coordinator-service`) |
 | `notification-service` | 4005 | In-app/email notifications, triggered by event-service status changes |
 
-Attendee registration is not yet assigned to a service (most likely `event-service`) — see
-[`CLAUDE.md`](CLAUDE.md).
+Attendee registration (SCRUM-83) is owned by `event-service`.
 
 ## Roles
 
@@ -320,15 +319,17 @@ rather than editing an applied one.
 | `05_venue_booking_withdrawn.sql` | Adds the withdrawn state for venue bookings |
 | `06_venue_booking_requests.sql` | Venue booking request schema; slot-exclusion and one-active-request-per-event constraints |
 | `07_venue_bookings_rls.sql` | Per-role/own-row RLS for `venue_bookings` |
+| `11_event_registrations.sql` | One active registration per attendee per event (history kept); `list_public_events()` counts Confirmed only; per-role/own-row RLS for `event_registrations` |
 
 ## Current status
 
 This is the release-1 build. `auth-service`, `event-service` and `venue-service` are built out;
 the Venue Staff approval routes (SCRUM-37 to 40) are not. `equipment-service` is built out for the
-read-only availability check (SCRUM-18). `notification-service` only serves `GET /health` so far: it
+availability check (SCRUM-18) and equipment reservation (SCRUM-19). `notification-service` only serves `GET /health` so far: it
 listens on its port, but sends no notifications yet.
 
-RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`):
+RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`) and
+`event_registrations` (`11_event_registrations.sql`):
 any authenticated user can access every row. Per-role/own-row policies for the rest are pending.
 
 ## Dependency notes
