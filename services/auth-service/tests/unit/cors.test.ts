@@ -46,3 +46,17 @@ describe("SCRUM-22: auth-service CORS", () => {
     expect(old.headers["access-control-allow-origin"]).toBeUndefined();
   });
 });
+
+// SCRUM-68: the profile page saves with PATCH, and the browser first asks whether PATCH is allowed.
+describe("SCRUM-68: auth-service CORS allows saving a profile", () => {
+  // this test only passes if the system allows PATCH
+  it("lets the web origin use PATCH", async () => {
+    const res = await request(app)
+      .options("/profile")
+      .set("Origin", WEB)
+      .set("Access-Control-Request-Method", "PATCH");
+
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-methods"]).toContain("PATCH");
+  });
+});

@@ -441,11 +441,24 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.status(201).json({});
   });
 
-  // SCRUM-27/AC1: search for users eligible to access the request (coordinators and organisers)
+  // SCRUM-27/AC1: search for users eligible to access the request
+  // SCRUM-27/AC5: that is the coordinators and this event's own organiser (as user_can_access_event in
+  // migration 08 decides), never another event's organiser; the caller isn't offered to themselves
   router.get("/:id/mentionable-users", requireSession(deps), async (req, res) => {
-    const { token } = res.locals.user as SessionUser;
+    const { id: callerId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
     if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
+      return res.status(403).json({ error: "You are not allowed to search for users on this event." });
+    }
+    const { data: event } = await deps
+      .forUser(token)
+      .from("events")
+      .select("organiser_id")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (!event) return res.status(404).json({ error: "Event not found." });
+    const organiserId = event.organiser_id as string;
+    if (role === "event_organiser" && organiserId !== callerId) {
       return res.status(403).json({ error: "You are not allowed to search for users on this event." });
     }
     const query = typeof req.query.query === "string" ? req.query.query.trim().toLowerCase() : "";
@@ -453,9 +466,10 @@ export function eventRoutes(deps: SupabaseDeps) {
       .forUser(token)
       .from("users")
       .select("id, full_name")
-      .or("role.eq.event_coordinator,role.eq.event_organiser");
+      .or(`role.eq.event_coordinator,id.eq.${organiserId}`);
     const result = (users ?? [])
       .filter((u) => {
+        if (u.id === callerId) return false;
         if (!query) return true;
         const name = typeof u.full_name === "string" ? u.full_name.toLowerCase() : "";
         return name.includes(query);

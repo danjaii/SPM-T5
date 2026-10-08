@@ -211,6 +211,38 @@ a { color: var(--steel-dark); }
   .reserve-form__grid > .equipment-picker { grid-column: 1; grid-row: auto; }
 }
 
+/* SCRUM-68, SCRUM-69 profile page: "Your details" (editable) on the left, "Your role" (set by ConnectSphere, read-only) on the right.
+   On narrow screens the two cards stack. */
+.profile-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: 24px; align-items: start; max-width: 1040px; }
+.profile-card { background: #fff; border: 1px solid var(--line); padding: 24px 28px; }
+.profile-card h2 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+.profile-card__intro { margin: 0 0 20px; font-size: 14px; color: var(--subtle); }
+.profile-form .field label { font-size: 15px; color: var(--ink); }
+.profile-prefs { border: 0; padding: 0; margin: 0 0 24px; }
+.profile-prefs legend { font-size: 15px; padding: 0; margin-bottom: 8px; }
+.profile-prefs__options { display: flex; flex-wrap: wrap; gap: 12px; }
+.profile-pref { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 15px; cursor: pointer; background: var(--field); border: 1px solid var(--line); }
+.profile-pref:has(input:checked) { background: var(--selected); border-color: var(--steel); font-weight: 600; }
+.profile-pref input { width: 16px; height: 16px; accent-color: var(--steel-dark); }
+.profile-actions { display: flex; justify-content: flex-end; }
+.profile-actions .btn { width: auto; min-width: 180px; }
+.profile-role { border-top: 4px solid var(--steel); }
+.profile-who { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #dcdfe3; }
+.profile-avatar { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--navy); color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 18px; letter-spacing: 0.02em; }
+.profile-who__role { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.profile-who__kind { margin: 2px 0 0; font-size: 13px; font-weight: 600; color: var(--steel-dark); }
+.profile-facts { display: grid; gap: 14px; margin: 0 0 20px; }
+.profile-facts div { display: grid; gap: 2px; }
+.profile-facts dt, .profile-role h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--subtle); }
+.profile-facts dd { margin: 0; font-size: 16px; font-weight: 600; }
+.profile-facts dd[data-missing], .profile-missing { font-weight: 400; font-style: italic; color: var(--subtle); }
+.profile-missing { margin: 0; font-size: 16px; }
+.profile-role h3 { margin: 0 0 10px; }
+.profile-responsibilities { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.profile-responsibilities li { position: relative; padding-left: 26px; font-size: 15px; line-height: 1.4; }
+.profile-responsibilities li::before { content: "\2713"; position: absolute; left: 0; top: 0; font-weight: 700; color: var(--ok); }
+@media (max-width: 860px) { .profile-layout { grid-template-columns: 1fr; } }
+
 /* ---------- Dashboard ---------- */
 .dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; background: var(--navy); color: #fff; }
 .dash__who { display: flex; align-items: center; gap: 20px; font-size: 14px; }
@@ -287,6 +319,28 @@ tr:last-child td { border-bottom: 0; }
 .outcome__reason { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .outcome__reason h3 { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); margin-bottom: 6px; }
 .outcome__reason p { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* SCRUM-25: comments on an event request, oldest first */
+.comments { list-style: none; margin: 0; padding: 0; }
+.comment + .comment { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.comment .comment__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.comment__author { font-weight: 600; }
+.comment__meta time { color: var(--subtle); font-size: 14px; }
+.comment .comment__body { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* SCRUM-26/AC2: replies indented under the comment they answer */
+.comments--replies { margin: 12px 0 0; padding-left: 16px; border-left: 2px solid var(--border); }
+.comments--replies .comment + .comment { margin-top: 12px; padding-top: 12px; }
+.comment__reply { margin-top: 8px; padding: 0; background: none; border: 0; color: var(--steel-dark); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.comment__reply:hover { text-decoration: underline; }
+.comment__reply:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.comment-form > .alert { margin: 0 0 12px; }
+/* SCRUM-27: @mentions, set apart in posted comments (AC3) and offered as you type (AC1) */
+.mention { padding: 0 3px; background: var(--selected); color: var(--steel-dark); font-weight: 600; }
+.mention-field { position: relative; }
+.mention-menu { position: absolute; left: 0; right: 0; z-index: 10; margin-top: 4px; background: #fff; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }
+.mention-menu ul { list-style: none; margin: 0; padding: 4px 0; }
+.mention-menu li { padding: 8px 12px; cursor: pointer; }
+.mention-menu li[aria-selected="true"], .mention-menu li:hover { background: var(--selected); color: var(--steel-dark); }
+.mention-menu__empty { padding: 8px 12px; color: var(--subtle); }
 .alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
 
 /* Fact lists: label column beside the value on wide screens, stacked on phones */
