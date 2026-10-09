@@ -213,6 +213,10 @@ describe("US3 — Role based access", () => {
     ["technical_support_staff", ["Equipment", "Technical support requests"]],
     // SCRUM-71/AC1: the attendee's List of events comes from event-service now, not this endpoint
     ["attendee", ["My registrations & tickets"]],
+    // SCRUM-69 / week 7 changes: two new internal roles. Their real dashboards (the Lead's queue, the Safety Officer's checks)
+    // come with their own stories, so for now they get an empty one, and not an error.
+    ["event_coordinator_lead", []],
+    ["safety_officer", []],
   ])("%s only sees its own dashboard sections", async (role, expected) => {
     fake.seedUser(`${role}@example.com`, role);
     expect(await sectionTitles(`${role}@example.com`, role)).toEqual(expected);

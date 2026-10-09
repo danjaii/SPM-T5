@@ -2,6 +2,9 @@ import { z } from "zod";
 
 // SCRUM-83: the event registration form's rules, shared by event-service and apps/web so both check the same way.
 
+/** An optional +, then 8 to 15 digits, with single spaces or hyphens allowed between them. Also used by the profile (SCRUM-68). */
+export const PHONE_PATTERN = /^\+?(?:\d[\s-]?){7,14}\d$/;
+
 export const registrationFormSchema = z.object({
   // SCRUM-83/AC10: required; spaces alone don't count
   name: z.string().trim().min(1, "Name is required."),
@@ -13,7 +16,7 @@ export const registrationFormSchema = z.object({
     .string()
     .trim()
     .min(1, "Contact number is required.")
-    .regex(/^\+?(?:\d[\s-]?){7,14}\d$/, "Enter a valid contact number."),
+    .regex(PHONE_PATTERN, "Enter a valid contact number."),
 });
 
 export type RegistrationForm = z.infer<typeof registrationFormSchema>;
