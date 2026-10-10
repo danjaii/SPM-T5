@@ -77,7 +77,8 @@ describe("SCRUM-25/AC1 — Add a comment", () => {
     type("  Yes, 120 people.  ");
     fireEvent.click(postButton());
 
-    expect(await screen.findByText(SECOND.body)).toBeTruthy();
+    // the typed text is mirrored into the textarea, so look past it for the posted comment
+    expect(await screen.findByText(SECOND.body, { ignore: "textarea" })).toBeTruthy();
     const [url, init] = posts(fetchMock)[0] as [string, RequestInit];
     expect(url).toBe("http://localhost:4002/events/evt-1/comments");
     expect(JSON.parse(init.body as string)).toEqual({ body: "Yes, 120 people." });
@@ -232,7 +233,7 @@ describe("SCRUM-26/AC1 — Reply to a comment", () => {
     fireEvent.change(replyBox(), { target: { value: "  About 120. " } });
     fireEvent.click(screen.getByRole("button", { name: "Post reply" }));
 
-    expect(await screen.findByText(REPLY_1.body)).toBeTruthy();
+    expect(await screen.findByText(REPLY_1.body, { ignore: "textarea" })).toBeTruthy();
     const [, init] = posts(fetchMock)[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ body: "About 120.", parent_comment_id: "c1" });
     expect(screen.queryByLabelText(/^Reply to /)).toBeNull(); // the reply box closes once posted
