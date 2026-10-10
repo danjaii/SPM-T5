@@ -7,6 +7,9 @@ export interface VenueSearchResult {
   name: string;
   address: string;
   max_capacity: number;
+  /** Daily opening and closing time "HH:MM" (Singapore time); null when the venue states no limit. */
+  opening_time: string | null;
+  closing_time: string | null;
   is_accessible: boolean;
   accessibility_notes: string | null;
   layouts: { id: string; name: string; max_capacity: number }[];
@@ -28,6 +31,8 @@ export async function searchVenues(reader: VenueSearchReader, input: VenueSearch
       name: v.name,
       address: v.address,
       max_capacity: v.maxCapacity,
+      opening_time: v.openingTime,
+      closing_time: v.closingTime,
       is_accessible: v.isAccessible,
       accessibility_notes: v.accessibilityNotes,
       layouts: v.layouts.map((l) => ({ id: l.id, name: l.name, max_capacity: l.maxCapacity })),
@@ -35,9 +40,26 @@ export async function searchVenues(reader: VenueSearchReader, input: VenueSearch
     }));
 }
 
+/**
+ * AC1: is the venue open for the period? A venue with no stated hours is always open. Otherwise the period's
+ * start time must not be before opening and its end time must not be after closing; a closing time of 00:00 means
+ * midnight (24:00). For a period over several days this assumes each day's event hours stay inside the venue's
+ * daily hours, the same way a booking holds one continuous range.
+ */
+function isOpenFor(venue: SearchableVenue, input: VenueSearchInput): boolean {
+  if (!venue.openingTime || !venue.closingTime) return true;
+  const closing = venue.closingTime === "00:00" ? "24:00" : venue.closingTime;
+  return venue.openingTime <= input.startTime && input.endTime <= closing;
+}
+
 function meetsCriteria(venue: SearchableVenue, input: VenueSearchInput): boolean {
-  // AC2: location is a case-insensitive "contains" match on the address.
-  if (input.location && !venue.address.toLowerCase().includes(input.location.toLowerCase())) return false;
+  if (!isOpenFor(venue, input)) return false;
+
+  // AC2: location is a case-insensitive "contains" match on the venue's name or its address.
+  const location = input.location?.toLowerCase();
+  if (location && !venue.name.toLowerCase().includes(location) && !venue.address.toLowerCase().includes(location)) {
+    return false;
+  }
   if (input.accessible && !venue.isAccessible) return false;
 
   // AC2: the venue must support the chosen layout.

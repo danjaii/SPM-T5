@@ -23,8 +23,9 @@ interface Props {
 // venue-service's word for word (AC4, AC5, AC6).
 export function VenueSearchForm({ options, search = searchVenues }: Props) {
   const [query, setQuery] = useState<VenueSearchQuery>({
-    date: "",
+    startDate: "",
     startTime: "09:00",
+    endDate: "",
     endTime: "17:00",
     attendance: "",
     location: "",
@@ -37,8 +38,17 @@ export function VenueSearchForm({ options, search = searchVenues }: Props) {
   const [venues, setVenues] = useState<VenueSearchResultView[]>();
   const [searching, setSearching] = useState(false);
 
-  const set = (key: "date" | "startTime" | "endTime" | "attendance" | "location" | "layoutId") =>
+  const set = (key: "startTime" | "endDate" | "endTime" | "attendance" | "location" | "layoutId") =>
     (e: { target: { value: string } }) => setQuery((q) => ({ ...q, [key]: e.target.value }));
+
+  // A one-day search needs one pick: the end date follows the start date while it is empty or would fall before it.
+  const setStartDate = (e: { target: { value: string } }) =>
+    setQuery((q) => {
+      const startDate = e.target.value;
+      return { ...q, startDate, endDate: q.endDate === "" || q.endDate < startDate ? startDate : q.endDate };
+    });
+
+  const today = utcToSgt(new Date()).date;
 
   const toggleFacility = (id: string) =>
     setQuery((q) => ({
@@ -72,18 +82,21 @@ export function VenueSearchForm({ options, search = searchVenues }: Props) {
 
   return (
     <div>
-      <form className="auth__form" onSubmit={onSubmit} noValidate style={{ maxWidth: 480, marginBottom: 32 }}>
+      <form className="auth__form venue-search" onSubmit={onSubmit} noValidate style={{ maxWidth: 480, marginBottom: 32 }}>
         {error && (
           <div className="alert alert--error" role="alert">
             {error}
           </div>
         )}
 
-        {/* AC5: min greys out days before today (Singapore time), so a past date cannot be picked */}
-        <Field id="date" label="Date" type="date" min={utcToSgt(new Date()).date}
-          value={query.date} onChange={set("date")} error={fieldErrors.date} />
+        {/* AC5: min greys out days before today (Singapore time), so a past date cannot be picked. The end date
+            cannot be picked before the start date either (AC6). */}
+        <Field id="startDate" label="Start date" type="date" min={today}
+          value={query.startDate} onChange={setStartDate} error={fieldErrors.startDate} />
         <Field id="startTime" label="Start time" type="time"
           value={query.startTime} onChange={set("startTime")} error={fieldErrors.startTime} />
+        <Field id="endDate" label="End date" type="date" min={query.startDate || today}
+          value={query.endDate} onChange={set("endDate")} error={fieldErrors.endDate} />
         <Field id="endTime" label="End time" type="time"
           value={query.endTime} onChange={set("endTime")} error={fieldErrors.endTime} />
 
@@ -115,7 +128,7 @@ export function VenueSearchForm({ options, search = searchVenues }: Props) {
           <fieldset className="field">
             <legend>Required facilities (optional)</legend>
             {options.facilities.map((f) => (
-              <label key={f.id} style={{ display: "block" }}>
+              <label key={f.id}>
                 <input type="checkbox" name="facilityIds" value={f.id} checked={query.facilityIds.includes(f.id)}
                   onChange={() => toggleFacility(f.id)} />{" "}
                 {f.name}

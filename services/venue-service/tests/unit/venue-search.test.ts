@@ -61,6 +61,8 @@ const venue = (over: Partial<SearchableVenue> & { id: string }): SearchableVenue
   name: over.id,
   address: "1 Orchard Road",
   maxCapacity: 100,
+  openingTime: null,
+  closingTime: null,
   isAccessible: false,
   accessibilityNotes: null,
   layouts: [],
@@ -77,7 +79,7 @@ function setup(venues: SearchableVenue[], free?: string[]) {
   return { app, reader, search, signIn };
 }
 
-const SLOT = "date=2026-10-15&startTime=09:00&endTime=17:00";
+const SLOT = "startDate=2026-10-15&startTime=09:00&endDate=2026-10-15&endTime=17:00";
 const ids = (res: request.Response) => res.body.venues.map((v: { id: string }) => v.id);
 
 // ---------------------------------------------------------------------------
@@ -134,6 +136,68 @@ describe("SCRUM-65/AC2 every specified criterion must be met", () => {
     const { search } = setup(venues);
     expect(ids(await search(SLOT))).toHaveLength(5);
   });
+
+  it("65-S17 location matches the venue's name as well as its address, ignoring case", async () => {
+    const { search } = setup([
+      venue({ id: "marina", name: "Marina Bayview Hall A", address: "10 Bayfront Ave, Singapore 018956" }),
+      venue({ id: "riverside", name: "Riverside Meeting Room", address: "80 Bras Basah Road" }),
+    ]);
+    expect(ids(await search(`${SLOT}&location=MARINA`))).toEqual(["marina"]);
+    expect(ids(await search(`${SLOT}&location=bras basah`))).toEqual(["riverside"]);
+    expect(ids(await search(`${SLOT}&location=nowhere`))).toEqual([]);
+  });
+});
+
+describe("SCRUM-65/AC1 venues must be open for the period", () => {
+  const venues = [
+    venue({ id: "no-hours" }),
+    venue({ id: "office", openingTime: "08:00", closingTime: "20:00" }),
+    venue({ id: "late-opener", openingTime: "10:00", closingTime: "20:00" }),
+    venue({ id: "early-closer", openingTime: "08:00", closingTime: "16:00" }),
+    venue({ id: "midnight", openingTime: "06:00", closingTime: "00:00" }),
+  ];
+
+  it("65-S15 leaves out a venue that opens after the start or closes before the end", async () => {
+    const { search } = setup(venues);
+    expect(ids(await search(SLOT))).toEqual(["no-hours", "office", "midnight"]);
+  });
+
+  it("65-S15 keeps a venue with no stated hours, and treats a 00:00 closing time as midnight", async () => {
+    const { search } = setup(venues);
+    const late = "startDate=2026-10-15&startTime=19:00&endDate=2026-10-15&endTime=23:30";
+    expect(ids(await search(late))).toEqual(["no-hours", "midnight"]);
+  });
+
+  it("65-S15 allows a period that ends exactly at closing time and starts exactly at opening", async () => {
+    const { search } = setup(venues);
+    const exact = "startDate=2026-10-15&startTime=08:00&endDate=2026-10-15&endTime=16:00";
+    expect(ids(await search(exact))).toEqual(["no-hours", "office", "early-closer", "midnight"]);
+  });
+
+  it("65-S15 shows each venue's opening hours in the result", async () => {
+    const { search } = setup([venues[1], venues[0]]);
+    const res = await search(SLOT);
+    expect(res.body.venues.map((v: { opening_time: string | null; closing_time: string | null }) => [v.opening_time, v.closing_time])).toEqual([
+      ["08:00", "20:00"],
+      [null, null],
+    ]);
+  });
+});
+
+describe("SCRUM-65/AC1 a period that spans several days", () => {
+  it("65-S16 asks the database about the whole Singapore range in UTC", async () => {
+    const { search, reader } = setup([venue({ id: "a" })]);
+    const res = await search("startDate=2026-10-15&startTime=09:00&endDate=2026-10-17&endTime=17:00");
+    expect(res.status).toBe(200);
+    expect(reader.calls[0].start).toEqual(new Date("2026-10-15T01:00:00Z"));
+    expect(reader.calls[0].end).toEqual(new Date("2026-10-17T09:00:00Z"));
+  });
+
+  it("65-S16 accepts an end time earlier than the start time when the end is on a later day", async () => {
+    const { search } = setup([venue({ id: "a" })]);
+    const res = await search("startDate=2026-10-15&startTime=18:00&endDate=2026-10-16&endTime=09:00");
+    expect(res.status).toBe(200);
+  });
 });
 
 describe("SCRUM-65/AC3 capacity at least the expected attendance", () => {
@@ -162,7 +226,12 @@ describe("SCRUM-65/AC4 missing date or time", () => {
     expect(res.status).toBe(422);
     expect(res.body).toMatchObject({
       code: "VALIDATION_FAILED",
-      fieldErrors: { date: "Please enter a date.", startTime: "Please enter a start time.", endTime: "Please enter an end time." },
+      fieldErrors: {
+        startDate: "Please enter a start date.",
+        startTime: "Please enter a start time.",
+        endDate: "Please enter an end date.",
+        endTime: "Please enter an end time.",
+      },
     });
   });
 });
@@ -170,9 +239,9 @@ describe("SCRUM-65/AC4 missing date or time", () => {
 describe("SCRUM-65/AC5 past dates", () => {
   it("65-S8 answers 422 for yesterday and does not query venues", async () => {
     const { search, reader } = setup([venue({ id: "a" })]);
-    const res = await search("date=2026-10-05&startTime=09:00&endTime=17:00");
+    const res = await search("startDate=2026-10-05&startTime=09:00&endDate=2026-10-05&endTime=17:00");
     expect(res.status).toBe(422);
-    expect(res.body.fieldErrors.date).toBe("The date must not be in the past.");
+    expect(res.body.fieldErrors.startDate).toBe("The start date must not be in the past.");
     expect(reader.calls).toHaveLength(0);
   });
 });
@@ -180,9 +249,16 @@ describe("SCRUM-65/AC5 past dates", () => {
 describe("SCRUM-65/AC6 end before start", () => {
   it("65-S9 answers 422 for an end time before the start time", async () => {
     const { search } = setup([venue({ id: "a" })]);
-    const res = await search("date=2026-10-15&startTime=17:00&endTime=09:00");
+    const res = await search("startDate=2026-10-15&startTime=17:00&endDate=2026-10-15&endTime=09:00");
     expect(res.status).toBe(422);
     expect(res.body.fieldErrors.endTime).toBe("The end time must be after the start time.");
+  });
+
+  it("65-S9 answers 422 for an end date before the start date", async () => {
+    const { search } = setup([venue({ id: "a" })]);
+    const res = await search("startDate=2026-10-15&startTime=09:00&endDate=2026-10-14&endTime=17:00");
+    expect(res.status).toBe(422);
+    expect(res.body.fieldErrors.endDate).toBe("The end date must not be before the start date.");
   });
 });
 
@@ -190,14 +266,16 @@ describe("SCRUM-65/AC7 each result shows its details", () => {
   it("65-S12 returns name, location, capacity, accessibility, layouts and facilities", async () => {
     const { search } = setup([
       venue({
-        id: "v1", name: "Orchid Hall", address: "1 Orchard Road", maxCapacity: 150, isAccessible: true, accessibilityNotes: "Step-free entrance",
+        id: "v1", name: "Orchid Hall", address: "1 Orchard Road", maxCapacity: 150, openingTime: "08:00", closingTime: "20:00",
+        isAccessible: true, accessibilityNotes: "Step-free entrance",
         layouts: [{ id: "theatre", name: "Theatre", maxCapacity: 120 }], facilities: [{ id: "projector", name: "Projector" }],
       }),
     ]);
     const res = await search(SLOT);
     expect(res.body.venues).toEqual([
       {
-        id: "v1", name: "Orchid Hall", address: "1 Orchard Road", max_capacity: 150, is_accessible: true, accessibility_notes: "Step-free entrance",
+        id: "v1", name: "Orchid Hall", address: "1 Orchard Road", max_capacity: 150, opening_time: "08:00", closing_time: "20:00",
+        is_accessible: true, accessibility_notes: "Step-free entrance",
         layouts: [{ id: "theatre", name: "Theatre", max_capacity: 120 }], facilities: [{ id: "projector", name: "Projector" }],
       },
     ]);

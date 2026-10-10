@@ -17,6 +17,7 @@ export function VenueSearchResults({ venues }: { venues: VenueSearchResultView[]
             <th scope="col">Venue</th>
             <th scope="col">Location</th>
             <th scope="col">Capacity</th>
+            <th scope="col">Opening hours</th>
             <th scope="col">Accessibility</th>
             <th scope="col">Layouts</th>
             <th scope="col">Facilities</th>
@@ -28,6 +29,7 @@ export function VenueSearchResults({ venues }: { venues: VenueSearchResultView[]
               <td><Link href={`/venues/${v.id}`}>{v.name}</Link></td>
               <td>{v.address}</td>
               <td>{v.max_capacity}</td>
+              <td>{v.opening_time && v.closing_time ? `${v.opening_time} – ${v.closing_time}` : "Not stated"}</td>
               <td>
                 {v.is_accessible ? "Accessible" : "Not accessible"}
                 {v.accessibility_notes ? ` (${v.accessibility_notes})` : ""}

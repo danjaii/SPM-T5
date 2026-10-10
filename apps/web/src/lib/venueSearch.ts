@@ -9,6 +9,9 @@ export interface VenueSearchResultView {
   name: string;
   address: string;
   max_capacity: number;
+  /** Daily opening and closing time "HH:MM"; null when the venue states no limit. */
+  opening_time: string | null;
+  closing_time: string | null;
   is_accessible: boolean;
   accessibility_notes: string | null;
   layouts: { id: string; name: string; max_capacity: number }[];
@@ -23,8 +26,9 @@ export interface VenueSearchOptions {
 
 /** The form's fields exactly as typed; venue-service checks them again. */
 export interface VenueSearchQuery {
-  date: string;
+  startDate: string;
   startTime: string;
+  endDate: string;
   endTime: string;
   attendance: string;
   location: string;
@@ -35,7 +39,12 @@ export interface VenueSearchQuery {
 
 /** Asks venue-service from the browser, sending the login cookie. Only filled-in filters are sent. */
 export async function searchVenues(query: VenueSearchQuery): Promise<ApiResult<{ venues: VenueSearchResultView[] }>> {
-  const params = new URLSearchParams({ date: query.date, startTime: query.startTime, endTime: query.endTime });
+  const params = new URLSearchParams({
+    startDate: query.startDate,
+    startTime: query.startTime,
+    endDate: query.endDate,
+    endTime: query.endTime,
+  });
   if (query.attendance.trim()) params.set("attendance", query.attendance.trim());
   if (query.location.trim()) params.set("location", query.location.trim());
   if (query.layoutId) params.set("layoutId", query.layoutId);

@@ -6,6 +6,9 @@ export interface SearchableVenue {
   name: string;
   address: string;
   maxCapacity: number;
+  /** Daily opening and closing time as "HH:MM" (Singapore time), or null when the venue has no stated limit. */
+  openingTime: string | null;
+  closingTime: string | null;
   isAccessible: boolean;
   accessibilityNotes: string | null;
   layouts: { id: string; name: string; maxCapacity: number }[];
@@ -34,6 +37,8 @@ interface VenueRow {
   name: string;
   address: string;
   max_capacity: number;
+  operating_hours_start: string | null;
+  operating_hours_end: string | null;
   is_accessible: boolean;
   accessibility_notes: string | null;
   venue_supported_layouts: { max_capacity_for_layout: number; room_layouts: { id: string; name: string } }[] | null;
@@ -41,14 +46,14 @@ interface VenueRow {
 }
 
 const SELECT =
-  "id, name, address, max_capacity, is_accessible, accessibility_notes, " +
+  "id, name, address, max_capacity, operating_hours_start, operating_hours_end, is_accessible, accessibility_notes, " +
   "venue_supported_layouts(max_capacity_for_layout, room_layouts(id, name)), venue_facilities(facilities(id, name))";
 
 export class SupabaseVenueSearchReader implements VenueSearchReader {
   constructor(private readonly db: SupabaseClient) {}
 
   async availableVenueIds(start: Date, end: Date): Promise<string[]> {
-    // available_venues is a security-definer function (migration 13), so it sees every coordinator's bookings.
+    // available_venues is a security-definer function (migration 14), so it sees every coordinator's bookings.
     const { data, error } = await this.db.rpc("available_venues", {
       p_start: start.toISOString(),
       p_end: end.toISOString(),
@@ -65,6 +70,9 @@ export class SupabaseVenueSearchReader implements VenueSearchReader {
       name: v.name,
       address: v.address,
       maxCapacity: v.max_capacity,
+      // Postgres returns time columns as "HH:MM:SS"; the search compares and shows "HH:MM".
+      openingTime: v.operating_hours_start?.slice(0, 5) ?? null,
+      closingTime: v.operating_hours_end?.slice(0, 5) ?? null,
       isAccessible: v.is_accessible,
       accessibilityNotes: v.accessibility_notes,
       layouts: (v.venue_supported_layouts ?? []).map((l) => ({

@@ -15,6 +15,8 @@ const venue = (changes: Partial<VenueSearchResultView> = {}): VenueSearchResultV
   name: "Orchid Hall",
   address: "1 Orchard Road",
   max_capacity: 150,
+  opening_time: "08:00",
+  closing_time: "20:00",
   is_accessible: true,
   accessibility_notes: "Step-free entrance",
   layouts: [{ id: "theatre", name: "Theatre", max_capacity: 120 }],
@@ -25,10 +27,12 @@ const venue = (changes: Partial<VenueSearchResultView> = {}): VenueSearchResultV
 /** A pretend venue-service; the form never reaches the network. */
 const fakeSearch = (reply: Awaited<ReturnType<typeof searchVenues>>) => vi.fn(async () => reply);
 
-function fill(changes: Partial<Record<"date" | "start" | "end", string>> = {}) {
+/** Fills the period. The end date follows the start date unless one is given, as it does for a person. */
+function fill(changes: Partial<Record<"date" | "start" | "end" | "endDate", string>> = {}) {
   const v = { date: "2099-10-15", start: "09:00", end: "17:00", ...changes };
-  fireEvent.change(screen.getByLabelText("Date"), { target: { value: v.date } });
+  fireEvent.change(screen.getByLabelText("Start date"), { target: { value: v.date } });
   fireEvent.change(screen.getByLabelText("Start time"), { target: { value: v.start } });
+  if (v.endDate) fireEvent.change(screen.getByLabelText("End date"), { target: { value: v.endDate } });
   fireEvent.change(screen.getByLabelText("End time"), { target: { value: v.end } });
 }
 const submit = () => fireEvent.click(screen.getByRole("button", { name: "Search venues" }));
@@ -43,7 +47,30 @@ describe("SCRUM-65/AC1 the form asks venue-service for the chosen period", () =>
     submit();
 
     expect(await screen.findByText("Orchid Hall")).toBeTruthy();
-    expect(search).toHaveBeenCalledWith(expect.objectContaining({ date: "2099-10-15", startTime: "09:00", endTime: "17:00" }));
+    expect(search).toHaveBeenCalledWith(
+      expect.objectContaining({ startDate: "2099-10-15", startTime: "09:00", endDate: "2099-10-15", endTime: "17:00" }),
+    );
+  });
+
+  it("SCRUM-65/AC1 the end date follows the start date, so a one-day search needs one date", () => {
+    render(<VenueSearchForm options={options} search={fakeSearch({ ok: true, data: { venues: [] } })} />);
+    fill();
+    expect((screen.getByLabelText("End date") as HTMLInputElement).value).toBe("2099-10-15");
+  });
+
+  it("SCRUM-65/AC1 sends a period over several days, and moves a now-earlier end date up to the start", async () => {
+    const search = fakeSearch({ ok: true, data: { venues: [] } });
+    render(<VenueSearchForm options={options} search={search} />);
+    fill({ endDate: "2099-10-17" });
+    expect((screen.getByLabelText("End date") as HTMLInputElement).min).toBe("2099-10-15");
+
+    fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2099-10-20" } }); // after the end date
+    expect((screen.getByLabelText("End date") as HTMLInputElement).value).toBe("2099-10-20");
+
+    fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2099-10-22" } });
+    submit();
+    await waitFor(() => expect(search).toHaveBeenCalled());
+    expect(search).toHaveBeenCalledWith(expect.objectContaining({ startDate: "2099-10-20", endDate: "2099-10-22" }));
   });
 });
 
@@ -82,12 +109,13 @@ describe("SCRUM-65/AC3 an invalid attendance is refused before searching", () =>
 });
 
 describe("SCRUM-65/AC4 missing date or time", () => {
-  it("prompts for the missing date and does not search", () => {
+  it("prompts for the missing dates and does not search", () => {
     const search = fakeSearch({ ok: true, data: { venues: [] } });
     render(<VenueSearchForm options={options} search={search} />);
     submit();
 
-    expect(screen.getByText("Please enter a date.")).toBeTruthy();
+    expect(screen.getByText("Please enter a start date.")).toBeTruthy();
+    expect(screen.getByText("Please enter an end date.")).toBeTruthy();
     expect(search).not.toHaveBeenCalled();
   });
 
@@ -101,9 +129,9 @@ describe("SCRUM-65/AC4 missing date or time", () => {
 });
 
 describe("SCRUM-65/AC5 past dates", () => {
-  it("sets the date box's min to today so past days cannot be picked", () => {
+  it("sets the start date box's min to today so past days cannot be picked", () => {
     render(<VenueSearchForm options={options} />);
-    expect(screen.getByLabelText("Date").getAttribute("min")).toBe(utcToSgt(new Date()).date);
+    expect(screen.getByLabelText("Start date").getAttribute("min")).toBe(utcToSgt(new Date()).date);
   });
 
   it("refuses a typed past date without searching", () => {
@@ -112,7 +140,7 @@ describe("SCRUM-65/AC5 past dates", () => {
     fill({ date: "2000-01-01" });
     submit();
 
-    expect(screen.getByText("The date must not be in the past.")).toBeTruthy();
+    expect(screen.getByText("The start date must not be in the past.")).toBeTruthy();
     expect(search).not.toHaveBeenCalled();
   });
 });
@@ -125,6 +153,16 @@ describe("SCRUM-65/AC6 end before start", () => {
     submit();
 
     expect(screen.getByText("The end time must be after the start time.")).toBeTruthy();
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("refuses an end date before the start date typed in by hand", () => {
+    const search = fakeSearch({ ok: true, data: { venues: [] } });
+    render(<VenueSearchForm options={options} search={search} />);
+    fill({ endDate: "2099-10-14" });
+    submit();
+
+    expect(screen.getByText("The end date must not be before the start date.")).toBeTruthy();
     expect(search).not.toHaveBeenCalled();
   });
 });
@@ -154,13 +192,15 @@ describe("SCRUM-65/AC7 each result displays its details", () => {
     expect(screen.getByRole("link", { name: "Orchid Hall" }).getAttribute("href")).toBe("/venues/v1");
     expect(screen.getByText("1 Orchard Road")).toBeTruthy();
     expect(screen.getByText("150")).toBeTruthy();
+    expect(screen.getByText("08:00 – 20:00")).toBeTruthy();
     expect(screen.getByText("Accessible (Step-free entrance)")).toBeTruthy();
     expect(screen.getByText("Theatre (120)")).toBeTruthy();
     expect(screen.getByText("Projector")).toBeTruthy();
   });
 
   it("says when a venue is not accessible or lists nothing", () => {
-    render(<VenueSearchResults venues={[venue({ is_accessible: false, accessibility_notes: null, layouts: [], facilities: [] })]} />);
+    render(<VenueSearchResults venues={[venue({ opening_time: null, closing_time: null, is_accessible: false, accessibility_notes: null, layouts: [], facilities: [] })]} />);
+    expect(screen.getByText("Not stated")).toBeTruthy();
     expect(screen.getByText("Not accessible")).toBeTruthy();
     expect(screen.getAllByText("None listed")).toHaveLength(2);
   });

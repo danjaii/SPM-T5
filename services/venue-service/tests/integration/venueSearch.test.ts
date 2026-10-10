@@ -5,12 +5,12 @@ import { searchVenues } from "../../src/services/venueSearchService";
 import { adminClient, Fixtures, hasDb, signInAs } from "./support/db";
 
 /**
- * SCRUM-65 against Postgres: the available_venues function (migration 13), called as a signed-in coordinator,
+ * SCRUM-65 against Postgres: the available_venues function (migration 14), called as a signed-in coordinator,
  * and the search built on it. Fixture venues are prefixed "IT-", dated 2031 and cleaned up afterwards.
  */
 const period = (date: string, start: string, end: string) => ({ start: sgtToUtc(date, start), end: sgtToUtc(date, end) });
 
-describe.skipIf(!hasDb)("SCRUM-65 venue search against Postgres (migration 13)", () => {
+describe.skipIf(!hasDb)("SCRUM-65 venue search against Postgres (migration 14)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(admin);
   let coordinatorA: { userId: string };
@@ -95,7 +95,10 @@ describe.skipIf(!hasDb)("SCRUM-65 venue search against Postgres (migration 13)",
     const layoutId = await fixtures.layout(good, 150);
 
     const parsed = parseVenueSearchInput(
-      { date: "2031-03-16", startTime: "09:00", endTime: "17:00", attendance: "100", location: "zzyzx", accessible: "true", layoutId, facilityIds: facility },
+      {
+        startDate: "2031-03-16", startTime: "09:00", endDate: "2031-03-16", endTime: "17:00",
+        attendance: "100", location: "zzyzx", accessible: "true", layoutId, facilityIds: facility,
+      },
       new Date("2031-03-01T00:00:00Z"),
     );
     if (!parsed.ok) throw new Error("search input should be valid");
@@ -109,10 +112,31 @@ describe.skipIf(!hasDb)("SCRUM-65 venue search against Postgres (migration 13)",
 
   it("SCRUM-65/AC8 returns nothing when no venue matches", async () => {
     const parsed = parseVenueSearchInput(
-      { date: "2031-03-17", startTime: "09:00", endTime: "10:00", location: "no such place anywhere" },
+      { startDate: "2031-03-17", startTime: "09:00", endDate: "2031-03-17", endTime: "10:00", location: "no such place anywhere" },
       new Date("2031-03-01T00:00:00Z"),
     );
     if (!parsed.ok) throw new Error("search input should be valid");
     expect(await searchVenues(reader, parsed.data)).toEqual([]);
+  });
+
+  it("SCRUM-65/AC1,AC2 location matches the name, a booking inside a multi-day period excludes the venue, and closed hours are left out", async () => {
+    const tag = Math.random().toString(36).slice(2, 8);
+    const open = await fixtures.venue(`IT-zz${tag}-open`, { operating_hours_start: "08:00:00", operating_hours_end: "20:00:00" });
+    const closedAtNight = await fixtures.venue(`IT-zz${tag}-late`, { operating_hours_start: "10:00:00", operating_hours_end: "20:00:00" });
+    const heldMidPeriod = await fixtures.venue(`IT-zz${tag}-held`);
+    await hold(heldMidPeriod, period("2031-03-19", "09:00", "17:00"));
+
+    // 18 to 20 March, 09:00 to 17:00: the booking on the 19th falls inside it.
+    const parsed = parseVenueSearchInput(
+      { startDate: "2031-03-18", startTime: "09:00", endDate: "2031-03-20", endTime: "17:00", location: `zz${tag}` },
+      new Date("2031-03-01T00:00:00Z"),
+    );
+    if (!parsed.ok) throw new Error("search input should be valid");
+
+    const results = await searchVenues(reader, parsed.data);
+    expect(results.map((r) => r.id)).toEqual([open]);
+    expect(results[0]).toMatchObject({ opening_time: "08:00", closing_time: "20:00" });
+    expect(results.map((r) => r.id)).not.toContain(closedAtNight);
+    expect(results.map((r) => r.id)).not.toContain(heldMidPeriod);
   });
 });
