@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { canDecideEvent } from "@spm-t5/shared";
 import { CoordinatorAssignment } from "@/components/CoordinatorAssignment";
+import { EventChangeRequestForm } from "@/components/EventChangeRequestForm";
+import { EventChangeRequestList } from "@/components/EventChangeRequestList";
 import { EventComments } from "@/components/EventComments";
 import { EventRequestDetails } from "@/components/EventRequestDetails";
 import { EventReviewOutcome } from "@/components/EventReviewOutcome";
@@ -9,7 +11,7 @@ import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBooking } from "@/components/EventVenueBooking";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
-import { getEvent, getEventOutcome } from "@/lib/getEvent";
+import { getChangeRequests, getEvent, getEventOutcome } from "@/lib/getEvent";
 import { getApprovedVenueBooking } from "@/lib/venueBookingsServer";
 
 // Rendered per request: what's shown depends on who is signed in.
@@ -29,6 +31,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const [venueBooking, outcome] = "event" in result
     ? await Promise.all([getApprovedVenueBooking(id), getEventOutcome(id)])
     : [null, null];
+
+  const changeRequests = "event" in result && result.event.isOrganiser ? await getChangeRequests(id) : [];
 
   return (
     <>
@@ -55,6 +59,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               />
               <EventComments eventId={result.event.id} />
               <EventVenueBooking booking={venueBooking} />
+              {/* SCRUM-66: organisers see their change requests (AC7) and, while the status allows it, can make one (AC1-AC3) */}
+              {result.event.isOrganiser && <EventChangeRequestList requests={changeRequests} />}
+              {result.event.canRequestChange && <EventChangeRequestForm event={result.event} />}
               {/* SCRUM-83/AC15: the registration information page (only this page's viewers, organisers and
                   coordinators, can open it; RLS decides whose registrations they see) */}
               <section className="event-section" aria-labelledby="registrations-heading">

@@ -249,10 +249,29 @@ describe("US3 — Role based access", () => {
     expect(myEvents.rows).toEqual([expect.objectContaining({ status: "under review", statusHref: "/events/evt-1" })]);
     expect(myBookings.columns.some((c: Row) => c.linkKey)).toBe(false);
 
-    const organiser = fake.seedUser("org@example.com", "event_organiser");
-    fake.tables.events.push({ id: "evt-2", name: "My conference", organiser_id: organiser, status: "submitted" });
-    const orgRes = await request(app).get("/dashboard").set("Cookie", await signInAs("org@example.com", "event_organiser"));
-    expect(orgRes.body.sections[0].columns.some((c: Row) => c.linkKey)).toBe(false);
+    // other roles' tables stay plain text (organisers got their own links in SCRUM-66/AC1, tested below)
+    const venueStaff = fake.seedUser("vs@example.com", "venue_staff");
+    expect(venueStaff).toBeTruthy();
+    const vsRes = await request(app).get("/dashboard").set("Cookie", await signInAs("vs@example.com", "venue_staff"));
+    for (const section of vsRes.body.sections) {
+      expect(section.columns.some((c: Row) => c.linkKey)).toBe(false);
+    }
+  });
+
+  // SCRUM-66/AC1: an organiser opens their event (where the change request form is) by clicking it on the dashboard
+  it("SCRUM-66/AC1 links each of an organiser's events to its event page", async () => {
+    const mine = fake.seedUser("org@example.com", "event_organiser");
+    const other = fake.seedUser("org2@example.com", "event_organiser");
+    fake.tables.events.push(
+      { id: "evt-2", name: "My conference", organiser_id: mine, status: "submitted" },
+      { id: "evt-3", name: "Someone else's gala", organiser_id: other, status: "submitted" },
+    );
+    const res = await request(app).get("/dashboard").set("Cookie", await signInAs("org@example.com", "event_organiser"));
+
+    const [myEvents] = res.body.sections;
+    expect(myEvents.columns).toContainEqual({ key: "name", label: "Event", linkKey: "eventHref" });
+    expect(myEvents.columns).toContainEqual({ key: "status", label: "Status", linkKey: "eventHref" });
+    expect(myEvents.rows).toEqual([expect.objectContaining({ name: "My conference", eventHref: "/events/evt-2" })]);
   });
 
   // venue_bookings has two FKs to venues (venue_id, suggested_venue_id); a bare `venues(name)` embed makes PostgREST

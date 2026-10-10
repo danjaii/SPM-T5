@@ -222,6 +222,10 @@ spec in `docs/specs/venue-booking-approval.md`). Venue search (SCRUM-65; spec in
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
 `reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`); the equipment
+catalogue and equipment requests/approval are not built yet.
+`event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
+`docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
+approving or rejecting a request, and applying it to the event, is not built yet.
 catalogue and equipment requests/approval are not built yet. `auth-service` also serves a user's own profile
 (SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
 separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences

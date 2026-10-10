@@ -65,16 +65,17 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
   switch (role) {
     case "event_organiser": {
       const events = await rows(
-        db.from("events").select("name, status, preferred_start_datetime, expected_attendance")
+        db.from("events").select("id, name, status, preferred_start_datetime, expected_attendance")
           .eq("organiser_id", userId).order("created_at", { ascending: false }).limit(LIMIT),
       );
       return [{
         title: "My event requests",
         columns: [
-          { key: "name", label: "Event" }, { key: "status", label: "Status" },
+          // SCRUM-66/AC1: the event page holds the change request form, so the organiser reaches it by clicking the event
+          { key: "name", label: "Event", linkKey: "eventHref" }, { key: "status", label: "Status", linkKey: "eventHref" },
           { key: "start", label: "Preferred start" }, { key: "attendance", label: "Expected attendance" },
         ],
-        rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
+        rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), eventHref: `/events/${e.id}`, start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
       }];
     }
     case "event_coordinator": {
