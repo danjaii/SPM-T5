@@ -211,9 +211,9 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-Parts of the repo are still scaffolding — some `services/*/src/index.ts` files export a
-`healthCheck()` stub and nothing else. Declared dependencies (express, zod) are real intent, not yet
-real code. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
+Parts of the repo are still scaffolding — `notification-service` listens on its port but only serves
+`GET /health` (no notifications are sent yet), and the `healthCheck()` exports in
+`services/*/src/index.ts` are leftovers from the original scaffold. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
 spec in `docs/specs/venue-booking-approval.md`). SCRUM-40 (suggested alternative) is not built: the
@@ -236,9 +236,8 @@ Known gaps to fix rather than work around:
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
   new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
-  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket.
-- Services that are still stubs export `healthCheck()` but never call `listen()`, so their
-  containers start and exit immediately under `docker compose up`.
+  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket
+  (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
 
 
 ## 
