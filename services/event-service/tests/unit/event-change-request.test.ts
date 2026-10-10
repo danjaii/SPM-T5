@@ -1,5 +1,5 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { sgtToUtc } from "@spm-t5/shared";
 import { createApp } from "../../src/app";
 import type { SupabaseDeps } from "../../src/supabase";
@@ -14,7 +14,8 @@ type Row = Record<string, unknown>;
 function createFake() {
   const sessions = new Map<string, string>();
   const tables: Record<string, Row[]> = { users: [], events: [], event_change_requests: [] };
-  let insertError: { code: string } | null = null;
+  let insertError: { code: string; message?: string } | null = null;
+  let beforeInsertFails: (() => void) | undefined;
 
   const query = (table: string) => {
     const filters: [string, unknown][] = [];
@@ -26,6 +27,7 @@ function createFake() {
       order: (col: string) => { orderBy = col; return builder; },
       maybeSingle: async () => ({ data: matching()[0] ? { ...matching()[0] } : null, error: null }),
       insert: (row: Row) => {
+        if (insertError) beforeInsertFails?.();
         const stored = insertError ? undefined : { id: crypto.randomUUID(), requested_at: new Date().toISOString(), ...row };
         if (stored) tables[table].push(stored);
         return { select: () => ({ single: async () => ({ data: stored ?? null, error: insertError }) }) };
@@ -74,7 +76,7 @@ function createFake() {
     return event;
   };
 
-  return { deps, tables, signIn, addEvent, failInsertWith: (code: string) => { insertError = { code }; } };
+  return { deps, tables, signIn, addEvent, failInsertWith: (code: string, beforeFail?: () => void) => { insertError = { code, message: "denied" }; beforeInsertFails = beforeFail; } };
 }
 
 const post = (fake: ReturnType<typeof createFake>, eventId: string, cookie: string, body: unknown) =>
@@ -140,13 +142,34 @@ describe("SCRUM-66/AC2 and AC3 events that cannot be changed by request", () => 
     expect(fake.tables.event_change_requests).toHaveLength(0);
   });
 
-  it("reports a conflict when the database refuses the insert (the status changed meanwhile)", async () => {
+  it("reports a conflict when the status changed to a blocked one between the check and the insert", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser");
     const event = fake.addEvent(organiser.id, "submitted");
-    fake.failInsertWith("42501");
+    fake.failInsertWith("42501", () => { fake.tables.events.find((e) => e.id === event.id)!.status = "cancelled"; });
 
-    expect((await post(fake, event.id, organiser.cookie, { expectedAttendance: 150 })).status).toBe(409);
+    const res = await post(fake, event.id, organiser.cookie, { expectedAttendance: 150 });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("NOT_ALLOWED");
+  });
+
+  // Regression: a database that refused the insert for another reason (e.g. migration 15's policy missing) used to be
+  // reported as "can't be made for a draft, cancelled, rejected or completed event" even for a planning event.
+  it.each(["42501", "23503", "XX000"])("says the request couldn't be saved, not that the status is blocked, when the insert fails with %s on a still-allowed event", async (code) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, "planning");
+    fake.failInsertWith(code);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await post(fake, event.id, organiser.cookie, { expectedAttendance: 150 });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe("SAVE_FAILED");
+    expect(res.body.error).not.toMatch(/draft|cancelled|rejected|completed/);
+    expect(log).toHaveBeenCalled();
+    expect(fake.tables.event_change_requests).toHaveLength(0);
+    log.mockRestore();
   });
 });
 

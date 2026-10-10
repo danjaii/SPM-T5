@@ -87,8 +87,19 @@ export function changeRequestRoutes(deps: SupabaseDeps) {
       .select("id, change_description, proposed_changes, status, requested_at")
       .single();
     if (error || !created) {
-      // The status changed between the check above and the insert
-      return res.status(409).json({ code: "NOT_ALLOWED", error: CHANGE_REQUEST_MESSAGES.NOT_ALLOWED });
+      // Only say the status blocks it when it really does now (it changed between the check above and the insert).
+      // Any other refusal (a missing policy, a constraint, the database being down) is not the organiser's doing.
+      const { data: current } = await deps
+        .forUser(token)
+        .from("events")
+        .select("status")
+        .eq("id", event.id)
+        .maybeSingle();
+      if (!current || !canRequestChange(current.status as string)) {
+        return res.status(409).json({ code: "NOT_ALLOWED", error: CHANGE_REQUEST_MESSAGES.NOT_ALLOWED });
+      }
+      console.error("change request insert failed:", error?.code, error?.message);
+      return res.status(500).json({ code: "SAVE_FAILED", error: CHANGE_REQUEST_MESSAGES.SAVE_FAILED });
     }
     return res.status(201).json({ ...created, message: CHANGE_REQUEST_MESSAGES.SUBMITTED });
   });

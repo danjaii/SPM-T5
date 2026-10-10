@@ -21,6 +21,7 @@ export type ChangeRequestStatus = (typeof CHANGE_REQUEST_STATUSES)[number];
 export const CHANGE_REQUEST_MESSAGES = {
   NOT_ALLOWED: "A change request can't be made for an event that is a draft, cancelled, rejected or completed.",
   NO_CHANGES: "No changes were made, so nothing was submitted.",
+  SAVE_FAILED: "We couldn't save your change request. Please try again, and contact support if it keeps happening.",
   SUBMITTED: "Your change request was submitted for approval. The event stays as it is until it is approved.",
 } as const;
 
