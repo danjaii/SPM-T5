@@ -211,12 +211,13 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-Parts of the repo are still scaffolding — some `services/*/src/index.ts` files export a
-`healthCheck()` stub and nothing else. Declared dependencies (express, zod) are real intent, not yet
-real code. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
+Parts of the repo are still scaffolding — `notification-service` listens on its port but only serves
+`GET /health` (no notifications are sent yet), and the `healthCheck()` exports in
+`services/*/src/index.ts` are leftovers from the original scaffold. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
-spec in `docs/specs/venue-booking-approval.md`). SCRUM-40 (suggested alternative) is not built: the
+spec in `docs/specs/venue-booking-approval.md`). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
+`available_venues` database function (`14_venue_search.sql`). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
@@ -239,12 +240,9 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings`, `08_event_review_tables.sql`
-  for the review tables, `11_event_registrations.sql` for `event_registrations` and `14_events_rls.sql`
-  for `events` and its history tables; the other tables are still blanket (tracked in SCRUM-92 and
-  SCRUM-93).
-- Services that are still stubs export `healthCheck()` but never call `listen()`, so their
-  containers start and exit immediately under `docker compose up`.
+  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
+  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket
+  (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
 
 
 ## 
