@@ -308,6 +308,15 @@ tr:last-child td { border-bottom: 0; }
 }
 .field select:focus-visible, .field textarea:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
 
+/* ---------- Venue search form (SCRUM-65) ---------- */
+/* `.field input` makes every input full width with padding, which stretched the Accessible and Facilities
+   checkboxes across the row and pushed their text onto the next line. Checkboxes sit inline with their label. */
+.venue-search .field label, .venue-search .field legend { font-size: 15px; color: var(--ink); }
+.venue-search fieldset.field { border: 0; padding: 0; margin: 0 0 20px; }
+.venue-search fieldset.field legend { padding: 0; margin-bottom: 8px; }
+.venue-search .field label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+.venue-search .field input[type="checkbox"] { width: 16px; height: 16px; padding: 0; flex: none; accent-color: var(--steel-dark); }
+
 /* ---------- Venue detail page (SCRUM-29) ---------- */
 .venue { max-width: 720px; }
 .venue h1 { font-size: 30px; font-weight: 700; }
