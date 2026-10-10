@@ -31,9 +31,11 @@ there, not as a string literal in a service.
 | Role | Access | Primary responsibilities |
 | ----- | ----- | ----- |
 | `event_organiser` | External | Creates/edits event requests (drafts & submitted), tracks approval status, requests post-submission changes, registers attendees. |
-| `event_coordinator` | Internal | Reviews/approves event requests, requests clarifications, assigns coordinators, searches venues, submits venue booking requests. |
+| `event_coordinator` | Internal | Manages the events assigned to them: reviews/approves event requests, requests clarifications, searches venues, submits venue booking requests. |
+| `event_coordinator_lead` | Internal | Added by the week 7 customer changes. Oversees incoming event requests (the unassigned queue), assigns and reassigns Event Coordinators, views all coordinator assignments and active events. |
 | `venue_staff` | Internal | Maintains the venue catalogue, approves/rejects venue bookings, sets layout options, flags unavailability (maintenance/renovation). |
 | `technical_support_staff` | Internal | Maintains the equipment catalogue, checks availability, approves/reserves equipment, handles maintenance statuses. |
+| `safety_officer` | Internal | Added by the week 7 customer changes. Runs the Operational Safety Check after venue and technical arrangements are confirmed: approves, rejects or requests changes before the event can proceed to preparation. |
 | `attendee` | External | Browses confirmed public events, registers/withdraws within capacity limits and registration windows. |
 
 ### Feature scope (release 1)
@@ -209,9 +211,9 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-Parts of the repo are still scaffolding — some `services/*/src/index.ts` files export a
-`healthCheck()` stub and nothing else. Declared dependencies (express, zod) are real intent, not yet
-real code. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
+Parts of the repo are still scaffolding — `notification-service` listens on its port but only serves
+`GET /health` (no notifications are sent yet), and the `healthCheck()` exports in
+`services/*/src/index.ts` are leftovers from the original scaffold. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
 spec in `docs/specs/venue-booking-approval.md`). SCRUM-40 (suggested alternative) is not built: the
@@ -219,7 +221,13 @@ spec in `docs/specs/venue-booking-approval.md`). SCRUM-40 (suggested alternative
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
 `reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`); the equipment
-catalogue and equipment requests/approval are not built yet.
+catalogue and equipment requests/approval are not built yet. `auth-service` also serves a user's own profile
+(SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
+separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
+can be changed. Staff (internal users) also see their department and responsibilities
+(SCRUM-69): the department is on their `users` row, and the responsibilities are stored once for each role in the
+`role_responsibilities` table (migration 17). The shared role list now has seven roles: the Event Coordinator Lead and the Safety Officer (week 7 customer
+changes) exist as roles (migration 16), but have no accounts, dashboards or sign-in option yet.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
@@ -227,12 +235,9 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings`, `08_event_review_tables.sql`
-  for the review tables, `11_event_registrations.sql` for `event_registrations` and `14_events_rls.sql`
-  for `events` and its history tables; the other tables are still blanket (tracked in SCRUM-92 and
-  SCRUM-93).
-- Services that are still stubs export `healthCheck()` but never call `listen()`, so their
-  containers start and exit immediately under `docker compose up`.
+  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
+  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket
+  (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
 
 
 ## 

@@ -11,12 +11,22 @@ import EventPage from "@/app/events/[id]/page";
 
 const open = async (id: string) => render(await EventPage({ params: Promise.resolve({ id }) }));
 
+// The browser-side sections load from event-service: comments get a thread, everything else a list.
+const stubEventService = () =>
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => (String(url).endsWith("/comments") ? { can_comment: true, comments: [] } : []),
+    })),
+  );
+
 describe("Event status page route (/events/[id])", () => {
   beforeEach(() => {
     getApprovedVenueBooking.mockReset().mockResolvedValue(null);
     getEventOutcome.mockReset().mockResolvedValue(null);
-    // CoordinatorAssignment loads the assignment history from the browser
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] }));
+    stubEventService();
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -28,6 +38,14 @@ describe("Event status page route (/events/[id])", () => {
     expect(getEvent).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Tech Summit" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /back to dashboard/i }).getAttribute("href")).toBe("/dashboard");
+  });
+
+  it("SCRUM-25/AC1 shows the event's comments section", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: false } });
+
+    await open("evt-1");
+
+    expect(await screen.findByRole("heading", { name: "Comments" })).toBeTruthy();
   });
 
   // SCRUM-83/AC15: the event's organiser and coordinator (the only viewers of this page) reach its registrations from here
@@ -67,9 +85,10 @@ describe("Event status page route (/events/[id])", () => {
     });
 
     await open("evt-1");
+    await screen.findByRole("heading", { name: "Comments" }); // SCRUM-25: loads from the browser
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(["Request details", "Coordinator", "Assignment history", "Registrations", "Change status"]);
+    expect(headings).toEqual(["Request details", "Coordinator", "Assignment history", "Comments", "Registrations", "Change status"]);
   });
 
   it("SCRUM-23/AC1, AC2: shows the full request details alongside the status", async () => {
@@ -131,7 +150,7 @@ describe("SCRUM-44 — review outcome on the event page", () => {
   beforeEach(() => {
     getApprovedVenueBooking.mockReset().mockResolvedValue(null);
     getEventOutcome.mockReset().mockResolvedValue(null);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] }));
+    stubEventService();
   });
   afterEach(() => vi.unstubAllGlobals());
 

@@ -132,3 +132,47 @@ export interface ReviewDecision {
   reason: string | null;
   decided_by_name: string | null;
 }
+
+/** SCRUM-25/AC2: one comment, as GET /events/:id/comments returns it (oldest first, AC3). */
+export interface EventComment {
+  id: string;
+  body: string;
+  created_at: string;
+  parent_comment_id: string | null;
+  author_name: string | null;
+  /** SCRUM-27/AC3: who the body's @[userId] markers refer to. */
+  mentions: Array<{ user_id: string; full_name: string | null }>;
+}
+
+/** SCRUM-25/AC5: can_comment says whether the viewer may add to the conversation. */
+export interface EventComments {
+  can_comment: boolean;
+  comments: EventComment[];
+}
+
+/** SCRUM-25/AC2, AC3: the event's comments. */
+export const fetchEventComments = (id: string) =>
+  getFromEventService<EventComments>(`${encodeURIComponent(id)}/comments`);
+
+/** SCRUM-27/AC1, AC5: the people who may be mentioned on this event (its coordinators and organiser). */
+export const fetchMentionableUsers = (id: string) =>
+  getFromEventService<CoordinatorOption[]>(`${encodeURIComponent(id)}/mentionable-users`);
+
+/** SCRUM-25/AC1: add a comment to the event. SCRUM-26/AC1: or, with parentCommentId, a reply to one of its comments. */
+export async function addEventComment(
+  id: string,
+  body: string,
+  parentCommentId?: string,
+): Promise<ApiResult<Record<string, never>>> {
+  try {
+    const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(id)}/comments`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parentCommentId ? { body, parent_comment_id: parentCommentId } : { body }),
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
+  }
+}
