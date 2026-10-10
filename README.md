@@ -301,6 +301,7 @@ covering every workspace:
 | `test` | 20 | Lint, type check, unit/integration tests with coverage, build |
 | `integration` | 22 | Starts local Supabase and runs the database integration tests |
 | `e2e` | 20 | Playwright end-to-end tests (runs after `test`) |
+| `migrate` | — | Push to `main` only, after `test` and `integration`: applies new migrations to the hosted Supabase project (needs the `SUPABASE_DB_URL` secret) |
 
 Every PR must pass the `CI / test` and `CI / e2e` checks before merge (see branch protection notes in
 [`.github/workflows/README.md`](.github/workflows/README.md)). A separate workflow renders the C4 diagrams.
@@ -309,6 +310,11 @@ Every PR must pass the `CI / test` and `CI / e2e` checks before merge (see branc
 
 `supabase/migrations/` is the schema source of truth and is append-only — add a new numbered file
 rather than editing an applied one.
+
+**Merging to `main` is how a migration reaches the hosted Supabase project.** The CI `migrate` job runs
+`supabase db push` after the tests pass. Don't run migration SQL in the dashboard SQL editor: it runs but
+isn't recorded, so the next push re-runs it (and fails) or skips another file. To see what is applied
+(read-only): `supabase migration list --db-url "<session pooler connection string>"`.
 
 | Migration | Purpose |
 | ----- | ----- |

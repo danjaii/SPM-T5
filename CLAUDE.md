@@ -139,7 +139,9 @@ venue 4003, equipment 4004, notification 4005).
 
 - **Migrations are append-only.** `supabase/migrations/` is the schema source of truth. Add a new
   numbered file; never edit one that's already been applied. Schema changes can affect multiple
-  services — flag them in the PR.
+  services — flag them in the PR. The CI `migrate` job applies them to the hosted Supabase project on
+  merge to `main`; never apply migration SQL by hand (dashboard SQL editor, `psql`), since that skips the
+  migration history and the next `db push` then re-runs or skips files.
 - **Tests live in `tests/unit` and `tests/integration` per workspace**, not colocated with source.
   The CI template runs the two separately, and only `test:unit` gets `--coverage`.
 - **Export the Express app separately from `listen()`** so integration tests can mount it without
@@ -217,7 +219,7 @@ Parts of the repo are still scaffolding — `notification-service` listens on it
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
 spec in `docs/specs/venue-booking-approval.md`). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
-`available_venues` database function (`14_venue_search.sql`). SCRUM-40 (suggested alternative) is not built: the
+`available_venues` database function (`18_venue_search.sql`). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
