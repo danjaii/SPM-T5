@@ -6,8 +6,8 @@ const STATUS_LABELS: Record<ChangeRequestView["status"], string> = {
   rejected: "Rejected",
 };
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-SG", { dateStyle: "medium", timeZone: "Asia/Singapore" });
+const formatRequestedAt = (iso: string) =>
+  new Date(iso).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" });
 
 // SCRUM-66/AC7: each change request the organiser has made, with whether it is pending, approved or rejected.
 export function EventChangeRequestList({ requests }: { requests: ChangeRequestView[] }) {
@@ -21,7 +21,7 @@ export function EventChangeRequestList({ requests }: { requests: ChangeRequestVi
           {requests.map((r) => (
             <li key={r.id}>
               <span className="status-badge">{STATUS_LABELS[r.status] ?? r.status}</span>{" "}
-              {r.change_description} <span className="field__hint">({formatDate(r.requested_at)})</span>
+              {r.change_description} <span className="field__hint">({formatRequestedAt(r.requested_at)})</span>
               {r.status === "rejected" && r.review_notes && <p className="field__hint">{r.review_notes}</p>}
             </li>
           ))}

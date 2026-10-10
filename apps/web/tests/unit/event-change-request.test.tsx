@@ -97,6 +97,22 @@ describe("SCRUM-66/AC7 the organiser sees whether each request is pending, appro
     expect(screen.getByText("Venue is full")).toBeTruthy();
   });
 
+  // The log shows when the request was made, to the minute, in Singapore time whatever the server's time zone
+  it("shows the date and time each request was made, in Singapore time", () => {
+    render(
+      <EventChangeRequestList
+        requests={[
+          // 00:00 UTC is 8:00 am in Singapore; 16:30 UTC on the 1st is 12:30 am on the 2nd there
+          { id: "1", change_description: "Morning", proposed_changes: null, status: "pending", requested_at: "2031-01-02T00:00:00Z" },
+          { id: "2", change_description: "After midnight", proposed_changes: null, status: "pending", requested_at: "2031-01-01T16:30:00Z" },
+        ]}
+      />,
+    );
+    const text = (description: string) => screen.getByText(description).closest("li")!.textContent ?? "";
+    expect(text("Morning")).toMatch(/\(2 Jan 2031,\s*8:00\s*am\)/i);
+    expect(text("After midnight")).toMatch(/\(2 Jan 2031,\s*12:30\s*am\)/i);
+  });
+
   it("says so when there are none", () => {
     render(<EventChangeRequestList requests={[]} />);
     expect(screen.getByText("No change requests yet.")).toBeTruthy();
