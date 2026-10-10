@@ -160,8 +160,11 @@ export function parseEventChangeRequestInput(
       if (Number.isNaN(start.getTime())) fieldErrors.date = "Enter a valid date.";
       else if (Number.isNaN(end.getTime())) fieldErrors.endDate = "Enter a valid end date.";
       else {
-        // AC10
-        if (end.getTime() <= start.getTime()) fieldErrors.endTime = "End time must be after the start time.";
+        // AC10: the end (date and time) must be after the start. An end date before the date is named on the End date.
+        if (end.getTime() <= start.getTime()) {
+          if (d2 < d1) fieldErrors.endDate = "End date must not be before the date.";
+          else fieldErrors.endTime = "End time must be after the start time.";
+        }
         const startChanged = !currentStart || d1 !== currentStart.date || t1 !== currentStart.time;
         // AC9: only when the date or start time is being changed (an unchanged start is not re-checked).
         if (startChanged) {

@@ -167,6 +167,64 @@ describe("SCRUM-66/AC9 and AC10 date and time rules", () => {
   });
 });
 
+describe("SCRUM-66/AC10 the end date is visible and editable", () => {
+  const multiDay = {
+    ...event,
+    preferred_start_datetime: sgtToUtc("2031-11-14", "09:00").toISOString(),
+    preferred_end_datetime: sgtToUtc("2031-11-15", "17:00").toISOString(),
+  };
+
+  it("shows a single-day event's end date as its date", () => {
+    render(<EventChangeRequestForm event={event} />);
+    expect((screen.getByLabelText("End date") as HTMLInputElement).value).toBe("2031-11-14");
+  });
+
+  it("shows a multi-day event's own end date", () => {
+    render(<EventChangeRequestForm event={multiDay} />);
+    expect((screen.getByLabelText("End date") as HTMLInputElement).value).toBe("2031-11-15");
+  });
+
+  it("moves a single-day event's end date with its date", () => {
+    render(<EventChangeRequestForm event={event} />);
+    type("Date", "2031-12-01");
+    expect((screen.getByLabelText("End date") as HTMLInputElement).value).toBe("2031-12-01");
+  });
+
+  it("keeps a multi-day event's end date when the date changes", () => {
+    render(<EventChangeRequestForm event={multiDay} />);
+    type("Date", "2031-11-13");
+    expect((screen.getByLabelText("End date") as HTMLInputElement).value).toBe("2031-11-15");
+  });
+
+  it("refuses an end date before the date, naming the End date field", () => {
+    const fetchMock = mockServer(201, {});
+    render(<EventChangeRequestForm event={multiDay} />);
+    type("End date", "2031-11-13");
+    submit();
+    expect(screen.getByText(/End date must not be before the date/)).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts an earlier clock time on a later end date, because the end is still after the start", async () => {
+    const fetchMock = mockServer(201, { message: "ok" });
+    render(<EventChangeRequestForm event={multiDay} />);
+    type("End time", "08:00");
+    submit();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ endDate: "2031-11-15", endTime: "08:00" });
+  });
+
+  it("still refuses an end time at or before the start when the end date is the same day", () => {
+    const fetchMock = mockServer(201, {});
+    render(<EventChangeRequestForm event={multiDay} />);
+    type("End date", "2031-11-14");
+    type("End time", "08:00");
+    submit();
+    expect(screen.getByText(/End time must be after the start time/)).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("SCRUM-66/AC6 a valid request is submitted and confirmed", () => {
   it("posts the change, confirms it and refreshes the page", async () => {
     const fetchMock = mockServer(201, { message: "Your change request was submitted for approval." });

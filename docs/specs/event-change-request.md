@@ -40,8 +40,9 @@ These override the text below where they conflict.
   `equipment_requirements_notes`. **[DECIDED]**
 - **Attendance** must be a positive whole number (at least 1), stricter than the database check (`>= 0`). **[DECIDED]**
 - **Date and times** are Singapore time, stored as UTC (same helpers as venue booking). The date is checked against the
-  injected clock only when the start (date or start time) is being changed. The end date follows the date for a
-  single-day event; a multi-day event keeps its own end date. **[DECIDED]**
+  injected clock only when the start (date or start time) is being changed. The form shows the End date: for a
+  single-day event it follows the date, and a multi-day event keeps its own end date until the organiser edits it.
+  **[DECIDED]**
 - **Description.** `change_description` is required by the database. It is the organiser's optional reason, or an
   automatic summary such as "Changed: expected attendance, start time". **[DECIDED]**
 - **Validation is shared.** `parseEventChangeRequestInput` in `packages/shared` runs in the form and the service, so
@@ -76,7 +77,9 @@ rejected.
 
 *AC9.* Editing the date to a past date is not allowed.
 
-*AC10.* An end time before the start time is not allowed.
+*AC10.* An end time before the start time is not allowed. The end is the End date plus End time, so a multi-day event
+may end earlier in the day than it starts (e.g. 17 Feb 09:00 to 18 Feb 08:00); the End date is shown so this is visible.
+An End date before the date is refused on the End date field.
 
 ### Scenarios
 
@@ -92,6 +95,8 @@ rejected.
 | 66-S8 | AC8 | The organiser edits any of the six fields | Only the fields that differ are stored in `proposed_changes` |
 | 66-S9 | AC9 | The new date is before today, or the start is earlier today | Field error on date or start time; nothing stored |
 | 66-S10 | AC10 | End time is before or equal to the start time | Field error on end time; nothing stored |
+| 66-S11 | AC10 | End date is before the date | Field error on end date; nothing stored |
+| 66-S12 | AC10 | Multi-day event, End date after the date, End time earlier on the clock than Start time | Accepted; the end is still after the start |
 
 Other people: a coordinator or attendee gets 403 on POST; another organiser's event is 404; the database refuses an
 insert for anyone but the event's organiser, in their own name, as a pending request.

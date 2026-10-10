@@ -121,6 +121,16 @@ describe("SCRUM-66/AC10 end time before start time is not allowed", () => {
     expect(errorsOf({ startTime: "15:00", endTime: "10:00" }).endTime).toMatch(/after the start/);
   });
 
+  it("names the end date when it is before the date", () => {
+    const errors = errorsOf({ date: "2031-11-14", endDate: "2031-11-13", startTime: "09:00", endTime: "17:00" });
+    expect(errors.endDate).toMatch(/not be before the date/);
+    expect(errors.endTime).toBeUndefined();
+  });
+
+  it("accepts an earlier clock time on a later end date", () => {
+    expect(parse({ date: "2031-11-14", endDate: "2031-11-15", startTime: "09:00", endTime: "08:00" }).ok).toBe(true);
+  });
+
   it("refuses an end equal to the start", () => {
     expect(errorsOf({ startTime: "10:00", endTime: "10:00" }).endTime).toMatch(/after the start/);
   });

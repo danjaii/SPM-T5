@@ -16,6 +16,7 @@ export function EventChangeRequestForm({ event }: { event: EventDetailView }) {
 
   const [attendance, setAttendance] = useState(event.expected_attendance?.toString() ?? "");
   const [date, setDate] = useState(start?.date ?? "");
+  const [endDate, setEndDate] = useState(end?.date ?? start?.date ?? "");
   const [startTime, setStartTime] = useState(start?.time ?? "");
   const [endTime, setEndTime] = useState(end?.time ?? "");
   const [venue, setVenue] = useState("");
@@ -25,16 +26,20 @@ export function EventChangeRequestForm({ event }: { event: EventDetailView }) {
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string }>();
   const [saving, setSaving] = useState(false);
 
+  // A single-day event moves its end date with its date; a multi-day event keeps the end date it has.
+  function onDateChange(next: string) {
+    if (endDate === date) setEndDate(next);
+    setDate(next);
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setMessage(undefined);
 
-    // A multi-day event keeps its own end date; a single-day one moves its end with the date.
-    const multiDay = start && end && start.date !== end.date;
     const body = {
       expectedAttendance: attendance.trim() === "" && event.expected_attendance === null ? undefined : attendance,
       date: date || undefined,
-      endDate: multiDay ? end.date : date || undefined,
+      endDate: endDate || undefined,
       startTime: startTime || undefined,
       endTime: endTime || undefined,
       venueRequirements: venue,
@@ -81,9 +86,11 @@ export function EventChangeRequestForm({ event }: { event: EventDetailView }) {
           value={attendance} error={fieldErrors.expectedAttendance}
           onChange={(e) => setAttendance(e.target.value)} />
         <Field id="date" label="Date" type="date" value={date} error={fieldErrors.date}
-          onChange={(e) => setDate(e.target.value)} />
+          onChange={(e) => onDateChange(e.target.value)} />
         <Field id="startTime" label="Start time" type="time" value={startTime} error={fieldErrors.startTime}
           onChange={(e) => setStartTime(e.target.value)} />
+        <Field id="endDate" label="End date" type="date" value={endDate} error={fieldErrors.endDate}
+          onChange={(e) => setEndDate(e.target.value)} />
         <Field id="endTime" label="End time" type="time" value={endTime} error={fieldErrors.endTime}
           onChange={(e) => setEndTime(e.target.value)} />
         <TextArea id="venueRequirements" label="Venue requirements" value={venue}
