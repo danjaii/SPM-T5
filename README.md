@@ -320,6 +320,7 @@ rather than editing an applied one.
 | `06_venue_booking_requests.sql` | Venue booking request schema; slot-exclusion and one-active-request-per-event constraints |
 | `07_venue_bookings_rls.sql` | Per-role/own-row RLS for `venue_bookings` |
 | `11_event_registrations.sql` | One active registration per attendee per event (history kept); `list_public_events()` counts Confirmed only; per-role/own-row RLS for `event_registrations` |
+| `14_events_rls.sql` | Per-role RLS for `events`, its history tables, sessions, documents and change requests; narrows `events` UPDATE to `status` and `assigned_coordinator_id`; trigger so only the assigned coordinator changes status (SCRUM-91) |
 
 ## Current status
 
@@ -328,9 +329,10 @@ the Venue Staff approval routes (SCRUM-37 to 40) are not. `equipment-service` is
 availability check (SCRUM-18) and equipment reservation (SCRUM-19). `notification-service` only serves `GET /health` so far: it
 listens on its port, but sends no notifications yet.
 
-RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`) and
-`event_registrations` (`11_event_registrations.sql`):
-any authenticated user can access every row. Per-role/own-row policies for the rest are pending.
+RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`),
+the event review tables (`08`), `event_registrations` (`11_event_registrations.sql`) and `events` with its history
+tables (`14_events_rls.sql`): on the rest, any authenticated user can access every row. Per-role/own-row policies
+for those are pending (SCRUM-92, SCRUM-93).
 
 ## Dependency notes
 
