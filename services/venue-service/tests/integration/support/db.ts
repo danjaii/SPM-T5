@@ -41,6 +41,7 @@ export async function signInAs(email: string): Promise<{ client: SupabaseClient;
 export class Fixtures {
   private venueIds: string[] = [];
   private eventIds: string[] = [];
+  private facilityIds: string[] = [];
   private organiserId?: string;
 
   constructor(readonly db: SupabaseClient) {}
@@ -54,14 +55,48 @@ export class Fixtures {
     return this.organiserId;
   }
 
-  async venue(name = "IT-venue"): Promise<string> {
+  /** `extra` overrides venue columns, e.g. { address, max_capacity, is_accessible, is_active }. */
+  async venue(name = "IT-venue", extra: Record<string, unknown> = {}): Promise<string> {
     const { data, error } = await this.db
       .from("venues")
-      .insert({ name: `${name}-${Math.random().toString(36).slice(2, 8)}`, address: "1 Test Road", max_capacity: 100 })
+      .insert({ name: `${name}-${Math.random().toString(36).slice(2, 8)}`, address: "1 Test Road", max_capacity: 100, ...extra })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
     this.venueIds.push(data.id as string);
+    return data.id as string;
+  }
+
+  /** A maintenance block on a venue (SCRUM-65); deleted with the venue. */
+  async unavailability(venueId: string, start: Date, end: Date, reason = "maintenance"): Promise<void> {
+    const { error } = await this.db
+      .from("venue_unavailability")
+      .insert({ venue_id: venueId, start_datetime: start.toISOString(), end_datetime: end.toISOString(), reason });
+    if (error) throw new Error(error.message);
+  }
+
+  /** A throwaway facility, linked to the venue (SCRUM-65); returns its id. */
+  async facility(venueId: string): Promise<string> {
+    const { data, error } = await this.db
+      .from("facilities")
+      .insert({ name: `IT-facility-${Math.random().toString(36).slice(2, 8)}` })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    this.facilityIds.push(data.id as string);
+    const link = await this.db.from("venue_facilities").insert({ venue_id: venueId, facility_id: data.id });
+    if (link.error) throw new Error(link.error.message);
+    return data.id as string;
+  }
+
+  /** Links an existing seeded room layout to the venue with its own capacity (SCRUM-65); returns the layout id. */
+  async layout(venueId: string, maxCapacityForLayout: number): Promise<string> {
+    const { data, error } = await this.db.from("room_layouts").select("id").limit(1).single();
+    if (error) throw new Error(`Need a seeded room layout (run supabase db reset): ${error.message}`);
+    const link = await this.db
+      .from("venue_supported_layouts")
+      .insert({ venue_id: venueId, room_layout_id: data.id, max_capacity_for_layout: maxCapacityForLayout });
+    if (link.error) throw new Error(link.error.message);
     return data.id as string;
   }
 
@@ -91,5 +126,6 @@ export class Fixtures {
       await this.db.from("events").delete().in("id", this.eventIds);
     }
     if (this.venueIds.length) await this.db.from("venues").delete().in("id", this.venueIds);
+    if (this.facilityIds.length) await this.db.from("facilities").delete().in("id", this.facilityIds);
   }
 }
