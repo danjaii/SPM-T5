@@ -27,6 +27,25 @@ describe("Dashboard tables", () => {
     expect(screen.getByRole("link", { name: "under review" }).getAttribute("href")).toBe("/events/evt-1");
   });
 
+  // SCRUM-66/AC1: an organiser opens an event (and its change request form) by clicking its name or status
+  it("SCRUM-66/AC1 links an organiser's event name and status to the event page", () => {
+    const organiser: DashboardData = {
+      user: { fullName: "Jason Chua", email: "jason@example.com", role: "event_organiser" },
+      sections: [{
+        title: "My event requests",
+        columns: [
+          { key: "name", label: "Event", linkKey: "eventHref" },
+          { key: "status", label: "Status", linkKey: "eventHref" },
+        ],
+        rows: [{ name: "Tech Summit", status: "submitted", eventHref: "/events/evt-9" }],
+      }],
+    };
+    render(<DashboardView data={organiser} />);
+
+    expect(screen.getByRole("link", { name: "Tech Summit" }).getAttribute("href")).toBe("/events/evt-9");
+    expect(screen.getByRole("link", { name: "submitted" }).getAttribute("href")).toBe("/events/evt-9");
+  });
+
   it("leaves every other value as plain text", () => {
     render(<DashboardView data={data} />);
 
@@ -60,6 +79,15 @@ describe("Dashboard tables", () => {
   });
   // if role is technical support staff, we can see the link. Else, no
   // end of SCRUM-18 dashboard link
+
+  // SCRUM-65: only event coordinators see the 'Search venues' link.
+  it.each(ROLES)("SCRUM-65: for a %s, shows the 'Search venues' link only if Event Coordinator", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    const link = screen.queryByRole("link", { name: "Search venues" });
+    if (role === "event_coordinator") expect(link?.getAttribute("href")).toBe("/venues/search");
+    else expect(link).toBeNull();
+  });
 
   // we want to test that if the person is technical support staff, they can see the link to reserve equipment
 

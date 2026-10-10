@@ -211,16 +211,21 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-Parts of the repo are still scaffolding — some `services/*/src/index.ts` files export a
-`healthCheck()` stub and nothing else. Declared dependencies (express, zod) are real intent, not yet
-real code. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
+Parts of the repo are still scaffolding — `notification-service` listens on its port but only serves
+`GET /health` (no notifications are sent yet), and the `healthCheck()` exports in
+`services/*/src/index.ts` are leftovers from the original scaffold. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
-spec in `docs/specs/venue-booking-approval.md`). SCRUM-40 (suggested alternative) is not built: the
+spec in `docs/specs/venue-booking-approval.md`). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
+`available_venues` database function (`14_venue_search.sql`). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
 `reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`); the equipment
+catalogue and equipment requests/approval are not built yet.
+`event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
+`docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
+approving or rejecting a request, and applying it to the event, is not built yet.
 catalogue and equipment requests/approval are not built yet. `auth-service` also serves a user's own profile
 (SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
 separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
@@ -236,9 +241,8 @@ Known gaps to fix rather than work around:
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
   new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
-  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket.
-- Services that are still stubs export `healthCheck()` but never call `listen()`, so their
-  containers start and exit immediately under `docker compose up`.
+  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket
+  (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
 
 
 ## 

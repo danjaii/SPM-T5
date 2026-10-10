@@ -688,6 +688,8 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
       canReview: false, // SCRUM-24/AC5: only the assigned coordinator may approve or reject
       canAssign: true, // SCRUM-42/AC8: coordinators may assign
+      isOrganiser: false, // SCRUM-66
+      canRequestChange: false, // SCRUM-66: only an organiser may
     });
   });
 
@@ -734,6 +736,8 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
       canReview: false, // SCRUM-24/AC5: only the assigned coordinator may approve or reject
       canAssign: true, // SCRUM-42/AC8: coordinators may assign
+      isOrganiser: false, // SCRUM-66
+      canRequestChange: false, // SCRUM-66: only an organiser may
     });
   });
 });

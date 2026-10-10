@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { attachmentProblem, canDecideEvent, canReviewEvents, isEventStatus, isRole, type Role } from "@spm-t5/shared";
+import { attachmentProblem, canDecideEvent, canRequestChange, canReviewEvents, isEventStatus, isRole, type Role } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
 /** Looks up the caller's role in the users table; undefined if missing or not a real role. */
-async function lookUpRole(deps: SupabaseDeps, { id, token }: SessionUser): Promise<Role | undefined> {
+export async function lookUpRole(deps: SupabaseDeps, { id, token }: SessionUser): Promise<Role | undefined> {
   const { data: profile } = await deps.forUser(token).from("users").select("role").eq("id", id).maybeSingle();
   return isRole(profile?.role) ? profile.role : undefined;
 }
@@ -197,6 +197,9 @@ export function eventRoutes(deps: SupabaseDeps) {
       canChangeStatus,
       canReview,
       canAssign,
+      // SCRUM-66/AC1-AC3: for the UI, whether this viewer is the organiser and may raise a change request now
+      isOrganiser,
+      canRequestChange: isOrganiser && canRequestChange(event.status),
       purpose: (event.purpose as string | null) ?? null,
       preferred_start_datetime: (event.preferred_start_datetime as string | null) ?? null,
       preferred_end_datetime: (event.preferred_end_datetime as string | null) ?? null,
