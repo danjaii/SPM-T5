@@ -341,6 +341,16 @@ tr:last-child td { border-bottom: 0; }
 .mention-menu li { padding: 8px 12px; cursor: pointer; }
 .mention-menu li[aria-selected="true"], .mention-menu li:hover { background: var(--selected); color: var(--steel-dark); }
 .mention-menu__empty { padding: 8px 12px; color: var(--subtle); }
+/* SCRUM-28: files on a posted comment (AC2, AC3) and files staged in the box (AC1) */
+.attachments { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; padding: 0; }
+.attachment { max-width: 100%; padding: 4px 10px; background: var(--field); border: 1px solid var(--border); color: var(--steel-dark); font: inherit; font-size: 14px; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.attachment::before { content: "📎 "; }
+.attachment:hover { border-color: var(--steel); text-decoration: underline; }
+.attachment:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.staged-files { list-style: none; margin: 8px 0 0; padding: 0; }
+.staged-files li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.staged-files .comment__reply { margin-top: 0; }
+.staged-files__size { color: var(--subtle); font-size: 13px; }
 .alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
 
 /* Fact lists: label column beside the value on wide screens, stacked on phones */

@@ -173,6 +173,14 @@ export interface EventComment {
   author_name: string | null;
   /** SCRUM-27/AC3: who the body's @[userId] markers refer to. */
   mentions: Array<{ user_id: string; full_name: string | null }>;
+  /** SCRUM-28/AC2: files attached to the comment. */
+  attachments: Attachment[];
+}
+
+/** SCRUM-28: a stored file, by its name and its path in the event-attachments bucket. */
+export interface Attachment {
+  file_name: string;
+  storage_path: string;
 }
 
 /** SCRUM-25/AC5: can_comment says whether the viewer may add to the conversation. */
@@ -189,21 +197,51 @@ export const fetchEventComments = (id: string) =>
 export const fetchMentionableUsers = (id: string) =>
   getFromEventService<CoordinatorOption[]>(`${encodeURIComponent(id)}/mentionable-users`);
 
-/** SCRUM-25/AC1: add a comment to the event. SCRUM-26/AC1: or, with parentCommentId, a reply to one of its comments. */
-export async function addEventComment(
-  id: string,
-  body: string,
-  parentCommentId?: string,
-): Promise<ApiResult<Record<string, never>>> {
+async function postToEventService<T>(path: string, payload: object): Promise<ApiResult<T>> {
   try {
-    const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(id)}/comments`, {
+    const res = await fetch(`${EVENT_URL}/events/${path}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parentCommentId ? { body, parent_comment_id: parentCommentId } : { body }),
+      body: JSON.stringify(payload),
     });
     return { ok: res.ok, data: await res.json() };
   } catch {
     return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
   }
 }
+
+/**
+ * SCRUM-25/AC1: add a comment to the event. SCRUM-26/AC1: or, with parentCommentId, a reply to one of its
+ * comments. SCRUM-28/AC1: with the files already uploaded for it.
+ */
+export const addEventComment = (id: string, body: string, parentCommentId?: string, attachments: Attachment[] = []) =>
+  postToEventService<Record<string, never>>(`${encodeURIComponent(id)}/comments`, {
+    body,
+    ...(parentCommentId && { parent_comment_id: parentCommentId }),
+    ...(attachments.length > 0 && { attachments }),
+  });
+
+/** SCRUM-28/AC1: a one-time URL to upload one file to, and where it will be stored. */
+export const requestUploadUrl = (id: string, file: File) =>
+  postToEventService<{ upload_url: string; storage_path: string }>(`${encodeURIComponent(id)}/attachments/upload-url`, {
+    file_name: file.name,
+    content_type: file.type,
+    size: file.size,
+  });
+
+/** SCRUM-28/AC1: send the file itself to the URL from requestUploadUrl. True once storage has it. */
+export async function uploadFile(uploadUrl: string, file: File): Promise<boolean> {
+  try {
+    const res = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** SCRUM-28/AC3: a short-lived link to open or download a stored attachment. */
+export const fetchAttachmentUrl = (id: string, storagePath: string) =>
+  getFromEventService<{ signed_url: string }>(
+    `${encodeURIComponent(id)}/attachments/signed-url?storage_path=${encodeURIComponent(storagePath)}`,
+  );

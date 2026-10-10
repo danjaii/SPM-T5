@@ -1,3 +1,4 @@
+export * from "./attachments";
 export * from "./equipmentAvailability";
 export * from "./eventChangeRequest";
 export * from "./eventStatus";

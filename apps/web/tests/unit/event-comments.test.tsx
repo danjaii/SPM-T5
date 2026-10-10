@@ -21,15 +21,18 @@ const PEOPLE = [
 
 /**
  * Fakes event-service: GET /comments answers with each of `threads` in turn (the last one repeats), POST with
- * `post`, and GET /mentionable-users with `people`.
+ * `post`, GET /mentionable-users with `people`, and any URL containing a key of `routes` with that reply.
  */
 function mockEventService(
   threads: Reply[],
   post?: Reply | "offline",
   people: Reply = { status: 200, body: PEOPLE },
+  routes: Record<string, Reply> = {},
 ) {
   let gets = 0;
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    const route = Object.keys(routes).find((key) => url.includes(key));
+    if (route) return { ok: routes[route].status < 400, status: routes[route].status, json: async () => routes[route].body };
     if (init?.method === "POST") {
       if (post === "offline") throw new TypeError("Failed to fetch");
       return { ok: post!.status < 400, status: post!.status, json: async () => post!.body };
@@ -74,7 +77,8 @@ describe("SCRUM-25/AC1 — Add a comment", () => {
     type("  Yes, 120 people.  ");
     fireEvent.click(postButton());
 
-    expect(await screen.findByText(SECOND.body)).toBeTruthy();
+    // the typed text is mirrored into the textarea, so look past it for the posted comment
+    expect(await screen.findByText(SECOND.body, { ignore: "textarea" })).toBeTruthy();
     const [url, init] = posts(fetchMock)[0] as [string, RequestInit];
     expect(url).toBe("http://localhost:4002/events/evt-1/comments");
     expect(JSON.parse(init.body as string)).toEqual({ body: "Yes, 120 people." });
@@ -229,7 +233,7 @@ describe("SCRUM-26/AC1 — Reply to a comment", () => {
     fireEvent.change(replyBox(), { target: { value: "  About 120. " } });
     fireEvent.click(screen.getByRole("button", { name: "Post reply" }));
 
-    expect(await screen.findByText(REPLY_1.body)).toBeTruthy();
+    expect(await screen.findByText(REPLY_1.body, { ignore: "textarea" })).toBeTruthy();
     const [, init] = posts(fetchMock)[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ body: "About 120.", parent_comment_id: "c1" });
     expect(screen.queryByLabelText(/^Reply to /)).toBeNull(); // the reply box closes once posted
@@ -575,5 +579,266 @@ describe("SCRUM-27/AC3 — Display mentions", () => {
 
     const body = await screen.findByText(/Ask/, { selector: ".comment__body" });
     expect(body.querySelector(".mention")!.textContent).toBe("@Unknown user");
+  });
+});
+
+const UPLOAD = { status: 200, body: { upload_url: "https://storage.test/upload/evt-1/x/agenda.pdf?token=up", storage_path: "evt-1/x/agenda.pdf" } };
+const STORED: Reply = { status: 200, body: {} };
+
+const file = (name: string, type: string, size = 2048) => {
+  const f = new File(["x"], name, { type });
+  Object.defineProperty(f, "size", { value: size });
+  return f;
+};
+const AGENDA = file("agenda.pdf", "application/pdf", 2048);
+const PHOTO = file("stage.png", "image/png", 3 * 1024 * 1024);
+
+const fileInput = (label = "Attach files") => screen.getAllByLabelText(label)[0] as HTMLInputElement;
+const choose = (...files: File[]) => fireEvent.change(fileInput(), { target: { files } });
+const staged = () =>
+  within(screen.getByRole("list", { name: "Files to attach" }))
+    .getAllByRole("listitem")
+    .map((li) => li.textContent);
+const commentPosts = (fetchMock: ReturnType<typeof mockEventService>) =>
+  posts(fetchMock).filter(([url]) => String(url).endsWith("/comments"));
+const callsTo = (fetchMock: ReturnType<typeof mockEventService>, part: string) =>
+  fetchMock.mock.calls.filter(([url]) => String(url).includes(part)) as Array<[string, RequestInit]>;
+
+/** An empty conversation whose uploads (and anything else in `routes`) answer as given. */
+async function readyToAttach(routes: Record<string, Reply> = {}, post: Reply = { status: 201, body: {} }) {
+  const fetchMock = mockEventService([thread([])], post, undefined, {
+    "/attachments/upload-url": UPLOAD,
+    "storage.test": STORED,
+    ...routes,
+  });
+  setup();
+  await screen.findByText(NO_COMMENTS);
+  return fetchMock;
+}
+
+describe("SCRUM-28/AC1 — Attach multiple files", () => {
+  it("stages the chosen files with their sizes before posting", async () => {
+    await readyToAttach();
+
+    choose(AGENDA, PHOTO);
+
+    expect(staged()).toEqual(["agenda.pdf2 KBRemove", "stage.png3.0 MBRemove"]);
+    expect(fileInput().getAttribute("accept")).toContain("application/pdf");
+  });
+
+  it("adds to the staged files when more are chosen, and Remove takes one off", async () => {
+    await readyToAttach();
+
+    choose(AGENDA);
+    choose(PHOTO);
+    fireEvent.click(screen.getByRole("button", { name: "Remove agenda.pdf" }));
+
+    expect(staged()).toEqual(["stage.png3.0 MBRemove"]);
+  });
+
+  it("uploads each file, then posts the comment with them, and clears the box", async () => {
+    const fetchMock = await readyToAttach();
+
+    type("Floor plan attached");
+    choose(AGENDA, file("tiny.txt", "text/plain", 10));
+    fireEvent.click(postButton());
+
+    await vi.waitFor(() => expect(commentPosts(fetchMock)).toHaveLength(1));
+    const asks = callsTo(fetchMock, "/attachments/upload-url");
+    expect(asks.map(([url]) => url)).toEqual([
+      "http://localhost:4002/events/evt-1/attachments/upload-url",
+      "http://localhost:4002/events/evt-1/attachments/upload-url",
+    ]);
+    expect(JSON.parse(asks[0][1].body as string)).toEqual({ file_name: "agenda.pdf", content_type: "application/pdf", size: 2048 });
+    const puts = callsTo(fetchMock, "storage.test");
+    expect(puts[0][1]).toMatchObject({ method: "PUT", headers: { "Content-Type": "application/pdf" }, body: AGENDA });
+    expect(JSON.parse((commentPosts(fetchMock)[0] as [string, RequestInit])[1].body as string)).toEqual({
+      body: "Floor plan attached",
+      attachments: [
+        { file_name: "agenda.pdf", storage_path: "evt-1/x/agenda.pdf" },
+        { file_name: "tiny.txt", storage_path: "evt-1/x/agenda.pdf" },
+      ],
+    });
+    await vi.waitFor(() => expect(screen.queryByRole("list", { name: "Files to attach" })).toBeNull());
+  });
+
+  it("works on a reply too", async () => {
+    const fetchMock = mockEventService([thread([FIRST])], { status: 201, body: {} }, undefined, {
+      "/attachments/upload-url": UPLOAD,
+      "storage.test": STORED,
+    });
+    setup();
+    await screen.findByText(FIRST.body);
+    fireEvent.click(replyButtons()[0]);
+
+    fireEvent.change(replyBox(), { target: { value: "See attached" } });
+    fireEvent.change(screen.getAllByLabelText("Attach files")[0], { target: { files: [AGENDA] } });
+    fireEvent.click(screen.getByRole("button", { name: "Post reply" }));
+
+    await vi.waitFor(() => expect(commentPosts(fetchMock)).toHaveLength(1));
+    expect(JSON.parse((commentPosts(fetchMock)[0] as [string, RequestInit])[1].body as string)).toEqual({
+      body: "See attached",
+      parent_comment_id: "c1",
+      attachments: [{ file_name: "agenda.pdf", storage_path: "evt-1/x/agenda.pdf" }],
+    });
+  });
+
+  it("doesn't post the comment when event-service refuses an upload, and keeps the files staged", async () => {
+    const fetchMock = await readyToAttach({
+      "/attachments/upload-url": { status: 403, body: { error: "You are not allowed to attach files on this event." } },
+    });
+
+    type("Attached");
+    choose(AGENDA);
+    fireEvent.click(postButton());
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "We couldn't upload agenda.pdf. You are not allowed to attach files on this event.",
+    );
+    expect(commentPosts(fetchMock)).toHaveLength(0);
+    expect(staged()).toEqual(["agenda.pdf2 KBRemove"]);
+  });
+
+  it("doesn't post the comment when storage won't take the file", async () => {
+    const fetchMock = await readyToAttach({ "storage.test": { status: 400, body: {} } });
+
+    type("Attached");
+    choose(AGENDA);
+    fireEvent.click(postButton());
+
+    expect((await screen.findByRole("alert")).textContent).toBe("We couldn't upload agenda.pdf. Please try again.");
+    expect(commentPosts(fetchMock)).toHaveLength(0);
+  });
+
+  it("says so when the upload can't reach storage", async () => {
+    await readyToAttach();
+    vi.mocked(fetch).mockImplementation(async (url) => {
+      if (String(url).includes("storage.test")) throw new TypeError("Failed to fetch");
+      return { ok: true, status: 200, json: async () => UPLOAD.body } as Response;
+    });
+
+    type("Attached");
+    choose(AGENDA);
+    fireEvent.click(postButton());
+
+    expect((await screen.findByRole("alert")).textContent).toBe("We couldn't upload agenda.pdf. Please try again.");
+  });
+
+  it("falls back to a generic message when event-service gives no reason", async () => {
+    await readyToAttach({ "/attachments/upload-url": { status: 500, body: {} } });
+
+    type("Attached");
+    choose(AGENDA);
+    fireEvent.click(postButton());
+
+    expect((await screen.findByRole("alert")).textContent).toBe("We couldn't upload agenda.pdf. Please try again.");
+  });
+});
+
+describe("SCRUM-28/AC4 — Supported file types", () => {
+  it.each([
+    ["photo.jpg", "image/jpeg"],
+    ["clip.mp4", "video/mp4"],
+    ["brief.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    ["budget.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+  ])("accepts %s", async (name, type) => {
+    await readyToAttach();
+
+    choose(file(name, type, 500));
+
+    expect(staged()).toEqual([`${name}1 KBRemove`]);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("SCRUM-28/AC5 — Unsupported file type", () => {
+  it("rejects it, says the type isn't supported, and still stages the good files chosen with it", async () => {
+    await readyToAttach();
+
+    choose(file("setup.exe", "application/x-msdownload"), AGENDA);
+
+    expect(screen.getByRole("alert").textContent).toBe(
+      "setup.exe: This file type is not supported. Attach an image, video or document.",
+    );
+    expect(staged()).toEqual(["agenda.pdf2 KBRemove"]);
+  });
+
+  it("clears the message on the next choice", async () => {
+    await readyToAttach();
+
+    choose(file("setup.exe", "application/x-msdownload"));
+    choose(AGENDA);
+
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("SCRUM-28/AC6 — File size validation", () => {
+  it("rejects a file over 10 MB and says it's too large", async () => {
+    await readyToAttach();
+
+    choose(file("keynote.mp4", "video/mp4", 10 * 1024 * 1024 + 1));
+
+    expect(screen.getByRole("alert").textContent).toBe("keynote.mp4: This file is larger than the 10 MB limit.");
+    expect(screen.queryByRole("list", { name: "Files to attach" })).toBeNull();
+  });
+});
+
+describe("SCRUM-28/AC2 — Display attachments", () => {
+  it("lists a comment's attachments by file name", async () => {
+    mockEventService([thread([{
+      ...FIRST,
+      attachments: [
+        { file_name: "agenda.pdf", storage_path: "evt-1/a/agenda.pdf" },
+        { file_name: "stage.png", storage_path: "evt-1/b/stage.png" },
+      ],
+    }])]);
+    setup();
+
+    const list = within(await screen.findByRole("list", { name: "Attachments" }));
+    expect(list.getAllByRole("button").map((b) => b.textContent)).toEqual(["agenda.pdf", "stage.png"]);
+  });
+
+  it("shows no attachment list for a comment without files", async () => {
+    mockEventService([thread([FIRST])]);
+    setup();
+    await screen.findByText(FIRST.body);
+
+    expect(screen.queryByRole("list", { name: "Attachments" })).toBeNull();
+  });
+});
+
+describe("SCRUM-28/AC3 — Access attachments", () => {
+  const withAttachment = (signedUrl: Reply) => {
+    mockEventService(
+      [thread([{ ...FIRST, attachments: [{ file_name: "agenda.pdf", storage_path: "evt-1/a/agenda v2.pdf" }] }])],
+      undefined,
+      undefined,
+      { "/attachments/signed-url": signedUrl },
+    );
+    setup();
+  };
+
+  it("opens the file through a short-lived link", async () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    withAttachment({ status: 200, body: { signed_url: "https://storage.test/sign/agenda.pdf?token=s" } });
+
+    fireEvent.click(await screen.findByRole("button", { name: "agenda.pdf" }));
+
+    await vi.waitFor(() => expect(open).toHaveBeenCalledWith("https://storage.test/sign/agenda.pdf?token=s", "_blank", "noopener"));
+    const [url] = vi.mocked(fetch).mock.calls.find(([u]) => String(u).includes("signed-url"))!;
+    expect(url).toBe("http://localhost:4002/events/evt-1/attachments/signed-url?storage_path=evt-1%2Fa%2Fagenda%20v2.pdf");
+  });
+
+  it("says so when the file can't be opened", async () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    withAttachment({ status: 403, body: { error: "You are not allowed to access attachments on this event." } });
+
+    fireEvent.click(await screen.findByRole("button", { name: "agenda.pdf" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("We couldn't open agenda.pdf. Please try again.");
+    expect(open).not.toHaveBeenCalled();
   });
 });

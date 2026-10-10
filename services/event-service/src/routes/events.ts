@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { canDecideEvent, canRequestChange, canReviewEvents, isEventStatus, isRole, type Role } from "@spm-t5/shared";
+import { attachmentProblem, canDecideEvent, canRequestChange, canReviewEvents, isEventStatus, isRole, type Role } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
@@ -7,6 +7,12 @@ import { requireSession, type SessionUser } from "../middlewares/session";
 export async function lookUpRole(deps: SupabaseDeps, { id, token }: SessionUser): Promise<Role | undefined> {
   const { data: profile } = await deps.forUser(token).from("users").select("role").eq("id", id).maybeSingle();
   return isRole(profile?.role) ? profile.role : undefined;
+}
+
+/** The event's organiser, or undefined when there is no such event. */
+async function eventOrganiserId(deps: SupabaseDeps, token: string, eventId: unknown): Promise<string | undefined> {
+  const { data: event } = await deps.forUser(token).from("events").select("organiser_id").eq("id", eventId).maybeSingle();
+  return event ? (event.organiser_id as string) : undefined;
 }
 
 // SCRUM-44/AC5: statuses in which a request is still waiting on the organiser or the coordinator.
@@ -327,6 +333,40 @@ export function eventRoutes(deps: SupabaseDeps) {
     return res.json({ signed_url: data.signedUrl });
   });
 
+  // SCRUM-28/AC1: a one-time URL the browser uploads one staged file to, before posting the comment with it.
+  // SCRUM-28/AC4-AC6: the file's type and size are checked first (the bucket enforces the same on upload).
+  // The URL is created as the caller, so the bucket's insert policy (who can see the event) applies.
+  router.post("/:id/attachments/upload-url", requireSession(deps), async (req, res) => {
+    const { id: callerId, token } = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, res.locals.user as SessionUser);
+    if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
+      return res.status(403).json({ error: "You are not allowed to attach files on this event." });
+    }
+    const fileName = typeof req.body.file_name === "string" ? req.body.file_name.trim() : "";
+    const contentType = typeof req.body.content_type === "string" ? req.body.content_type : "";
+    const size = typeof req.body.size === "number" ? req.body.size : NaN;
+    if (!fileName || !Number.isFinite(size) || size < 0) {
+      return res.status(400).json({ error: "file_name, content_type and size are required." });
+    }
+    const problem = attachmentProblem({ type: contentType, size });
+    if (problem) return res.status(400).json({ error: problem });
+
+    const organiserId = await eventOrganiserId(deps, token, req.params.id);
+    if (organiserId === undefined) return res.status(404).json({ error: "Event not found." });
+    if (role === "event_organiser" && organiserId !== callerId) {
+      return res.status(403).json({ error: "You are not allowed to attach files on this event." });
+    }
+    // <event id>/<random>/<name>: the event folder is what the storage policy checks; the random folder keeps
+    // two files with the same name apart
+    const safeName = fileName.replace(/[^\w.-]+/g, "_").slice(-100);
+    const storagePath = `${req.params.id}/${crypto.randomUUID()}/${safeName}`;
+    const { data } = await deps.forUser(token).storage.from("event-attachments").createSignedUploadUrl(storagePath);
+    if (!data?.signedUrl) {
+      return res.status(500).json({ error: "Could not prepare the upload. Please try again." });
+    }
+    return res.json({ upload_url: data.signedUrl, storage_path: storagePath });
+  });
+
   // SCRUM-25/AC2: an authorised user views comment details (author name, date/time, text)
   // SCRUM-25/AC5: response includes can_comment so the UI can show/hide the comment input
   // SCRUM-27/AC3: each comment includes a mentions array with user_id and full_name
@@ -450,14 +490,8 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
       return res.status(403).json({ error: "You are not allowed to search for users on this event." });
     }
-    const { data: event } = await deps
-      .forUser(token)
-      .from("events")
-      .select("organiser_id")
-      .eq("id", req.params.id)
-      .maybeSingle();
-    if (!event) return res.status(404).json({ error: "Event not found." });
-    const organiserId = event.organiser_id as string;
+    const organiserId = await eventOrganiserId(deps, token, req.params.id);
+    if (organiserId === undefined) return res.status(404).json({ error: "Event not found." });
     if (role === "event_organiser" && organiserId !== callerId) {
       return res.status(403).json({ error: "You are not allowed to search for users on this event." });
     }
