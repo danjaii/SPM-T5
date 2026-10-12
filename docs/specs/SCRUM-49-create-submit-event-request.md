@@ -95,15 +95,18 @@ Tests written so far (red step, backend AC1 + AC7). AC2–AC6 have no tests yet.
 - `packages/shared` — request validation schema (first zod schema there) and a role helper for who
   may create requests, so `apps/web` and the service validate identically. Flag in the commit body.
 - `apps/web` — the request form, field validation and confirmation (AC2, AC3, AC6), later.
-- `supabase/migrations/` — **one new migration, `08_create_event_request.sql`**. Numbered 08 because
-  the unmerged `event-review-and-approval` branch (Jerome) already uses 04–07, while `main` only has
-  04 (`04_change_event_status.sql`). That clash with `main`'s own 04 is Jerome's to resolve at merge;
-  flag it in the PR. It adds:
+- `supabase/migrations/` — **one new migration, `19_create_event_request.sql`** (numbered after
+  `18_venue_search.sql`, the last migration on `main` when this branch merged it). It adds:
   - a `venue_requirements` text column on `events` (AC1 lists venue requirements; no column holds it)
   - a `create_event_request` function that creates the event and its `event_status_history` row in
     one transaction, taking the organiser from `auth.uid()` (AC7)
-- The "organisers only" check (AC7 scenario above) is done in application code in the route, not RLS,
-  because RLS is still a blanket placeholder. Note in the PR; replace with an RLS policy later.
+  - organiser-only INSERT policies on `events` and `event_status_history`, so RLS enforces the
+    "organisers only" rule (AC7): an `event_organiser` can insert only rows where they are the
+    organiser, with status `submitted`. `14_events_rls.sql` left both tables with no INSERT policy
+    for organisers. Covered by `services/event-service/tests/integration/eventRequestCreateRls.test.ts`.
+- The route still checks the role in application code (`canCreateEventRequests`), now as
+  defence-in-depth behind RLS. It gives a clean 403 instead of a raw database error. Raised as a
+  question for PR review (see Open questions); it has not been removed.
 - No C4 diagram or ADR change expected.
 
 ## Out of scope
@@ -117,6 +120,10 @@ Tests written so far (red step, backend AC1 + AC7). AC2–AC6 have no tests yet.
 
 ## Open questions
 
+- **Keep the app-level role check?** RLS (migration 19) now enforces organiser-only inserts, so the
+  `canCreateEventRequests` check in `routes/eventRequests.ts` is defence-in-depth. CLAUDE.md says
+  middleware "should not re-implement role checks that RLS already enforces". Keep it for the clean
+  403, or remove it and map the 42501 error to 403? For PR review.
 - **Registration setup contents.** Beyond whether registration is needed, are capacity and the
   opens/closes window mandatory when it is? (Current tests and plan assume yes when required.)
 - **Room layout options.** Which layouts can be chosen: all rows in `room_layouts` (six seeded), or

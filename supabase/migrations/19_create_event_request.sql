@@ -1,7 +1,5 @@
 -- ConnectSphere: create and submit a new event request, all-or-nothing (SCRUM-49)
--- Follows 04_change_event_status.sql on main.
--- Numbered 08 because the unmerged event-review-and-approval branch already uses 04-07;
--- that clash with main's own 04 needs resolving when that branch merges.
+-- Follows 18_venue_search.sql.
 --
 -- AC1: the request's fields need somewhere to live. Venue requirements had no column.
 alter table events add column venue_requirements text;
@@ -12,6 +10,11 @@ alter table events add column venue_requirements text;
 -- security invoker: runs as the calling user, so RLS applies as if they had made the writes
 -- themselves. organiser_id and changed_by come from auth.uid() (the verified JWT), and the client
 -- organisation from the caller's own users row, so none of them can be spoofed by the request body.
+--
+-- RLS: 14_events_rls.sql leaves events and event_status_history with no organiser INSERT policy
+-- ("event creation ... will add organiser policies with the stories that need them"), so the
+-- policies at the bottom of this file add them. They only let an event_organiser insert rows where
+-- they are the organiser, so an organiser cannot create events or history for anyone else.
 --
 -- Field validation (AC5) is not done here yet; the table's own check constraints still apply.
 
@@ -68,3 +71,29 @@ $$;
 grant execute on function create_event_request(
   text, text, text, timestamptz, timestamptz, int, text, uuid, text, text, boolean, int, timestamptz, timestamptz
 ) to authenticated;
+
+-- ============================================================================
+-- RLS: ORGANISER INSERT (same style as 14_events_rls.sql)
+-- ============================================================================
+-- Adds to the policies from 14 (permissive policies are OR-ed), so coordinators keep what they had.
+-- Affects event-service only. Draft requests will need their own policy for status = 'draft'.
+
+drop policy if exists events_insert_organiser on events;
+create policy events_insert_organiser on events
+  for insert to authenticated
+  with check (
+    public.current_user_role() = 'event_organiser'
+    and organiser_id = auth.uid()
+    and status = 'submitted'
+  );
+
+drop policy if exists event_status_history_insert_organiser on event_status_history;
+create policy event_status_history_insert_organiser on event_status_history
+  for insert to authenticated
+  with check (
+    public.current_user_role() = 'event_organiser'
+    and changed_by = auth.uid()
+    and old_status is null
+    and new_status = 'submitted'
+    and exists (select 1 from public.events e where e.id = event_id and e.organiser_id = auth.uid())
+  );
