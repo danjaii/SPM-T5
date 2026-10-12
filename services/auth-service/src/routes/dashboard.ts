@@ -1,9 +1,13 @@
 import { Router } from "express";
-import type { Role } from "@spm-t5/shared";
+import { registrationStatus, type Role } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
 type Row = Record<string, unknown>;
+
+// venue_bookings has two FKs to venues (venue_id, suggested_venue_id), so the embed must name one.
+const BOOKING_COLUMNS =
+  "status, event_start_datetime, event_end_datetime, event:events(name), venue:venues!venue_bookings_venue_id_fkey(name)";
 interface Section {
   title: string;
   /** linkKey: the row field holding a link for this column's value (the web app renders it as a link). */
@@ -61,23 +65,24 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
   switch (role) {
     case "event_organiser": {
       const events = await rows(
-        db.from("events").select("name, status, preferred_start_datetime, expected_attendance")
+        db.from("events").select("id, name, status, preferred_start_datetime, expected_attendance")
           .eq("organiser_id", userId).order("created_at", { ascending: false }).limit(LIMIT),
       );
       return [{
         title: "My event requests",
         columns: [
-          { key: "name", label: "Event" }, { key: "status", label: "Status" },
+          // SCRUM-66/AC1: the event page holds the change request form, so the organiser reaches it by clicking the event
+          { key: "name", label: "Event", linkKey: "eventHref" }, { key: "status", label: "Status", linkKey: "eventHref" },
           { key: "start", label: "Preferred start" }, { key: "attendance", label: "Expected attendance" },
         ],
-        rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
+        rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), eventHref: `/events/${e.id}`, start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
       }];
     }
     case "event_coordinator": {
       const [events, bookings] = await Promise.all([
         rows(db.from("events").select("id, name, status, preferred_start_datetime, expected_attendance")
           .eq("assigned_coordinator_id", userId).order("preferred_start_datetime", { ascending: true }).limit(LIMIT)),
-        rows(db.from("venue_bookings").select("status, event_start_datetime, event_end_datetime, event:events(name), venue:venues(name)")
+        rows(db.from("venue_bookings").select(BOOKING_COLUMNS)
           .eq("requested_by", userId).order("event_start_datetime", { ascending: true }).limit(LIMIT)),
       ]);
       return [
@@ -104,7 +109,7 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
       const [venues, bookings] = await Promise.all([
         rows(db.from("venues").select("name, address, max_capacity, operating_hours_start, operating_hours_end, is_accessible")
           .eq("is_active", true).order("name").limit(LIMIT)),
-        rows(db.from("venue_bookings").select("status, event_start_datetime, event_end_datetime, event:events(name), venue:venues(name)")
+        rows(db.from("venue_bookings").select(BOOKING_COLUMNS)
           .in("status", ["requested", "tentative"]).order("event_start_datetime", { ascending: true }).limit(LIMIT)),
       ]);
       return [
@@ -151,14 +156,16 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
         },
       ];
     }
+    // Week 7 customer changes: two new internal roles. Their dashboards (the Lead's queue, the Safety Officer's checks) belong to
+    // their own stories, so until then they get an empty one.
+    case "event_coordinator_lead":
+    case "safety_officer":
+      return [];
+
     case "attendee": {
-      const [registrations, catalogue] = await Promise.all([
-        rows(db.from("event_registrations").select("status, registered_at, event:events(name, preferred_start_datetime)")
-          .eq("attendee_id", userId).order("registered_at", { ascending: false }).limit(LIMIT)),
-        rows(db.from("events").select("name, description, preferred_start_datetime, registration_capacity")
-          .eq("status", "confirmed").eq("registration_required", true)
-          .order("preferred_start_datetime", { ascending: true }).limit(LIMIT)),
-      ]);
+      // SCRUM-71/AC1: the List of events (which replaced "Events open for booking") comes from event-service
+      const registrations = await rows(db.from("event_registrations").select("status, registered_at, event:events(name, preferred_start_datetime)")
+        .eq("attendee_id", userId).order("registered_at", { ascending: false }).limit(LIMIT));
       return [
         {
           title: "My registrations & tickets",
@@ -166,15 +173,8 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
             { key: "event", label: "Event" }, { key: "start", label: "Starts" },
             { key: "status", label: "Status" }, { key: "registered", label: "Registered on" },
           ],
-          rows: registrations.map((r) => ({ event: cell(nested(r.event, "name")), start: date(nested(r.event, "preferred_start_datetime")), status: status(r.status), registered: date(r.registered_at) })),
-        },
-        {
-          title: "Events open for booking",
-          columns: [
-            { key: "name", label: "Event" }, { key: "description", label: "About" },
-            { key: "start", label: "Starts" }, { key: "capacity", label: "Capacity" },
-          ],
-          rows: catalogue.map((e) => ({ name: cell(e.name), description: cell(e.description), start: date(e.preferred_start_datetime), capacity: cell(e.registration_capacity) })),
+          // SCRUM-83/AC15: statuses in the attendee's words (waitlisted is pending), as on "My registrations"
+          rows: registrations.map((r) => ({ event: cell(nested(r.event, "name")), start: date(nested(r.event, "preferred_start_datetime")), status: registrationStatus(r.status) ?? status(r.status), registered: date(r.registered_at) })),
         },
       ];
     }

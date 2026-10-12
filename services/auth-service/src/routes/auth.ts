@@ -48,11 +48,12 @@ export function authRoutes(deps: SupabaseDeps) {
 
   // US2 — Register
   router.post("/register", async (req, res) => {
+
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Please fix the highlighted fields.", fieldErrors: fieldErrors(parsed.error) });
     }
-    const { fullName, email, password, role } = parsed.data;
+    const { fullName, email, password } = parsed.data;
     const duplicate = { error: "An account with this email already exists.", fieldErrors: { email: "An account with this email already exists." } };
 
     const { data: existing } = await admin.from("users").select("id").eq("email", email).maybeSingle();
@@ -71,12 +72,14 @@ export function authRoutes(deps: SupabaseDeps) {
     if (error?.status === 429 || error?.code === "over_email_send_rate_limit") {
       return res.status(429).json({ error: "Too many verification emails have been sent recently. Please wait a while and try again." });
     }
-    if (error || !data.user) return res.status(400).json({ error: "We couldn't create your account. Please try again." });
+    // SCRUM-12/AC13: anything else Supabase reports is a system error, not the user's input.
+    if (error || !data.user) return res.status(500).json({ error: "We couldn't create your account. Please try again." });
 
-    // role can't be set by the user themselves (03_users_role_privilege.sql), so the profile is written with the secret key.
+    // SCRUM-12: self sign-up always creates an Attendee. role can't be set by the user themselves
+    // (03_users_role_privilege.sql), so the profile is written with the secret key.
     const { error: profileError } = await admin
       .from("users")
-      .insert({ id: data.user.id, role, full_name: fullName, email });
+      .insert({ id: data.user.id, role: "attendee", full_name: fullName, email });
     if (profileError) {
       await admin.auth.admin.deleteUser(data.user.id).catch(() => undefined);
       return res.status(500).json({ error: "We couldn't create your account. Please try again." });

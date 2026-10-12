@@ -18,3 +18,15 @@ export type EventStatus = (typeof EVENT_STATUSES)[number];
 export function isEventStatus(value: unknown): value is EventStatus {
   return typeof value === "string" && (EVENT_STATUSES as readonly string[]).includes(value);
 }
+
+// SCRUM-24: a coordinator can approve or reject a request only while it is awaiting a decision.
+export const DECIDABLE_EVENT_STATUSES = ["submitted", "under_review"] as const satisfies readonly EventStatus[];
+
+export function canDecideEvent(status: string): boolean {
+  return (DECIDABLE_EVENT_STATUSES as readonly string[]).includes(status);
+}
+
+// SCRUM-45/AC3: review can only begin on a request that has been submitted and not yet picked up.
+export function canStartReview(status: string): boolean {
+  return status === "submitted";
+}

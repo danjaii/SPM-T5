@@ -1,3 +1,9 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
 :root {
   --navy: #1e2939;
   --navy-line: rgba(140, 170, 210, 0.09);
@@ -6,17 +12,51 @@
   --steel: #52759c;
   --steel-dark: #435f80;
   --paper: #efefef;
+  --line: #b4b8bd;
+  --subtle: #555b63;
   --field: #e6e6e6;
-  --border: #b4b8bd;
+  --border: oklch(0.922 0 0);
   --ink: #1b1f24;
-  --muted: #555b63;
+  --muted: oklch(0.97 0 0);
   --selected: #e8f1fc;
   --danger: #a12a2a;
   --danger-bg: #fbeaea;
   --ok: #1f6b3a;
   --ok-bg: #e6f4ea;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Legacy hand-written styles sit in the components layer so Tailwind utilities (and shadcn) win over them. */
+@layer components {
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
 body {
@@ -53,37 +93,37 @@ a { color: var(--steel-dark); }
 .auth__panel { display: flex; align-items: center; padding: 48px 72px; }
 .auth__form { width: 100%; max-width: 420px; }
 .auth__form h1 { font-size: 30px; font-weight: 700; }
-.auth__lede { color: var(--muted); margin: 6px 0 32px; }
+.auth__lede { color: var(--subtle); margin: 6px 0 32px; }
 
 /* ---------- Form controls ---------- */
 .field { margin-bottom: 20px; }
-.field label, .legend { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.field label, .legend { display: block; font-size: 12px; color: var(--subtle); margin-bottom: 6px; }
 .legend { font-family: var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; font-weight: 500; margin-bottom: 10px; }
 .field input {
   width: 100%; padding: 11px 12px; font: inherit; color: var(--ink);
-  background: var(--field); border: 1px solid var(--border); border-radius: 0;
+  background: var(--field); border: 1px solid var(--line); border-radius: 0;
 }
 .field input:focus-visible, .btn:focus-visible, .role-option:has(input:focus-visible), a:focus-visible {
   outline: 2px solid var(--steel); outline-offset: 2px;
 }
 .field--error input { border-color: var(--danger); }
-.field__hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.field__hint { font-size: 12px; color: var(--subtle); margin: 6px 0 0; }
 .field__error { font-size: 12px; color: var(--danger); margin: 6px 0 0; }
 
 .roles { border: 0; padding: 0; margin: 0 0 24px; }
-.role-list { border: 1px solid var(--border); }
+.role-list { border: 1px solid var(--line); }
 .role-option {
   display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; cursor: pointer;
   border-left: 3px solid transparent; background: transparent;
 }
-.role-option + .role-option { border-top: 1px solid var(--border); }
+.role-option + .role-option { border-top: 1px solid var(--line); }
 .role-option[data-selected="true"] { background: var(--selected); border-left-color: var(--steel); }
 .role-option input { position: absolute; opacity: 0; pointer-events: none; }
-.role-option__radio { flex: none; width: 16px; height: 16px; margin-top: 3px; border: 1.5px solid var(--border); border-radius: 50%; background: #fff; display: grid; place-items: center; }
+.role-option__radio { flex: none; width: 16px; height: 16px; margin-top: 3px; border: 1.5px solid var(--line); border-radius: 50%; background: #fff; display: grid; place-items: center; }
 .role-option[data-selected="true"] .role-option__radio { border-color: var(--steel-dark); }
 .role-option[data-selected="true"] .role-option__radio::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--steel-dark); }
 .role-option__title { font-family: var(--font-display); font-weight: 700; font-size: 16px; display: block; }
-.role-option__desc { font-size: 13px; color: var(--muted); display: block; margin-top: 2px; }
+.role-option__desc { font-size: 13px; color: var(--subtle); display: block; margin-top: 2px; }
 
 .btn {
   display: inline-block; width: 100%; padding: 13px 16px; border: 0; cursor: pointer;
@@ -94,11 +134,114 @@ a { color: var(--steel-dark); }
 .btn--ghost { width: auto; padding: 8px 16px; background: transparent; color: #fff; border: 1px solid rgba(255, 255, 255, 0.5); font-size: 14px; }
 .btn--ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
 
-.auth__links { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; font-size: 13px; color: var(--muted); }
+.auth__links { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; font-size: 13px; color: var(--subtle); }
 
 .alert { padding: 11px 14px; margin-bottom: 20px; font-size: 14px; border-left: 3px solid; }
 .alert--error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 .alert--ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+
+/* SCRUM-18 equipment availability page: the form on the left, the result on the right, larger labels.
+   On narrow screens the result drops below the form. */
+.equipment-check { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 48px; align-items: start; }
+.equipment-check .field label { font-size: 15px; color: var(--ink); }
+/* Hide the browser's own "dd----yyyy" hint while no date is picked, even when the box is clicked; pick a date with
+   the calendar icon. (The hint is drawn by the browser, so it can only be made see-through, not removed.
+   Edge/Chrome only. A date typed by keyboard stays hidden until it is complete.) */
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-text,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-day-field,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-month-field,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-year-field { color: transparent; }
+/* Clicking the box highlights the day part ("dd") as a blue block in the browser's own colours; hide that too.
+   !important because the browser's highlight style otherwise wins. */
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-day-field:focus,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-month-field:focus,
+.equipment-check input[type="date"][data-empty]::-webkit-datetime-edit-year-field:focus {
+  color: transparent !important;
+  background-color: transparent !important;
+}
+.equipment-check__result .alert { padding: 18px 20px; font-size: 16px; }
+.equipment-check__result .alert h2 { font-size: 24px; margin-bottom: 8px; }
+.equipment-check__result .alert p { margin: 6px 0 0; }
+/* The calendar and clock icons are clickable, so show the hand cursor over them. */
+.equipment-check input::-webkit-calendar-picker-indicator { cursor: pointer; }
+@media (max-width: 800px) { .equipment-check { grid-template-columns: 1fr; gap: 24px; } }
+
+/* SCRUM-19 reserve equipment page: the fields on the left, the equipment to choose from on the right as cards.
+   The equipment sits in the DOM right after the event (so the tab order follows the steps); the grid just places it
+   in the second column. On narrow screens everything stacks in that same order. */
+.reserve-form { width: 100%; }
+.reserve-form__grid { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); column-gap: 48px; align-items: start; }
+.reserve-form__grid > * { grid-column: 1; }
+.reserve-form__grid > .equipment-picker { grid-column: 2; grid-row: 1 / span 6; }
+.reserve-form .alert { max-width: 420px; }
+.reserve-form .field label { font-size: 15px; color: var(--ink); }
+.reserve-form input::-webkit-calendar-picker-indicator { cursor: pointer; }
+/* Hide the browser's "dd-mm-yyyy" and "--:-- --" hints while the date or a time is empty (same idea as the SCRUM-18 page).
+   Edge/Chrome only; a value typed by keyboard stays hidden until it is complete. */
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-text,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-day-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-month-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-year-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-hour-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-minute-field,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-ampm-field { color: transparent; }
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-day-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-month-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-year-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-hour-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-minute-field:focus,
+.reserve-form :is(input[type="date"], input[type="time"])[data-empty]::-webkit-datetime-edit-ampm-field:focus {
+  color: transparent !important;
+  background-color: transparent !important;
+}
+.equipment-picker__label { margin: 0 0 8px; font-size: 15px; color: var(--ink); }
+.equipment-picker__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.equipment-card {
+  padding: 14px 16px; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+  background: #fff; border: 1px solid var(--line);
+}
+.equipment-card:hover:not(:disabled) { border-color: var(--steel); }
+.equipment-card[aria-pressed="true"] { border: 2px solid var(--steel); padding: 13px 15px; background: #f3f6fa; font-weight: 600; }
+.equipment-card:disabled { opacity: 0.5; cursor: not-allowed; }
+.equipment-card:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+@media (max-width: 800px) {
+  .reserve-form__grid { grid-template-columns: 1fr; }
+  .reserve-form__grid > .equipment-picker { grid-column: 1; grid-row: auto; }
+}
+
+/* SCRUM-68, SCRUM-69 profile page: "Your details" (editable) on the left, "Your role" (set by ConnectSphere, read-only) on the right.
+   On narrow screens the two cards stack. */
+.profile-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: 24px; align-items: start; max-width: 1040px; }
+.profile-card { background: #fff; border: 1px solid var(--line); padding: 24px 28px; }
+.profile-card h2 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+.profile-card__intro { margin: 0 0 20px; font-size: 14px; color: var(--subtle); }
+.profile-form .field label { font-size: 15px; color: var(--ink); }
+.profile-prefs { border: 0; padding: 0; margin: 0 0 24px; }
+.profile-prefs legend { font-size: 15px; padding: 0; margin-bottom: 8px; }
+.profile-prefs__options { display: flex; flex-wrap: wrap; gap: 12px; }
+.profile-pref { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 15px; cursor: pointer; background: var(--field); border: 1px solid var(--line); }
+.profile-pref:has(input:checked) { background: var(--selected); border-color: var(--steel); font-weight: 600; }
+.profile-pref input { width: 16px; height: 16px; accent-color: var(--steel-dark); }
+.profile-actions { display: flex; justify-content: flex-end; }
+.profile-actions .btn { width: auto; min-width: 180px; }
+.profile-role { border-top: 4px solid var(--steel); }
+.profile-who { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #dcdfe3; }
+.profile-avatar { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--navy); color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 18px; letter-spacing: 0.02em; }
+.profile-who__role { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.profile-who__kind { margin: 2px 0 0; font-size: 13px; font-weight: 600; color: var(--steel-dark); }
+.profile-facts { display: grid; gap: 14px; margin: 0 0 20px; }
+.profile-facts div { display: grid; gap: 2px; }
+.profile-facts dt, .profile-role h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--subtle); }
+.profile-facts dd { margin: 0; font-size: 16px; font-weight: 600; }
+.profile-facts dd[data-missing], .profile-missing { font-weight: 400; font-style: italic; color: var(--subtle); }
+.profile-missing { margin: 0; font-size: 16px; }
+.profile-role h3 { margin: 0 0 10px; }
+.profile-responsibilities { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.profile-responsibilities li { position: relative; padding-left: 26px; font-size: 15px; line-height: 1.4; }
+.profile-responsibilities li::before { content: "\2713"; position: absolute; left: 0; top: 0; font-weight: 700; color: var(--ok); }
+@media (max-width: 860px) { .profile-layout { grid-template-columns: 1fr; } }
 
 /* ---------- Dashboard ---------- */
 .dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; background: var(--navy); color: #fff; }
@@ -106,32 +249,137 @@ a { color: var(--steel-dark); }
 .dash__role { margin-left: 10px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sky); }
 .dash__main { max-width: 1100px; margin: 0 auto; padding: 32px; }
 .dash__main h1 { font-size: 30px; font-weight: 700; }
-.dash__lede { color: var(--muted); margin: 6px 0 28px; }
+.dash__lede { color: var(--subtle); margin: 6px 0 28px; }
 .dash__section { margin-bottom: 36px; }
 .dash__links { display: flex; gap: 20px; margin: -12px 0 28px; font-size: 15px; font-weight: 500; }
 .dash__section h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
-.table-wrap { overflow-x: auto; border: 1px solid var(--border); background: #fff; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); background: #fff; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8; vertical-align: top; }
-th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: var(--field); font-weight: 500; }
+th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
 tr:last-child td { border-bottom: 0; }
-.empty { padding: 18px 14px; color: var(--muted); }
+.empty { padding: 18px 14px; color: var(--subtle); }
+
+/* ---------- Attendee List of events (SCRUM-71) ---------- */
+.event-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.event-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 18px; background: #fff; border: 1px solid var(--line); }
+.event-card h3 { font-size: 17px; font-weight: 700; }
+.event-card__when, .event-card__location { font-size: 14px; color: var(--subtle); }
+.event-card__registration { margin-top: auto; padding-top: 8px; font-size: 14px; font-weight: 600; color: var(--ok); }
+.event-card .btn { align-self: flex-end; width: auto; margin-top: auto; padding: 8px 18px; font-size: 14px; text-decoration: none; }
 
 /* ---------- Event status page (SCRUM-6/7/8) ---------- */
 .back-link { display: inline-block; margin-bottom: 20px; font-size: 14px; }
 .event { max-width: 560px; }
 .event h1 { font-size: 30px; font-weight: 700; }
-.event__status { display: flex; align-items: center; gap: 10px; margin: 10px 0 28px; color: var(--muted); font-size: 14px; }
+.event__status { display: flex; align-items: center; gap: 10px; margin: 10px 0 28px; color: var(--subtle); font-size: 14px; }
 .status-badge {
   padding: 4px 10px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--steel-dark); background: var(--selected); border: 1px solid var(--steel);
 }
 .event__form { padding: 24px; background: #fff; border: 1px solid var(--border); }
+.event__missing { color: var(--subtle); font-style: italic; }
+
+/* ---------- Event details page layout (SCRUM-23/24/42/43/45) ----------
+   One centred column; every section is a heading + white card with the same spacing, so the page reads
+   top to bottom: header, actions, request details, coordinator, history, venue, change status. */
+.event-page { max-width: 820px; margin: 0 auto; }
+.event-header h1 { font-size: 30px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.event-header .event__status { margin: 12px 0 0; }
+.event-panel > .alert { margin: 20px 0 0; }
+.event-panel > .field__hint { margin: 12px 0 0; }
+.event-section { margin-top: 36px; }
+.event-section h2 { font-size: 20px; font-weight: 700; margin: 0 0 12px; }
+.event-section .venue__facts, .event-section .vb__facts, .event-section .event__form { margin: 0; }
+.event-detail-card { padding: 20px 24px; background: #fff; border: 1px solid var(--border); line-height: 1.6; }
+.event-detail-card p { margin: 0; }
+.event-detail-card--quiet { color: var(--subtle); }
+.event-detail-card--table { padding: 0; overflow-x: auto; }
+.event-detail-card--table table { min-width: 520px; }
+.event-detail-card__step { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.event-detail-card .field:last-child { margin-bottom: 0; }
+
+/* Buttons sit in a row with even gaps and wrap onto new lines on narrow screens */
+.event-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.event-buttons .btn { width: auto; padding: 10px 18px; font-size: 15px; text-align: center; text-decoration: none; }
+.event-panel > .event-buttons { margin-top: 24px; }
+
+.event-detail-card--row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.event-detail-card--row .btn { width: auto; padding: 8px 16px; font-size: 15px; text-decoration: none; }
+.event-coordinator { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.event-coordinator__name { font-weight: 600; }
+.event-coordinator .btn { width: auto; padding: 8px 16px; font-size: 15px; }
+.event-quote { margin: 12px 0 0; padding: 10px 14px; border-left: 3px solid var(--steel); background: var(--field); white-space: pre-wrap; }
+/* SCRUM-44: review outcome, a coloured badge for the decision plus when, by whom and why */
+.outcome { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.outcome-badge { padding: 4px 12px; font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid; }
+.outcome-badge--approved { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
+.outcome-badge--rejected { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+.outcome__when { color: var(--subtle); font-size: 14px; }
+.outcome__reason { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.outcome__reason h3 { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); margin-bottom: 6px; }
+.outcome__reason p { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* SCRUM-25: comments on an event request, oldest first */
+.comments { list-style: none; margin: 0; padding: 0; }
+.comment + .comment { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.comment .comment__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.comment__author { font-weight: 600; }
+.comment__meta time { color: var(--subtle); font-size: 14px; }
+.comment .comment__body { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* SCRUM-26/AC2: replies indented under the comment they answer */
+.comments--replies { margin: 12px 0 0; padding-left: 16px; border-left: 2px solid var(--border); }
+.comments--replies .comment + .comment { margin-top: 12px; padding-top: 12px; }
+.comment__reply { margin-top: 8px; padding: 0; background: none; border: 0; color: var(--steel-dark); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.comment__reply:hover { text-decoration: underline; }
+.comment__reply:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.comment-form > .alert { margin: 0 0 12px; }
+/* SCRUM-27: @mentions, set apart in posted comments (AC3) and offered as you type (AC1) */
+.mention { padding: 0 3px; background: var(--selected); color: var(--steel-dark); font-weight: 600; }
+.mention-field { position: relative; }
+.mention-menu { position: absolute; left: 0; right: 0; z-index: 10; margin-top: 4px; background: #fff; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }
+.mention-menu ul { list-style: none; margin: 0; padding: 4px 0; }
+.mention-menu li { padding: 8px 12px; cursor: pointer; }
+.mention-menu li[aria-selected="true"], .mention-menu li:hover { background: var(--selected); color: var(--steel-dark); }
+.mention-menu__empty { padding: 8px 12px; color: var(--subtle); }
+/* SCRUM-28: files on a posted comment (AC2, AC3) and files staged in the box (AC1) */
+.attachments { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; padding: 0; }
+.attachment { max-width: 100%; padding: 4px 10px; background: var(--field); border: 1px solid var(--border); color: var(--steel-dark); font: inherit; font-size: 14px; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.attachment::before { content: "📎 "; }
+.attachment:hover { border-color: var(--steel); text-decoration: underline; }
+.attachment:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.staged-files { list-style: none; margin: 8px 0 0; padding: 0; }
+.staged-files li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.staged-files .comment__reply { margin-top: 0; }
+.staged-files__size { color: var(--subtle); font-size: 13px; }
+.alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
+
+/* Fact lists: label column beside the value on wide screens, stacked on phones */
+.event-section .venue__facts dt, .event-section .vb__facts dt { padding-top: 4px; }
+.event-section .venue__facts dd, .event-section .vb__facts dd { overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+  .event-header h1 { font-size: 24px; }
+  .event-section { margin-top: 28px; }
+  .event-detail-card { padding: 16px; }
+  .event-section .venue__facts, .event-section .vb__facts { grid-template-columns: 1fr; gap: 2px; padding: 16px; }
+  .event-section .venue__facts dd, .event-section .vb__facts dd { margin-bottom: 12px; }
+  .event-section .venue__facts dd:last-child, .event-section .vb__facts dd:last-child { margin-bottom: 0; }
+  .event-buttons .btn { flex: 1 1 auto; }
+}
 .field select, .field textarea {
   width: 100%; padding: 11px 12px; font: inherit; color: var(--ink);
   background: var(--field); border: 1px solid var(--border); border-radius: 0;
 }
 .field select:focus-visible, .field textarea:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+
+/* ---------- Venue search form (SCRUM-65) ---------- */
+/* `.field input` makes every input full width with padding, which stretched the Accessible and Facilities
+   checkboxes across the row and pushed their text onto the next line. Checkboxes sit inline with their label. */
+.venue-search .field label, .venue-search .field legend { font-size: 15px; color: var(--ink); }
+.venue-search fieldset.field { border: 0; padding: 0; margin: 0 0 20px; }
+.venue-search fieldset.field legend { padding: 0; margin-bottom: 8px; }
+.venue-search .field label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+.venue-search .field input[type="checkbox"] { width: 16px; height: 16px; padding: 0; flex: none; accent-color: var(--steel-dark); }
 
 /* ---------- Venue detail page (SCRUM-29) ---------- */
 .venue { max-width: 720px; }
@@ -141,9 +389,9 @@ tr:last-child td { border-bottom: 0; }
   display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; margin: 0;
   padding: 20px 24px; background: #fff; border: 1px solid var(--border);
 }
-.venue__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.venue__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); padding-top: 3px; }
 .venue__facts dd { margin: 0; }
-.venue__note { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+.venue__note { display: block; color: var(--subtle); font-size: 14px; margin-top: 2px; }
 .venue__list { margin: 0; padding: 14px 24px 14px 40px; background: #fff; border: 1px solid var(--border); line-height: 1.8; }
 
 @media (max-width: 800px) {
@@ -154,4 +402,112 @@ tr:last-child td { border-bottom: 0; }
   .auth__panel { padding: 32px 20px; }
   .dash__bar { padding: 12px 16px; }
   .dash__main { padding: 20px 16px; }
+}
+
+/* ---------- Venue booking requests (SCRUM-32/33) ---------- */
+.vb { max-width: 720px; }
+.vb h1 { font-size: 30px; font-weight: 700; }
+.vb h2 { font-size: 20px; font-weight: 700; margin: 28px 0 10px; }
+.vb__facts {
+  display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; margin: 0 0 20px;
+  padding: 20px 24px; background: #fff; border: 1px solid var(--border);
+}
+.vb__facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); padding-top: 3px; }
+.vb__facts dd { margin: 0; }
+.vb__note { display: block; color: var(--subtle); font-size: 14px; margin-top: 2px; }
+.vb__list { margin: 0; padding: 14px 24px 14px 40px; background: #fff; border: 1px solid var(--border); line-height: 1.8; }
+
+.vb__actions { margin-top: 8px; }
+.vb__actions .btn { display: inline-block; width: auto; padding: 10px 18px; text-decoration: none; }
+.btn--secondary { background: #fff; color: var(--steel-dark); border: 1px solid var(--steel); }
+.btn--secondary:hover:not(:disabled) { background: var(--steel); color: #fff; }
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

@@ -19,6 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # On a pull request this checkout is the PR combined with the latest main, so two migrations that share a
+      # number (one from the PR, one already on main) fail here, before merging. Fast, so it runs first.
+      - name: Check migration numbers are unique
+        run: bash scripts/check-migration-numbers.sh
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -51,6 +56,77 @@ jobs:
 
       - name: Build
         run: pnpm run build:all
+
+  # Database-backed tests (tests/integration): a real local Supabase, so migrations and constraints
+  # (slot exclusion, one active request per event) are checked against Postgres, not a fake.
+  # Runs in parallel with `test`, which skips these suites because it has no SUPABASE_SECRET_KEY.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          # @supabase/realtime-js (pulled in by supabase-js) needs a native WebSocket, which Node 20 lacks
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          # Pinned: "latest" makes the action query the GitHub API unauthenticated, which hits the shared
+          # runner rate limit. Matches the local CLI; bump deliberately.
+          version: 2.119.0
+
+      - name: Start local Supabase (applies supabase/migrations, then seed.sql)
+        run: supabase start
+
+      - name: Export local connection details for the tests
+        run: |
+          supabase status -o env \
+            | grep -E '^(API_URL|SECRET_KEY|PUBLISHABLE_KEY)=' \
+            | sed -E 's/^API_URL=/SUPABASE_URL=/; s/^SECRET_KEY=/SUPABASE_SECRET_KEY=/; s/^PUBLISHABLE_KEY=/SUPABASE_PUBLISHABLE_KEY=/' \
+            | tr -d '"' >> "$GITHUB_ENV"
+
+      - name: Fail loudly if the database is not configured (otherwise the tests would silently skip)
+        run: test -n "$SUPABASE_URL" && test -n "$SUPABASE_SECRET_KEY" && test -n "$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Integration tests
+        run: pnpm vitest run --project @spm-t5/venue-service --project @spm-t5/event-service --project @spm-t5/auth-service --project @spm-t5/equipment-service tests/integration --coverage.enabled=false
+
+  # Applies new supabase/migrations files to the hosted Supabase project, so merging to main is the only way a migration
+  # reaches it. Never paste migration SQL into the dashboard SQL editor instead: it runs there but isn't recorded, so a
+  # later push re-runs it (and fails) or skips a file that shares its number. Runs after the database tests pass.
+  migrate:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, integration]
+    runs-on: ubuntu-latest
+    # Two merges in quick succession queue up rather than pushing at the same time.
+    concurrency:
+      group: migrate-hosted-db
+      cancel-in-progress: false
+    env:
+      # Session pooler connection string (IPv4; the direct db.<ref>.supabase.co host is IPv6-only and GitHub runners
+      # have no IPv6), with the password percent-encoded. See .github/workflows/README.md → Secrets required.
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0 # same pin as the integration job
+
+      - name: Fail loudly if the hosted database is not configured
+        run: test -n "$SUPABASE_DB_URL" || { echo "::error::Add the SUPABASE_DB_URL repository secret"; exit 1; }
+
+      # --include-all: when two PRs add 19 and 20 and 20 merges first, 19 is still applied (numbers are unique, see
+      # scripts/check-migration-numbers.sh). Without it the push refuses a file numbered below the last applied one.
+      - name: Apply new migrations to the hosted database
+        run: supabase db push --include-all --yes --db-url "$SUPABASE_DB_URL"
 
   e2e:
     needs: test

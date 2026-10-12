@@ -2,7 +2,7 @@
 
 | Workflow | Triggers | What it runs |
 |---|---|---|
-| `ci.yml` | push to `main`, PRs into `main` | job `test`: install → Vitest version check (4.1.11) → lint → typecheck → **`pnpm vitest run`** (every workspace's tests, plus a coverage report uploaded as the `coverage` artefact) → build; then job `e2e`: Playwright tests for `apps/web` |
+| `ci.yml` | push to `main`, PRs into `main` | job `test`: migration numbers are unique (`scripts/check-migration-numbers.sh`) → install → Vitest version check (4.1.11) → lint → typecheck → **`pnpm vitest run`** (every workspace's tests, plus a coverage report uploaded as the `coverage` artefact) → build; then job `e2e`: Playwright tests for `apps/web`. On push to `main` only, job `migrate` (after `test` and `integration`) runs `supabase db push` against the hosted Supabase project |
 | `c4-diagrams.yml` | `docs/architecture/c4/**` on push to `main` / PRs into `main` | renders `.puml` → SVG, commits rendered output on push, uploads as artifact on PR |
 
 ## Why one workflow
@@ -36,3 +36,12 @@ if you separate `test`/`staging`/`prod`):
 
 Point these at a disposable Supabase project (or `supabase start` local stack via
 `docker-compose.yml`) — never your production project.
+
+The `migrate` job needs one more, pointing at the hosted project the team's `.env` uses:
+
+- `SUPABASE_DB_URL`: in the Supabase dashboard, **Connect → Session pooler**, e.g.
+  `postgresql://postgres.<project-ref>:<password>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres`.
+  Use the session pooler, not the direct connection (IPv6-only, which GitHub runners can't reach), and
+  percent-encode any special characters in the password.
+
+Without it, every push to `main` fails the `migrate` job.

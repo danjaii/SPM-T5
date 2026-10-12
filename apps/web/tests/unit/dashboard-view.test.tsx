@@ -1,3 +1,4 @@
+import { ROLES } from "@spm-t5/shared";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DashboardView, type DashboardData } from "@/components/DashboardView";
@@ -26,6 +27,25 @@ describe("Dashboard tables", () => {
     expect(screen.getByRole("link", { name: "under review" }).getAttribute("href")).toBe("/events/evt-1");
   });
 
+  // SCRUM-66/AC1: an organiser opens an event (and its change request form) by clicking its name or status
+  it("SCRUM-66/AC1 links an organiser's event name and status to the event page", () => {
+    const organiser: DashboardData = {
+      user: { fullName: "Jason Chua", email: "jason@example.com", role: "event_organiser" },
+      sections: [{
+        title: "My event requests",
+        columns: [
+          { key: "name", label: "Event", linkKey: "eventHref" },
+          { key: "status", label: "Status", linkKey: "eventHref" },
+        ],
+        rows: [{ name: "Tech Summit", status: "submitted", eventHref: "/events/evt-9" }],
+      }],
+    };
+    render(<DashboardView data={organiser} />);
+
+    expect(screen.getByRole("link", { name: "Tech Summit" }).getAttribute("href")).toBe("/events/evt-9");
+    expect(screen.getByRole("link", { name: "submitted" }).getAttribute("href")).toBe("/events/evt-9");
+  });
+
   it("leaves every other value as plain text", () => {
     render(<DashboardView data={data} />);
 
@@ -47,4 +67,49 @@ describe("Dashboard tables", () => {
     if (shown) expect(link?.getAttribute("href")).toBe("/venues");
     else expect(link).toBeNull();
   });
+
+  // SCRUM-18 (18-S13): only Technical Support Staff see the link to the equipment availability check.
+  // Every role comes from the shared ROLES list, so a role added later is checked too.
+  it.each(ROLES)("SCRUM-18: for a %s, shows the 'Check equipment availability' link only if Technical Support Staff", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    const link = screen.queryByRole("link", { name: "Check equipment availability" });
+    if (role === "technical_support_staff") expect(link?.getAttribute("href")).toBe("/equipment-availability");
+    else expect(link).toBeNull();
+  });
+  // if role is technical support staff, we can see the link. Else, no
+  // end of SCRUM-18 dashboard link
+
+  // SCRUM-65: only event coordinators see the 'Search venues' link.
+  it.each(ROLES)("SCRUM-65: for a %s, shows the 'Search venues' link only if Event Coordinator", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    const link = screen.queryByRole("link", { name: "Search venues" });
+    if (role === "event_coordinator") expect(link?.getAttribute("href")).toBe("/venues/search");
+    else expect(link).toBeNull();
+  });
+
+  // we want to test that if the person is technical support staff, they can see the link to reserve equipment
+
+  // SCRUM-19: only Technical Support Staff see the link to reserve equipment.
+  // Every role comes from the shared ROLES list, so a role added later is checked too.
+  it.each(ROLES)("SCRUM-19: for a %s, shows the 'Reserve equipment' link only if Technical Support Staff", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    const link = screen.queryByRole("link", { name: "Reserve equipment" });
+    if (role === "technical_support_staff") expect(link?.getAttribute("href")).toBe("/equipment-reservation");
+    else expect(link).toBeNull();
+  });
+  // end of SCRUM-19 dashboard link
+
+  // SCRUM-68: every signed-in user has a profile, so every role gets the link to it.
+  // Every role comes from the shared ROLES list, so a role added later is checked too.
+
+  // make a link for user to go into their profile 
+  it.each(ROLES)("SCRUM-68: for a %s, shows a 'My profile' link to /profile", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    expect(screen.getByRole("link", { name: "My profile" }).getAttribute("href")).toBe("/profile");
+  });
+  // end of SCRUM-68 dashboard link
 });

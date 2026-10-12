@@ -1,107 +1,8 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
-import type { SupabaseDeps } from "../../src/supabase";
 import { INVALID_LOGIN_MESSAGE } from "../../src/routes/auth";
-import { PASSWORD_RULE_MESSAGE } from "../../src/validation";
-
-// ---------------------------------------------------------------------------
-// In-memory stand-in for Supabase (Auth + the tables auth-service touches).
-// ---------------------------------------------------------------------------
-type Row = Record<string, unknown>;
-
-interface AuthUser { id: string; email: string; password: string; confirmed: boolean }
-
-function createFake() {
-  const authUsers: AuthUser[] = [];
-  const sessions = new Map<string, string>(); // access token -> user id
-  const tables: Record<string, Row[]> = {
-    users: [], events: [], venues: [], venue_bookings: [], equipment: [], technical_support_requests: [], event_registrations: [],
-  };
-  const calls = { resetEmails: [] as { email: string; redirectTo?: string }[], signedOut: [] as string[], deleted: [] as string[] };
-  let counter = 0;
-  const failProfileInsert = { value: false };
-  const failReads = { value: false };
-  const signUpError = { value: null as null | { status: number; code: string; message: string } };
-
-  const query = (table: string) => {
-    let rows = [...(tables[table] ?? [])];
-    const builder = {
-      select: () => builder,
-      eq: (col: string, val: unknown) => { rows = rows.filter((r) => r[col] === val); return builder; },
-      in: (col: string, vals: unknown[]) => { rows = rows.filter((r) => vals.includes(r[col])); return builder; },
-      order: () => builder,
-      limit: () => builder,
-      maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
-      insert: async (row: Row) => {
-        if (failProfileInsert.value) return { error: { message: "boom" } };
-        if (tables[table].some((r) => r.email === row.email)) return { error: { message: "duplicate" } };
-        tables[table].push(row);
-        return { error: null };
-      },
-      then: (resolve: (v: unknown) => unknown) => resolve(failReads.value ? { data: null, error: { message: "db down" } } : { data: rows, error: null }),
-    };
-    return builder;
-  };
-
-  const userFor = (token: string) => authUsers.find((u) => u.id === sessions.get(token));
-
-  const anon = {
-    auth: {
-      signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
-        const user = authUsers.find((u) => u.email === email && u.password === password && u.confirmed);
-        if (!user) return { data: { user: null, session: null }, error: { message: "Invalid login credentials" } };
-        const token = `token-${++counter}`;
-        sessions.set(token, user.id);
-        return { data: { user: { id: user.id, email: user.email }, session: { access_token: token, expires_in: 3600 } }, error: null };
-      },
-      signUp: async ({ email, password }: { email: string; password: string }) => {
-        if (signUpError.value) return { data: { user: null, session: null }, error: signUpError.value };
-        if (authUsers.some((u) => u.email === email)) {
-          return { data: { user: { id: "ignored", email, identities: [] }, session: null }, error: null };
-        }
-        const user = { id: `user-${++counter}`, email, password, confirmed: false };
-        authUsers.push(user);
-        return { data: { user: { id: user.id, email, identities: [{}] }, session: null }, error: null };
-      },
-      getUser: async (token: string) => {
-        const user = userFor(token) ?? authUsers.find((u) => `reset-${u.id}` === token);
-        return user ? { data: { user: { id: user.id, email: user.email } }, error: null } : { data: { user: null }, error: { message: "bad jwt" } };
-      },
-      resetPasswordForEmail: async (email: string, opts?: { redirectTo?: string }) => {
-        calls.resetEmails.push({ email, redirectTo: opts?.redirectTo });
-        return { data: {}, error: null };
-      },
-    },
-  };
-
-  const admin = {
-    from: (table: string) => query(table),
-    auth: {
-      admin: {
-        signOut: async (token: string) => { sessions.delete(token); calls.signedOut.push(token); return { error: null }; },
-        deleteUser: async (id: string) => { authUsers.splice(authUsers.findIndex((u) => u.id === id), 1); calls.deleted.push(id); return { error: null }; },
-        updateUserById: async (id: string, attrs: { password: string }) => {
-          const user = authUsers.find((u) => u.id === id);
-          if (user) user.password = attrs.password;
-          return { error: null };
-        },
-      },
-    },
-  };
-
-  const deps = { anon, admin, forUser: () => ({ from: (t: string) => query(t) }) } as unknown as SupabaseDeps;
-
-  /** Seeds an account that can log in (verified email + profile row). */
-  const seedUser = (email: string, role: string, extra: Partial<AuthUser> & { isActive?: boolean } = {}) => {
-    const id = `seed-${++counter}`;
-    authUsers.push({ id, email, password: "Passw0rd!", confirmed: extra.confirmed ?? true });
-    tables.users.push({ id, email, role, full_name: email.split("@")[0], is_active: extra.isActive ?? true });
-    return id;
-  };
-
-  return { deps, tables, authUsers, sessions, calls, seedUser, failProfileInsert, failReads, signUpError };
-}
+import { createFake, type Row } from "../support/fakeSupabase";
 
 let fake: ReturnType<typeof createFake>;
 let app: ReturnType<typeof createApp>;
@@ -224,7 +125,7 @@ describe("US1 — Login", () => {
 
     expect(badLink.status).toBe(400);
     expect(weak.status).toBe(400);
-    expect(weak.body.fieldErrors.password).toBe(PASSWORD_RULE_MESSAGE);
+    expect(weak.body.fieldErrors.password).toBe("Password must be at least 8 characters.");
   });
 });
 
@@ -232,17 +133,8 @@ describe("US1 — Login", () => {
 // US2 — Register for ConnectSphere
 // ---------------------------------------------------------------------------
 describe("US2 — Register", () => {
-  const valid = { fullName: "Jamie Lee", email: "jamie@example.com", password: "Passw0rd!", role: "attendee" };
+  const valid = { fullName: "Jamie Lee", email: "jamie@example.com", password: "Passw0rd!", confirmPassword: "Passw0rd!", role: "attendee" };
   const register = (body: Record<string, unknown>) => request(app).post("/auth/register").send({ ...valid, ...body });
-
-  it("registers a new user with their chosen role and shows a registration successful message", async () => {
-    const res = await register({ role: "venue_staff" });
-
-    expect(res.status).toBe(201);
-    expect(res.body.message).toMatch(/^Registration successful/);
-    expect(fake.tables.users).toHaveLength(1);
-    expect(fake.tables.users[0]).toMatchObject({ email: "jamie@example.com", role: "venue_staff", full_name: "Jamie Lee" });
-  });
 
   it("does not log the user in after registering", async () => {
     const res = await register({});
@@ -257,25 +149,10 @@ describe("US2 — Register", () => {
     expect(fake.tables.users).toHaveLength(0);
   });
 
-  it.each([
-    ["is shorter than 8 characters", "Ab1!"],
-    ["has no letter", "12345678!"],
-    ["has no number", "Password!!"],
-    ["has no symbol", "Passw0rd12"],
-  ])("shows the complexity rules when the password %s", async (_why, password) => {
-    const res = await register({ password });
-
-    expect(res.status).toBe(400);
-    expect(res.body.fieldErrors.password).toBe(PASSWORD_RULE_MESSAGE);
-    expect(fake.authUsers).toHaveLength(0);
-  });
-
-  it("requires a full name and a valid role", async () => {
+  it("requires a full name", async () => {
     const noName = await register({ fullName: " " });
-    const badRole = await register({ role: "administrator" });
 
     expect(noName.body.fieldErrors.fullName).toBeDefined();
-    expect(badRole.body.fieldErrors.role).toBeDefined();
   });
 
   it("rejects an email that is already registered", async () => {
@@ -334,7 +211,12 @@ describe("US3 — Role based access", () => {
     ["event_coordinator", ["Events I coordinate", "My venue booking requests"]],
     ["venue_staff", ["Venues", "Booking requests awaiting review"]],
     ["technical_support_staff", ["Equipment", "Technical support requests"]],
-    ["attendee", ["My registrations & tickets", "Events open for booking"]],
+    // SCRUM-71/AC1: the attendee's List of events comes from event-service now, not this endpoint
+    ["attendee", ["My registrations & tickets"]],
+    // SCRUM-69 / week 7 changes: two new internal roles. Their real dashboards (the Lead's queue, the Safety Officer's checks)
+    // come with their own stories, so for now they get an empty one, and not an error.
+    ["event_coordinator_lead", []],
+    ["safety_officer", []],
   ])("%s only sees its own dashboard sections", async (role, expected) => {
     fake.seedUser(`${role}@example.com`, role);
     expect(await sectionTitles(`${role}@example.com`, role)).toEqual(expected);
@@ -367,24 +249,66 @@ describe("US3 — Role based access", () => {
     expect(myEvents.rows).toEqual([expect.objectContaining({ status: "under review", statusHref: "/events/evt-1" })]);
     expect(myBookings.columns.some((c: Row) => c.linkKey)).toBe(false);
 
-    const organiser = fake.seedUser("org@example.com", "event_organiser");
-    fake.tables.events.push({ id: "evt-2", name: "My conference", organiser_id: organiser, status: "submitted" });
-    const orgRes = await request(app).get("/dashboard").set("Cookie", await signInAs("org@example.com", "event_organiser"));
-    expect(orgRes.body.sections[0].columns.some((c: Row) => c.linkKey)).toBe(false);
+    // other roles' tables stay plain text (organisers got their own links in SCRUM-66/AC1, tested below)
+    const venueStaff = fake.seedUser("vs@example.com", "venue_staff");
+    expect(venueStaff).toBeTruthy();
+    const vsRes = await request(app).get("/dashboard").set("Cookie", await signInAs("vs@example.com", "venue_staff"));
+    for (const section of vsRes.body.sections) {
+      expect(section.columns.some((c: Row) => c.linkKey)).toBe(false);
+    }
   });
 
-  it("shows an attendee their registrations and only confirmed, bookable events in the catalogue", async () => {
+  // SCRUM-66/AC1: an organiser opens their event (where the change request form is) by clicking it on the dashboard
+  it("SCRUM-66/AC1 links each of an organiser's events to its event page", async () => {
+    const mine = fake.seedUser("org@example.com", "event_organiser");
+    const other = fake.seedUser("org2@example.com", "event_organiser");
+    fake.tables.events.push(
+      { id: "evt-2", name: "My conference", organiser_id: mine, status: "submitted" },
+      { id: "evt-3", name: "Someone else's gala", organiser_id: other, status: "submitted" },
+    );
+    const res = await request(app).get("/dashboard").set("Cookie", await signInAs("org@example.com", "event_organiser"));
+
+    const [myEvents] = res.body.sections;
+    expect(myEvents.columns).toContainEqual({ key: "name", label: "Event", linkKey: "eventHref" });
+    expect(myEvents.columns).toContainEqual({ key: "status", label: "Status", linkKey: "eventHref" });
+    expect(myEvents.rows).toEqual([expect.objectContaining({ name: "My conference", eventHref: "/events/evt-2" })]);
+  });
+
+  // venue_bookings has two FKs to venues (venue_id, suggested_venue_id); a bare `venues(name)` embed makes PostgREST
+  // answer PGRST201 and the whole dashboard 500s. The in-memory fake can't raise that, so pin the embed instead.
+  it.each(["event_coordinator", "venue_staff"])("SCRUM-32/AC1 %s dashboard names the venue FK when embedding venues", async (role) => {
+    fake.seedUser(`${role}@example.com`, role);
+    await sectionTitles(`${role}@example.com`, role);
+
+    const bookingSelects = fake.selects.filter((s) => s.table === "venue_bookings");
+    expect(bookingSelects).not.toHaveLength(0);
+    for (const { columns } of bookingSelects) {
+      expect(columns).toContain("venues!venue_bookings_venue_id_fkey(name)");
+    }
+  });
+
+  // SCRUM-71/AC1: the old "Events open for booking" table is gone; the List of events replaces it (event-service)
+  it("shows an attendee their registrations, and no events catalogue table", async () => {
     const me = fake.seedUser("att@example.com", "attendee");
     fake.tables.event_registrations.push({ attendee_id: me, status: "registered", event: { name: "Tech Summit" } });
-    fake.tables.events.push(
-      { name: "Open day", status: "confirmed", registration_required: true },
-      { name: "Private draft", status: "draft", registration_required: true },
-    );
+    fake.tables.events.push({ name: "Open day", status: "confirmed", registration_required: true });
     const cookie = await signInAs("att@example.com", "attendee");
     const res = await request(app).get("/dashboard").set("Cookie", cookie);
 
-    expect(res.body.sections[0].rows).toEqual([expect.objectContaining({ event: "Tech Summit", status: "registered" })]);
-    expect(res.body.sections[1].rows.map((r: Row) => r.name)).toEqual(["Open day"]);
+    expect(res.body.sections).toHaveLength(1);
+    // A registered registration reads "confirmed" since SCRUM-83/AC15 (statuses in the attendee's words)
+    expect(res.body.sections[0].rows).toEqual([expect.objectContaining({ event: "Tech Summit", status: "confirmed" })]);
+  });
+
+  // SCRUM-83/AC15: registrations show in the attendee's words, as on "My registrations": a new registration is
+  // stored as 'waitlisted' but is Pending to the attendee
+  it("SCRUM-83/AC15 shows an attendee's waitlisted registration as pending", async () => {
+    const me = fake.seedUser("att@example.com", "attendee");
+    fake.tables.event_registrations.push({ attendee_id: me, status: "waitlisted", event: { name: "Tech Summit" } });
+    const cookie = await signInAs("att@example.com", "attendee");
+    const res = await request(app).get("/dashboard").set("Cookie", cookie);
+
+    expect(res.body.sections[0].rows).toEqual([expect.objectContaining({ event: "Tech Summit", status: "pending" })]);
   });
 
   it("tells the web app who the signed-in user is and their role", async () => {
@@ -477,3 +401,20 @@ describe("CORS for the web app", () => {
     expect((await request(app).get("/health")).body).toEqual({ status: "ok", service: "auth-service" });
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-71 — View Event Information: the List of events is on the attendee dashboard
+// ---------------------------------------------------------------------------
+describe("SCRUM-71 — Back to the List of events after signing in", () => {
+  // AC6: a guest sent to the sign-in page returns to the list afterwards, because an attendee's sign-in
+  // lands on /dashboard/attendee, where the List of events is
+  it("SCRUM-71/AC6 sends an attendee to the attendee dashboard after signing in", async () => {
+    fake.seedUser("alicia@example.com", "attendee");
+    const res = await login("alicia@example.com", "Passw0rd!", "attendee");
+
+    expect(res.status).toBe(200);
+    expect(res.body.redirectTo).toBe("/dashboard/attendee");
+  });
+  // end of AC6
+});
+// end of SCRUM-71

@@ -1,7 +1,11 @@
 import { Router } from "express";
-import { canViewVenueCatalogue, isRole } from "@spm-t5/shared";
+import { canViewVenueCatalogue, isRole, parseVenueSearchInput } from "@spm-t5/shared";
+import { validationFailed } from "../domain/errors";
 import type { SupabaseDeps } from "../supabase";
+import { asyncHandler } from "../middlewares/errors";
 import { requireSession, type SessionUser } from "../middlewares/session";
+import { SupabaseVenueSearchReader, type VenueSearchReader } from "../readers/venueSearchReader";
+import { searchVenues } from "../services/venueSearchService";
 
 /** A venue as Supabase returns it when fetched together with its layouts and facilities (nested). */
 interface VenueDetailRow {
@@ -18,7 +22,11 @@ interface VenueDetailRow {
   venue_facilities: { facilities: { name: string } }[] | null;
 }
 
-export function venueRoutes(deps: SupabaseDeps) {
+export function venueRoutes(
+  deps: SupabaseDeps,
+  searchFor: (accessToken: string) => VenueSearchReader = (token) => new SupabaseVenueSearchReader(deps.forUser(token)),
+  now: () => Date = () => new Date(),
+) {
   const router = Router();
 
   // SCRUM-29 AC3 + AC4 + AC6 + AC7: every venue request must come from a signed-in coordinator or venue staff member
@@ -39,6 +47,27 @@ export function venueRoutes(deps: SupabaseDeps) {
 
     res.json((data ?? []).map((v) => ({ id: v.id, name: v.name, address: v.address, max_capacity: v.max_capacity })));
   });
+
+  // SCRUM-65: the layouts and facilities the search form offers. Registered before /:id so it is not read as an id.
+  router.get(
+    "/search-options",
+    asyncHandler(async (_req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      res.json(await searchFor(token).options());
+    }),
+  );
+
+  // SCRUM-65: venues free for a date and time that meet every criterion given. Also before /:id.
+  router.get(
+    "/search",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      // AC4, AC5, AC6: the same shared checks the search form runs, answered with 422 and a message per field.
+      const parsed = parseVenueSearchInput(req.query, now());
+      if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+      res.json({ venues: await searchVenues(searchFor(token), parsed.data) });
+    }),
+  );
 
   // SCRUM-29 AC2: one venue with all its characteristics, fetched together with its layouts and facilities
   router.get("/:id", async (req, res) => {

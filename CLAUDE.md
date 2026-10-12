@@ -12,6 +12,9 @@ workspaces monorepo (`apps/*`, `services/*`, `packages/*`).
 Read before making structural changes:
 - Repo layout and rationale: [README.md](README.md)
 - Why microservices + shared DB: [ADR 0001](docs/architecture/adr/0001-microservice-architecture.md)
+- Feature specs (user stories, acceptance criteria, shared rules): [docs/specs/](docs/specs/). Test
+  names reference the spec's scenario IDs (e.g. `36-S4`); where a spec disagrees with the schema,
+  its "Implementation decisions" section wins.
 
 ## Course context
 
@@ -28,9 +31,11 @@ there, not as a string literal in a service.
 | Role | Access | Primary responsibilities |
 | ----- | ----- | ----- |
 | `event_organiser` | External | Creates/edits event requests (drafts & submitted), tracks approval status, requests post-submission changes, registers attendees. |
-| `event_coordinator` | Internal | Reviews/approves event requests, requests clarifications, assigns coordinators, searches venues, submits venue booking requests. |
+| `event_coordinator` | Internal | Manages the events assigned to them: reviews/approves event requests, requests clarifications, searches venues, submits venue booking requests. |
+| `event_coordinator_lead` | Internal | Added by the week 7 customer changes. Oversees incoming event requests (the unassigned queue), assigns and reassigns Event Coordinators, views all coordinator assignments and active events. |
 | `venue_staff` | Internal | Maintains the venue catalogue, approves/rejects venue bookings, sets layout options, flags unavailability (maintenance/renovation). |
 | `technical_support_staff` | Internal | Maintains the equipment catalogue, checks availability, approves/reserves equipment, handles maintenance statuses. |
+| `safety_officer` | Internal | Added by the week 7 customer changes. Runs the Operational Safety Check after venue and technical arrangements are confirmed: approves, rejects or requests changes before the event can proceed to preparation. |
 | `attendee` | External | Browses confirmed public events, registers/withdraws within capacity limits and registration windows. |
 
 ### Feature scope (release 1)
@@ -64,9 +69,9 @@ below plus `apps/web`; none of them are implemented yet (see Current state).
 
 Equipment/technical-support (#15-17) is owned by `equipment-service` (renamed from
 `coordinator-service`, which no longer exists — coordinator assignment moved to `event-service`,
-see #5). **Open question:** attendee registration (#18) still isn't assigned to any service in
-`docs/architecture/c4/container.puml` — confirm ownership (most likely `event-service`) before
-building it, and update the container diagram either way per the Conventions rule below.
+see #5). Attendee registration (#18) is owned by `event-service` (SCRUM-83: register, My
+registrations, and an event's registrations for its organiser and coordinator); withdrawal is not
+built yet.
 
 ## Commands
 
@@ -134,7 +139,9 @@ venue 4003, equipment 4004, notification 4005).
 
 - **Migrations are append-only.** `supabase/migrations/` is the schema source of truth. Add a new
   numbered file; never edit one that's already been applied. Schema changes can affect multiple
-  services — flag them in the PR.
+  services — flag them in the PR. The CI `migrate` job applies them to the hosted Supabase project on
+  merge to `main`; never apply migration SQL by hand (dashboard SQL editor, `psql`), since that skips the
+  migration history and the next `db push` then re-runs or skips files.
 - **Tests live in `tests/unit` and `tests/integration` per workspace**, not colocated with source.
   The CI template runs the two separately, and only `test:unit` gets `--coverage`.
 - **Export the Express app separately from `listen()`** so integration tests can mount it without
@@ -206,8 +213,28 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-The repo is scaffolding — most `services/*/src/index.ts` files export a `healthCheck()` stub and
-nothing else. Declared dependencies (express, zod) are real intent, not yet real code.
+Parts of the repo are still scaffolding — `notification-service` listens on its port but only serves
+`GET /health` (no notifications are sent yet), and the `healthCheck()` exports in
+`services/*/src/index.ts` are leftovers from the original scaffold. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
+(SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
+`component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
+spec in `docs/specs/venue-booking-approval.md`). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
+`available_venues` database function (`18_venue_search.sql`). SCRUM-40 (suggested alternative) is not built: the
+`Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
+availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
+for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
+`reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`); the equipment
+catalogue and equipment requests/approval are not built yet.
+`event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
+`docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
+approving or rejecting a request, and applying it to the event, is not built yet.
+catalogue and equipment requests/approval are not built yet. `auth-service` also serves a user's own profile
+(SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
+separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
+can be changed. Staff (internal users) also see their department and responsibilities
+(SCRUM-69): the department is on their `users` row, and the responsibilities are stored once for each role in the
+`role_responsibilities` table (migration 17). The shared role list now has seven roles: the Event Coordinator Lead and the Safety Officer (week 7 customer
+changes) exist as roles (migration 16), but have no accounts, dashboards or sign-in option yet.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
@@ -215,9 +242,9 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration.
-- Services export `healthCheck()` but never call `listen()`, so their containers start and exit
-  immediately under `docker compose up`.
+  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
+  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket
+  (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
 
 
 ## 
