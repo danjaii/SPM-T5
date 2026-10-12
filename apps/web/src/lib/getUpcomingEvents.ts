@@ -13,6 +13,14 @@ export interface UpcomingEvent {
   availability: "cancelled" | "full" | "closed" | "open";
   /** SCRUM-71/AC10: the attendee's own active registration; null when they have none (or it was withdrawn/rejected). */
   my_registration: "confirmed" | "pending" | null;
+  /** SCRUM-9: the event's status ("confirmed" or "cancelled"), searchable. */
+  status: string;
+  /** SCRUM-9: the client organisation, the category and the assigned coordinator, by name (null when there is none), searchable. */
+  organisation: string | null;
+  category: string | null;
+  coordinator: string | null;
+  /** SCRUM-9/AC2: places left (capacity minus Confirmed registrations, never below 0); null when the event has no limit. */
+  available_slots: number | null;
 }
 
 /** SCRUM-71: loads the attendee's List of events from event-service, as the signed-in user. */

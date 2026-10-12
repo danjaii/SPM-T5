@@ -233,7 +233,9 @@ catalogue and equipment requests/approval are not built yet. `auth-service` also
 separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
 can be changed. Staff (internal users) also see their department and responsibilities
 (SCRUM-69): the department is on their `users` row, and the responsibilities are stored once for each role in the
-`role_responsibilities` table (migration 17). The shared role list now has seven roles: the Event Coordinator Lead and the Safety Officer (week 7 customer
+`role_responsibilities` table (migration 17). The attendee's List of events can be searched live (SCRUM-9; spec in `docs/specs/event-search.md`): the browser filters the cards as
+the attendee types, using the organisation, category and coordinator names that `list_public_events()` now returns (migration 20). The
+shared role list now has seven roles: the Event Coordinator Lead and the Safety Officer (week 7 customer
 changes) exist as roles (migration 16), but have no accounts, dashboards or sign-in option yet.
 
 Known gaps to fix rather than work around:

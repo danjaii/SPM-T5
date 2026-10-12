@@ -12,7 +12,7 @@ const HOUR = 60 * 60 * 1000;
 /** A time relative to now, e.g. fromNow(24 * HOUR) is this time tomorrow. */
 const fromNow = (ms: number) => new Date(Date.now() + ms).toISOString();
 
-/** One row as the list_public_events() database function returns it (supabase/migrations/10_list_public_events.sql). */
+/** One row as the list_public_events() database function returns it (supabase/migrations/10_list_public_events.sql, 20_event_search_fields.sql). */
 function eventRow(overrides: Row = {}): Row {
   return {
     id: "evt-1",
@@ -27,6 +27,10 @@ function eventRow(overrides: Row = {}): Row {
     registration_closes_at: null,
     active_registrations: 0,
     my_registration_status: null,
+    // SCRUM-9: the names the search looks in (migration 20 adds them to the function)
+    organisation_name: "TechConnect Pte Ltd",
+    category_name: "Conference",
+    coordinator_name: "Rachel Tan",
     ...overrides,
   };
 }
@@ -254,3 +258,57 @@ describe("SCRUM-71 — Upcoming events (GET /events/upcoming)", () => {
   // end of AC11
 });
 // end of SCRUM-71
+
+// ---------------------------------------------------------------------------
+// SCRUM-9 — Event Search and Filtering: what each event carries so the attendee's search can look in it
+// ---------------------------------------------------------------------------
+describe("SCRUM-9 — Upcoming events carry what the search looks in (GET /events/upcoming)", () => {
+  // AC1: the search looks in the client organisation, the category, the assigned coordinator and the status, so each event brings them.
+  // An event that has none of them yet brings null, not a missing value.
+  // it is checking if we are getting the right type of data from a made up database
+  it("9-S13 returns each event's organisation, category, coordinator and status, or null when there is none", async () => {
+    const rows = [
+      eventRow({ id: "evt-1", organisation_name: "TechConnect Pte Ltd", category_name: "Conference", coordinator_name: "Rachel Tan", status: "confirmed" }),
+      eventRow({ id: "evt-2", organisation_name: null, category_name: null, coordinator_name: null, status: "cancelled", start_at: fromNow(48 * HOUR) }),
+    ];
+
+    const res = await request(createApp(createFake(rows))).get("/events/upcoming").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ organisation: "TechConnect Pte Ltd", category: "Conference", coordinator: "Rachel Tan", status: "confirmed" });
+    expect(res.body[1]).toMatchObject({ organisation: null, category: null, coordinator: null, status: "cancelled" });
+  });
+  // end of search fields
+
+  // AC2: each card shows how many places are left: the capacity minus the Confirmed registrations (a Pending one holds no place).
+  it("9-S14 reports the places left: the capacity minus the Confirmed registrations", async () => {
+    const rows = [eventRow({ registration_capacity: 100, active_registrations: 40 })];
+
+    const res = await request(createApp(createFake(rows))).get("/events/upcoming").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0].available_slots).toBe(60);
+    // expect the answer to be 60 because 100 - 40 = 60
+  });
+
+  // AC2: if there are more Confirmed registrations than the capacity (it can happen, for example if the capacity was lowered later),
+  // the card says no places are left, never a negative number.
+  it("9-S15 never reports fewer than 0 places left", async () => {
+    const rows = [eventRow({ registration_capacity: 100, active_registrations: 120 })];
+
+    const res = await request(createApp(createFake(rows))).get("/events/upcoming").set("Cookie", ATTENDEE);
+
+    expect(res.body[0].available_slots).toBe(0);
+  });
+
+  // AC2: an event with no capacity has no limit, so there is no number of places to report (null, which the card shows as "No limit").
+  it("9-S16 reports no number of places for an event with no capacity", async () => {
+    const rows = [eventRow({ registration_capacity: null, active_registrations: 5 })];
+
+    const res = await request(createApp(createFake(rows))).get("/events/upcoming").set("Cookie", ATTENDEE);
+
+    expect(res.body[0].available_slots).toBeNull();
+  });
+  // end of available slots
+});
+// end of SCRUM-9

@@ -201,5 +201,31 @@ describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
     expect(data).toContainEqual(expect.objectContaining({ id: othersOnly, my_registration_status: null }));
   });
   // end of AC10
+
+  // SCRUM-9/AC1: migration 20 adds the names the attendee's search looks in. An attendee cannot read event_categories, organisations or
+  // users themselves, so the function has to supply them. An event with none of them still comes back, with null.
+  it("SCRUM-9/AC1 returns the category, client organisation and assigned coordinator names, and null for an event without them", async () => {
+    const { data: category } = await admin.from("event_categories").select("id").eq("name", "Conference").single();
+    const { data: organiser } = await admin.from("users").select("organisation_id").eq("id", organiserId).single();
+    const { data: organisation } = await admin.from("organisations").select("name").eq("id", organiser!.organisation_id).single();
+    const { data: coordinator } = await admin.from("users").select("id").eq("email", "rachel.tan@connectsphere.example.com").single();
+    const withNames = await newEvent({
+      status: "confirmed",
+      registration_required: true,
+      event_category_id: category!.id,
+      client_organisation_id: organiser!.organisation_id,
+      assigned_coordinator_id: coordinator!.id,
+    });
+    const withoutNames = await newEvent({ status: "confirmed", registration_required: true });
+
+    const { data, error } = await attendee.client.rpc("list_public_events");
+
+    expect(error).toBeNull();
+    expect(data).toContainEqual(
+      expect.objectContaining({ id: withNames, category_name: "Conference", organisation_name: organisation!.name, coordinator_name: "Rachel Tan" }),
+    );
+    expect(data).toContainEqual(expect.objectContaining({ id: withoutNames, category_name: null, organisation_name: null, coordinator_name: null }));
+  });
+  // end of SCRUM-9 search fields
 });
 // end of SCRUM-71

@@ -17,7 +17,7 @@ function partsOf(format: Intl.DateTimeFormat, date: Date): Record<string, string
 }
 
 /** "Sat, 12 Dec 2026" */
-function formatDate(date: Date): string {
+export function formatDate(date: Date): string {
   const { weekday, day, month, year } = partsOf(dateFormat, date);
   return `${weekday}, ${day} ${month} ${year}`;
 }
