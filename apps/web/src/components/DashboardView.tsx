@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { canViewVenueCatalogue, isRole } from "@spm-t5/shared";
+import { canViewVenueCatalogue, isLead, isRole } from "@spm-t5/shared";
 import { roleLabel } from "@/lib/roles";
 import { BfcacheGuard } from "./BfcacheGuard";
 import { LogoutButton } from "./LogoutButton";
@@ -55,6 +55,13 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
             <Link href="/equipment-availability">Check equipment availability</Link>
             {/* SCRUM-19: reserving equipment is for Technical Support Staff only */}
             <Link href="/equipment-reservation">Reserve equipment</Link>
+          </nav>
+        )}
+        {/* SCRUM-75/AC4: the Lead home page links to the unassigned event queue and the coordinator overview */}
+        {isLead(user.role) && (
+          <nav className="dash__links">
+            <Link href="/lead/queue">Unassigned event requests</Link>
+            <Link href="/lead/coordinators">Coordinator overview</Link>
           </nav>
         )}
         {sections.map((section) => (
