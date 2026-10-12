@@ -120,8 +120,19 @@ jobs:
         with:
           version: 2.119.0 # same pin as the integration job
 
-      - name: Fail loudly if the hosted database is not configured
-        run: test -n "$SUPABASE_DB_URL" || { echo "::error::Add the SUPABASE_DB_URL repository secret"; exit 1; }
+      - name: Validate hosted database connection string
+        run: |
+          test -n "$SUPABASE_DB_URL" || { echo "::error::Add the SUPABASE_DB_URL repository secret"; exit 1; }
+
+          if [[ "$SUPABASE_DB_URL" == *'${'* || "$SUPABASE_DB_URL" == *'<project-ref>'* || "$SUPABASE_DB_URL" == *'<password>'* ]]; then
+            echo "::error::SUPABASE_DB_URL contains an unresolved placeholder. Replace placeholders with real values (for example, use postgres.<project-ref> from the Supabase dashboard, not postgres.\${REF})."
+            exit 1
+          fi
+
+          if [[ ! "$SUPABASE_DB_URL" =~ ^postgres(ql)?://postgres\.[^:]+:[^@]+@[^/]+/postgres([?].*)?$ ]]; then
+            echo "::error::SUPABASE_DB_URL must be a valid session pooler URL: postgresql://postgres.<project-ref>:<password>@<pooler-host>:5432/postgres"
+            exit 1
+          fi
 
       # --include-all: when two PRs add 19 and 20 and 20 merges first, 19 is still applied (numbers are unique, see
       # scripts/check-migration-numbers.sh). Without it the push refuses a file numbered below the last applied one.
