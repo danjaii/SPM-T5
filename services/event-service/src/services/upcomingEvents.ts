@@ -14,6 +14,10 @@ export interface PublicEventRow {
   active_registrations: number;
   /** The caller's own registration for this event, if any (registration_status enum). */
   my_registration_status: string | null;
+  /** SCRUM-9: the names the attendee's search looks in; null when the event has no organisation, category or coordinator. */
+  organisation_name: string | null;
+  category_name: string | null;
+  coordinator_name: string | null;
 }
 
 /** One card in the attendee's List of events, as GET /events/upcoming sends it. */
@@ -25,6 +29,13 @@ export interface UpcomingEvent {
   venue: { name: string | null; address: string | null };
   availability: Availability;
   my_registration: MyRegistration;
+  /** SCRUM-9/AC1: what the search looks in besides the name, venue and date: the event's status, and its organisation, category and coordinator. */
+  status: string;
+  organisation: string | null;
+  category: string | null;
+  coordinator: string | null;
+  /** SCRUM-9/AC2: places left; null when the event has no limit. */
+  available_slots: number | null;
 }
 
 /** SCRUM-71/AC7: the one label a card shows ("open" means no label, and the Register button shows). */
@@ -55,6 +66,15 @@ export function myRegistration(status: string | null): MyRegistration {
   return (status && ACTIVE_REGISTRATIONS[status]) || null;
 }
 
+/**
+ * SCRUM-9/AC2: the places left on a card: the capacity minus the Confirmed registrations (a Pending one holds no place, SCRUM-83/AC13),
+ * never below 0. An event with no capacity has no limit, so there is no number (null).
+ */
+export function availableSlots(row: PublicEventRow): number | null {
+  if (row.registration_capacity === null) return null;
+  return Math.max(0, row.registration_capacity - row.active_registrations);
+}
+
 /** SCRUM-71/AC1: what one card needs: name, date and time, and location. SCRUM-83/AC7: the registration form shows the same. */
 export function toUpcomingEvent(row: PublicEventRow, now: Date): UpcomingEvent {
   return {
@@ -65,6 +85,11 @@ export function toUpcomingEvent(row: PublicEventRow, now: Date): UpcomingEvent {
     venue: { name: row.venue_name, address: row.venue_address },
     availability: availabilityOf(row, now),
     my_registration: myRegistration(row.my_registration_status),
+    status: row.status,
+    organisation: row.organisation_name,
+    category: row.category_name,
+    coordinator: row.coordinator_name,
+    available_slots: availableSlots(row),
   };
 }
 

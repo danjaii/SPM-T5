@@ -15,6 +15,11 @@ function anEvent(overrides: Partial<UpcomingEvent> = {}): UpcomingEvent {
     venue: { name: "Orchid Hall", address: "Level 3, East Wing" },
     availability: "open",
     my_registration: null,
+    status: "confirmed",
+    organisation: "TechConnect Pte Ltd",
+    category: "Conference",
+    coordinator: "Rachel Tan",
+    available_slots: 40,
     ...overrides,
   };
 }
@@ -183,3 +188,22 @@ describe("SCRUM-71 — List of events cards", () => {
   // end of AC11
 });
 // end of SCRUM-71
+
+// ---------------------------------------------------------------------------
+// SCRUM-9 — a card shows the available slots
+// ---------------------------------------------------------------------------
+describe("SCRUM-9/AC2 — a card shows the available slots", () => {
+  // The card says how many places are left, in words that read naturally for one place, many places, none, and no limit.
+  it.each([
+    [12, "12 slots left"],
+    [1, "1 slot left"],
+    [0, "No slots left"],
+    [null, "No limit"],
+  ])("9-S17: shows %s available slots as '%s'", (slots, text) => {
+    render(<UpcomingEventList events={[anEvent({ available_slots: slots })]} />);
+
+    expect(screen.getByText(text)).toBeTruthy();
+  });
+  // end of slots
+});
+// end of SCRUM-9

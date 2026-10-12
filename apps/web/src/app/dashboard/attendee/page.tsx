@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DashboardView } from "@/components/DashboardView";
-import { UpcomingEventList } from "@/components/UpcomingEventList";
+import { EventSearch } from "@/components/EventSearch";
 import { getDashboard } from "@/lib/dashboard";
 import { getUpcomingEvents } from "@/lib/getUpcomingEvents";
 
@@ -22,7 +22,7 @@ export default async function AttendeeDashboard() {
         {/* SCRUM-83/AC15: the attendee's registrations, from event-service */}
         <Link href="/registrations">My registrations</Link>
         {"events" in upcoming ? (
-          <UpcomingEventList events={upcoming.events} />
+          <EventSearch events={upcoming.events} />
         ) : (
           // SCRUM-71/AC11: couldn't load the list: say so, rather than "No upcoming events"
           <div className="alert alert--error" role="alert">{upcoming.error}</div>
