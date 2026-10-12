@@ -20,6 +20,8 @@ const AWAITING_DECISION = ["draft", "submitted", "under_review", "returned"];
 
 // SCRUM-41/AC9: refusal shown to a coordinator who tries to reassign someone else's event.
 const REASSIGN_NOT_OWNER = "Only the coordinator assigned to this event can reassign it.";
+// SCRUM-78/AC9: refusal shown to a coordinator who tries to claim an unassigned event (Leads assign those now).
+const LEAD_ASSIGNS_UNASSIGNED = "Only an Event Coordinator Lead can assign a coordinator to an unassigned event.";
 
 /**
  * SCRUM-24: why the caller may not decide on this event, as an HTTP status and message; undefined if they may.
@@ -174,10 +176,9 @@ export function eventRoutes(deps: SupabaseDeps) {
     const canChangeStatus = isCoordinator && event.assigned_coordinator_id === userId;
     // SCRUM-24/AC5: only the assigned coordinator may approve or reject; the UI also needs canDecideEvent(status)
     const canReview = canChangeStatus;
-    // SCRUM-42/AC8 + SCRUM-41/AC9: any coordinator may claim an unassigned event; only the assigned
-    // coordinator may reassign it. POST /:id/assign-coordinator enforces the same rule.
-    const assignedTo = event.assigned_coordinator_id ?? null;
-    const canAssign = isCoordinator && (assignedTo === null || assignedTo === userId);
+    // SCRUM-78/AC9: only a Lead assigns an unassigned event (from the Lead's queue, not here). SCRUM-41/AC9: only the
+    // assigned coordinator may reassign it. POST /:id/assign-coordinator enforces the same rule.
+    const canAssign = isCoordinator && event.assigned_coordinator_id === userId;
     // SCRUM-42/AC5: look up the assigned coordinator's name as the organiser's point of contact
     let pointOfContactName: string | null = null;
     if (event.assigned_coordinator_id) {
@@ -527,8 +528,10 @@ export function eventRoutes(deps: SupabaseDeps) {
       .maybeSingle();
     if (!event) return res.status(404).json({ error: "Event not found." });
     const current = (event.assigned_coordinator_id as string | null) ?? null;
+    // SCRUM-78/AC9: an unassigned event is assigned by a Lead, not claimed by a coordinator
+    if (current === null) return res.status(403).json({ error: LEAD_ASSIGNS_UNASSIGNED });
     // SCRUM-41/AC9: only the assigned coordinator may hand an assigned event over
-    if (current !== null && current !== callerId) {
+    if (current !== callerId) {
       return res.status(403).json({ error: REASSIGN_NOT_OWNER });
     }
     const { data: coordinators } = await deps
@@ -537,9 +540,8 @@ export function eventRoutes(deps: SupabaseDeps) {
       .select("id, full_name")
       .eq("role", "event_coordinator")
       .eq("is_active", true);
-    // SCRUM-42: an unassigned event can only be claimed, so the caller is the only choice.
-    // SCRUM-41/AC2 + AC10: when reassigning, the coordinator already assigned isn't a choice.
-    const eligible = (coordinators ?? []).filter((u) => (current === null ? u.id === callerId : u.id !== current));
+    // SCRUM-41/AC2 + AC10: the coordinator already assigned isn't a choice.
+    const eligible = (coordinators ?? []).filter((u) => u.id !== current);
     return res.json(
       eligible.map((u) => ({ id: u.id, full_name: u.full_name })),
     );
@@ -612,12 +614,10 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(404).json({ error: "Event not found." });
     }
     const current = (event.assigned_coordinator_id as string | null) ?? null;
-    // SCRUM-42: an unassigned event is claimed by the caller for themselves
-    if (current === null && coordinatorId !== callerId) {
-      return res.status(403).json({ error: "An unassigned event can only be assigned to yourself." });
-    }
+    // SCRUM-78/AC9: an unassigned event is assigned by a Lead (POST /lead/events/:id/assign), not claimed
+    if (current === null) return res.status(403).json({ error: LEAD_ASSIGNS_UNASSIGNED });
     // SCRUM-41/AC9: only the assigned coordinator may hand an assigned event over
-    if (current !== null && current !== callerId) {
+    if (current !== callerId) {
       return res.status(403).json({ error: REASSIGN_NOT_OWNER });
     }
     // SCRUM-41/AC10: reassigning to the coordinator who already has it is not a change

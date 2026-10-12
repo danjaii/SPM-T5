@@ -66,3 +66,17 @@ export async function getCoordinatorEvents(id: string): Promise<{ events: LeadCo
   const data = await res.json();
   return res.ok ? { events: data } : { error: data.error ?? "We couldn't load this coordinator's events." };
 }
+
+/** SCRUM-78: what the assign step shows: the event, whether it can be assigned, and the Lead's eligible coordinators. */
+export interface LeadAssignment {
+  event: LeadQueueItem & { status: string };
+  canAssign: boolean;
+  coordinators: LeadCoordinator[];
+}
+
+/** SCRUM-78/AC1: the assign step for one event. Leads only. */
+export async function getLeadAssignment(id: string): Promise<{ assignment: LeadAssignment } | { error: string }> {
+  const res = await fromEventService(`/lead/events/${encodeURIComponent(id)}/assignment`);
+  const data = await res.json();
+  return res.ok ? { assignment: data } : { error: data.error ?? "We couldn't load this event request." };
+}
