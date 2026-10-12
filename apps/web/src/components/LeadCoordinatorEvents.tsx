@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { statusLabel } from "@/components/EventStatusBadge";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import type { LeadCoordinatorEvent } from "@/lib/leadServer";
@@ -22,7 +23,8 @@ export function LeadCoordinatorEvents({ events }: { events: LeadCoordinatorEvent
         <tbody>
           {events.map((e) => (
             <tr key={e.id}>
-              <td>{e.name}</td>
+              {/* SCRUM-79/AC1: choosing an event opens its reassign step */}
+              <td><Link href={`/lead/events/${e.id}/reassign`} aria-label={`Reassign ${e.name}`}>{e.name}</Link></td>
               <td>{statusLabel(e.status)}</td>
               <td>{e.preferred_start_datetime ? formatEventDateTime(e.preferred_start_datetime, e.preferred_end_datetime) : NOT_SPECIFIED}</td>
               <td>{e.expected_attendance ?? NOT_SPECIFIED}</td>

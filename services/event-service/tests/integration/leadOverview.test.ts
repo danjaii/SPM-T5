@@ -119,9 +119,11 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
     expect(ids).not.toContain(who.priya.userId);
   });
 
+  // Only this suite's coordinators: other suites give the seeded ones events in parallel, so their counts can change
+  // between the two reads
   it("SCRUM-81/AC1 each coordinator's workload is their number of non-closed events", async () => {
     const { rows } = await overviewAs(who.leadA);
-    for (const coordinator of [who.rachel, who.marcus]) {
+    for (const coordinator of [who.zero, who.busy]) {
       const { data } = await admin.from("events").select("status").eq("assigned_coordinator_id", coordinator.userId);
       const expected = (data ?? []).filter((e) => !(CLOSED_EVENT_STATUSES as readonly string[]).includes(e.status)).length;
       expect(workloadOf(rows, coordinator.userId)).toBe(expected);
