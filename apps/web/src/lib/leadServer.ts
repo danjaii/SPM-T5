@@ -35,3 +35,34 @@ export async function getLeadQueue(): Promise<{ requests: LeadQueueItem[] } | { 
   const data = await res.json();
   return res.ok ? { requests: data } : { error: data.error ?? "We couldn't load the unassigned event requests." };
 }
+
+/** SCRUM-81: one of the Lead's active coordinators and their workload count (non-closed events). */
+export interface LeadCoordinator {
+  id: string;
+  full_name: string;
+  workload: number;
+}
+
+/** SCRUM-81: one of a coordinator's non-closed events. */
+export interface LeadCoordinatorEvent {
+  id: string;
+  name: string;
+  status: string;
+  preferred_start_datetime: string | null;
+  preferred_end_datetime: string | null;
+  expected_attendance: number | null;
+}
+
+/** SCRUM-81: the Lead's active coordinators with their workload counts. Leads only. */
+export async function getLeadCoordinators(): Promise<{ coordinators: LeadCoordinator[] } | { error: string }> {
+  const res = await fromEventService("/lead/coordinators");
+  const data = await res.json();
+  return res.ok ? { coordinators: data } : { error: data.error ?? "We couldn't load your coordinators." };
+}
+
+/** SCRUM-81: one coordinator's non-closed events. Refused for a coordinator the Lead doesn't supervise. */
+export async function getCoordinatorEvents(id: string): Promise<{ events: LeadCoordinatorEvent[] } | { error: string }> {
+  const res = await fromEventService(`/lead/coordinators/${encodeURIComponent(id)}/events`);
+  const data = await res.json();
+  return res.ok ? { events: data } : { error: data.error ?? "We couldn't load this coordinator's events." };
+}
