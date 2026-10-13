@@ -107,6 +107,8 @@ a { color: var(--steel-dark); }
   outline: 2px solid var(--steel); outline-offset: 2px;
 }
 .field--error input { border-color: var(--danger); }
+/* SCRUM-86/AC4: dropdowns and text areas are highlighted too (.field.field--error outranks the later .field select rule) */
+.field.field--error select, .field.field--error textarea { border-color: var(--danger); }
 .field__hint { font-size: 12px; color: var(--subtle); margin: 6px 0 0; }
 .field__error { font-size: 12px; color: var(--danger); margin: 6px 0 0; }
 

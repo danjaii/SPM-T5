@@ -229,12 +229,15 @@ spec in `docs/specs/venue-booking-approval.md`). Venue search (SCRUM-65; spec in
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
-`reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`); the equipment
-catalogue and equipment requests/approval are not built yet.
+`reserve_equipment()` function in migration 12; diagram in `component-equipment-service.puml`). An Event
+Coordinator can also request equipment for their event (SCRUM-86; spec in `docs/specs/equipment-requests.md`): a
+request is a `requested` row in `equipment_reservations`, for a catalogue item and one of the event's approved venue
+bookings (`venue_booking_id`, migration 25), and migration 25's restrictive insert policy lets only the assigned
+coordinator of an open event add one. The spec's open-question rules live in `packages/shared/src/equipmentRequest.ts`.
+The equipment catalogue, and reviewing and editing requests (SCRUM-87, SCRUM-88), are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
 `docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
-approving or rejecting a request, and applying it to the event, is not built yet.
-catalogue and equipment requests/approval are not built yet. `auth-service` also serves a user's own profile
+approving or rejecting a request, and applying it to the event, is not built yet. `auth-service` also serves a user's own profile
 (SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
 separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
 can be changed. Staff (internal users) also see their department and responsibilities

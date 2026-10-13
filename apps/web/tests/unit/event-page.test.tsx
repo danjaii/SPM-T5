@@ -5,6 +5,8 @@ const { getEvent, getEventOutcome } = vi.hoisted(() => ({ getEvent: vi.fn(), get
 const { getApprovedVenueBooking } = vi.hoisted(() => ({ getApprovedVenueBooking: vi.fn() }));
 vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getApprovedVenueBooking }));
+const { getEventEquipmentRequests } = vi.hoisted(() => ({ getEventEquipmentRequests: vi.fn() }));
+vi.mock("@/lib/equipmentRequestsServer", () => ({ getEventEquipmentRequests }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 
 import EventPage from "@/app/events/[id]/page";
@@ -26,6 +28,7 @@ describe("Event status page route (/events/[id])", () => {
   beforeEach(() => {
     getApprovedVenueBooking.mockReset().mockResolvedValue(null);
     getEventOutcome.mockReset().mockResolvedValue(null);
+    getEventEquipmentRequests.mockReset().mockResolvedValue(null);
     stubEventService();
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -55,6 +58,28 @@ describe("Event status page route (/events/[id])", () => {
     await open("evt-1");
 
     expect(screen.getByRole("link", { name: "View registrations" }).getAttribute("href")).toBe("/events/evt-1/registrations");
+  });
+
+  it("SCRUM-86/AC2 shows the event's equipment requests, when the viewer may see them", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: true } });
+    getEventEquipmentRequests.mockResolvedValue({
+      requests: [{ id: "r1", equipment: "Audio: Wireless Microphone Set", quantity: 4, venueName: "Grand Hall", notes: null, status: "SUBMITTED", statusLabel: "Submitted" }],
+      canCreate: true,
+    });
+
+    await open("evt-1");
+
+    expect(getEventEquipmentRequests).toHaveBeenCalledWith("evt-1");
+    expect(screen.getByRole("heading", { name: "Equipment requests" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "Audio: Wireless Microphone Set" })).toBeTruthy();
+  });
+
+  it("SCRUM-86/AC7 shows no equipment section to a viewer equipment-service answers nothing for", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: false } });
+
+    await open("evt-1");
+
+    expect(screen.queryByRole("heading", { name: "Equipment requests" })).toBeNull();
   });
 
   it("shows event-service's message when the event can't be shown", async () => {

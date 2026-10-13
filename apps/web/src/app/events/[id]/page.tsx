@@ -5,12 +5,14 @@ import { CoordinatorAssignment } from "@/components/CoordinatorAssignment";
 import { EventChangeRequestForm } from "@/components/EventChangeRequestForm";
 import { EventChangeRequestList } from "@/components/EventChangeRequestList";
 import { EventComments } from "@/components/EventComments";
+import { EventEquipmentRequests } from "@/components/EventEquipmentRequests";
 import { EventRequestDetails } from "@/components/EventRequestDetails";
 import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBooking } from "@/components/EventVenueBooking";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
+import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { getChangeRequests, getEvent, getEventOutcome } from "@/lib/getEvent";
 import { getApprovedVenueBooking } from "@/lib/venueBookingsServer";
 
@@ -28,9 +30,10 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const result = await getEvent(id);
   // SCRUM-38/AC4: the approved venue, when there is one and the viewer may see it (else null).
   // SCRUM-44: the coordinator's decision, when there is one and the viewer may see it (else null).
-  const [venueBooking, outcome] = "event" in result
-    ? await Promise.all([getApprovedVenueBooking(id), getEventOutcome(id)])
-    : [null, null];
+  // SCRUM-86: the equipment requests, when the viewer may see them (else null).
+  const [venueBooking, outcome, equipmentRequests] = "event" in result
+    ? await Promise.all([getApprovedVenueBooking(id), getEventOutcome(id), getEventEquipmentRequests(id)])
+    : [null, null, null];
 
   const changeRequests = "event" in result && result.event.isOrganiser ? await getChangeRequests(id) : [];
 
@@ -59,6 +62,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               />
               <EventComments eventId={result.event.id} />
               <EventVenueBooking booking={venueBooking} />
+              {/* SCRUM-86/AC2, AC3: the event's equipment requests; AC6, AC7: Request equipment only when allowed */}
+              <EventEquipmentRequests eventId={result.event.id} data={equipmentRequests} />
               {/* SCRUM-66: organisers see their change requests (AC7) and, while the status allows it, can make one (AC1-AC3) */}
               {result.event.isOrganiser && <EventChangeRequestList requests={changeRequests} />}
               {result.event.canRequestChange && <EventChangeRequestForm event={result.event} />}

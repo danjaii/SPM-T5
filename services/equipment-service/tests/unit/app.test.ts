@@ -1,7 +1,7 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
-import { FakeEquipmentReader, FakeReservationReader, anEquipment, fakeDeps, fakeRoles, FakeReservationWriter, FakeEventReader } from "../support/fakes";
+import { FakeEquipmentReader, FakeReservationReader, anEquipment, fakeDeps, fakeRoles, FakeReservationWriter, FakeEventReader, noRequestPorts } from "../support/fakes";
 
 // ----------------------------------------------------------------------------
 // Browser access (CORS): the web app on localhost:3000 calls equipment-service on localhost:4004 straight
@@ -16,6 +16,7 @@ const app = createApp(fakeDeps, {
     reservations: new FakeReservationReader(),
     roles: fakeRoles(),
     writer: new FakeReservationWriter(),
+    ...noRequestPorts(),
     events: new FakeEventReader(),
   }),
 });
@@ -63,6 +64,7 @@ describe("SCRUM-18 unexpected failures", () => {
         reservations: new FakeReservationReader(),
         roles: fakeRoles(),
         writer: new FakeReservationWriter(),
+        ...noRequestPorts(),
         events: new FakeEventReader(),
       }),
     });
