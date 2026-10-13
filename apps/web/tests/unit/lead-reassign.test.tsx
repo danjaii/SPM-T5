@@ -48,13 +48,18 @@ function mockFetch(status: number, body: unknown) {
   return fetchMock;
 }
 
+// Picks a coordinator from the dropdown by the option text the Lead sees
+function choose(name: string) {
+  const option = screen.getByRole("option", { name }) as HTMLOptionElement;
+  fireEvent.change(screen.getByLabelText("Event Coordinator"), { target: { value: option.value } });
+}
+
 const renderForm = (coordinators = [marcus, siti]) =>
   render(
     <LeadAssignForm
       mode="reassign"
       eventId="evt-1"
       eventName="Tech Summit"
-      current={{ id: "c-1", full_name: "Rachel Tan" }}
       coordinators={coordinators}
       cancelHref="/lead/coordinators/c-1"
     />,
@@ -80,15 +85,14 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
   // end of AC1
 
   // AC2: who is assigned now; the other eligible coordinators with their workload; the current one can't be chosen
-  it("SCRUM-79/AC2 shows the current coordinator and offers only the others, each with their workload count", () => {
+  it("SCRUM-79/AC2 offers only the other coordinators, each with their workload count", () => {
     renderForm();
 
-    expect(screen.getByText("Currently assigned to Rachel Tan")).toBeTruthy();
-    expect(screen.getAllByRole("radio").map((r) => r.closest("label")!.textContent)).toEqual([
-      "Marcus Lim (1 active events)",
-      "Siti Aminah (0 active events)",
+    expect(screen.getAllByRole("option").filter((o) => (o as HTMLOptionElement).value).map((o) => o.textContent)).toEqual([
+      "Marcus Lim — 1 active event",
+      "Siti Aminah — 0 active events",
     ]);
-    expect(screen.queryByRole("radio", { name: /Rachel Tan/ })).toBeNull();
+    expect(screen.queryByRole("option", { name: /Rachel Tan/ })).toBeNull();
   });
   // end of AC2
 
@@ -97,7 +101,7 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
     const fetchMock = mockFetch(200, { assigned_coordinator_id: "c-3" });
     renderForm();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Siti Aminah (0 active events)" }));
+    choose("Siti Aminah — 0 active events");
     fireEvent.click(screen.getByRole("button", { name: "Confirm reassignment" }));
 
     await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Tech Summit is now assigned to Siti Aminah."));
@@ -111,7 +115,7 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
     mockFetch(409, { error: "This coordinator is already assigned to the event." });
     renderForm();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Marcus Lim (1 active events)" }));
+    choose("Marcus Lim — 1 active event");
     fireEvent.click(screen.getByRole("button", { name: "Confirm reassignment" }));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("This coordinator is already assigned to the event."));
@@ -125,7 +129,6 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
 
     expect(screen.getByText("No other eligible coordinators are available.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Confirm reassignment" })).toBeNull();
-    expect(screen.getByText("Currently assigned to Rachel Tan")).toBeTruthy();
   });
   // end of AC6
 
@@ -134,10 +137,12 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
     const fetchMock = mockFetch(200, {});
     renderForm();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Marcus Lim (1 active events)" }));
+    choose("Marcus Lim — 1 active event");
     const cancel = screen.getByRole("link", { name: "Cancel" });
 
     expect(cancel.getAttribute("href")).toBe("/lead/coordinators/c-1");
+    // jsdom cannot open another page, so stop the browser following the link; we only check nothing was sent
+    cancel.addEventListener("click", (e) => e.preventDefault());
     fireEvent.click(cancel);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -155,8 +160,9 @@ describe("SCRUM-79 — The reassign page", () => {
       expect.objectContaining({ headers: { cookie: "cs_session=token-lead" }, cache: "no-store" }),
     );
     expect(screen.getByRole("heading", { name: "Reassign Tech Summit" })).toBeTruthy();
-    expect(screen.getByText("Currently assigned to Rachel Tan")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "Marcus Lim (1 active events)" })).toBeTruthy();
+    // SCRUM-79/AC2: who holds the event now is shown with its details
+    expect(screen.getByRole("row", { name: "Current coordinator Rachel Tan" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Marcus Lim — 1 active event" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Cancel" }).getAttribute("href")).toBe("/lead/coordinators/c-1");
   });
 
@@ -168,7 +174,7 @@ describe("SCRUM-79 — The reassign page", () => {
     await open();
 
     expect(screen.getByText("This event is closed, so its coordinator can't be changed.")).toBeTruthy();
-    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Confirm reassignment" })).toBeNull();
   });
   // end of AC5

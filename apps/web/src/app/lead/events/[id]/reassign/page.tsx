@@ -30,13 +30,15 @@ export default async function LeadReassignPage({ params }: { params: Promise<{ i
         {"reassignment" in result ? (
           <>
             <h1>Reassign {result.reassignment.event.name}</h1>
-            <LeadEventSummary event={result.reassignment.event} />
+            <LeadEventSummary
+              event={result.reassignment.event}
+              coordinator={result.reassignment.current ? (result.reassignment.current.full_name ?? "Unnamed coordinator") : undefined}
+            />
             {result.reassignment.canReassign && result.reassignment.current ? (
               <LeadAssignForm
                 mode="reassign"
                 eventId={id}
                 eventName={result.reassignment.event.name}
-                current={result.reassignment.current}
                 coordinators={result.reassignment.coordinators}
                 cancelHref={back}
               />
