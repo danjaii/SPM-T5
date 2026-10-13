@@ -210,6 +210,12 @@ acceptance criterion — part of what the Scrum project is graded on.
   touched, and report any failures in the PR rather than hiding them.
 - Open with `gh pr create --base main`. The body follows `.github/pull_request_template.md` — fill
   every section for this specific PR; don't leave placeholder text.
+- **A PR description says why before what.** Start with the reason the PR exists: whose problem it
+  solves, what goes wrong without it, and what changes for them. Then explain the choices behind the
+  approach, with their trade-offs and any alternative you rejected. Keep "What changed" short, because
+  the diff already shows what. A description that only lists files and features is incomplete. Wrong:
+  "Adds a search box and a migration." Right: "Attendees had to scroll the whole list to find an event;
+  this lets them narrow it as they type, which is why the filtering runs in the browser."
 
 ## Current state
 
