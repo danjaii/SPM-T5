@@ -2,6 +2,7 @@ import express from "express";
 import type { SupabaseDeps } from "./supabase";
 import { changeRequestRoutes } from "./routes/changeRequests";
 import { eventRoutes } from "./routes/events";
+import { leadRoutes } from "./routes/lead";
 import { upcomingEventRoutes } from "./routes/upcomingEvents";
 import { registrationRoutes } from "./routes/registrations";
 import { cors } from "./middlewares/cors";
@@ -21,5 +22,7 @@ export function createApp(deps: SupabaseDeps) {
   app.use("/events", changeRequestRoutes(deps));
   app.use("/events", registrationRoutes(deps));
   app.use("/events", eventRoutes(deps));
+  // SCRUM-75: the Event Coordinator Lead's pages and actions
+  app.use("/lead", leadRoutes(deps));
   return app;
 }

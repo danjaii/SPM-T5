@@ -90,23 +90,23 @@ describe("Event status page route (/events/[id])", () => {
     expect(screen.getByRole("alert").textContent).toBe("Event not found.");
   });
 
-  it("SCRUM-42/AC5, AC8: shows the assigned coordinator and, for coordinators, the reassign action", async () => {
+  // SCRUM-79/AC9: the reassign action half was retired; a Lead reassigns from the Lead's pages now
+  it("SCRUM-42/AC5: shows the assigned coordinator", async () => {
     getEvent.mockResolvedValue({
       event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: false, canReview: false,
-        canAssign: true, point_of_contact_name: "Alice Coord" },
+        point_of_contact_name: "Alice Coord" },
     });
 
     await open("evt-1");
 
     expect(screen.getByRole("heading", { name: "Coordinator" })).toBeTruthy();
     expect(screen.getByText("Alice Coord")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Reassign coordinator" })).toBeTruthy();
   });
 
   it("SCRUM-23/AC2: reads top to bottom — details, coordinator, then the manual status change", async () => {
     getEvent.mockResolvedValue({
       event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: true, canReview: false,
-        canAssign: true, point_of_contact_name: "Alice Coord", organiser_name: "Sam Tan" },
+        point_of_contact_name: "Alice Coord", organiser_name: "Sam Tan" },
     });
 
     await open("evt-1");
@@ -169,7 +169,7 @@ describe("Event status page route (/events/[id])", () => {
 
 describe("SCRUM-44 — review outcome on the event page", () => {
   const organiserView = (status: string) => ({
-    event: { id: "evt-1", name: "Tech Summit", status, canChangeStatus: false, canReview: false, canAssign: false, point_of_contact_name: "Rachel Tan" },
+    event: { id: "evt-1", name: "Tech Summit", status, canChangeStatus: false, canReview: false, point_of_contact_name: "Rachel Tan" },
   });
 
   beforeEach(() => {

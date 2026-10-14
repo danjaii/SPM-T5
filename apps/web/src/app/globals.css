@@ -523,3 +523,23 @@ tr:last-child td { border-bottom: 0; }
     @apply font-sans;
   }
 }
+
+/* ---------- Label/value detail table (SCRUM-78, SCRUM-79 assign and reassign) ---------- */
+/* Row labels, not column headers: undo the global th style (mono, uppercase, shaded) and size the label column to its
+   longest label so the values line up in one readable column. */
+.lead-summary { margin: 16px 0 28px; }
+.event-detail-card--table .detail-table { min-width: 0; }
+.detail-table th, .detail-table td { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.detail-table th {
+  width: 1%; white-space: nowrap; background: none;
+  font-family: inherit; font-size: 14px; letter-spacing: normal; text-transform: none; font-weight: 400; color: var(--subtle);
+}
+.detail-table td { color: var(--ink); font-weight: 500; }
+.detail-table tr:last-child th, .detail-table tr:last-child td { border-bottom: 0; }
+/* Phones: label above its value, so long values aren't squeezed into a narrow column */
+@media (max-width: 480px) {
+  .detail-table tr { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .detail-table tr:last-child { border-bottom: 0; }
+  .detail-table th, .detail-table td { display: block; width: auto; padding: 0; border: 0; white-space: normal; }
+  .detail-table th { font-size: 13px; margin-bottom: 2px; }
+}

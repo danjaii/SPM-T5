@@ -245,7 +245,17 @@ can be changed. Staff (internal users) also see their department and responsibil
 `role_responsibilities` table (migration 17). The attendee's List of events can be searched live (SCRUM-9; spec in `docs/specs/event-search.md`): the browser filters the cards as
 the attendee types, using the organisation, category and coordinator names that `list_public_events()` now returns (migration 20). The
 shared role list now has seven roles: the Event Coordinator Lead and the Safety Officer (week 7 customer
-changes) exist as roles (migration 16), but have no accounts, dashboards or sign-in option yet.
+changes) exist as roles (migration 16). The Lead is being built out (spec in `docs/specs/event-coordinator-lead-role.md`):
+it has a sign-in option, a home page and seeded accounts, and each Event Coordinator can be linked to the one Lead who
+supervises them (`users.supervising_lead_id`, migration 19; SCRUM-75). Leads share one unassigned queue (SCRUM-77,
+`lead_unassigned_queue()` in migration 21). A closed event is completed, cancelled or rejected: `CLOSED_EVENT_STATUSES` in
+`packages/shared` and `is_closed_event_status()` in migration 21, kept equal by a test. A Lead sees their active
+coordinators' workload and non-closed events (SCRUM-81, migration 22). Only a Lead assigns (SCRUM-78, migration 23) or
+reassigns (SCRUM-79, migration 24) an event's coordinator, and only to their own active coordinators; the
+`events_assignment_guard` trigger enforces it for every caller. This replaced SCRUM-42's coordinator self-claim and
+SCRUM-41's hand-over: the coordinators' `/events/:id/assign-coordinator` and `/eligible-coordinators` routes now only
+refuse. The Safety Officer has no accounts, dashboard or
+sign-in option yet.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
