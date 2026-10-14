@@ -23,6 +23,8 @@
   --danger-bg: #fbeaea;
   --ok: #1f6b3a;
   --ok-bg: #e6f4ea;
+  --warn: #8a5a00;
+  --warn-bg: #fdf3dc;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -289,6 +291,11 @@ tr:last-child td { border-bottom: 0; }
   padding: 4px 10px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--steel-dark); background: var(--selected); border: 1px solid var(--steel);
 }
+/* SCRUM-72/AC3: a registration's status in its own colour on "My registrations" */
+.status-badge--pending { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
+.status-badge--confirmed { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
+.status-badge--rejected { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+.status-badge--withdrawn { color: var(--subtle); background: var(--muted); border-color: var(--line); }
 .event__form { padding: 24px; background: #fff; border: 1px solid var(--border); }
 .event__missing { color: var(--subtle); font-style: italic; }
 
