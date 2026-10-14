@@ -34,6 +34,8 @@ Container_Boundary(venueSvc, "Venue Service") {
   Component(decisionSvc, "Decision Service", "services/decisionService.ts", "SCRUM-38/39: Venue Staff approve or reject a pending request (409 NOT_PENDING once decided, SLOT_IN_PAST, reason 1-500 chars); the event's approved venue for its Coordinator. SCRUM-40 adds the suggestion later")
   Component(searchRoutes, "Venue Search Routes", "routes/venues.ts", "SCRUM-65: GET /venues/search (date, start, end, plus attendance, location, layout, accessibility, facilities) and GET /venues/search-options; coordinators and venue staff only; validation shared with the web form")
   Component(searchSvc, "Venue Search Service", "services/venueSearchService.ts, readers/venueSearchReader.ts", "SCRUM-65: venues free for the period (available_venues) that meet every criterion given: capacity >= attendance (the layout's own capacity when a layout is chosen), location, accessibility, layout, all facilities")
+  Component(suitabilityRoutes, "Suitability Routes", "routes/suitability.ts", "SCRUM-109: GET /venue-suitability?venueId&eventId (optional date, times, attendance); coordinators and venue staff only, others 403")
+  Component(suitabilitySvc, "Suitability Service", "services/suitabilityService.ts, services/availabilityLookup.ts, readers/venueDetailsReader.ts", "SCRUM-109: reads the venue and event as the caller and runs the shared checkSuitability (capacity, layout, accessibility, facilities, operating hours, availability); availability goes through one lookup seam")
   Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks, shown as a calendar")
 }
 
@@ -72,5 +74,10 @@ Rel(app, searchRoutes, "Routes venue search requests")
 Rel(searchRoutes, searchSvc, "Searches")
 Rel(searchSvc, db, "available_venues() (security definer, migration 13) for free venues; venues with layouts and facilities for the filters", "PostgREST RPC")
 Rel(searchRoutes, shared, "parseVenueSearchInput")
+Rel(app, suitabilityRoutes, "Routes suitability checks")
+Rel(suitabilityRoutes, suitabilitySvc, "Checks a venue against an event")
+Rel(suitabilitySvc, repo, "Is the venue held for the period? (venue_slot_is_held)")
+Rel(suitabilitySvc, shared, "checkSuitability, isOpenDuring")
+Rel(suitabilitySvc, db, "Reads the event and the venue with layouts and hours as the caller", "PostgREST")
 Rel(app, availability, "Planned")
 @enduml

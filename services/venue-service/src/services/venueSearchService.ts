@@ -1,4 +1,4 @@
-import type { VenueSearchInput } from "@spm-t5/shared";
+import { isOpenDuring, type VenueSearchInput } from "@spm-t5/shared";
 import type { SearchableVenue, VenueSearchReader } from "../readers/venueSearchReader";
 
 /** One search result (SCRUM-65 AC7): name, location, capacity, accessibility, layouts and facilities. */
@@ -40,20 +40,9 @@ export async function searchVenues(reader: VenueSearchReader, input: VenueSearch
     }));
 }
 
-/**
- * AC1: is the venue open for the period? A venue with no stated hours is always open. Otherwise the period's
- * start time must not be before opening and its end time must not be after closing; a closing time of 00:00 means
- * midnight (24:00). For a period over several days this assumes each day's event hours stay inside the venue's
- * daily hours, the same way a booking holds one continuous range.
- */
-function isOpenFor(venue: SearchableVenue, input: VenueSearchInput): boolean {
-  if (!venue.openingTime || !venue.closingTime) return true;
-  const closing = venue.closingTime === "00:00" ? "24:00" : venue.closingTime;
-  return venue.openingTime <= input.startTime && input.endTime <= closing;
-}
-
 function meetsCriteria(venue: SearchableVenue, input: VenueSearchInput): boolean {
-  if (!isOpenFor(venue, input)) return false;
+  // AC1: open for the whole period (rule shared with the suitability check, SCRUM-109).
+  if (!isOpenDuring(venue.openingTime, venue.closingTime, input.startTime, input.endTime)) return false;
 
   // AC2: location is a case-insensitive "contains" match on the venue's name or its address.
   const location = input.location?.toLowerCase();

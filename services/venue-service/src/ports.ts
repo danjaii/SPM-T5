@@ -3,6 +3,7 @@ import type { EventReader } from "./readers/eventReader";
 import { SupabaseEventReader } from "./readers/supabaseEventReader";
 import { SupabaseRoleReader, type RoleReader } from "./readers/roleReader";
 import { SupabaseUserReader, type UserReader } from "./readers/userReader";
+import { SupabaseVenueDetailsReader, type VenueDetailsReader } from "./readers/venueDetailsReader";
 import { SupabaseVenueReader, type VenueReader } from "./readers/venueReader";
 import type { BookingRepository } from "./repositories/bookingRepository";
 import { SupabaseBookingRepository } from "./repositories/supabaseBookingRepository";
@@ -12,6 +13,8 @@ export interface Ports {
   bookings: BookingRepository;
   events: EventReader;
   venues: VenueReader;
+  /** SCRUM-109: a venue with its layouts, hours and accessibility, for the suitability check. */
+  venueDetails: VenueDetailsReader;
   roles: RoleReader;
   users: UserReader;
 }
@@ -26,6 +29,7 @@ export function supabasePorts(deps: SupabaseDeps): PortsFactory {
       bookings: new SupabaseBookingRepository(db),
       events: new SupabaseEventReader(db),
       venues: new SupabaseVenueReader(db),
+      venueDetails: new SupabaseVenueDetailsReader(db),
       roles: new SupabaseRoleReader(db),
       users: new SupabaseUserReader(db),
     };

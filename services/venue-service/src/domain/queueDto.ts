@@ -5,6 +5,8 @@ import type { BookingRecord } from "./types";
 /** A pending request in the Venue Staff queue (SCRUM-37): the event details as copied at submission (DR8). */
 export interface QueueItem {
   id: string;
+  /** The event the request is for (SCRUM-109: the suitability check on the request needs it). */
+  eventId: string;
   venueId: string;
   venueName: string;
   date: string;
@@ -34,6 +36,7 @@ export interface QueueDetail extends QueueItem {
 export function toQueueItem(b: BookingRecord, venueName: string, requestedByName: string | null): QueueItem {
   return {
     id: b.id,
+    eventId: b.eventId,
     venueId: b.venueId,
     venueName,
     date: utcToSgt(b.start).date,
