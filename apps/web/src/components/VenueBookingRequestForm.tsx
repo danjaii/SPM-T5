@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { exceedsCapacity, parseVenueBookingInput, VENUE_REQUIREMENTS_MAX_LENGTH } from "@spm-t5/shared";
 import { Field } from "./Field";
+import { SuitabilityCheck } from "./SuitabilityCheck";
 import {
   submitVenueBooking,
   type VenueBookingFormData,
@@ -127,6 +128,9 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
           value={ownRequirements} error={fieldErrors.venueRequirements}
           hint={`Leave blank to use the event's: ${form.venueRequirements || "none specified"}`}
           onChange={(e) => setOwnRequirements(e.target.value)} />
+
+        {/* SCRUM-109: information before requesting; it does not stop the request. */}
+        <SuitabilityCheck eventId={form.eventId} venueId={venueId} date={date} startTime={startTime} endTime={endTime} />
 
         <button className="btn" type="submit" disabled={saving}>{saving ? "Submitting…" : (submitLabel ?? "Submit request")}</button>
       </form>

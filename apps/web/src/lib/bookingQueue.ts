@@ -6,6 +6,8 @@ import { utcToSgt, type VenueBookingStatus } from "@spm-t5/shared";
 /** A row in the pending request queue: GET /booking-queue. Date and times are Singapore time. */
 export interface QueueItemView {
   id: string;
+  /** The event the request is for (SCRUM-109). */
+  eventId: string;
   venueId: string;
   venueName: string;
   date: string;
