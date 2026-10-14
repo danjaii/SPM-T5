@@ -15,7 +15,7 @@ System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
 ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "venue_bookings (overlap exclusion constraint, one active replacement per rejected request, one suggestion acceptance), venues, room_layouts, facilities, events, users")
 
 Container_Boundary(venueSvc, "Venue Service") {
-  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin (GET, POST); injectable clock and data ports; mounts routes; error handler")
+  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin (GET, POST, PUT); injectable clock and data ports; mounts routes; error handler")
   Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
   Component(errors, "Error Handler", "middlewares/errors.ts, domain/errors.ts", "BookingError -> 409/403/404/422 with only a code and message; anything unexpected -> generic 500, so a refusal never exposes another event")
   Component(catalogue, "Venue Catalogue Routes", "routes/venues.ts", "SCRUM-29: coordinators + venue staff only, others 403. GET /venues, GET /venues/:id (layouts, facilities)")
@@ -34,6 +34,7 @@ Container_Boundary(venueSvc, "Venue Service") {
   Component(decisionSvc, "Decision Service", "services/decisionService.ts", "SCRUM-38/39: Venue Staff approve or reject a pending request (409 NOT_PENDING once decided, SLOT_IN_PAST, reason 1-500 chars); the event's approved venue for its Coordinator. SCRUM-40 adds the suggestion later")
   Component(searchRoutes, "Venue Search Routes", "routes/venues.ts", "SCRUM-65: GET /venues/search (date, start, end, plus attendance, location, layout, accessibility, facilities) and GET /venues/search-options; coordinators and venue staff only; validation shared with the web form")
   Component(searchSvc, "Venue Search Service", "services/venueSearchService.ts, readers/venueSearchReader.ts", "SCRUM-65: venues free for the period (available_venues) that meet every criterion given: capacity >= attendance (the layout's own capacity when a layout is chosen), location, accessibility, layout, all facilities")
+  Component(timing, "Venue Timing", "routes/venues.ts, readers/venueTimingWriter.ts", "SCRUM-101: PUT /venues/:id/timing (Venue Staff only, 403 first, then shared validation) saves the venue's setup and turnaround minutes through set_venue_timing; GET /venues/:id returns them with can_edit_timing")
   Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks, shown as a calendar")
 }
 
@@ -72,5 +73,8 @@ Rel(app, searchRoutes, "Routes venue search requests")
 Rel(searchRoutes, searchSvc, "Searches")
 Rel(searchSvc, db, "available_venues() (security definer, migration 13) for free venues; venues with layouts and facilities for the filters", "PostgREST RPC")
 Rel(searchRoutes, shared, "parseVenueSearchInput")
+Rel(app, timing, "Routes venue timing edits")
+Rel(timing, db, "set_venue_timing() (security definer, migration 26) is the only writer of venues.setup_minutes / turnaround_minutes", "PostgREST RPC")
+Rel(timing, shared, "parseVenueTimingInput, canEditVenueTiming")
 Rel(app, availability, "Planned")
 @enduml

@@ -237,7 +237,7 @@ spec in `docs/specs/change-cancel-venue-booking.md`), through the security defin
 `cancel_venue_booking()` (migration 30), only by the event's current coordinator and only before the event is Confirmed. A
 change sends it back to PENDING and moves its equipment requests to the new time, back to Submitted; cancelling releases its
 equipment requests (`cancelled`, shown as Released). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
-`available_venues` database function (`18_venue_search.sql`). SCRUM-40 (suggested alternative) is not built: the
+`available_venues` database function (`18_venue_search.sql`). Each venue has a setup and a turnaround time in whole minutes (SCRUM-101; spec in `docs/specs/venue-setup-turnaround.md`, migration 26): Venue Staff edit them on the venue detail page through `PUT /venues/:id/timing`, coordinators only read them, and nothing uses them in availability yet (SCRUM-103). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
