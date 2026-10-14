@@ -10,7 +10,7 @@ const period = (date: string, start: string, end: string) => ({
   end: sgtToUtc(date, end),
 });
 
-describe.skipIf(!hasDb)("SCRUM-36 booking constraints against Postgres (migration 06)", () => {
+describe.skipIf(!hasDb)("SCRUM-36 and SCRUM-98 booking constraints against Postgres (migrations 06 and 28)", () => {
   const db = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(db);
   const repo = new SupabaseBookingRepository(db);
@@ -103,16 +103,43 @@ describe.skipIf(!hasDb)("SCRUM-36 booking constraints against Postgres (migratio
     expect(serialised).not.toContain("conflicting key");
   });
 
-  it("32-S6 (DR6) an event may hold only one active request; a released one frees it", async () => {
+  // SCRUM-98 (migration 28) dropped DR6's one-active-per-event index
+  it("98-S2 an event may hold several active bookings, at different venues at the same time", async () => {
     const event = await fixtures.event();
     const first = await repo.insert(booking(event, await fixtures.venue(), period("2030-11-14", "09:00", "17:00")));
+    await db.from("venue_bookings").update({ status: "approved" }).eq("id", first.id);
+
+    await repo.insert(booking(event, await fixtures.venue(), period("2030-11-14", "09:00", "17:00")));
+    await repo.insert(booking(event, await fixtures.venue(), period("2030-11-14", "13:00", "15:00")));
+
+    const { count } = await db.from("venue_bookings").select("id", { count: "exact", head: true }).eq("event_id", event);
+    expect(count).toBe(3);
+  });
+
+  // the service refuses this first with DUPLICATE_VENUE; the database still stops it if two requests race past that check
+  it("98-S14 the same event cannot hold one venue twice for overlapping periods", async () => {
+    const event = await fixtures.event();
+    const venue = await fixtures.venue();
+    await repo.insert(booking(event, venue, period("2030-11-14", "09:00", "12:00")));
+
+    await expect(repo.insert(booking(event, venue, period("2030-11-14", "11:00", "13:00")))).rejects.toMatchObject({ code: "SLOT_CONFLICT" });
+    await repo.insert(booking(event, venue, period("2030-11-14", "12:00", "17:00"))); // back to back is fine (98-S5)
+  });
+
+  it("98-S20 a rejected booking has at most one active replacement; a released one frees it", async () => {
+    const event = await fixtures.event();
+    const rejected = await repo.insert(booking(event, await fixtures.venue(), period("2030-11-14", "09:00", "17:00")));
+    await db.from("venue_bookings").update({ status: "rejected" }).eq("id", rejected.id);
+    const replacement = await repo.insert(
+      booking(event, await fixtures.venue(), period("2030-11-15", "09:00", "17:00"), { amendsBookingId: rejected.id }),
+    );
 
     await expect(
-      repo.insert(booking(event, await fixtures.venue(), period("2030-11-15", "09:00", "17:00"))),
+      repo.insert(booking(event, await fixtures.venue(), period("2030-11-16", "09:00", "17:00"), { amendsBookingId: rejected.id })),
     ).rejects.toMatchObject({ code: "ACTIVE_REQUEST_EXISTS" });
 
-    await db.from("venue_bookings").update({ status: "withdrawn" }).eq("id", first.id);
-    await repo.insert(booking(event, await fixtures.venue(), period("2030-11-15", "09:00", "17:00")));
+    await db.from("venue_bookings").update({ status: "withdrawn" }).eq("id", replacement.id);
+    await repo.insert(booking(event, await fixtures.venue(), period("2030-11-16", "09:00", "17:00"), { amendsBookingId: rejected.id }));
   });
 
   it("59-S3 a suggestion can be accepted once", async () => {

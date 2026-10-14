@@ -1,18 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { push, refresh } = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }), redirect: vi.fn() }));
 
-const { cookieValue } = vi.hoisted(() => ({ cookieValue: { current: "token-123" as string | undefined } }));
-vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: () => (cookieValue.current ? { value: cookieValue.current } : undefined) }),
-}));
-
-import { EventVenueBooking } from "@/components/EventVenueBooking";
 import { VenueStaffDecision } from "@/components/VenueStaffDecision";
 import { decisionActions } from "@/lib/venueBookings";
-import { getApprovedVenueBooking } from "@/lib/venueBookingsServer";
 
 function mockServer(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => body });
@@ -20,9 +13,6 @@ function mockServer(status: number, body: unknown) {
   return fetchMock;
 }
 
-beforeEach(() => {
-  cookieValue.current = "token-123";
-});
 afterEach(() => {
   vi.unstubAllGlobals();
   push.mockClear();
@@ -99,41 +89,8 @@ describe("SCRUM-38/AC3 and AC8 the server's refusal is shown (38-S3, 38-S8)", ()
   });
 });
 
-describe("SCRUM-38/AC4 the event shows its approved venue (38-S4)", () => {
-  const booking = { venueName: "Orchid Hall", date: "2026-11-14", startTime: "09:00", endTime: "17:00" };
-
-  it("38-S4: shows the venue, date and time", () => {
-    render(<EventVenueBooking booking={booking} />);
-    expect(screen.getByText("Orchid Hall")).toBeTruthy();
-    expect(screen.getByText(/2026-11-14/).textContent).toContain("09:00");
-    expect(screen.getByText(/2026-11-14/).textContent).toContain("17:00");
-  });
-
-  it("38-S4: renders nothing when there is no approved venue", () => {
-    const { container } = render(<EventVenueBooking booking={null} />);
-    expect(container.innerHTML).toBe("");
-  });
-
-  it("38-S4: fetches the booking for the event as the signed-in user", async () => {
-    const fetchMock = mockServer(200, booking);
-    expect(await getApprovedVenueBooking("evt 1")).toEqual(booking);
-    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:4003/events/evt%201/venue-booking");
-    expect(fetchMock.mock.calls[0][1].headers.cookie).toContain("token-123");
-  });
-
-  it("38-S4: degrades to null on a refusal, an error, a network failure or no session", async () => {
-    mockServer(403, { error: "no" });
-    expect(await getApprovedVenueBooking("evt-1")).toBeNull();
-    mockServer(200, null);
-    expect(await getApprovedVenueBooking("evt-1")).toBeNull();
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("down")));
-    expect(await getApprovedVenueBooking("evt-1")).toBeNull();
-    cookieValue.current = undefined;
-    const fetchMock = mockServer(200, booking);
-    expect(await getApprovedVenueBooking("evt-1")).toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-});
+// SCRUM-38/AC4 (38-S4, the event shows its approved venue) is now covered by the list of every venue booking of the event:
+// tests/unit/event-venue-bookings.test.tsx (SCRUM-98/AC5).
 
 describe("SCRUM-39/AC3 the reject action is offered only for a pending request (39-S3)", () => {
   it("39-S3: PENDING can be rejected", () => {

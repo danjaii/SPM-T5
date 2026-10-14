@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { utcToSgt } from "@spm-t5/shared";
-import { toBookingDto, toDecisionDto } from "../domain/dto";
+import { toBookingDto, toDecisionDto, toSubmittedBookingDto } from "../domain/dto";
 import { asyncHandler } from "../middlewares/errors";
 import type { SessionUser } from "../middlewares/session";
 import type { PortsFactory } from "../ports";
@@ -30,8 +30,7 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     "/venue-bookings",
     asyncHandler(async (req, res) => {
       const { caller, service } = await context(res.locals.user as SessionUser);
-      const booking = await service.submit(caller, req.body);
-      res.status(201).json(toBookingDto(booking));
+      res.status(201).json(toSubmittedBookingDto(await service.submit(caller, req.body)));
     }),
   );
 
@@ -68,8 +67,7 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     "/venue-bookings/:id/amend",
     asyncHandler(async (req, res) => {
       const { caller, service } = await context(res.locals.user as SessionUser);
-      const booking = await service.amend(caller, String(req.params.id), req.body);
-      res.status(201).json(toBookingDto(booking));
+      res.status(201).json(toSubmittedBookingDto(await service.amend(caller, String(req.params.id), req.body)));
     }),
   );
 
@@ -78,8 +76,7 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     "/venue-bookings/:id/accept-suggestion",
     asyncHandler(async (req, res) => {
       const { caller, service } = await context(res.locals.user as SessionUser);
-      const booking = await service.acceptSuggestion(caller, String(req.params.id));
-      res.status(201).json(toBookingDto(booking));
+      res.status(201).json(toSubmittedBookingDto(await service.acceptSuggestion(caller, String(req.params.id))));
     }),
   );
 
@@ -107,6 +104,15 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     asyncHandler(async (req, res) => {
       const { caller, decisions } = await context(res.locals.user as SessionUser);
       res.set("Cache-Control", "no-store").json(await decisions.approvedBookingFor(caller, String(req.params.eventId)));
+    }),
+  );
+
+  // 98-S21: every booking of one event, for its assigned Coordinator. No caching, so a fresh decision shows on reload.
+  router.get(
+    "/events/:eventId/venue-bookings",
+    asyncHandler(async (req, res) => {
+      const { caller, tracking } = await context(res.locals.user as SessionUser);
+      res.set("Cache-Control", "no-store").json(await tracking.forEvent(caller, String(req.params.eventId)));
     }),
   );
 

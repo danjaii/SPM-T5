@@ -8,9 +8,9 @@ const { getEvent, getChangeRequests, getEventOutcome, refresh } = vi.hoisted(() 
   getEventOutcome: vi.fn().mockResolvedValue(null),
   refresh: vi.fn(),
 }));
-const { getApprovedVenueBooking } = vi.hoisted(() => ({ getApprovedVenueBooking: vi.fn() }));
+const { getEventVenueBookings } = vi.hoisted(() => ({ getEventVenueBookings: vi.fn() }));
 vi.mock("@/lib/getEvent", () => ({ getEvent, getChangeRequests, getEventOutcome }));
-vi.mock("@/lib/venueBookingsServer", () => ({ getApprovedVenueBooking }));
+vi.mock("@/lib/venueBookingsServer", () => ({ getEventVenueBookings }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh }) }));
 
 import EventPage from "@/app/events/[id]/page";
@@ -49,7 +49,7 @@ const submit = () => fireEvent.click(screen.getByRole("button", { name: "Submit 
 
 beforeEach(() => {
   refresh.mockReset();
-  getApprovedVenueBooking.mockReset().mockResolvedValue(null);
+  getEventVenueBookings.mockReset().mockResolvedValue(null);
   getChangeRequests.mockReset().mockResolvedValue([]);
 });
 afterEach(() => vi.unstubAllGlobals());
