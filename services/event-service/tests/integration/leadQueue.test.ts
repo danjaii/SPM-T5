@@ -84,9 +84,12 @@ describe.skipIf(!hasDb)("SCRUM-77 unassigned event queue (migration 21)", () => 
     expect(rows.map((r) => r.id)).toContain(ids[key]);
   });
 
+  // Only this suite's fixtures: other suites add and assign events in parallel, so the whole queue can change between reads
   it("SCRUM-77/AC1 every Lead sees the same shared queue (BR4)", async () => {
-    const a = (await queueAs(who.leadA)).rows.map((r) => r.id);
-    const b = (await queueAs(who.leadB)).rows.map((r) => r.id);
+    const mine = (rows: QueueRow[]) => rows.map((r) => r.id).filter((id) => eventIds.includes(id));
+    const a = mine((await queueAs(who.leadA)).rows);
+    const b = mine((await queueAs(who.leadB)).rows);
+    expect(a).toHaveLength(5);
     expect(b).toEqual(a);
   });
   // end of AC1

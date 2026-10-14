@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatSgt } from "@/lib/bookingQueue";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import type { LeadQueueItem } from "@/lib/leadServer";
@@ -23,7 +24,8 @@ export function LeadQueueList({ requests }: { requests: LeadQueueItem[] }) {
         <tbody>
           {requests.map((r) => (
             <tr key={r.id}>
-              <td>{r.name}</td>
+              {/* SCRUM-78/AC1: choosing a request opens its assign step */}
+              <td><Link href={`/lead/events/${r.id}/assign`} aria-label={`Assign ${r.name}`}>{r.name}</Link></td>
               <td>{r.organiser_name ?? "Unknown"}</td>
               <td>{r.preferred_start_datetime ? formatEventDateTime(r.preferred_start_datetime, r.preferred_end_datetime) : NOT_SPECIFIED}</td>
               <td>{r.expected_attendance ?? NOT_SPECIFIED}</td>
