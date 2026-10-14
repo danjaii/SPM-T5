@@ -44,6 +44,10 @@ const VALID_FORM = { name: "Alicia Fernandez", email: "alicia.fernandez@example.
 /** The signed-in attendee's row in the users table (supabase/migrations/01_schema.sql). */
 const PROFILE: Row = { full_name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "+65 9123 4567" };
 
+/** When the registered event starts and ends: tomorrow, so it is upcoming (SCRUM-72/AC1) whenever the tests run. */
+const EVENT_START = fromNow(24 * HOUR);
+const EVENT_END = fromNow(26 * HOUR);
+
 /**
  * One event_registrations row, as `select("…, event:events(…)")` returns it: the event comes embedded.
  * Belongs to attendee-1 for a Pending registration of evt-1 unless overridden.
@@ -56,7 +60,7 @@ function registrationRow(overrides: Row = {}): Row {
     status: "waitlisted",
     registered_at: "2026-10-01T02:00:00Z",
     registration_details: VALID_FORM,
-    event: { id: "evt-1", name: "Tech Summit", preferred_start_datetime: "2026-12-12T11:00:00Z", preferred_end_datetime: "2026-12-12T13:00:00Z" },
+    event: { id: "evt-1", name: "Tech Summit", preferred_start_datetime: EVENT_START, preferred_end_datetime: EVENT_END },
     ...overrides,
   };
 }
@@ -412,7 +416,14 @@ describe("SCRUM-83 — My registrations (GET /events/my-registrations)", () => {
     const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
 
     expect(res.status).toBe(200);
-    const event = { id: "evt-1", name: "Tech Summit", start_at: "2026-12-12T11:00:00Z", end_at: "2026-12-12T13:00:00Z" };
+    // SCRUM-72/AC4: the event now carries its location; this fake lists no public events, so the venue is unknown
+    const event = {
+      id: "evt-1",
+      name: "Tech Summit",
+      start_at: EVENT_START,
+      end_at: EVENT_END,
+      venue: { name: null, address: null },
+    };
     expect(res.body).toHaveLength(2);
     expect(res.body).toEqual(
       expect.arrayContaining([
@@ -433,6 +444,68 @@ describe("SCRUM-83 — My registrations (GET /events/my-registrations)", () => {
   });
   // end of AC15
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-72 — The attendee views the status of their registrations (GET /events/my-registrations)
+// ---------------------------------------------------------------------------
+describe("SCRUM-72 — View the status of my registrations (GET /events/my-registrations)", () => {
+  // AC1: "My registrations" lists the upcoming events the attendee registered for, so an event that has
+  // already started is left out
+  it("SCRUM-72/AC1 lists only registrations for events that haven't started yet", async () => {
+    const started = registrationRow({
+      id: "reg-past",
+      event: {
+        id: "evt-past",
+        name: "Last Week's Meetup",
+        preferred_start_datetime: fromNow(-2 * HOUR),
+        preferred_end_datetime: fromNow(-1 * HOUR),
+      },
+    });
+    const upcoming = registrationRow({
+      id: "reg-next",
+      event: {
+        id: "evt-1",
+        name: "Tech Summit",
+        preferred_start_datetime: fromNow(24 * HOUR),
+        preferred_end_datetime: fromNow(26 * HOUR),
+      },
+    });
+    const fake = createFake([], { registrations: [started, upcoming] });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((r: { id: string }) => r.id)).toEqual(["reg-next"]);
+  });
+  // end of AC1
+
+  // AC2: an attendee sees only their own registrations, never another attendee's.
+  // The database enforces the same with RLS (tests/integration/event-registration-db.test.ts, SCRUM-83/AC15).
+  it("SCRUM-72/AC2 never lists another attendee's registration", async () => {
+    const mine = registrationRow({ id: "reg-mine" });
+    const someoneElses = registrationRow({ id: "reg-other", attendee_id: "attendee-2" });
+    const fake = createFake([], { registrations: [mine, someoneElses] });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((r: { id: string }) => r.id)).toEqual(["reg-mine"]);
+  });
+  // end of AC2
+
+  // AC4: each registration shows its event's location: the venue's name and address. They come from
+  // list_public_events() (as on the List of events, SCRUM-71/AC3), since RLS doesn't let attendees read venue bookings.
+  it("SCRUM-72/AC4 includes the location of each registration's event", async () => {
+    const fake = createFake([eventRow()], { registrations: [registrationRow()] });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0].event.venue).toEqual({ name: "Orchid Hall", address: "Level 3, East Wing" });
+  });
+  // end of AC4
+});
+// end of SCRUM-72
 
 // ---------------------------------------------------------------------------
 // SCRUM-83 — The event's registrations, for organisers and coordinators (GET /events/:id/registrations)

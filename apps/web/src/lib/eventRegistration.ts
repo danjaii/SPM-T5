@@ -27,7 +27,14 @@ export interface MyRegistration {
   id: string;
   status: RegistrationStatus;
   registered_at: string;
-  event: { id: string; name: string; start_at: string; end_at: string | null };
+  /** SCRUM-72/AC4: venue is the event's location (null name and address while it is unknown). */
+  event: {
+    id: string;
+    name: string;
+    start_at: string;
+    end_at: string | null;
+    venue: { name: string | null; address: string | null };
+  };
 }
 
 /** SCRUM-83/AC15: one row of an event's registrations, as GET /events/:id/registrations sends it. */
