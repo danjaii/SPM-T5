@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   checkSuitability,
   isOpenDuring,
+  parseSuitabilityOverride,
+  unmetRequirements,
+  SUITABILITY_OVERRIDE_MAX_LENGTH,
+  VENUE_BOOKING_MESSAGES,
   sgtToUtc,
   type SuitabilityRequirements,
   type SuitabilityVenue,
@@ -193,5 +197,46 @@ describe("SCRUM-109/AC6 requirements the organiser did not give are not checked 
     const report = checkSuitability(orchid, techConf({ accessibilityNeeds: "   " }), free);
     expect(report.manualChecks).toEqual([]);
     expect(byKey(report, "accessibility").status).toBe("not_checked");
+  });
+});
+
+describe("SCRUM-110/AC2 the unmet requirements travel with the request (110-S2, 110-S9)", () => {
+  it("110-S2: only not-met lines are unmet, each with key, label and message", () => {
+    const report = checkSuitability(lotus, techConf({ accessibilityNeeds: "Ramp" }), free);
+    expect(unmetRequirements(report)).toEqual([
+      { key: "capacity", label: "Capacity", message: "Expected attendance 120 exceeds capacity 60" },
+      { key: "layout", label: "Layout", message: "Theatre not supported" },
+    ]);
+  });
+
+  it("110-S9: not-checked and manual lines are never unmet", () => {
+    const report = checkSuitability(orchid, techConf({ layoutName: null, accessibilityNeeds: "Ramp" }), free);
+    expect(unmetRequirements(report)).toEqual([]);
+  });
+
+  it("110-S2: UNSUITABLE_VENUE has a standard message", () => {
+    expect(VENUE_BOOKING_MESSAGES.UNSUITABLE_VENUE).toMatch(/does not meet/);
+  });
+});
+
+describe("SCRUM-110/AC2 the confirmation reason (110-S2b)", () => {
+  it("110-S2b: a reason comes back trimmed", () => {
+    expect(parseSuitabilityOverride({ overrideReason: "  Two smaller sessions  " })).toEqual({
+      ok: true,
+      data: { reason: "Two smaller sessions" },
+    });
+  });
+
+  it.each([{}, { overrideReason: "" }, { overrideReason: "   " }, null, "text", { overrideReason: 5 }])(
+    "110-S2b: %j is no reason, not an error",
+    (body) => {
+      expect(parseSuitabilityOverride(body)).toEqual({ ok: true, data: { reason: null } });
+    },
+  );
+
+  it("110-S2b: 500 characters is fine, 501 is an error on overrideReason", () => {
+    expect(parseSuitabilityOverride({ overrideReason: "a".repeat(SUITABILITY_OVERRIDE_MAX_LENGTH) }).ok).toBe(true);
+    const tooLong = parseSuitabilityOverride({ overrideReason: "a".repeat(SUITABILITY_OVERRIDE_MAX_LENGTH + 1) });
+    expect(tooLong).toEqual({ ok: false, fieldErrors: { overrideReason: "The reason must be 500 characters or fewer." } });
   });
 });

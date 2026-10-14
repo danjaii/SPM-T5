@@ -166,3 +166,35 @@ export function checkSuitability(
     manualChecks: note ? [note] : [],
   };
 }
+
+/** One requirement that is not met, as stored with a booking request (SCRUM-110) and shown to Venue Staff. */
+export type UnmetRequirement = Pick<CriterionResult, "key" | "label" | "message">;
+
+/** The `not_met` lines only: `not_checked` and `manual` lines never raise a warning (SCRUM-110). */
+export function unmetRequirements(report: SuitabilityReport): UnmetRequirement[] {
+  return report.criteria.filter((c) => c.status === "not_met").map(({ key, label, message }) => ({ key, label, message }));
+}
+
+// ---------------------------------------------------------------------------
+// SCRUM-110: to request a venue that does not suit the event, the coordinator confirms with a reason (1 to 500
+// characters once trimmed). Same rule in the form (apps/web) and the API.
+// ---------------------------------------------------------------------------
+
+export const SUITABILITY_OVERRIDE_MAX_LENGTH = 500;
+
+export type ParsedSuitabilityOverride =
+  | { ok: true; data: { reason: string | null } }
+  | { ok: false; fieldErrors: Record<string, string> };
+
+/**
+ * Reads `overrideReason` from a request body. Absent, blank or not text is "no reason" (reason: null), which the caller
+ * turns into the warning; only a reason that is too long is an error.
+ */
+export function parseSuitabilityOverride(body: unknown): ParsedSuitabilityOverride {
+  const value = typeof body === "object" && body !== null ? (body as { overrideReason?: unknown }).overrideReason : undefined;
+  const reason = typeof value === "string" ? value.trim() : "";
+  if (reason.length > SUITABILITY_OVERRIDE_MAX_LENGTH) {
+    return { ok: false, fieldErrors: { overrideReason: `The reason must be ${SUITABILITY_OVERRIDE_MAX_LENGTH} characters or fewer.` } };
+  }
+  return { ok: true, data: { reason: reason === "" ? null : reason } };
+}
