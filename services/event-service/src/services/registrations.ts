@@ -24,9 +24,13 @@ export interface MyRegistrationRow {
   event: EmbeddedEvent | EmbeddedEvent[];
 }
 
-/** SCRUM-83/AC15: one entry on the attendee's "My registrations" page. */
-export function toMyRegistration(row: MyRegistrationRow) {
+/**
+ * SCRUM-83/AC15: one entry on the attendee's "My registrations" page.
+ * `publicEvents` are list_public_events()'s rows by event id, for the event's location (SCRUM-72/AC4).
+ */
+export function toMyRegistration(row: MyRegistrationRow, publicEvents: Map<string, PublicEventRow>) {
   const event = Array.isArray(row.event) ? row.event[0] : row.event;
+  const publicEvent = publicEvents.get(event.id);
   return {
     id: row.id,
     status: registrationStatus(row.status),
@@ -36,6 +40,8 @@ export function toMyRegistration(row: MyRegistrationRow) {
       name: event.name,
       start_at: event.preferred_start_datetime,
       end_at: event.preferred_end_datetime,
+      // SCRUM-72/AC4: the venue's name and address, as on the List of events (SCRUM-71/AC3)
+      venue: { name: publicEvent?.venue_name ?? null, address: publicEvent?.venue_address ?? null },
     },
   };
 }

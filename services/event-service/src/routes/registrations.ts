@@ -32,15 +32,26 @@ export function registrationRoutes(deps: SupabaseDeps) {
   // SCRUM-83/AC15: the attendee's own registrations for "My registrations", earlier ones included (AC6: history)
   router.get("/my-registrations", requireSession(deps), async (_req, res) => {
     const { id: attendeeId, token } = res.locals.user as SessionUser;
-    const { data, error } = await deps
-      .forUser(token)
+    const db = deps.forUser(token);
+    const { data, error } = await db
       .from("event_registrations")
       .select("id, status, registered_at, event:events(id, name, preferred_start_datetime, preferred_end_datetime)")
       .eq("attendee_id", attendeeId);
     // An empty list must mean there are none, so a failed call is an error, not [] (as in SCRUM-71/AC11)
     if (error) return res.status(500).json({ error: "We couldn't load your registrations. Please try again." });
 
-    res.json(((data ?? []) as unknown as MyRegistrationRow[]).map(toMyRegistration));
+    // SCRUM-72/AC4: each event's location comes from list_public_events(), as on the List of events (SCRUM-71/AC3):
+    // RLS doesn't let an attendee read venue bookings, and this function shows them the venue of a public event
+    const { data: publicEvents } = await db.rpc("list_public_events");
+    const publicEventsById = new Map(((publicEvents ?? []) as PublicEventRow[]).map((e) => [e.id, e] as const));
+
+    // SCRUM-72/AC1: upcoming events only, so one that has started is left out (the same rule as SCRUM-71/AC2)
+    const now = new Date();
+    res.json(
+      ((data ?? []) as unknown as MyRegistrationRow[])
+        .map((row) => toMyRegistration(row, publicEventsById))
+        .filter((r) => r.event.start_at !== null && new Date(r.event.start_at) > now),
+    );
   });
 
   // SCRUM-83/AC7: what the registration form shows about the event: name, date and time, and location

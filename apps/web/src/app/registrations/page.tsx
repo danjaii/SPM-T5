@@ -25,7 +25,7 @@ export default async function MyRegistrationsPage() {
         {"registrations" in result ? (
           <MyRegistrationList registrations={result.registrations} />
         ) : (
-          // Couldn't load: say so, rather than "You haven't registered for any events yet."
+          // Couldn't load: say so, rather than "You have not registered for an event" (SCRUM-72/AC5)
           <div className="alert alert--error" role="alert">{result.error}</div>
         )}
       </main>
