@@ -1,5 +1,5 @@
 /** The refusals equipment-service sends back, each with its HTTP status. */
-export type ServiceErrorCode = "FORBIDDEN" | "VALIDATION_FAILED" | "INSUFFICIENT";
+export type ServiceErrorCode = "FORBIDDEN" | "VALIDATION_FAILED" | "INSUFFICIENT" | "NOT_FOUND" | "EVENT_LOCKED";
 
 export class ServiceError extends Error {
   constructor(
@@ -38,3 +38,9 @@ export const insufficient = (available: number, requested: number) =>
     undefined,
     available,
   );
+
+/** 404: there is no such event (or the caller may not see it). */
+export const notFound = (message: string) => new ServiceError("NOT_FOUND", 404, message);
+
+/** 409, SCRUM-86/AC6: the event is finished, so no equipment can be requested for it. */
+export const eventLocked = (message: string) => new ServiceError("EVENT_LOCKED", 409, message);

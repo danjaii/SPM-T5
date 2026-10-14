@@ -3,12 +3,13 @@
 
 title ConnectSphere — Component Diagram: Equipment Service (C4 Level 3)
 ' Built so far: the equipment availability check (docs/specs/equipment-availability.md, SCRUM-18) and reserving
-' equipment for an event (docs/specs/equipment-reservation.md, SCRUM-19).
+' equipment for an event (docs/specs/equipment-reservation.md, SCRUM-19), and coordinators requesting equipment for
+' their event (docs/specs/equipment-requests.md, SCRUM-86).
 ' Components marked "Planned" come with the equipment catalogue story.
 
-Container(web, "Web App", "Next.js, React", "Check equipment availability page (/equipment-availability) and Reserve equipment page (/equipment-reservation), Technical Support Staff only")
+Container(web, "Web App", "Next.js, React", "Check equipment availability page (/equipment-availability) and Reserve equipment page (/equipment-reservation), Technical Support Staff only; Request equipment page (/events/[id]/equipment-request) and the event page's Equipment requests section, for the event's assigned coordinator")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
-ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "equipment (total_quantity, operational_status), equipment_reservations, users")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "equipment (total_quantity, operational_status), equipment_reservations (requests too, venue_booking_id), venue_bookings, events, users")
 
 Container_Boundary(equipmentSvc, "Equipment Service") {
   Component(app, "App", "Express (app.ts, server.ts)", "CORS for the web app's origin (GET, POST); injectable clock and data ports; mounts routes; error handler")
@@ -17,9 +18,12 @@ Container_Boundary(equipmentSvc, "Equipment Service") {
   Component(routes, "Equipment Routes", "routes/equipment.ts", "SCRUM-18: GET /equipment (catalogue) and GET /equipment-availability, never cached. SCRUM-19: GET /reservable-events and POST /equipment-reservations")
   Component(availabilitySvc, "Availability Service", "services/availabilityService.ts", "SCRUM-18: Technical Support Staff only (others 403); matches the name ignoring case; counts approved/reserved holds at their peak in the period; unusable equipment has none available")
   Component(reservationSvc, "Reservation Service", "services/reservationService.ts", "SCRUM-19: Technical Support Staff only (others 403); checks the input in three stages (missing, format, timing); refuses a quantity above what is free (409, nothing saved); answers with a confirmation and how many are still free")
-  Component(readers, "Readers", "readers/equipmentReader, reservationReader, roleReader, eventReader", "Read the catalogue, overlapping reservations, the caller's role and the events, as the caller, so RLS applies")
+  Component(requestRoutes, "Equipment Request Routes", "routes/equipmentRequests.ts", "SCRUM-86: GET /events/:id/equipment-request-form, GET and POST /events/:id/equipment-requests")
+  Component(requestSvc, "Equipment Request Service", "services/equipmentRequestService.ts", "SCRUM-86: only the event's assigned coordinator (others 403); not for a completed, cancelled or rejected event (409); the item must be a catalogue item that is not retired and the venue one of the event's approved bookings (422); saves as Submitted; lists the event's requests with their status")
+  Component(requestWriter, "Equipment Request Writer", "writers/equipmentRequestWriter.ts", "SCRUM-86: inserts a requested row into equipment_reservations as the caller; migration 25's restrictive insert policy refuses anything else")
+  Component(readers, "Readers", "readers/equipmentReader, reservationReader, roleReader, eventReader, venueBookingReader, equipmentRequestReader", "Read the catalogue, overlapping reservations, the caller's role, the events, an event's venue bookings and its equipment requests, as the caller, so RLS applies")
   Component(writer, "Reservation Writer", "writers/reservationWriter.ts", "Calls the reserve_equipment() database function as the caller: it locks the equipment row, re-checks availability and saves the reservation in one step, so two people cannot take the last units")
-  Component(shared, "Shared Rules", "@spm-t5/shared", "parseAvailabilityInput and the reservation input checks (same prompts as the web form), Singapore time")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "parseAvailabilityInput and the reservation input checks (same prompts as the web form), Singapore time; SCRUM-86 equipmentRequest.ts: parseEquipmentRequestInput, statuses and the open-question rules")
 
   Component(catalogue, "Equipment Catalogue", "Planned", "Technical Support Staff maintain equipment and its operational status")
 }
@@ -29,6 +33,12 @@ Rel(app, session, "Requires a signed-in caller")
 Rel(session, supabaseAuth, "Verifies session token", "HTTPS")
 Rel(app, errors, "Renders failures")
 Rel(app, routes, "Routes /equipment, /equipment-availability, /reservable-events and /equipment-reservations")
+Rel(app, requestRoutes, "Routes /events/:id/equipment-request-form and /events/:id/equipment-requests")
+Rel(requestRoutes, requestSvc, "Form, list and create")
+Rel(requestSvc, shared, "Checks the input")
+Rel(requestSvc, readers, "Event, catalogue, venue bookings, requests, role")
+Rel(requestSvc, requestWriter, "Saves a request")
+Rel(requestWriter, db, "Inserts into equipment_reservations (migration 25 policy)", "PostgREST")
 Rel(routes, availabilitySvc, "Options and check")
 Rel(routes, reservationSvc, "Reservable events and reserve")
 Rel(availabilitySvc, shared, "Checks the input")
@@ -37,7 +47,7 @@ Rel(reservationSvc, shared, "Checks the input")
 Rel(reservationSvc, readers, "Events, equipment, role")
 Rel(reservationSvc, writer, "Reserves")
 Rel(writer, db, "Calls reserve_equipment() (migration 12); inserts into equipment_reservations", "PostgREST RPC")
-Rel(readers, db, "Reads equipment, equipment_reservations, users directly (shared database, ADR 0001)", "PostgREST")
+Rel(readers, db, "Reads equipment, equipment_reservations, venue_bookings, events, users directly (shared database, ADR 0001)", "PostgREST")
 
 Rel(app, catalogue, "Planned")
 @enduml

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import type { EquipmentInfo } from "../../src/readers/equipmentReader";
 import type { ReservationInfo } from "../../src/readers/reservationReader";
-import { FakeEquipmentReader, FakeReservationReader, aReservation, anEquipment, fakeDeps, fakeRoles, FakeReservationWriter, FakeEventReader } from "../support/fakes";
+import { FakeEquipmentReader, FakeReservationReader, aReservation, anEquipment, fakeDeps, fakeRoles, FakeReservationWriter, FakeEventReader, noRequestPorts } from "../support/fakes";
 
 // ----------------------------------------------------------------------------
 // Test setup: the app with fake data, and a helper to ask it about availability.
@@ -21,6 +21,7 @@ function setup(equipment: EquipmentInfo[] = [anEquipment()], reservations: Reser
       reservations: new FakeReservationReader(reservations),
       roles: fakeRoles(),
       writer: new FakeReservationWriter(),
+      ...noRequestPorts(),
       events: new FakeEventReader(),
     }),
   });

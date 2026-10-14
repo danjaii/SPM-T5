@@ -3,6 +3,7 @@ import { errorHandler } from "./middlewares/errors";
 import { requireSession } from "./middlewares/session";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { equipmentRoutes } from "./routes/equipment";
+import { equipmentRequestRoutes } from "./routes/equipmentRequests";
 import type { SupabaseDeps } from "./supabase";
 import { healthCheck } from "./index";
 
@@ -44,7 +45,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.get("/health", (_req, res) => res.json(healthCheck()));
 
   // Everything needs a signed-in caller. Routes are added as each story lands.
-  app.use(requireSession(deps), equipmentRoutes(portsFor, now));
+  app.use(requireSession(deps), equipmentRoutes(portsFor, now), equipmentRequestRoutes(portsFor));
 
   app.use(errorHandler);
   return app;
