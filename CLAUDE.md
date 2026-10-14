@@ -246,7 +246,8 @@ changes) exist as roles (migration 16). The Lead is being built out (spec in `do
 it has a sign-in option, a home page and seeded accounts, and each Event Coordinator can be linked to the one Lead who
 supervises them (`users.supervising_lead_id`, migration 19; SCRUM-75). Leads share one unassigned queue (SCRUM-77,
 `lead_unassigned_queue()` in migration 21). A closed event is completed, cancelled or rejected: `CLOSED_EVENT_STATUSES` in
-`packages/shared` and `is_closed_event_status()` in migration 21, kept equal by a test. The Safety Officer has no accounts, dashboard or
+`packages/shared` and `is_closed_event_status()` in migration 21, kept equal by a test. A Lead sees their active
+coordinators' workload and non-closed events (SCRUM-81, migration 22). The Safety Officer has no accounts, dashboard or
 sign-in option yet.
 
 Known gaps to fix rather than work around:
