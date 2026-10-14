@@ -687,7 +687,6 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       point_of_contact_name: null,
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
       canReview: false, // SCRUM-24/AC5: only the assigned coordinator may approve or reject
-      canAssign: false, // SCRUM-78/AC9: an unassigned event is assigned by a Lead, not by a coordinator
       isOrganiser: false, // SCRUM-66
       canRequestChange: false, // SCRUM-66: only an organiser may
     });
@@ -735,7 +734,6 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       point_of_contact_name: null,
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
       canReview: false, // SCRUM-24/AC5: only the assigned coordinator may approve or reject
-      canAssign: false, // SCRUM-78/AC9: an unassigned event is assigned by a Lead, not by a coordinator
       isOrganiser: false, // SCRUM-66
       canRequestChange: false, // SCRUM-66: only an organiser may
     });

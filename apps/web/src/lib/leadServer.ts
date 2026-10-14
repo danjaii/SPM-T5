@@ -67,9 +67,12 @@ export async function getCoordinatorEvents(id: string): Promise<{ events: LeadCo
   return res.ok ? { events: data } : { error: data.error ?? "We couldn't load this coordinator's events." };
 }
 
+/** SCRUM-78 / SCRUM-79: an event as the assign and reassign steps show it. */
+export type LeadEvent = LeadQueueItem & { status: string };
+
 /** SCRUM-78: what the assign step shows: the event, whether it can be assigned, and the Lead's eligible coordinators. */
 export interface LeadAssignment {
-  event: LeadQueueItem & { status: string };
+  event: LeadEvent;
   canAssign: boolean;
   coordinators: LeadCoordinator[];
 }
@@ -79,4 +82,19 @@ export async function getLeadAssignment(id: string): Promise<{ assignment: LeadA
   const res = await fromEventService(`/lead/events/${encodeURIComponent(id)}/assignment`);
   const data = await res.json();
   return res.ok ? { assignment: data } : { error: data.error ?? "We couldn't load this event request." };
+}
+
+/** SCRUM-79: what the reassign step shows: the event, who has it now, whether it can be reassigned, and the other choices. */
+export interface LeadReassignment {
+  event: LeadEvent;
+  current: { id: string; full_name: string | null } | null;
+  canReassign: boolean;
+  coordinators: LeadCoordinator[];
+}
+
+/** SCRUM-79/AC1, AC2: the reassign step for one event. Leads only. */
+export async function getLeadReassignment(id: string): Promise<{ reassignment: LeadReassignment } | { error: string }> {
+  const res = await fromEventService(`/lead/events/${encodeURIComponent(id)}/reassignment`);
+  const data = await res.json();
+  return res.ok ? { reassignment: data } : { error: data.error ?? "We couldn't load this event." };
 }

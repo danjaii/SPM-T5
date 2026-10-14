@@ -247,9 +247,11 @@ it has a sign-in option, a home page and seeded accounts, and each Event Coordin
 supervises them (`users.supervising_lead_id`, migration 19; SCRUM-75). Leads share one unassigned queue (SCRUM-77,
 `lead_unassigned_queue()` in migration 21). A closed event is completed, cancelled or rejected: `CLOSED_EVENT_STATUSES` in
 `packages/shared` and `is_closed_event_status()` in migration 21, kept equal by a test. A Lead sees their active
-coordinators' workload and non-closed events (SCRUM-81, migration 22). Only a Lead makes an event's first coordinator
-assignment (SCRUM-78, `lead_assign_coordinator()` and the `events_assignment_guard` trigger in migration 23): this
-replaced SCRUM-42's coordinator self-claim. The Safety Officer has no accounts, dashboard or
+coordinators' workload and non-closed events (SCRUM-81, migration 22). Only a Lead assigns (SCRUM-78, migration 23) or
+reassigns (SCRUM-79, migration 24) an event's coordinator, and only to their own active coordinators; the
+`events_assignment_guard` trigger enforces it for every caller. This replaced SCRUM-42's coordinator self-claim and
+SCRUM-41's hand-over: the coordinators' `/events/:id/assign-coordinator` and `/eligible-coordinators` routes now only
+refuse. The Safety Officer has no accounts, dashboard or
 sign-in option yet.
 
 Known gaps to fix rather than work around:

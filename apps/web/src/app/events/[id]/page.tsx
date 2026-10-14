@@ -55,7 +55,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               <CoordinatorAssignment
                 eventId={result.event.id}
                 coordinatorName={result.event.point_of_contact_name}
-                canAssign={result.event.canAssign}
               />
               <EventComments eventId={result.event.id} />
               <EventVenueBooking booking={venueBooking} />

@@ -23,7 +23,6 @@ const event = {
   status: "submitted",
   canChangeStatus: false,
   canReview: false,
-  canAssign: false,
   point_of_contact_name: null,
   isOrganiser: true,
   canRequestChange: true,

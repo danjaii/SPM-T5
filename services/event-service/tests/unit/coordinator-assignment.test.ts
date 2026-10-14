@@ -154,82 +154,9 @@ function createFake() {
 // ---------------------------------------------------------------------------
 // SCRUM-42/AC1 — View eligible coordinators
 // ---------------------------------------------------------------------------
-// SCRUM-78: since Leads assign unassigned events, this list is only for the assigned coordinator handing an event over
-// (SCRUM-41), so these tests start from an event assigned to the caller. "offers only the caller for an unassigned
-// event, which can only be claimed" was retired: SCRUM-78/AC9 below covers the refusal that replaced it.
+// SCRUM-78/SCRUM-79: a Lead now assigns and reassigns, so this route only tells callers why they can't. Its listing tests
+// were retired; SCRUM-78/AC9 and SCRUM-79/AC9 below cover the refusals that replaced them.
 describe("SCRUM-42/AC1 — View eligible coordinators", () => {
-  it("excludes inactive coordinators", async () => {
-    const fake = createFake();
-    const organiser = fake.signIn("event_organiser", "Alice Johnson");
-    const current = fake.signIn("event_coordinator", "Current Coord");
-    const activeCoord = fake.signIn("event_coordinator", "Active Coord", true);
-    const inactiveCoord = fake.signIn("event_coordinator", "Inactive Coord", false);
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: organiser.id,
-      assigned_coordinator_id: current.id,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .get(`/events/${eventId}/eligible-coordinators`)
-      .set("Cookie", current.cookie);
-
-    expect(res.status).toBe(200);
-    const ids = (res.body as { id: string }[]).map((u) => u.id);
-    expect(ids).toContain(activeCoord.id);
-    expect(ids).not.toContain(inactiveCoord.id);
-  });
-
-  it("returns empty array when no active coordinators exist", async () => {
-    const fake = createFake();
-    // Sign in as an inactive coordinator — lookUpRole only checks role so auth passes,
-    // but the eligible-coordinators query filters is_active=true so the list is empty.
-    const coordinator = fake.signIn("event_coordinator", "Inactive Coord", false);
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: coordinator.id,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .get(`/events/${eventId}/eligible-coordinators`)
-      .set("Cookie", coordinator.cookie);
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
-  });
-
-  it("returns each coordinator's id and full_name", async () => {
-    const fake = createFake();
-    const current = fake.signIn("event_coordinator", "Current Coord");
-    const coordinator = fake.signIn("event_coordinator", "Bob Lee");
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: current.id,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .get(`/events/${eventId}/eligible-coordinators`)
-      .set("Cookie", current.cookie);
-
-    expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(1);
-    expect(res.body[0]).toMatchObject({ id: coordinator.id, full_name: "Bob Lee" });
-  });
-
   it("returns 403 when caller is not an event_coordinator", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser", "Alice Johnson");
@@ -273,95 +200,9 @@ describe("SCRUM-42/AC1 — View eligible coordinators", () => {
 // ---------------------------------------------------------------------------
 // SCRUM-42/AC3 — Assign coordinator to event
 // ---------------------------------------------------------------------------
-// SCRUM-78: "lets a coordinator claim an unassigned event for themselves" was retired (Leads assign unassigned events;
-// SCRUM-78/AC9 below covers the refusal). The validation checks here run before that rule, so they are unchanged.
+// SCRUM-78/SCRUM-79: a Lead now assigns and reassigns, so this route only tells callers why they can't. Its claim,
+// validation and success tests were retired; SCRUM-78/AC9 and SCRUM-79/AC9 below cover the refusals that replaced them.
 describe("SCRUM-42/AC3 — Assign coordinator to event", () => {
-  it("returns 400 if coordinator_id is missing from the request body", async () => {
-    const fake = createFake();
-    const caller = fake.signIn("event_coordinator");
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: null,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", caller.cookie)
-      .send({});
-
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 404 if the coordinator does not exist", async () => {
-    const fake = createFake();
-    const caller = fake.signIn("event_coordinator");
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: null,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", caller.cookie)
-      .send({ coordinator_id: crypto.randomUUID() });
-
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 if the coordinator is inactive", async () => {
-    const fake = createFake();
-    const caller = fake.signIn("event_coordinator");
-    const inactive = fake.signIn("event_coordinator", "Inactive Coord", false);
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: null,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", caller.cookie)
-      .send({ coordinator_id: inactive.id });
-
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 if the target user is not an event_coordinator", async () => {
-    const fake = createFake();
-    const caller = fake.signIn("event_coordinator");
-    const organiser = fake.signIn("event_organiser", "Bob Org");
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: null,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", caller.cookie)
-      .send({ coordinator_id: organiser.id });
-
-    expect(res.status).toBe(404);
-  });
-
   it("returns 404 if the event does not exist", async () => {
     const fake = createFake();
     const caller = fake.signIn("event_coordinator");
@@ -590,68 +431,6 @@ describe("SCRUM-42/AC5 — Coordinator as organiser's point of contact", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SCRUM-42/AC6 — Record assignment
-// ---------------------------------------------------------------------------
-describe("SCRUM-42/AC6 — Record assignment", () => {
-  it("inserts a log entry with event_id, coordinator_id, assigned_by, and assigned_at on successful assignment", async () => {
-    const fake = createFake();
-    const assignee = fake.signIn("event_coordinator", "Bob Coord");
-    // SCRUM-78: a coordinator no longer claims an unassigned event, so the assigned coordinator hands it over instead
-    const caller = fake.signIn("event_coordinator", "Alice Coord");
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: caller.id,
-    });
-
-    const before = new Date();
-    const res = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", caller.cookie)
-      .send({ coordinator_id: assignee.id });
-    const after = new Date();
-
-    expect(res.status).toBe(200);
-    const logs = fake.tables.coordinator_assignment_logs;
-    expect(logs).toHaveLength(1);
-    expect(logs[0]).toMatchObject({
-      event_id: eventId,
-      coordinator_id: assignee.id,
-      assigned_by: caller.id,
-    });
-    const assignedAt = new Date(logs[0].assigned_at as string);
-    expect(assignedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-    expect(assignedAt.getTime()).toBeLessThanOrEqual(after.getTime());
-  });
-
-  it("does not create a log entry when the coordinator is not found", async () => {
-    const fake = createFake();
-    const caller = fake.signIn("event_coordinator");
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "submitted",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: null,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", caller.cookie)
-      .send({ coordinator_id: crypto.randomUUID() });
-
-    expect(res.status).toBe(404);
-    expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // SCRUM-43/AC1 — View assignment history
 // ---------------------------------------------------------------------------
 describe("SCRUM-43/AC1 — View assignment history", () => {
@@ -845,48 +624,25 @@ describe("SCRUM-43/AC2 — Display assignment information", () => {
     expect(res.body[0].previous_coordinator_id).toBe(previousAssignee.id);
   });
 
-  it("records previous_coordinator_id from the event when assigning a coordinator", async () => {
-    const fake = createFake();
-    const existing = fake.signIn("event_coordinator", "Carol Coord");
-    const caller = existing; // SCRUM-41/AC9: only the assigned coordinator may reassign
-    const newAssignee = fake.signIn("event_coordinator", "Bob Coord");
-
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId,
-      name: "Tech Summit",
-      status: "approved",
-      organiser_id: crypto.randomUUID(),
-      assigned_coordinator_id: existing.id,
-    });
-
-    const res = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", caller.cookie)
-      .send({ coordinator_id: newAssignee.id });
-
-    expect(res.status).toBe(200);
-    const logs = fake.tables.coordinator_assignment_logs;
-    expect(logs).toHaveLength(1);
-    expect(logs[0].previous_coordinator_id).toBe(existing.id);
-  });
 });
 
 // ---------------------------------------------------------------------------
 // SCRUM-43/AC4 — Preserve historical records
 // ---------------------------------------------------------------------------
-// SCRUM-78: the first assignment is now made by a Lead (POST /lead/events/:id/assign), which this fake doesn't serve,
-// so these start from its result: the event assigned to assignee1 and the first record logged. The second assignment
-// still goes through the coordinator's route.
-const firstAssignedByLead = (fake: ReturnType<typeof createFake>, eventId: string, coordinatorId: string) => {
+// SCRUM-78/SCRUM-79: assignments are now made by a Lead (POST /lead/events/:id/assign and /reassign, tested in
+// lead-assign.test.ts, lead-reassign.test.ts and against the database), which this fake doesn't serve. So these start
+// from their result: the event, now with assignee2, and one record per assignment.
+const assignedThenReassignedByLead = (fake: ReturnType<typeof createFake>, eventId: string, first: string, second: string) => {
   fake.tables.events.push({
     id: eventId, name: "Tech Summit", status: "submitted",
-    organiser_id: crypto.randomUUID(), assigned_coordinator_id: coordinatorId,
+    organiser_id: crypto.randomUUID(), assigned_coordinator_id: second,
   });
-  fake.tables.coordinator_assignment_logs.push({
-    id: crypto.randomUUID(), event_id: eventId, coordinator_id: coordinatorId, previous_coordinator_id: null,
-    assigned_by: crypto.randomUUID(), assigned_at: "2026-09-01T10:00:00.000Z",
-  });
+  fake.tables.coordinator_assignment_logs.push(
+    { id: crypto.randomUUID(), event_id: eventId, coordinator_id: first, previous_coordinator_id: null,
+      assigned_by: crypto.randomUUID(), assigned_at: "2026-09-01T10:00:00.000Z" },
+    { id: crypto.randomUUID(), event_id: eventId, coordinator_id: second, previous_coordinator_id: first,
+      assigned_by: crypto.randomUUID(), assigned_at: "2026-09-02T10:00:00.000Z" },
+  );
 };
 
 describe("SCRUM-43/AC4 — Preserve historical records", () => {
@@ -896,16 +652,9 @@ describe("SCRUM-43/AC4 — Preserve historical records", () => {
     const assignee1 = fake.signIn("event_coordinator", "Bob Coord");
     const assignee2 = fake.signIn("event_coordinator", "Carol Coord");
 
-    // First assignment
+    // First assignment, then a reassignment to a different coordinator
     const eventId = crypto.randomUUID();
-    firstAssignedByLead(fake, eventId, assignee1.id);
-
-    // Second assignment — reassign to a different coordinator
-    const res2 = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", assignee1.cookie) // hands it over
-      .send({ coordinator_id: assignee2.id });
-    expect(res2.status).toBe(200);
+    assignedThenReassignedByLead(fake, eventId, assignee1.id, assignee2.id);
 
     const res = await request(createApp(fake.deps))
       .get(`/events/${eventId}/assignment-history`)
@@ -922,12 +671,7 @@ describe("SCRUM-43/AC4 — Preserve historical records", () => {
     const assignee2 = fake.signIn("event_coordinator", "Carol Coord");
 
     const eventId = crypto.randomUUID();
-    firstAssignedByLead(fake, eventId, assignee1.id);
-
-    await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", assignee1.cookie) // hands it over
-      .send({ coordinator_id: assignee2.id });
+    assignedThenReassignedByLead(fake, eventId, assignee1.id, assignee2.id);
 
     const res = await request(createApp(fake.deps))
       .get(`/events/${eventId}/assignment-history`)
@@ -1068,84 +812,6 @@ describe("SCRUM-43/AC5 — Access control", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SCRUM-41/AC2, AC10 — The current coordinator is not a reassignment choice
-// ---------------------------------------------------------------------------
-describe("SCRUM-41/AC2, AC10 — Prevent reassigning to the same coordinator", () => {
-  const setup = () => {
-    const fake = createFake();
-    const current = fake.signIn("event_coordinator", "Alice Coord");
-    const other = fake.signIn("event_coordinator", "Bob Coord");
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId, name: "Tech Summit", status: "submitted",
-      organiser_id: crypto.randomUUID(), assigned_coordinator_id: current.id,
-    });
-    return { fake, current, other, eventId };
-  };
-
-  it("leaves the assigned coordinator out of the eligible list", async () => {
-    const { fake, current, other, eventId } = setup();
-
-    const res = await request(createApp(fake.deps))
-      .get(`/events/${eventId}/eligible-coordinators`)
-      .set("Cookie", current.cookie);
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([{ id: other.id, full_name: "Bob Coord" }]);
-  });
-
-  it("refuses to reassign to the coordinator already assigned, recording nothing", async () => {
-    const { fake, current, eventId } = setup();
-
-    const res = await request(createApp(fake.deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", current.cookie)
-      .send({ coordinator_id: current.id });
-
-    expect(res.status).toBe(409);
-    expect(res.body).toEqual({ error: "This coordinator is already assigned to the event." });
-    expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// SCRUM-42/AC3 — A failed database call is reported as a server error
-// ---------------------------------------------------------------------------
-describe("SCRUM-42/AC3 — Assignment database failure", () => {
-  it("returns 500, not 'Event not found', when assign_coordinator fails", async () => {
-    const fake = createFake();
-    const caller = fake.signIn("event_coordinator");
-    // SCRUM-78: coordinators no longer claim unassigned events, so the assigned coordinator hands this one over
-    const other = fake.signIn("event_coordinator", "Other Coord");
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({
-      id: eventId, name: "Tech Summit", status: "submitted", organiser_id: crypto.randomUUID(), assigned_coordinator_id: caller.id,
-    });
-    const real = fake.deps.forUser;
-    const deps = {
-      ...fake.deps,
-      forUser: (token: string) => ({
-        ...real(token),
-        rpc: () => ({
-          maybeSingle: async () => ({ data: null, error: { message: "function assign_coordinator does not exist" } }),
-        }),
-      }),
-    } as unknown as SupabaseDeps;
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    const res = await request(createApp(deps))
-      .post(`/events/${eventId}/assign-coordinator`)
-      .set("Cookie", caller.cookie)
-      .send({ coordinator_id: other.id });
-
-    expect(res.status).toBe(500);
-    expect(res.body).toEqual({ error: "We couldn't assign the coordinator. Please try again." });
-    expect(logged).toHaveBeenCalledWith("assign_coordinator failed:", "function assign_coordinator does not exist");
-    logged.mockRestore();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // SCRUM-43/AC2 — History shows people by name
 // ---------------------------------------------------------------------------
 describe("SCRUM-43/AC2 — Assignment history names", () => {
@@ -1172,69 +838,23 @@ describe("SCRUM-43/AC2 — Assignment history names", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SCRUM-42/AC8 — Whether the viewer may assign
-// ---------------------------------------------------------------------------
-// SCRUM-78: the coordinator half ("tells coordinators they can assign" an unassigned event) was retired; SCRUM-78/AC9
-// below checks a coordinator now gets no assign action there. The organiser half still holds.
-describe("SCRUM-42/AC8 — Assignment action availability", () => {
-  it("tells organisers they can't assign", async () => {
-    const fake = createFake();
-    const organiser = fake.signIn("event_organiser");
-    const eventId = crypto.randomUUID();
-    fake.tables.events.push({ id: eventId, name: "Tech Summit", status: "submitted", organiser_id: organiser.id });
-    const view = (cookie: string) => request(createApp(fake.deps)).get(`/events/${eventId}`).set("Cookie", cookie);
-
-    expect((await view(organiser.cookie)).body.canAssign).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// SCRUM-42 + SCRUM-41/AC9 — Claim an unassigned event; only the owner hands it over
+// SCRUM-42 + SCRUM-41/AC9 — Who may assign. The claim and hand-over tests were retired (SCRUM-78/AC9, SCRUM-79/AC9
+// below); the refusals that still hold stay.
 // ---------------------------------------------------------------------------
 describe("SCRUM-42, SCRUM-41/AC9 — Who may assign", () => {
-  const setup = (assigned: "nobody" | "alice") => {
+  const setup = (assigned: "alice") => {
     const fake = createFake();
     const alice = fake.signIn("event_coordinator", "Alice Coord");
     const bob = fake.signIn("event_coordinator", "Bob Coord");
-    const carol = fake.signIn("event_coordinator", "Carol Coord");
     const eventId = crypto.randomUUID();
     fake.tables.events.push({
       id: eventId, name: "Tech Summit", status: "submitted", organiser_id: crypto.randomUUID(),
       assigned_coordinator_id: assigned === "alice" ? alice.id : null,
     });
-    const assign = (cookie: string, coordinatorId: string) =>
-      request(createApp(fake.deps))
-        .post(`/events/${eventId}/assign-coordinator`)
-        .set("Cookie", cookie)
-        .send({ coordinator_id: coordinatorId });
     const eligible = (cookie: string) =>
       request(createApp(fake.deps)).get(`/events/${eventId}/eligible-coordinators`).set("Cookie", cookie);
-    const view = (cookie: string) => request(createApp(fake.deps)).get(`/events/${eventId}`).set("Cookie", cookie);
-    return { fake, alice, bob, carol, eventId, assign, eligible, view };
+    return { bob, eligible };
   };
-
-  // SCRUM-78: "refuses to assign an unassigned event to someone else" (with the old "only to yourself" message) was
-  // retired; SCRUM-78/AC9 below refuses any coordinator assignment of an unassigned event.
-
-  it("lets the assigned coordinator hand the event to another coordinator", async () => {
-    const { fake, alice, bob, eventId, assign } = setup("alice");
-
-    const res = await assign(alice.cookie, bob.id);
-
-    expect(res.status).toBe(200);
-    expect(fake.tables.events.find((e) => e.id === eventId)?.assigned_coordinator_id).toBe(bob.id);
-  });
-
-  it.each(["bob", "carol"] as const)("refuses a reassignment by another coordinator (to %s)", async (target) => {
-    const { fake, alice, bob, carol, eventId, assign } = setup("alice");
-
-    const res = await assign(bob.cookie, target === "bob" ? bob.id : carol.id);
-
-    expect(res.status).toBe(403);
-    expect(res.body).toEqual({ error: "Only the coordinator assigned to this event can reassign it." });
-    expect(fake.tables.events.find((e) => e.id === eventId)?.assigned_coordinator_id).toBe(alice.id);
-    expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
-  });
 
   it("refuses the eligible list to a coordinator who isn't assigned", async () => {
     const { bob, eligible } = setup("alice");
@@ -1253,13 +873,6 @@ describe("SCRUM-42, SCRUM-41/AC9 — Who may assign", () => {
       .set("Cookie", alice.cookie);
 
     expect(res.status).toBe(404);
-  });
-
-  // SCRUM-78: the "any coordinator while unassigned" half was retired (SCRUM-78/AC9 below); the SCRUM-41 half stays.
-  it("offers reassignment only to the assigned coordinator", async () => {
-    const assigned = setup("alice");
-    expect((await assigned.view(assigned.alice.cookie)).body.canAssign).toBe(true);
-    expect((await assigned.view(assigned.bob.cookie)).body.canAssign).toBe(false);
   });
 });
 
@@ -1304,12 +917,55 @@ describe("SCRUM-78/AC9 — Coordinators can no longer claim an unassigned event"
     expect(res.body).toEqual({ error: LEAD_ONLY });
   });
 
-  it("SCRUM-78/AC9 offers a coordinator no assign action on an unassigned event", async () => {
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-79/AC9 — Only an Event Coordinator Lead reassigns an event. Replaces SCRUM-41's hand-over by the assigned
+// coordinator (PO decision, docs/specs/event-coordinator-lead-role.md): coordinators are refused, and nothing changes.
+// ---------------------------------------------------------------------------
+describe("SCRUM-79/AC9 — Coordinators can no longer reassign an event", () => {
+  const LEAD_REASSIGNS = "Only an Event Coordinator Lead can reassign a coordinator.";
+  const setup = () => {
+    const fake = createFake();
+    const alice = fake.signIn("event_coordinator", "Alice Coord");
+    const bob = fake.signIn("event_coordinator", "Bob Coord");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "planning", organiser_id: crypto.randomUUID(), assigned_coordinator_id: alice.id,
+    });
+    const stored = () => fake.tables.events.find((e) => e.id === eventId)?.assigned_coordinator_id;
+    return { fake, alice, bob, eventId, stored };
+  };
+
+  it("SCRUM-79/AC9 refuses the assigned coordinator handing the event to another coordinator", async () => {
+    const { fake, alice, bob, eventId, stored } = setup();
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/assign-coordinator`)
+      .set("Cookie", alice.cookie)
+      .send({ coordinator_id: bob.id });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: LEAD_REASSIGNS });
+    expect(stored()).toBe(alice.id);
+    expect(fake.tables.coordinator_assignment_logs).toHaveLength(0);
+  });
+
+  it("SCRUM-79/AC9 refuses the assigned coordinator the list of coordinators to hand over to", async () => {
+    const { fake, alice, eventId } = setup();
+
+    const res = await request(createApp(fake.deps)).get(`/events/${eventId}/eligible-coordinators`).set("Cookie", alice.cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: LEAD_REASSIGNS });
+  });
+
+  it("SCRUM-79/AC9 the event no longer offers anyone an assign action", async () => {
     const { fake, alice, eventId } = setup();
 
     const res = await request(createApp(fake.deps)).get(`/events/${eventId}`).set("Cookie", alice.cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body.canAssign).toBe(false);
+    expect(res.body).not.toHaveProperty("canAssign");
   });
 });

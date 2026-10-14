@@ -41,6 +41,12 @@ function mockPost(status: number, body: unknown) {
   return fetchMock;
 }
 
+// Picks a coordinator from the dropdown by the option text the Lead sees
+function choose(name: string) {
+  const option = screen.getByRole("option", { name }) as HTMLOptionElement;
+  fireEvent.change(screen.getByLabelText("Event Coordinator"), { target: { value: option.value } });
+}
+
 const renderForm = (coordinators = [rachel, marcus]) =>
   render(<LeadAssignForm eventId="evt-1" eventName="Tech Summit" coordinators={coordinators} />);
 
@@ -66,8 +72,8 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
   it("SCRUM-78/AC1 lists the eligible coordinators, each with their workload count", () => {
     renderForm();
 
-    expect(screen.getByRole("radio", { name: "Rachel Tan (2 active events)" })).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "Marcus Lim (0 active events)" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Rachel Tan — 2 active events" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Marcus Lim — 0 active events" })).toBeTruthy();
   });
   // end of AC1
 
@@ -76,7 +82,7 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
     const fetchMock = mockPost(200, { assigned_coordinator_id: "c-2" });
     renderForm();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Marcus Lim (0 active events)" }));
+    choose("Marcus Lim — 0 active events");
     fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
 
     await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Tech Summit is now assigned to Marcus Lim."));
@@ -103,7 +109,7 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
     mockPost(409, { error: "This event has already been assigned to a coordinator." });
     renderForm();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Rachel Tan (2 active events)" }));
+    choose("Rachel Tan — 2 active events");
     fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("This event has already been assigned to a coordinator."));
@@ -125,10 +131,12 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
     const fetchMock = mockPost(200, {});
     renderForm();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Rachel Tan (2 active events)" }));
+    choose("Rachel Tan — 2 active events");
     const cancel = screen.getByRole("link", { name: "Cancel" });
 
     expect(cancel.getAttribute("href")).toBe("/lead/queue");
+    // jsdom cannot open another page, so stop the browser following the link; we only check nothing was sent
+    cancel.addEventListener("click", (e) => e.preventDefault());
     fireEvent.click(cancel);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -155,7 +163,7 @@ describe("SCRUM-78 — The assign page", () => {
     );
     expect(screen.getByRole("heading", { name: "Assign a coordinator to Tech Summit" })).toBeTruthy();
     expect(screen.getByText("Jason Chua")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "Rachel Tan (2 active events)" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Rachel Tan — 2 active events" })).toBeTruthy();
   });
 
   // AC6: a closed event has no assign action
@@ -166,7 +174,7 @@ describe("SCRUM-78 — The assign page", () => {
 
     expect(screen.getByText("This event is closed, so a coordinator can't be assigned.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Confirm assignment" })).toBeNull();
-    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
 
   it("SCRUM-78/AC3 offers no assign action for an event that already has a coordinator", async () => {
