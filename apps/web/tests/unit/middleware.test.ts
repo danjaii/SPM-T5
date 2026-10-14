@@ -52,3 +52,53 @@ describe("SCRUM-83 — Registration form route guard", () => {
   // end of AC2
 });
 // end of SCRUM-83
+
+// ---------------------------------------------------------------------------
+// SCRUM-75 — Lead pages (/lead/*) are behind the route guard, for Event Coordinator Leads only
+// ---------------------------------------------------------------------------
+describe("SCRUM-75 — Lead page route guard", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** auth-service's /auth/me answers: this cookie belongs to a user with this role. */
+  const signedInAs = (role: string) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ role }) }));
+    return { headers: { cookie: `cs_session=token-${role}` } };
+  };
+
+  // AC6: a Lead can open a Lead page
+  it.each(["/lead/queue", "/lead/coordinators", "/dashboard/event_coordinator_lead"])(
+    "SCRUM-75/AC6 lets a signed-in Lead open %s",
+    async (path) => {
+      const res = await middleware(new NextRequest(`http://localhost:3000${path}`, signedInAs("event_coordinator_lead")));
+
+      expect(res.headers.get("location")).toBeNull();
+      expect(res.headers.get("x-middleware-next")).toBe("1");
+    },
+  );
+  // end of AC6
+
+  // AC7: anyone else typing a Lead page's URL is sent to their own dashboard, and a guest to sign in
+  it.each(["event_coordinator", "venue_staff", "event_organiser", "attendee", "safety_officer"])(
+    "SCRUM-75/AC7 sends a %s who opens a Lead page by URL to their own dashboard",
+    async (role) => {
+      const res = await middleware(new NextRequest("http://localhost:3000/lead/queue", signedInAs(role)));
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe(`http://localhost:3000/dashboard/${role}`);
+    },
+  );
+
+  it("SCRUM-75/AC7 sends a guest who opens a Lead page to the sign-in page", async () => {
+    const res = await middleware(new NextRequest("http://localhost:3000/lead/coordinators"));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("SCRUM-75/AC7 the route guard covers every Lead page", async () => {
+    const { config } = await import("@/middleware");
+    expect(config.matcher).toContain("/lead/:path*");
+  });
+  // end of AC7
+});
+// end of SCRUM-75
