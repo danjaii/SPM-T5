@@ -107,12 +107,24 @@ describe.skipIf(!hasDb)("SCRUM-33/SCRUM-32/SCRUM-35 venue_bookings row level sec
       expect(data).toEqual([]);
     });
 
-    it.each(["technicalSupport", "attendee"] as const)("%s reads no requests at all", async (role) => {
-      expect(await visibleIds(who[role], [bookingA, bookingB])).toEqual([]);
+    it("an attendee reads no requests at all", async () => {
+      expect(await visibleIds(who.attendee, [bookingA, bookingB])).toEqual([]);
       // The seed has 17 bookings, so an unfiltered read returning nothing shows the table is closed.
-      const { data, error } = await who[role].client.from("venue_bookings").select("id");
+      const { data, error } = await who.attendee.client.from("venue_bookings").select("id");
       expect(error).toBeNull();
       expect(data).toEqual([]);
+    });
+
+    // SCRUM-87 (migration 27): Technical Support Staff read only the bookings an equipment request names, so the
+    // request queue can show the venue. The equipment-service integration tests cover a booking that is named.
+    it("SCRUM-87 Technical Support Staff read only the bookings an equipment request names", async () => {
+      expect(await visibleIds(who.technicalSupport, [bookingA, bookingB])).toEqual([]);
+      const { data: named } = await admin.from("equipment_reservations").select("venue_booking_id").not("venue_booking_id", "is", null);
+      const { data, error } = await who.technicalSupport.client.from("venue_bookings").select("id");
+      expect(error).toBeNull();
+      expect((data ?? []).map((r) => r.id as string).sort()).toEqual(
+        [...new Set((named ?? []).map((r) => r.venue_booking_id as string))].sort(),
+      );
     });
 
     it("a request row is not exposed through a join to someone who cannot see it", async () => {

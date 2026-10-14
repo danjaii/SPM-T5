@@ -140,3 +140,99 @@ export function parseEquipmentRequestInput(
     data: { equipmentId, quantity: Number(quantity), venueBookingId: venueBookingId || null, notes: notes || null },
   };
 }
+
+// ---------------------------------------------------------------------------
+// SCRUM-87: Technical Support Staff review requests.
+// ---------------------------------------------------------------------------
+
+/** AC1, AC2, AC4: the statuses waiting for action, which the queue lists and staff can change. */
+export const EQUIPMENT_REQUEST_WAITING_STATUSES = ["SUBMITTED", "UNDER_REVIEW"] as const satisfies readonly EquipmentRequestStatus[];
+
+export function isWaitingEquipmentRequest(status: EquipmentRequestStatus): boolean {
+  return (EQUIPMENT_REQUEST_WAITING_STATUSES as readonly string[]).includes(status);
+}
+
+/** AC4: what staff can change a waiting request to. */
+export const EQUIPMENT_REQUEST_REVIEW_STATUSES = ["UNDER_REVIEW", "ARRANGED", "CANNOT_FULFIL"] as const satisfies readonly EquipmentRequestStatus[];
+export type EquipmentRequestReviewStatus = (typeof EQUIPMENT_REQUEST_REVIEW_STATUSES)[number];
+
+/** The DB status each review choice saves. review_equipment_request() in migration 27 accepts exactly these. */
+export const EQUIPMENT_REQUEST_REVIEW_DB_STATUS: Record<EquipmentRequestReviewStatus, string> = {
+  UNDER_REVIEW: "under_review",
+  ARRANGED: "approved",
+  CANNOT_FULFIL: "rejected",
+};
+
+/** AC5: the longest reason accepted, so it stays readable on the event page. */
+export const EQUIPMENT_REQUEST_REASON_MAX_LENGTH = 500;
+
+export const EQUIPMENT_REQUEST_REVIEW_MESSAGES = {
+  statusMissing: "Choose the new status.",
+  /** AC5 */
+  reasonMissing: "Give a reason why this request cannot be fulfilled.",
+  reasonTooLong: `Keep the reason to ${EQUIPMENT_REQUEST_REASON_MAX_LENGTH} characters or fewer.`,
+  /** AC2: the spec's exact wording. */
+  queueEmpty: "No requests waiting for action",
+  /** AC4: the request was already Arranged or Cannot Fulfil (for example, someone else saved first). */
+  notWaiting: "This request is no longer waiting for action.",
+  /** Decision: a finished event's requests are left as they are. */
+  eventLocked: "Requests for a completed, cancelled or rejected event can't be changed.",
+} as const;
+
+const reviewShape = z
+  .object({
+    status: text.pipe(
+      z.enum(EQUIPMENT_REQUEST_REVIEW_STATUSES, { errorMap: () => ({ message: EQUIPMENT_REQUEST_REVIEW_MESSAGES.statusMissing }) }),
+    ),
+    reason: text.pipe(z.string().max(EQUIPMENT_REQUEST_REASON_MAX_LENGTH, EQUIPMENT_REQUEST_REVIEW_MESSAGES.reasonTooLong)),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === "CANNOT_FULFIL" && !value.reason) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["reason"], message: EQUIPMENT_REQUEST_REVIEW_MESSAGES.reasonMissing });
+    }
+  });
+
+export interface EquipmentRequestReviewInput {
+  status: EquipmentRequestReviewStatus;
+  /** Only kept for Cannot Fulfil; null otherwise. */
+  reason: string | null;
+}
+
+export type ParsedEquipmentRequestReviewInput =
+  | { ok: true; data: EquipmentRequestReviewInput }
+  | { ok: false; fieldErrors: Record<string, string> };
+
+/** AC4, AC5: validates a status change, identically in the form (apps/web) and the API (equipment-service). */
+export function parseEquipmentRequestReviewInput(body: unknown): ParsedEquipmentRequestReviewInput {
+  const parsed = reviewShape.safeParse(body ?? {});
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      fieldErrors[String(issue.path[0])] ??= issue.message;
+    }
+    return { ok: false, fieldErrors };
+  }
+  const { status, reason } = parsed.data;
+  return { ok: true, data: { status, reason: status === "CANNOT_FULFIL" ? reason : null } };
+}
+
+// ---------------------------------------------------------------------------
+// SCRUM-87/AC6: whether the event's equipment is ready.
+// ---------------------------------------------------------------------------
+
+/** Open question 3 (assumed yes): equipment is ready only when every request is Arranged. */
+export const EQUIPMENT_READY_STATUSES = ["ARRANGED"] as const satisfies readonly EquipmentRequestStatus[];
+
+export type EquipmentReadiness = "COMPLETE" | "INCOMPLETE";
+
+export const EQUIPMENT_READINESS_LABELS: Record<EquipmentReadiness, string> = {
+  COMPLETE: "Complete",
+  INCOMPLETE: "Incomplete",
+};
+
+/** AC6: Complete when every shown request is ready, Incomplete otherwise; null for an event with no requests. */
+export function equipmentReadiness(statuses: readonly EquipmentRequestStatus[]): EquipmentReadiness | null {
+  if (statuses.length === 0) return null;
+  const ready = EQUIPMENT_READY_STATUSES as readonly string[];
+  return statuses.every((s) => ready.includes(s)) ? "COMPLETE" : "INCOMPLETE";
+}

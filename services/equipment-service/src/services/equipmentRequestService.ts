@@ -1,13 +1,16 @@
 import {
   canRequestEquipment,
   EQUIPMENT_REQUEST_MESSAGES,
+  EQUIPMENT_READINESS_LABELS,
   EQUIPMENT_REQUEST_STATUS_LABELS,
   equipmentOptionLabel,
+  equipmentReadiness,
   equipmentRequestStatusOf,
   isRequestableEquipment,
   isRequestableVenueBooking,
   parseEquipmentRequestInput,
   utcToSgt,
+  type EquipmentReadiness,
   type EquipmentRequestStatus,
 } from "@spm-t5/shared";
 import { eventLocked, forbidden, notFound, validationFailed } from "../domain/errors";
@@ -47,12 +50,17 @@ export interface EquipmentRequestView {
   notes: string | null;
   status: EquipmentRequestStatus;
   statusLabel: string;
+  /** SCRUM-87/AC5: why it cannot be fulfilled, once Technical Support Staff said so. */
+  reason: string | null;
 }
 
 /** GET /events/:id/equipment-requests: the event's requests, and whether the caller may add one. */
 export interface EventEquipmentRequests {
   requests: EquipmentRequestView[];
   canCreate: boolean;
+  /** SCRUM-87/AC6: whether the event's equipment is ready; null when nothing has been requested. */
+  readiness: EquipmentReadiness | null;
+  readinessLabel: string | null;
 }
 
 /** SCRUM-86: an Event Coordinator requests equipment for their event. */
@@ -135,11 +143,13 @@ export class EquipmentRequestService {
       notes,
       status: "SUBMITTED",
       statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS.SUBMITTED,
+      reason: null,
     };
   }
 
   /**
-   * AC2, AC3: the event's requests, each with its own status (cancelled rows are not shown). The assigned
+   * AC2, AC3: the event's requests, each with its own status (cancelled rows are not shown), and SCRUM-87/AC5, AC6
+   * the Cannot Fulfil reason and whether the equipment is ready. The assigned
    * coordinator sees them, and Technical Support Staff, who act on them (SCRUM-87). Open question 4 (the Lead and
    * Safety Officer) is decided here. AC6, AC7: canCreate says whether the caller may add one.
    */
@@ -161,8 +171,15 @@ export class EquipmentRequestService {
         notes: r.notes,
         status,
         statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS[status],
+        reason: r.reviewReason,
       });
     }
-    return { requests, canCreate: isAssigned && canRequestEquipment(event.status) };
+    const readiness = equipmentReadiness(requests.map((r) => r.status));
+    return {
+      requests,
+      canCreate: isAssigned && canRequestEquipment(event.status),
+      readiness,
+      readinessLabel: readiness && EQUIPMENT_READINESS_LABELS[readiness],
+    };
   }
 }

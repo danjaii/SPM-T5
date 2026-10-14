@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   canRequestEquipment,
+  EQUIPMENT_READINESS_LABELS,
   EQUIPMENT_REQUEST_LOCKED_EVENT_STATUSES,
   EQUIPMENT_REQUEST_MESSAGES,
+  EQUIPMENT_REQUEST_REASON_MAX_LENGTH,
+  EQUIPMENT_REQUEST_REVIEW_DB_STATUS,
+  EQUIPMENT_REQUEST_REVIEW_MESSAGES,
   EQUIPMENT_REQUEST_STATUS_LABELS,
+  EQUIPMENT_REQUEST_STATUSES,
   equipmentOptionLabel,
+  equipmentReadiness,
   equipmentRequestStatusOf,
+  isWaitingEquipmentRequest,
+  parseEquipmentRequestReviewInput,
   isRequestableEquipment,
   isRequestableVenueBooking,
   parseEquipmentRequestInput,
@@ -137,5 +145,71 @@ describe("SCRUM-86/AC2,AC3 each request shows its own status", () => {
 
   it("a cancelled row is not shown", () => {
     expect(equipmentRequestStatusOf("cancelled")).toBeUndefined();
+  });
+});
+
+describe("SCRUM-87/AC4, AC5 parseEquipmentRequestReviewInput", () => {
+  it.each(["UNDER_REVIEW", "ARRANGED"] as const)("accepts %s, dropping any reason", (status) => {
+    expect(parseEquipmentRequestReviewInput({ status, reason: "not needed" })).toEqual({ ok: true, data: { status, reason: null } });
+  });
+
+  it("accepts Cannot Fulfil with a trimmed reason", () => {
+    expect(parseEquipmentRequestReviewInput({ status: " CANNOT_FULFIL ", reason: "  All out on loan " })).toEqual({
+      ok: true,
+      data: { status: "CANNOT_FULFIL", reason: "All out on loan" },
+    });
+  });
+
+  it.each([undefined, null, "", "SUBMITTED", "arranged"])("refuses the status %j", (status) => {
+    expect(parseEquipmentRequestReviewInput({ status })).toEqual({
+      ok: false,
+      fieldErrors: { status: EQUIPMENT_REQUEST_REVIEW_MESSAGES.statusMissing },
+    });
+  });
+
+  it("AC5: Cannot Fulfil without a reason asks for one", () => {
+    for (const reason of [undefined, "", "   "]) {
+      expect(parseEquipmentRequestReviewInput({ status: "CANNOT_FULFIL", reason })).toEqual({
+        ok: false,
+        fieldErrors: { reason: EQUIPMENT_REQUEST_REVIEW_MESSAGES.reasonMissing },
+      });
+    }
+  });
+
+  it("refuses a reason over the limit, and an empty body", () => {
+    const tooLong = "x".repeat(EQUIPMENT_REQUEST_REASON_MAX_LENGTH + 1);
+    expect(parseEquipmentRequestReviewInput({ status: "CANNOT_FULFIL", reason: tooLong })).toEqual({
+      ok: false,
+      fieldErrors: { reason: EQUIPMENT_REQUEST_REVIEW_MESSAGES.reasonTooLong },
+    });
+    expect(parseEquipmentRequestReviewInput(undefined)).toMatchObject({ ok: false, fieldErrors: { status: expect.any(String) } });
+  });
+
+  it("each choice saves the DB status review_equipment_request() accepts", () => {
+    expect(EQUIPMENT_REQUEST_REVIEW_DB_STATUS).toEqual({ UNDER_REVIEW: "under_review", ARRANGED: "approved", CANNOT_FULFIL: "rejected" });
+    for (const [status, db] of Object.entries(EQUIPMENT_REQUEST_REVIEW_DB_STATUS)) {
+      expect(equipmentRequestStatusOf(db)).toBe(status);
+    }
+  });
+});
+
+describe("SCRUM-87/AC1, AC4 waiting requests", () => {
+  it("Submitted and Under Review are waiting; Arranged and Cannot Fulfil are not", () => {
+    expect(EQUIPMENT_REQUEST_STATUSES.filter(isWaitingEquipmentRequest)).toEqual(["SUBMITTED", "UNDER_REVIEW"]);
+  });
+});
+
+describe("SCRUM-87/AC6 equipmentReadiness", () => {
+  it("Complete when every request is Arranged", () => {
+    expect(equipmentReadiness(["ARRANGED", "ARRANGED"])).toBe("COMPLETE");
+  });
+
+  it.each(["SUBMITTED", "UNDER_REVIEW", "CANNOT_FULFIL"] as const)("Incomplete when any request is %s", (status) => {
+    expect(equipmentReadiness(["ARRANGED", status])).toBe("INCOMPLETE");
+  });
+
+  it("nothing to say when there are no requests", () => {
+    expect(equipmentReadiness([])).toBeNull();
+    expect(EQUIPMENT_READINESS_LABELS).toEqual({ COMPLETE: "Complete", INCOMPLETE: "Incomplete" });
   });
 });

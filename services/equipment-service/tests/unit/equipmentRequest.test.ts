@@ -9,6 +9,7 @@ import type { VenueBookingInfo } from "../../src/readers/venueBookingReader";
 import {
   FakeEquipmentReader,
   FakeEquipmentRequestReader,
+  FakeEquipmentRequestReviewer,
   FakeEquipmentRequestWriter,
   FakeEventReader,
   FakeReservationReader,
@@ -47,6 +48,7 @@ function setup({
       venueBookings: new FakeVenueBookingReader(bookings),
       requests: new FakeEquipmentRequestReader(stored),
       requestWriter: writer,
+      reviewer: new FakeEquipmentRequestReviewer(),
     }),
   });
   const as = (user: string | null, req: request.Test) => (user ? req.set("Cookie", `cs_session=tok-${user}`) : req);
@@ -78,6 +80,7 @@ describe("SCRUM-86/AC1 create a request", () => {
       notes: "Two on stage",
       status: "SUBMITTED",
       statusLabel: "Submitted",
+      reason: null,
     });
     expect(writer.saved).toEqual([
       {
@@ -164,6 +167,7 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
         notes: "Near the stage",
         status: "SUBMITTED",
         statusLabel: "Submitted",
+        reason: null,
       },
     ]);
   });
@@ -183,7 +187,12 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
     const { list } = setup({ stored: [anEquipmentRequest()] });
     const res = await list("tech-1");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ requests: [expect.objectContaining({ id: "req-1" })], canCreate: false });
+    expect(res.body).toEqual({
+      requests: [expect.objectContaining({ id: "req-1" })],
+      canCreate: false,
+      readiness: "INCOMPLETE",
+      readinessLabel: "Incomplete",
+    });
   });
 
   it("an event that does not exist is a 404", async () => {

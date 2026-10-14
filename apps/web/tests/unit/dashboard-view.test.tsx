@@ -100,6 +100,15 @@ describe("Dashboard tables", () => {
     if (role === "technical_support_staff") expect(link?.getAttribute("href")).toBe("/equipment-reservation");
     else expect(link).toBeNull();
   });
+
+  // SCRUM-87/AC7: only Technical Support Staff see the link to the equipment request queue.
+  it.each(ROLES)("SCRUM-87/AC7: for a %s, shows the 'Equipment requests' link only if Technical Support Staff", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    const link = screen.queryByRole("link", { name: "Equipment requests" });
+    if (role === "technical_support_staff") expect(link?.getAttribute("href")).toBe("/equipment-requests");
+    else expect(link).toBeNull();
+  });
   // end of SCRUM-19 dashboard link
 
   // SCRUM-68: every signed-in user has a profile, so every role gets the link to it.
