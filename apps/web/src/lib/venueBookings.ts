@@ -56,6 +56,9 @@ export interface VenueBookingInputBody {
   date: string;
   startTime: string;
   endTime: string;
+  /** SCRUM-98/AC2: this venue booking's own numbers; left out means "use the event's". */
+  expectedAttendance?: number;
+  venueRequirements?: string;
 }
 
 /** POSTs JSON to venue-service from the browser, sending the session cookie. */
@@ -96,12 +99,15 @@ export const approveVenueBooking = (id: string) =>
 export const rejectVenueBooking = (id: string, reason: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/reject`, { reason });
 
-/** GET /events/:id/venue-booking (38-S4): the event's approved venue, as its Coordinator sees it. */
-export interface EventVenueBookingView {
-  venueName: string;
-  date: string;
-  startTime: string;
-  endTime: string;
+/**
+ * GET /events/:id/venue-bookings (SCRUM-98/AC5): one venue booking of the event, as its assigned Coordinator sees it.
+ * Replaces SCRUM-38's single approved venue (38-S4): an approved one is in this list too.
+ */
+export interface EventVenueBookingItem extends VenueBookingChainItem {
+  expectedAttendance: number | null;
+  venueRequirements: string | null;
+  /** More people expected than the venue holds: a warning, never a refusal. */
+  exceedsCapacity: boolean;
 }
 
 /**

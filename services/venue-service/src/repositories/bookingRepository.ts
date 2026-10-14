@@ -42,7 +42,7 @@ export interface BookingRepository {
   /**
    * Creates a PENDING request atomically. Throws BookingError:
    *  - SLOT_CONFLICT when the venue is held for an overlapping period (DR5, DR11)
-   *  - ACTIVE_REQUEST_EXISTS when the event already has a PENDING/APPROVED request (DR6)
+   *  - ACTIVE_REQUEST_EXISTS when the rejected request it replaces already has a PENDING/APPROVED replacement (98-S20)
    *  - SUGGESTION_ALREADY_USED when the suggestion was already accepted (59-S3)
    */
   insert(input: NewBooking): Promise<BookingRecord>;

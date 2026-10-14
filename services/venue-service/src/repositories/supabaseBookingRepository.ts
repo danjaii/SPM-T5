@@ -64,7 +64,8 @@ function translate(error: PgError): Error {
   const message = error.message ?? "";
   if (error.code === "23P01") return bookingError("SLOT_CONFLICT");
   if (error.code === "23505") {
-    if (message.includes("venue_bookings_one_active_per_event")) return bookingError("ACTIVE_REQUEST_EXISTS");
+    // 98-S20 (migration 28): the rejected venue booking already has an active replacement
+    if (message.includes("venue_bookings_one_active_replacement")) return bookingError("ACTIVE_REQUEST_EXISTS");
     if (message.includes("venue_bookings_one_suggestion_accept")) return bookingError("SUGGESTION_ALREADY_USED");
   }
   // The original stays attached as `cause` for server-side logging; it is never sent to the caller.

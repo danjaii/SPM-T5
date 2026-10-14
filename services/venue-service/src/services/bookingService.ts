@@ -1,4 +1,4 @@
-import { canRequestVenue, isHoldingDbStatus, parseVenueBookingInput, utcToSgt, type Role } from "@spm-t5/shared";
+import { canRequestVenue, exceedsCapacity, isHoldingDbStatus, parseVenueBookingInput, periodsOverlap, utcToSgt, type Role } from "@spm-t5/shared";
 import { bookingError, forbidden, notFound, validationFailed } from "../domain/errors";
 import type { BookingRecord } from "../domain/types";
 import type { EventInfo, EventReader } from "../readers/eventReader";
@@ -10,6 +10,12 @@ export interface Caller {
   id: string;
   /** Undefined when the user has no recognised role. */
   role: Role | undefined;
+}
+
+/** A new booking, and whether more people are expected than its venue holds (SCRUM-98/AC2: a warning only). */
+export interface SubmittedBooking {
+  booking: BookingRecord;
+  exceedsCapacity: boolean;
 }
 
 export interface SubmitOptions {
@@ -77,7 +83,7 @@ export class BookingService {
    * SCRUM-60: a new PENDING request for another venue, date or time that refers to a rejected one.
    * The rejected request is never written. Every other rule is submit()'s, so nothing is duplicated.
    */
-  async amend(caller: Caller, id: string, body: unknown): Promise<BookingRecord> {
+  async amend(caller: Caller, id: string, body: unknown): Promise<SubmittedBooking> {
     const original = await this.loadRejectedFor(caller, id);
     const fields = typeof body === "object" && body !== null ? body : {};
     return this.submit(caller, { ...fields, eventId: original.eventId }, { amendsBookingId: original.id });
@@ -89,7 +95,7 @@ export class BookingService {
    * The suggestion's "used" state is the new request itself (from_suggestion = true); the unique index
    * in migration 06 makes a second accept fail even if two race past the pre-check (59-S3).
    */
-  async acceptSuggestion(caller: Caller, id: string): Promise<BookingRecord> {
+  async acceptSuggestion(caller: Caller, id: string): Promise<SubmittedBooking> {
     const original = await this.loadRejectedFor(caller, id);
     if (!original.suggestion) throw bookingError("NO_SUGGESTION");
 
@@ -109,7 +115,7 @@ export class BookingService {
     return this.submit(caller, body, { amendsBookingId: original.id, fromSuggestion: true });
   }
 
-  async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<BookingRecord> {
+  async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<SubmittedBooking> {
     const { bookings, events, venues, now } = this.deps;
 
     // 32-S4: the role check comes before anything else, so it reveals nothing about the body or event.
@@ -132,11 +138,15 @@ export class BookingService {
     const venue = await venues.getById(input.venueId);
     if (!venue || !venue.isActive) throw notFound("Venue not found.");
 
-    // 32-S6 (DR6) and 32-S7 (DR7).
+    // SCRUM-98 dropped DR6: an event may hold several bookings at once. What stays (60-S5, 98-S20) is that
+    // one rejected booking has at most one pending or approved replacement.
     const history = await bookings.listByEvent(event.id);
-    if (history.some((b) => isHoldingDbStatus(b.status))) {
-      throw bookingError("ACTIVE_REQUEST_EXISTS");
-    }
+    const replacementExists = history.some(
+      (b) => options.amendsBookingId !== undefined && b.amendsBookingId === options.amendsBookingId && isHoldingDbStatus(b.status),
+    );
+    if (replacementExists) throw bookingError("ACTIVE_REQUEST_EXISTS");
+
+    // 32-S7 (DR7).
     const repeatsRejected = history.some(
       (b) =>
         b.status === "rejected" &&
@@ -146,11 +156,20 @@ export class BookingService {
     );
     if (repeatsRejected) throw bookingError("REPEAT_OF_REJECTED");
 
+    // 98-S13, 98-S14: this event already holds the same venue for an overlapping period. Checked before the
+    // slot check, which would refuse it too but with a message that points at someone else.
+    const ownOverlap = history.some(
+      (b) => b.venueId === input.venueId && isHoldingDbStatus(b.status) && periodsOverlap(b, input),
+    );
+    if (ownOverlap) throw bookingError("DUPLICATE_VENUE");
+
     // 32-S8: friendly pre-check; the database constraint stays the authority (36-S4).
     await this.slotRule.check(input.venueId, input.start, input.end);
 
-    // 32-S9: no capacity check. 32-S10: the snapshot is copied now and never updated (DR8).
-    return bookings.insert({
+    // 32-S10: the snapshot is copied now and never updated (DR8). 98-S6, 98-S7: the booking's own attendance and
+    // requirements if it has them, the event's if not.
+    const expectedAttendance = input.expectedAttendance ?? event.expectedAttendance;
+    const booking = await bookings.insert({
       eventId: event.id,
       venueId: input.venueId,
       start: input.start,
@@ -158,12 +177,15 @@ export class BookingService {
       requestedBy: caller.id,
       snapshot: {
         eventName: event.name,
-        expectedAttendance: event.expectedAttendance,
-        venueRequirements: event.venueRequirements,
+        expectedAttendance,
+        venueRequirements: input.venueRequirements ?? event.venueRequirements,
         accessibilityNeeds: event.accessibilityNeeds,
       },
       amendsBookingId: options.amendsBookingId ?? null,
       fromSuggestion: options.fromSuggestion ?? false,
     });
+
+    // 32-S9, 98-S10: more people than the venue holds is flagged, never refused.
+    return { booking, exceedsCapacity: exceedsCapacity(expectedAttendance, venue.maxCapacity) };
   }
 }

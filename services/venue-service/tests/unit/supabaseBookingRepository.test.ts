@@ -57,8 +57,9 @@ describe("SupabaseBookingRepository.insert: constraint translation", () => {
     await expect(repo.insert(input)).rejects.toMatchObject({ code: "SLOT_CONFLICT", httpStatus: 409 });
   });
 
-  it("32-S6: the one-active-per-event index is ACTIVE_REQUEST_EXISTS", async () => {
-    const { repo } = stubDb([pg("23505", 'duplicate key value violates unique constraint "venue_bookings_one_active_per_event"')]);
+  // SCRUM-98 (migration 28) replaced the one-active-per-event index with one active replacement per rejected booking
+  it("98-S20: the one-active-replacement index is ACTIVE_REQUEST_EXISTS", async () => {
+    const { repo } = stubDb([pg("23505", 'duplicate key value violates unique constraint "venue_bookings_one_active_replacement"')]);
     await expect(repo.insert(input)).rejects.toMatchObject({ code: "ACTIVE_REQUEST_EXISTS" });
   });
 

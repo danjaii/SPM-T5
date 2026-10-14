@@ -5,7 +5,7 @@ import type { BookingRepository } from "../../src/repositories/bookingRepository
 
 /**
  * In-memory BookingRepository for unit tests. It enforces the same rules as the database
- * constraints in supabase/migrations/06 (slot exclusion, one active request per event, one
+ * constraints in supabase/migrations/06 and 28 (slot exclusion, one active replacement per rejected request, one
  * suggestion acceptance), so unit tests exercise the data-layer guard, not just the pre-checks.
  * insert() checks and pushes synchronously, which makes it atomic, like the real constraint.
  */
@@ -80,7 +80,8 @@ export class FakeBookingRepository implements BookingRepository {
   }
 
   async insert(input: NewBooking): Promise<BookingRecord> {
-    if (this.rows.some((r) => r.eventId === input.eventId && isHoldingDbStatus(r.status))) {
+    // migration 28 (98-S20): one active replacement per rejected venue booking
+    if (input.amendsBookingId && this.rows.some((r) => r.amendsBookingId === input.amendsBookingId && isHoldingDbStatus(r.status))) {
       throw bookingError("ACTIVE_REQUEST_EXISTS");
     }
     if (
