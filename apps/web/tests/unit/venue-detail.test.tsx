@@ -26,6 +26,9 @@ describe("SCRUM-29 — Venue detail", () => {
             { name: "Banquet", max_capacity: 100 },
           ],
           facilities: ["Projector", "PA system", "Video conferencing"],
+          setup_minutes: 0,
+          turnaround_minutes: 0,
+          can_edit_timing: false,
         }}
       />,
     );

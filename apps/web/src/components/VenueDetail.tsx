@@ -1,3 +1,5 @@
+import { VenueTimingForm } from "./VenueTimingForm";
+
 export interface VenueDetails {
   id: string;
   name: string;
@@ -10,10 +12,17 @@ export interface VenueDetails {
   accessibility_notes: string | null;
   layouts: { name: string; max_capacity: number }[];
   facilities: string[];
+  /** SCRUM-101: whole minutes, 0 until Venue Staff set them. */
+  setup_minutes: number;
+  turnaround_minutes: number;
+  /** SCRUM-101: true for Venue Staff only (101-S4). */
+  can_edit_timing: boolean;
 }
 
 // SCRUM-29 AC2: all of a venue's characteristics, as used later for suitability checks
 // we want to make sure that a venue's characteristics when the user clicks for further details can be shown
+const minutes = (n: number) => `${n} ${n === 1 ? "minute" : "minutes"}`;
+
 export function VenueDetail({ venue }: { venue: VenueDetails }) {
   const hours =
     venue.operating_hours_start && venue.operating_hours_end
@@ -37,7 +46,15 @@ export function VenueDetail({ venue }: { venue: VenueDetails }) {
           {venue.is_accessible ? "Accessible" : "Not marked as accessible"}
           {venue.accessibility_notes && <span className="venue__note">{venue.accessibility_notes}</span>}
         </dd>
+        <dt>Setup time</dt>
+        <dd>{minutes(venue.setup_minutes)}</dd>
+        <dt>Turnaround time</dt>
+        <dd>{minutes(venue.turnaround_minutes)}</dd>
       </dl>
+
+      {venue.can_edit_timing && (
+        <VenueTimingForm venueId={venue.id} setupMinutes={venue.setup_minutes} turnaroundMinutes={venue.turnaround_minutes} />
+      )}
 
       <h2>Supported layouts</h2>
       {venue.layouts.length === 0 ? (
