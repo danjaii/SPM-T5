@@ -1,4 +1,4 @@
-import type { EventDetailsFormValues } from "@spm-t5/shared";
+import type { AffectedArrangement, EventDetailsFormValues } from "@spm-t5/shared";
 import { EVENT_URL, type ApiResult } from "./api";
 
 export interface EventStatusView {
@@ -57,7 +57,7 @@ export interface EventChangeHistoryEntry {
 export async function saveEventDetails(
   id: string,
   values: Record<string, unknown>,
-): Promise<ApiResult<{ important?: boolean; code?: string }>> {
+): Promise<ApiResult<{ important?: boolean; code?: string; affected?: AffectedArrangement[] }>> {
   try {
     const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(id)}`, {
       method: "PATCH",

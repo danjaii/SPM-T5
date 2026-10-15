@@ -254,8 +254,11 @@ approving or rejecting a request, and applying it to the event, is not built yet
 purpose, category) and important ones (dates and times, attendance, layout, accessibility, venue and equipment requirements; the
 lists are in `packages/shared/src/eventDetails.ts`), not for a completed, cancelled or rejected event. `update_event_details()` saves
 the edit and a row in `event_change_history` together, which the event's coordinator and organiser can read. Migration 34 also adds
-`events.venue_requirements`. Showing which arrangements an important change affects, and sending them back for review, is
-SCRUM-112 and SCRUM-113. `auth-service` also serves a user's own profile
+`events.venue_requirements`. Before an important change is saved, the coordinator sees which venue bookings and equipment
+requests it may affect, and why (SCRUM-112; spec in `docs/specs/important-change-impact.md`, `affectedArrangements()` in
+`packages/shared/src/eventImpact.ts`): `PATCH /events/:id` answers 409 `CONFIRM_IMPACT` with the list, and saves only when sent
+again with `confirmImpact: true` (Save anyway). A raised attendance lists every active venue booking, all treated alike, and
+nothing changes the arrangements. Sending the affected ones back for review is SCRUM-113. `auth-service` also serves a user's own profile
 (SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
 separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
 can be changed. Staff (internal users) also see their department and responsibilities

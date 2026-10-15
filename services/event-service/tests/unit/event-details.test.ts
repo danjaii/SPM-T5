@@ -75,6 +75,8 @@ function makeApp({ event = anEvent() as Row | null, save = { data: true, error: 
         select: () => ({
           eq: () => ({
             maybeSingle: async () => (table === "users" ? { data: { role: ROLES[token] }, error: null } : { data: event, error: null }),
+            // SCRUM-112: an important change reads the event's venue bookings and equipment requests; here it has none
+            then: (resolve: (r: Result) => void) => resolve({ data: [], error: null }),
           }),
         }),
       }),
