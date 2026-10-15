@@ -52,6 +52,15 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     }),
   );
 
+  // 102-S1: change one venue booking's date, times, attendance or requirements; it goes back to PENDING.
+  router.patch(
+    "/venue-bookings/:id",
+    asyncHandler(async (req, res) => {
+      const { caller, service } = await context(res.locals.user as SessionUser);
+      res.json(toSubmittedBookingDto(await service.change(caller, String(req.params.id), req.body)));
+    }),
+  );
+
   // 35-S1: withdraw a pending request.
   router.post(
     "/venue-bookings/:id/withdraw",

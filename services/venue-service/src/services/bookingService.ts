@@ -31,6 +31,9 @@ export interface BookingServiceDeps {
   now: () => Date;
 }
 
+/** SCRUM-102: the DB statuses a venue booking can be changed or cancelled in (PENDING and APPROVED). */
+const CHANGEABLE_DB_STATUSES = ["requested", "approved"];
+
 /** DR2 + DR9: only the event's assigned Coordinator, and only for an eligible event. */
 export function assertMayRequestFor(caller: Caller, event: EventInfo | null): EventInfo {
   if (caller.role !== "event_coordinator") throw forbidden();
@@ -113,6 +116,51 @@ export class BookingService {
       endTime: utcToSgt(original.suggestion.end).time,
     };
     return this.submit(caller, body, { amendsBookingId: original.id, fromSuggestion: true });
+  }
+
+  /**
+   * SCRUM-102/AC1: a new date, start, end, attendance or requirements for one PENDING or APPROVED venue booking. The same
+   * venue booking takes them and goes back to PENDING for venue staff; the event's other venue bookings are not touched.
+   */
+  async change(caller: Caller, id: string, body: unknown): Promise<SubmittedBooking> {
+    const { bookings, events, venues, now } = this.deps;
+    if (caller.role !== "event_coordinator") throw forbidden();
+    const booking = await bookings.getById(id);
+    if (!booking) throw notFound("Venue booking request not found.");
+    assertMayRequestFor(caller, await events.getById(booking.eventId));
+    if (!CHANGEABLE_DB_STATUSES.includes(booking.status)) throw bookingError("NOT_ACTIVE");
+
+    // the same validation as a new request; the venue is the venue booking's own and cannot change
+    const fields = typeof body === "object" && body !== null ? body : {};
+    const parsed = parseVenueBookingInput({ ...fields, venueId: booking.venueId }, now());
+    if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+    const input = parsed.data;
+
+    // left out means "keep this venue booking's own", not the event's
+    const expectedAttendance = input.expectedAttendance ?? booking.snapshot.expectedAttendance;
+    const venueRequirements = input.venueRequirements ?? booking.snapshot.venueRequirements;
+
+    // 102-S9: nothing different, so an approved venue booking is not sent back to venue staff for nothing
+    const unchanged =
+      input.start.getTime() === booking.start.getTime() &&
+      input.end.getTime() === booking.end.getTime() &&
+      expectedAttendance === booking.snapshot.expectedAttendance &&
+      venueRequirements === booking.snapshot.venueRequirements;
+    if (unchanged) throw bookingError("NO_CHANGES");
+
+    // 102-S10 (32-S7's rule) and 102-S5 (98-S13's rule), against the event's other venue bookings only (102-S6). Another
+    // event holding the venue is the database's overlap constraint (102-S4), which also ignores the row being changed.
+    const others = (await bookings.listByEvent(booking.eventId)).filter((b) => b.id !== booking.id);
+    const sameVenue = others.filter((b) => b.venueId === booking.venueId);
+    if (sameVenue.some((b) => b.status === "rejected" && b.start.getTime() === input.start.getTime() && b.end.getTime() === input.end.getTime())) {
+      throw bookingError("REPEAT_OF_REJECTED");
+    }
+    if (sameVenue.some((b) => isHoldingDbStatus(b.status) && periodsOverlap(b, input))) throw bookingError("DUPLICATE_VENUE");
+
+    const changed = await bookings.change(id, { start: input.start, end: input.end, expectedAttendance, venueRequirements }, now());
+    if (!changed) throw bookingError("NOT_ACTIVE"); // it was decided or withdrawn a moment ago
+    const venue = await venues.getById(booking.venueId);
+    return { booking: changed, exceedsCapacity: exceedsCapacity(expectedAttendance, venue?.maxCapacity) };
   }
 
   async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<SubmittedBooking> {

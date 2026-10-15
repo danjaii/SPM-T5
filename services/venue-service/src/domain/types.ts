@@ -32,6 +32,14 @@ export interface BookingRecord {
   suggestion: { venueId: string; start: Date; end: Date } | null;
 }
 
+/** SCRUM-102/AC1: a venue booking's new period and its own numbers. Its venue never changes. */
+export interface BookingChange {
+  start: Date;
+  end: Date;
+  expectedAttendance: number | null;
+  venueRequirements: string | null;
+}
+
 /** Venue Staff's decision on a pending request. Only a rejection carries a reason and a suggestion. */
 export type Decision =
   | { outcome: "approved" }

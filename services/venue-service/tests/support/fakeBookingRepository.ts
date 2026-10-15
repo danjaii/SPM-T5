@@ -1,6 +1,6 @@
 import { isHoldingDbStatus, periodsOverlap } from "@spm-t5/shared";
 import { bookingError } from "../../src/domain/errors";
-import type { BookingRecord, Decision, NewBooking } from "../../src/domain/types";
+import type { BookingChange, BookingRecord, Decision, NewBooking } from "../../src/domain/types";
 import type { BookingRepository } from "../../src/repositories/bookingRepository";
 
 /**
@@ -62,6 +62,25 @@ export class FakeBookingRepository implements BookingRepository {
       row.reviewNotes = decision.reason ?? null;
       row.suggestion = decision.suggestion ?? null;
     }
+    return row;
+  }
+
+  async change(id: string, change: BookingChange, _at: Date): Promise<BookingRecord | null> {
+    const row = this.rows.find((r) => r.id === id);
+    if (!row || !["requested", "approved"].includes(row.status)) return null;
+    // the overlap constraint (06) applies to the changed row too, ignoring the row itself (102-S4, 102-S6)
+    if (this.rows.some((r) => r.id !== id && r.venueId === row.venueId && isHoldingDbStatus(r.status) && periodsOverlap(r, change))) {
+      throw bookingError("SLOT_CONFLICT");
+    }
+    Object.assign(row, {
+      start: change.start,
+      end: change.end,
+      snapshot: { ...row.snapshot, expectedAttendance: change.expectedAttendance, venueRequirements: change.venueRequirements },
+      status: "requested",
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewNotes: null,
+    });
     return row;
   }
 

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { bookingError } from "../domain/errors";
-import type { BookingRecord, Decision, NewBooking } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, NewBooking } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
@@ -137,6 +137,23 @@ export class SupabaseBookingRepository implements BookingRepository {
       }
     }
     return this.transitionFromPending(id, patch);
+  }
+
+  /**
+   * SCRUM-102/AC1: through change_venue_booking() (migration 29), a security definer function, because coordinators may only
+   * update a venue booking's status directly (07). It checks the caller and the venue booking and updates it in one step;
+   * the overlap constraint (06) still applies. Null when the venue booking was no longer PENDING or APPROVED.
+   */
+  async change(id: string, change: BookingChange, _at: Date): Promise<BookingRecord | null> {
+    const { data, error } = await this.db.rpc("change_venue_booking", {
+      p_booking_id: id,
+      p_start: change.start.toISOString(),
+      p_end: change.end.toISOString(),
+      p_expected_attendance: change.expectedAttendance,
+      p_venue_requirements: change.venueRequirements,
+    });
+    if (error) throw translate(error);
+    return data === true ? this.getById(id) : null;
   }
 
   async getById(id: string): Promise<BookingRecord | null> {

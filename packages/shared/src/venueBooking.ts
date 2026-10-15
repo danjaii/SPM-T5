@@ -47,6 +47,8 @@ export const VENUE_BOOKING_ERROR_CODES = [
   "SLOT_IN_PAST",
   "DUPLICATE_VENUE",
   "VERSION_CONFLICT",
+  "NO_CHANGES",
+  "NOT_ACTIVE",
 ] as const;
 export type VenueBookingErrorCode = (typeof VENUE_BOOKING_ERROR_CODES)[number];
 
@@ -63,6 +65,10 @@ export const VENUE_BOOKING_MESSAGES = {
   SLOT_IN_PAST: "The requested time has already passed.",
   // SCRUM-98/AC3: the event's own booking holds this venue; another event's is SLOT_CONFLICT
   DUPLICATE_VENUE: "This event already holds this venue for part of that period.",
+  // SCRUM-102/AC1 (102-S9): a change identical to what the venue booking already has would only send it back to venue staff
+  NO_CHANGES: "Nothing was changed.",
+  // SCRUM-102 (102-S11): a rejected one is amended instead (SCRUM-60); a withdrawn or cancelled one is finished
+  NOT_ACTIVE: "Only a pending or approved venue booking can be changed or cancelled.",
 } as const;
 
 // ---------------------------------------------------------------------------
