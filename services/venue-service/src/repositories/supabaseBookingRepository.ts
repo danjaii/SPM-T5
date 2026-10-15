@@ -1,12 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { bookingError } from "../domain/errors";
-import type { BookingRecord, Decision, NewBooking } from "../domain/types";
+import { bookingError, forbidden } from "../domain/errors";
+import type { BookingChange, BookingRecord, Decision, NewBooking } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
 export const BOOKING_COLUMNS =
   "id, event_id, venue_id, event_start_datetime, event_end_datetime, status, requested_by, created_at, " +
   "reviewed_by, reviewed_at, review_notes, withdrawn_by, withdrawn_at, amends_booking_id, from_suggestion, " +
+  "cancelled_by, cancelled_at, cancellation_reason, " +
   "suggested_venue_id, suggested_start_datetime, suggested_end_datetime, " +
   "snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, snapshot_accessibility_needs";
 
@@ -35,6 +36,9 @@ export function toBookingRecord(row: Row): BookingRecord {
     reviewNotes: (row.review_notes as string | null) ?? null,
     withdrawnBy: (row.withdrawn_by as string | null) ?? null,
     withdrawnAt: date(row.withdrawn_at),
+    cancelledBy: (row.cancelled_by as string | null) ?? null,
+    cancelledAt: date(row.cancelled_at),
+    cancellationReason: (row.cancellation_reason as string | null) ?? null,
     amendsBookingId: (row.amends_booking_id as string | null) ?? null,
     fromSuggestion: Boolean(row.from_suggestion),
     suggestion: row.suggested_venue_id
@@ -63,6 +67,9 @@ interface PgError {
 function translate(error: PgError): Error {
   const message = error.message ?? "";
   if (error.code === "23P01") return bookingError("SLOT_CONFLICT");
+  // SCRUM-102: change_venue_booking() and cancel_venue_booking() (migration 30) refuse with these
+  if (error.code === "42501") return forbidden();
+  if (error.code === "CS102") return bookingError("EVENT_NOT_ELIGIBLE");
   if (error.code === "23505") {
     // 98-S20 (migration 28): the rejected venue booking already has an active replacement
     if (message.includes("venue_bookings_one_active_replacement")) return bookingError("ACTIVE_REQUEST_EXISTS");
@@ -137,6 +144,35 @@ export class SupabaseBookingRepository implements BookingRepository {
       }
     }
     return this.transitionFromPending(id, patch);
+  }
+
+  /**
+   * SCRUM-102/AC1: through change_venue_booking() (migration 30), a security definer function, because coordinators may only
+   * update a venue booking's status directly (07). It checks the caller and the venue booking and updates it in one step;
+   * the overlap constraint (06) still applies. Null when the venue booking was no longer PENDING or APPROVED. The time of
+   * the change is the database's own, so the interface's `at` is not taken here.
+   */
+  async change(id: string, change: BookingChange): Promise<BookingRecord | null> {
+    const { data, error } = await this.db.rpc("change_venue_booking", {
+      p_booking_id: id,
+      p_start: change.start.toISOString(),
+      p_end: change.end.toISOString(),
+      p_expected_attendance: change.expectedAttendance,
+      p_venue_requirements: change.venueRequirements,
+    });
+    if (error) throw translate(error);
+    return data === true ? this.getById(id) : null;
+  }
+
+  /**
+   * SCRUM-102/AC2, AC7: through cancel_venue_booking() (migration 30), a security definer function, for the same reason as
+   * change(). It also releases the venue booking's equipment, in the same step. Null when it was no longer PENDING or
+   * APPROVED. `by` and `at` are the database's own (auth.uid(), now()), so they are not sent.
+   */
+  async cancel(id: string, _by: string, _at: Date, reason: string): Promise<BookingRecord | null> {
+    const { data, error } = await this.db.rpc("cancel_venue_booking", { p_booking_id: id, p_reason: reason });
+    if (error) throw translate(error);
+    return data === true ? this.getById(id) : null;
   }
 
   async getById(id: string): Promise<BookingRecord | null> {

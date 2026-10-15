@@ -153,3 +153,49 @@ describe("SCRUM-98/AC6 who may list an event's bookings (98-S27, 98-S28)", () =>
   });
 });
 // end of SCRUM-98
+
+// ----------------------------------------------------------------------------
+// SCRUM-102/AC2 a cancelled venue booking is listed as Cancelled, with its reason (it used to be left out)
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-102/AC2 cancelled venue bookings in the lists (102-S25)", () => {
+  // Orchid Hall was cancelled by the coordinator; Lotus Room is still pending
+  const withOneCancelled = () => {
+    const ctx = setup();
+    const cancelled = ctx.bookings.seed({
+      eventId: "event-1", venueId: "venue-1", ...on14Nov(1, 3), status: "cancelled",
+      cancelledBy: "coordinator-1", cancelledAt: new Date("2026-09-30T00:00:00Z"), cancellationReason: "Moved to a bigger room",
+    });
+    ctx.bookings.seed({ eventId: "event-1", venueId: "venue-2", ...on14Nov(4, 6) });
+    return { ...ctx, cancelled };
+  };
+
+  it("102-S25 the event's list shows a cancelled venue booking as CANCELLED, with its reason", async () => {
+    const { list, cancelled } = withOneCancelled();
+
+    const res = await list("coordinator-1");
+
+    expect(res.body).toHaveLength(2);
+    expect(res.body.find((b: { id: string }) => b.id === cancelled.id)).toMatchObject({ status: "CANCELLED", cancellationReason: "Moved to a bigger room" });
+  });
+
+  // only a cancelled venue booking has a cancellation reason; a rejected one keeps its rejection reason
+  it("102-S25 the other venue bookings in the list have no cancellation reason", async () => {
+    const { list, cancelled } = withOneCancelled();
+
+    const res = await list("coordinator-1");
+
+    expect(res.body.find((b: { id: string }) => b.id !== cancelled.id)).toMatchObject({ status: "PENDING", cancellationReason: null });
+  });
+
+  // SCRUM-33: the coordinator's own list of venue booking requests, across their events
+  it("102-S25 the coordinator's list of venue booking requests (SCRUM-33) shows it as CANCELLED too", async () => {
+    const { app, cancelled } = withOneCancelled();
+
+    const res = await request(app).get("/venue-bookings").set("Cookie", "cs_session=tok-coordinator-1");
+
+    expect(res.status).toBe(200);
+    expect(res.body.find((b: { id: string }) => b.id === cancelled.id)).toMatchObject({ status: "CANCELLED" });
+  });
+});
+// end of SCRUM-102/AC2

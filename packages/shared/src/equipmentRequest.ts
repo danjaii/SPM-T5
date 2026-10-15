@@ -50,7 +50,8 @@ export function equipmentOptionLabel(item: { type: string | null; name: string }
 // Statuses: the four the spec names, mapped from equipment_reservation_status.
 // ---------------------------------------------------------------------------
 
-export const EQUIPMENT_REQUEST_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "ARRANGED", "CANNOT_FULFIL"] as const;
+// SCRUM-102/AC7 adds RELEASED: the equipment of a venue booking the coordinator cancelled, freed for other events.
+export const EQUIPMENT_REQUEST_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "ARRANGED", "CANNOT_FULFIL", "RELEASED"] as const;
 export type EquipmentRequestStatus = (typeof EQUIPMENT_REQUEST_STATUSES)[number];
 
 export const EQUIPMENT_REQUEST_STATUS_LABELS: Record<EquipmentRequestStatus, string> = {
@@ -58,6 +59,7 @@ export const EQUIPMENT_REQUEST_STATUS_LABELS: Record<EquipmentRequestStatus, str
   UNDER_REVIEW: "Under Review",
   ARRANGED: "Arranged",
   CANNOT_FULFIL: "Cannot Fulfil",
+  RELEASED: "Released",
 };
 
 /** Decision: how each DB status reads. `under_review` arrives with SCRUM-87. */
@@ -67,9 +69,10 @@ const DB_TO_REQUEST_STATUS: Record<string, EquipmentRequestStatus> = {
   approved: "ARRANGED",
   reserved: "ARRANGED",
   rejected: "CANNOT_FULFIL",
+  cancelled: "RELEASED", // SCRUM-102 (102-S31): cancel_venue_booking() (migration 30) releases a venue booking's equipment
 };
 
-/** The status a row shows as, or undefined for a row that is not shown (cancelled). */
+/** The status a row shows as, or undefined for a status this code does not know (that row is not shown). */
 export function equipmentRequestStatusOf(dbStatus: string): EquipmentRequestStatus | undefined {
   return DB_TO_REQUEST_STATUS[dbStatus];
 }

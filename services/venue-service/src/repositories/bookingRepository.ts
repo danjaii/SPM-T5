@@ -1,4 +1,4 @@
-import type { BookingRecord, Decision, NewBooking } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, NewBooking } from "../domain/types";
 
 /**
  * Storage for venue booking requests. The real implementation is Postgres (venue_bookings); the
@@ -29,6 +29,18 @@ export interface BookingRepository {
     by: string,
     at: Date,
   ): Promise<BookingRecord | null>;
+
+  /**
+   * SCRUM-102/AC1: gives a PENDING or APPROVED venue booking a new period and its own attendance and requirements, and
+   * makes it PENDING again with its earlier decision cleared. Null when it was no longer PENDING or APPROVED.
+   */
+  change(id: string, change: BookingChange, at: Date): Promise<BookingRecord | null>;
+
+  /**
+   * SCRUM-102/AC2, AC7: cancels the venue booking with the reason, and releases the equipment requested for it, in one
+   * step. Null (and nothing changed) when it was no longer PENDING or APPROVED.
+   */
+  cancel(id: string, by: string, at: Date, reason: string): Promise<BookingRecord | null>;
 
   /** One request by id, or null (SCRUM-33 detail). */
   getById(id: string): Promise<BookingRecord | null>;

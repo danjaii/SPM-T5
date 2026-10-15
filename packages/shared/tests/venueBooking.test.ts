@@ -67,8 +67,10 @@ describe("DR4/DR5 — status mapping", () => {
     expect(dbStatusToApi("withdrawn")).toBe("WITHDRAWN");
   });
 
-  it("returns undefined for a status outside this feature (cancelled)", () => {
-    expect(dbStatusToApi("cancelled")).toBeUndefined();
+  // SCRUM-102 made `cancelled` a status of this feature
+  it("SCRUM-102 maps cancelled to CANCELLED, and an unknown status to undefined", () => {
+    expect(dbStatusToApi("cancelled")).toBe("CANCELLED");
+    expect(dbStatusToApi("nope")).toBeUndefined();
   });
 
   it("holds the slot only for requested, tentative, approved and confirmed", () => {

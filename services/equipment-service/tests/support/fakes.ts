@@ -187,8 +187,10 @@ export const anEquipmentRequest = (overrides: Partial<EquipmentRequestInfo> = {}
   equipmentType: "AV",
   quantity: 2,
   venueName: "Grand Hall",
+  venueBookingId: "vb-hall",
   notes: null,
   status: "requested",
+  venueBookingCancellationReason: null,
   createdAt: new Date("2026-10-01T01:00:00Z"),
   ...overrides,
 });

@@ -6,7 +6,8 @@ title ConnectSphere — Component Diagram: Venue Service (C4 Level 3)
 ' (docs/specs/venue-booking-request.md): SCRUM-36 double-hold rule, SCRUM-32 submit, SCRUM-33 track,
 ' SCRUM-35 withdraw, SCRUM-60 amend, SCRUM-59 accept a suggestion, plus the Venue Staff pending queue
 ' (docs/specs/venue-booking-approval.md, SCRUM-37), and several venue bookings per event (SCRUM-98,
-' docs/specs/multiple-venue-bookings.md). Components marked "Planned" come
+' docs/specs/multiple-venue-bookings.md), and changing or cancelling one of them (SCRUM-102,
+' docs/specs/change-cancel-venue-booking.md). Components marked "Planned" come
 ' with the availability calendar, suitability and the Venue Staff decision stories (SCRUM-38 to 40).
 
 Container(web, "Web App", "Next.js, React", "Venue catalogue (/venues, /venues/[id]); venue search (/venues/search); venue booking request form and my-bookings list/detail; an event's venue bookings on its page")
@@ -18,13 +19,13 @@ Container_Boundary(venueSvc, "Venue Service") {
   Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
   Component(errors, "Error Handler", "middlewares/errors.ts, domain/errors.ts", "BookingError -> 409/403/404/422 with only a code and message; anything unexpected -> generic 500, so a refusal never exposes another event")
   Component(catalogue, "Venue Catalogue Routes", "routes/venues.ts", "SCRUM-29: coordinators + venue staff only, others 403. GET /venues, GET /venues/:id (layouts, facilities)")
-  Component(bookingRoutes, "Booking Routes", "routes/venueBookings.ts", "POST /venue-bookings, GET /venue-bookings (+ /:id), withdraw / amend / accept-suggestion, GET /events/:id/venue-booking-form, GET /events/:id/venue-bookings (SCRUM-98)")
-  Component(bookingSvc, "Booking Service", "services/bookingService.ts", "Submit, amend and accept-suggestion through one path; withdraw (SCRUM-32/35/60/59). SCRUM-98: several venue bookings per event, DUPLICATE_VENUE for the same venue overlapping, each booking's own attendance and requirements, capacity warning")
+  Component(bookingRoutes, "Booking Routes", "routes/venueBookings.ts", "POST /venue-bookings, GET /venue-bookings (+ /:id), withdraw / amend / accept-suggestion, GET /events/:id/venue-booking-form, GET /events/:id/venue-bookings (SCRUM-98), PATCH /venue-bookings/:id and POST /venue-bookings/:id/cancel (SCRUM-102)")
+  Component(bookingSvc, "Booking Service", "services/bookingService.ts", "Submit, amend and accept-suggestion through one path; withdraw (SCRUM-32/35/60/59). SCRUM-98: several venue bookings per event, DUPLICATE_VENUE for the same venue overlapping, each booking's own attendance and requirements, capacity warning. SCRUM-102: change one (back to PENDING, NO_CHANGES, NOT_ACTIVE) or cancel it with a reason, only by the event's current coordinator")
   Component(trackingSvc, "Tracking Service", "services/trackingService.ts", "SCRUM-33: the coordinator's requests, detail, rejection reason, suggestion, amendment chain. SCRUM-98: every venue booking of one event")
   Component(queueRoutes, "Booking Queue Routes", "routes/bookingQueue.ts", "SCRUM-37: GET /booking-queue and /booking-queue/:id, Venue Staff only (others 403), never cached")
   Component(queueSvc, "Queue Service", "services/queueService.ts", "SCRUM-37: pending requests oldest first (created_at, then id) with the snapshotted event details and requester name; detail shows who decided, when and why")
   Component(slotRule, "Slot Conflict Rule", "services/slotConflictRule.ts", "SCRUM-36: friendly pre-check that a venue period is not held by a Pending/Approved request")
-  Component(repo, "Booking Repository", "repositories/supabaseBookingRepository.ts", "Inserts requests; conditional withdraw/decide updates; turns constraint violations into SLOT_CONFLICT / ACTIVE_REQUEST_EXISTS / SUGGESTION_ALREADY_USED; retries a deadlock victim")
+  Component(repo, "Booking Repository", "repositories/supabaseBookingRepository.ts", "Inserts requests; conditional withdraw/decide updates; turns constraint violations into SLOT_CONFLICT / ACTIVE_REQUEST_EXISTS / SUGGESTION_ALREADY_USED; retries a deadlock victim. SCRUM-102: change and cancel through change_venue_booking() and cancel_venue_booking() (migration 30), whose refusals become FORBIDDEN / EVENT_NOT_ELIGIBLE")
   Component(readers, "Readers", "readers/eventReader, venueReader, roleReader", "Read events (DR16), venue names and the caller's role as the caller, so RLS applies")
   Component(userReader, "User Reader", "readers/userReader.ts", "SCRUM-37: full names for the requester and the deciding Venue Staff member")
   Component(shared, "Shared Rules", "@spm-t5/shared", "Roles, period overlap, Singapore time, status mapping, error codes, input validation — same rules the web app uses")
@@ -62,6 +63,7 @@ Rel(trackingSvc, readers, "Assigned events, venue names")
 Rel(slotRule, repo, "Asks whether the period is held")
 Rel(repo, shared, "Status values, holding statuses")
 Rel(repo, db, "Reads/writes venue_bookings; the database constraint is the atomic guarantee", "PostgREST")
+Rel(repo, db, "SCRUM-102: change_venue_booking() and cancel_venue_booking() update the venue booking and its equipment_reservations in one step", "PostgREST RPC")
 Rel(readers, db, "Reads events, venues, users directly (shared database, ADR 0001)", "PostgREST")
 Rel(catalogue, db, "Reads venues with layouts and facilities", "PostgREST")
 

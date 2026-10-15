@@ -30,7 +30,11 @@ export function EventEquipmentRequests({ eventId, data }: { eventId: string; dat
                   <td>{r.quantity}</td>
                   <td>{r.venueName ?? "No venue"}</td>
                   <td>{r.notes ?? "—"}</td>
-                  <td>{r.statusLabel}</td>
+                  <td>
+                    {r.statusLabel}
+                    {/* SCRUM-102/AC7: released with its venue booking, which says why */}
+                    {r.releasedReason && <span className="vb__note">Venue booking cancelled: {r.releasedReason}</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>

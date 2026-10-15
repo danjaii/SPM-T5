@@ -7,7 +7,8 @@ import { z } from "zod";
 // DR4: statuses. The API speaks PENDING/APPROVED/REJECTED/WITHDRAWN; the DB enum is wider.
 // ---------------------------------------------------------------------------
 
-export const VENUE_BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN"] as const;
+// SCRUM-102 adds CANCELLED: a pending or approved venue booking the coordinator cancelled, with a reason.
+export const VENUE_BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN", "CANCELLED"] as const;
 export type VenueBookingStatus = (typeof VENUE_BOOKING_STATUSES)[number];
 
 const DB_TO_API: Record<string, VenueBookingStatus> = {
@@ -17,9 +18,10 @@ const DB_TO_API: Record<string, VenueBookingStatus> = {
   confirmed: "APPROVED", // legacy seed rows
   rejected: "REJECTED",
   withdrawn: "WITHDRAWN",
+  cancelled: "CANCELLED", // SCRUM-102 (older seed rows read the same way, with no reason)
 };
 
-/** Maps a DB status to the API status. `cancelled` (legacy) is outside this feature, so undefined. */
+/** Maps a DB status to the API status. Undefined for a value this feature does not know. */
 export function dbStatusToApi(dbStatus: string): VenueBookingStatus | undefined {
   return DB_TO_API[dbStatus];
 }
@@ -47,6 +49,8 @@ export const VENUE_BOOKING_ERROR_CODES = [
   "SLOT_IN_PAST",
   "DUPLICATE_VENUE",
   "VERSION_CONFLICT",
+  "NO_CHANGES",
+  "NOT_ACTIVE",
 ] as const;
 export type VenueBookingErrorCode = (typeof VENUE_BOOKING_ERROR_CODES)[number];
 
@@ -63,6 +67,10 @@ export const VENUE_BOOKING_MESSAGES = {
   SLOT_IN_PAST: "The requested time has already passed.",
   // SCRUM-98/AC3: the event's own booking holds this venue; another event's is SLOT_CONFLICT
   DUPLICATE_VENUE: "This event already holds this venue for part of that period.",
+  // SCRUM-102/AC1 (102-S9): a change identical to what the venue booking already has would only send it back to venue staff
+  NO_CHANGES: "Nothing was changed.",
+  // SCRUM-102 (102-S11): a rejected one is amended instead (SCRUM-60); a withdrawn or cancelled one is finished
+  NOT_ACTIVE: "Only a pending or approved venue booking can be changed or cancelled.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -219,6 +227,30 @@ const rejectionShape = z.object({
     .min(1, "Enter a reason for the rejection.")
     .max(REJECTION_REASON_MAX_LENGTH, `The reason must be ${REJECTION_REASON_MAX_LENGTH} characters or fewer.`),
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-102/AC2 (102-S13): cancelling needs a reason, 1 to 500 characters once trimmed, like a rejection (39-S2).
+// The customer: reasons for cancellations "should be recorded".
+// ---------------------------------------------------------------------------
+
+const cancellationShape = z.object({
+  reason: z
+    .string({ required_error: "Enter a reason for cancelling.", invalid_type_error: "Enter a reason for cancelling." })
+    .trim()
+    .min(1, "Enter a reason for cancelling.")
+    .max(REJECTION_REASON_MAX_LENGTH, `The reason must be ${REJECTION_REASON_MAX_LENGTH} characters or fewer.`),
+});
+
+export type ParsedCancellationInput =
+  | { ok: true; data: { reason: string } }
+  | { ok: false; fieldErrors: Record<string, string> };
+
+/** Validates a cancel body. The reason comes back trimmed; the error is always keyed `reason`. */
+export function parseCancellationInput(body: unknown): ParsedCancellationInput {
+  const parsed = cancellationShape.safeParse(typeof body === "object" && body !== null ? body : {});
+  if (parsed.success) return { ok: true, data: { reason: parsed.data.reason } };
+  return { ok: false, fieldErrors: { reason: parsed.error.issues[0].message } };
+}
 
 export type ParsedRejectionInput =
   | { ok: true; data: { reason: string } }

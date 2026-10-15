@@ -44,9 +44,13 @@ export interface EquipmentRequestView {
   quantity: number;
   /** null for a row made before requests named a venue. */
   venueName: string | null;
+  /** SCRUM-102: the venue booking it is for, so the event page can say what cancelling or changing it affects. */
+  venueBookingId: string | null;
   notes: string | null;
   status: EquipmentRequestStatus;
   statusLabel: string;
+  /** SCRUM-102 (102-S31): for a Released one, why its venue booking was cancelled; null otherwise. */
+  releasedReason: string | null;
 }
 
 /** GET /events/:id/equipment-requests: the event's requests, and whether the caller may add one. */
@@ -132,9 +136,11 @@ export class EquipmentRequestService {
       equipment: item.label,
       quantity,
       venueName: booking?.venueName ?? null,
+      venueBookingId,
       notes,
       status: "SUBMITTED",
       statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS.SUBMITTED,
+      releasedReason: null,
     };
   }
 
@@ -158,9 +164,12 @@ export class EquipmentRequestService {
         equipment: equipmentOptionLabel({ type: r.equipmentType, name: r.equipmentName }),
         quantity: r.quantity,
         venueName: r.venueName,
+        venueBookingId: r.venueBookingId,
         notes: r.notes,
         status,
         statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS[status],
+        // only a cancelled venue booking has a reason, and cancelling it released all its equipment (migration 30)
+        releasedReason: r.venueBookingCancellationReason,
       });
     }
     return { requests, canCreate: isAssigned && canRequestEquipment(event.status) };
