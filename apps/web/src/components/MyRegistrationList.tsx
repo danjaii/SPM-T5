@@ -1,5 +1,6 @@
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import { STATUS_LABELS, type MyRegistration } from "@/lib/eventRegistration";
+import { WithdrawRegistration } from "./WithdrawRegistration";
 
 // SCRUM-83/AC15: the attendee's "My registrations": each registration with its event, when it is, and its status.
 // AC6: earlier (Withdrawn/Rejected) registrations stay in the history, so they're listed too.
@@ -16,6 +17,7 @@ export function MyRegistrationList({ registrations }: { registrations: MyRegistr
             <th>When</th>
             <th>Where</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -27,6 +29,8 @@ export function MyRegistrationList({ registrations }: { registrations: MyRegistr
               <td>{r.event.venue.name ? `${r.event.venue.name}, ${r.event.venue.address}` : "Venue to be confirmed"}</td>
               {/* SCRUM-72/AC3: the label, in its status's colour (globals.css) */}
               <td><span className={`status-badge status-badge--${r.status}`}>{STATUS_LABELS[r.status]}</span></td>
+              {/* SCRUM-73: withdraw from the event */}
+              <td><WithdrawRegistration registration={r} /></td>
             </tr>
           ))}
         </tbody>

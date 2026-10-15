@@ -52,3 +52,12 @@ export function validateRegistrationForm(
   }
   return { ok: false, errors };
 }
+
+/**
+ * SCRUM-73/AC7: whether a registration's attendee gets the event's updates and reminders. notification-service
+ * doesn't send any yet; this is the rule it uses to pick an event's recipients.
+ */
+export function receivesEventUpdates(status: RegistrationStatus): boolean {
+  // Only an active registration: a Withdrawn one gets nothing more
+  return status === "pending" || status === "confirmed";
+}
