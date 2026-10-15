@@ -35,6 +35,7 @@ Container_Boundary(venueSvc, "Venue Service") {
   Component(searchRoutes, "Venue Search Routes", "routes/venues.ts", "SCRUM-65: GET /venues/search (date, start, end, plus attendance, location, layout, accessibility, facilities) and GET /venues/search-options; coordinators and venue staff only; validation shared with the web form")
   Component(searchSvc, "Venue Search Service", "services/venueSearchService.ts, readers/venueSearchReader.ts", "SCRUM-65: venues free for the period (available_venues) that meet every criterion given: capacity >= attendance (the layout's own capacity when a layout is chosen), location, accessibility, layout, all facilities")
   Component(timing, "Venue Timing", "routes/venues.ts, readers/venueTimingWriter.ts", "SCRUM-101: PUT /venues/:id/timing (Venue Staff only, 403 first, then shared validation) saves the venue's setup and turnaround minutes through set_venue_timing; GET /venues/:id returns them with can_edit_timing")
+  Component(padded, "Padded Occupancy", "services/slotConflictRule.ts, routes/venues.ts, packages/shared venueOccupancy.ts", "SCRUM-103: a booking occupies its venue from its setup to the end of its turnaround; the conflict check names the occupied period (findConflict), GET /venues/:id/availability?date= shows each booking as Setup, Event and Turnaround; applies to submit, amend, accept-suggestion and change")
   Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks, shown as a calendar")
 }
 
@@ -76,5 +77,7 @@ Rel(searchRoutes, shared, "parseVenueSearchInput")
 Rel(app, timing, "Routes venue timing edits")
 Rel(timing, db, "set_venue_timing() (security definer, migration 26) is the only writer of venues.setup_minutes / turnaround_minutes", "PostgREST RPC")
 Rel(timing, shared, "parseVenueTimingInput, canEditVenueTiming")
+Rel(app, padded, "Routes availability requests; the slot rule runs inside the booking service")
+Rel(padded, db, "venue_slot_conflicts() / venue_occupied_periods() (security definer, migration 27); the padded-overlap trigger replaces venue_bookings_no_overlap and is the atomic guarantee", "PostgREST RPC")
 Rel(app, availability, "Planned")
 @enduml
