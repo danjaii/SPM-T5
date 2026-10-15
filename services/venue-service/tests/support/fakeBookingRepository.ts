@@ -68,7 +68,7 @@ export class FakeBookingRepository implements BookingRepository {
     return row;
   }
 
-  async change(id: string, change: BookingChange, _at: Date): Promise<BookingRecord | null> {
+  async change(id: string, change: BookingChange): Promise<BookingRecord | null> {
     const row = this.rows.find((r) => r.id === id);
     if (!row || !["requested", "approved"].includes(row.status)) return null;
     // the overlap constraint (06) applies to the changed row too, ignoring the row itself (102-S4, 102-S6)

@@ -149,9 +149,10 @@ export class SupabaseBookingRepository implements BookingRepository {
   /**
    * SCRUM-102/AC1: through change_venue_booking() (migration 30), a security definer function, because coordinators may only
    * update a venue booking's status directly (07). It checks the caller and the venue booking and updates it in one step;
-   * the overlap constraint (06) still applies. Null when the venue booking was no longer PENDING or APPROVED.
+   * the overlap constraint (06) still applies. Null when the venue booking was no longer PENDING or APPROVED. The time of
+   * the change is the database's own, so the interface's `at` is not taken here.
    */
-  async change(id: string, change: BookingChange, _at: Date): Promise<BookingRecord | null> {
+  async change(id: string, change: BookingChange): Promise<BookingRecord | null> {
     const { data, error } = await this.db.rpc("change_venue_booking", {
       p_booking_id: id,
       p_start: change.start.toISOString(),
