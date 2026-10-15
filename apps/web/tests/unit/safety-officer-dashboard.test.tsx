@@ -18,18 +18,18 @@ const dashboard = {
 };
 
 // ---------------------------------------------------------------------------
-// SCRUM-116 — "Given I am logged in as a Safety Officer" (AC1, AC3)
+// SCRUM-116 — Safety Officer sign-in (AC4)
 // ---------------------------------------------------------------------------
 describe("SCRUM-116 — Safety Officer sign-in and home page", () => {
-  // AC1: the Safety Officer signs in on the same page as everyone else, choosing their role
-  it("SCRUM-116/AC1 offers Safety Officer as a role on the sign-in page", () => {
+  // AC4: the Safety Officer signs in on the same page as everyone else, choosing their role
+  it("SCRUM-116/AC4 offers Safety Officer as a role on the sign-in page", () => {
     render(<LoginForm />);
 
     expect(screen.getByRole("radio", { name: /Safety Officer/ })).toBeTruthy();
   });
 
-  // AC1: after signing in, the Safety Officer lands on their own home page
-  it("SCRUM-116/AC1 the Safety Officer lands on their own home page", async () => {
+  // AC4: after signing in, the Safety Officer lands on their own home page
+  it("SCRUM-116/AC4 the Safety Officer lands on their own home page", async () => {
     getDashboard.mockResolvedValue(dashboard);
 
     render(await SafetyOfficerDashboard());
@@ -37,6 +37,6 @@ describe("SCRUM-116 — Safety Officer sign-in and home page", () => {
     expect(getDashboard).toHaveBeenCalledWith("safety_officer");
     expect(screen.getByRole("heading", { name: "Safety Officer dashboard" })).toBeTruthy();
   });
-  // end of AC1
+  // end of AC4
 });
 // end of SCRUM-116
