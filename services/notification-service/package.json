@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --env-file=../../.env src/server.ts",
     "build": "esbuild src/server.ts --bundle --platform=node --target=node20 --packages=external --alias:@spm-t5/shared=../../packages/shared/src/index.ts --outfile=dist/index.js",
+    "start": "node --env-file=../../.env dist/index.js",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run tests/unit",
