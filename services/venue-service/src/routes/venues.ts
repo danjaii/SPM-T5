@@ -1,10 +1,12 @@
 import { Router } from "express";
-import { canEditVenueTiming, canViewVenueCatalogue, isRole, parseVenueSearchInput, parseVenueTimingInput, type Role } from "@spm-t5/shared";
+import { canEditVenueTiming, sgtToUtc, canViewVenueCatalogue, isRole, parseVenueSearchInput, parseVenueTimingInput, type Role } from "@spm-t5/shared";
 import { forbidden, notFound, validationFailed } from "../domain/errors";
 import type { SupabaseDeps } from "../supabase";
 import { asyncHandler } from "../middlewares/errors";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "../readers/venueSearchReader";
+import type { BookingRepository } from "../repositories/bookingRepository";
+import { SupabaseBookingRepository } from "../repositories/supabaseBookingRepository";
 import { SupabaseVenueTimingWriter, type VenueTimingWriter } from "../readers/venueTimingWriter";
 import { searchVenues } from "../services/venueSearchService";
 
@@ -25,11 +27,19 @@ interface VenueDetailRow {
   turnaround_minutes: number | null;
 }
 
+/** True when YYYY-MM-DD is a day that exists (2026-02-30 does not). */
+function isRealDate(date: string): boolean {
+  const [year, month, day] = date.split("-").map(Number);
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  return probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day;
+}
+
 export function venueRoutes(
   deps: SupabaseDeps,
   searchFor: (accessToken: string) => VenueSearchReader = (token) => new SupabaseVenueSearchReader(deps.forUser(token)),
   now: () => Date = () => new Date(),
   timingFor: (accessToken: string) => VenueTimingWriter = (token) => new SupabaseVenueTimingWriter(deps.forUser(token)),
+  occupancyFor: (accessToken: string) => Pick<BookingRepository, "occupiedPeriods"> = (token) => new SupabaseBookingRepository(deps.forUser(token)),
 ) {
   const router = Router();
 
@@ -108,6 +118,45 @@ export function venueRoutes(
       facilities: (venue.venue_facilities ?? []).map((f) => f.facilities.name),
     });
   });
+
+  // SCRUM-103: what occupies a venue on one day, setup and turnaround included (103-S5).
+  router.get(
+    "/:id/availability",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      const date = String(req.query.date ?? "");
+      if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date) || !isRealDate(date)) {
+        throw validationFailed({ date: "Enter the date as YYYY-MM-DD." });
+      }
+
+      const { data: venue } = await deps
+        .forUser(token)
+        .from("venues")
+        .select("id, name, setup_minutes, turnaround_minutes")
+        .eq("id", req.params.id)
+        .maybeSingle<{ id: string; name: string; setup_minutes: number | null; turnaround_minutes: number | null }>();
+      if (!venue) throw notFound("Venue not found.");
+
+      // The Singapore day, midnight to midnight; a booking whose padding reaches into it counts.
+      const from = sgtToUtc(date, "00:00");
+      const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
+      const periods = await occupancyFor(token).occupiedPeriods(venue.id, from, to);
+
+      res.set("Cache-Control", "no-store").json({
+        venue: { id: venue.id, name: venue.name },
+        date,
+        setup_minutes: venue.setup_minutes ?? 0,
+        turnaround_minutes: venue.turnaround_minutes ?? 0,
+        periods: periods.map((p) => ({
+          status: p.status,
+          event_start: p.eventStart.toISOString(),
+          event_end: p.eventEnd.toISOString(),
+          occupied_start: p.occupiedStart.toISOString(),
+          occupied_end: p.occupiedEnd.toISOString(),
+        })),
+      });
+    }),
+  );
 
   // SCRUM-101: Venue Staff set a venue's setup and turnaround times. The role is checked before the body (101-S4),
   // and the write goes through set_venue_timing, which enforces it again in the database.

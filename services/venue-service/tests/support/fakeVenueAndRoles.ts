@@ -19,6 +19,8 @@ export const aVenue = (overrides: Partial<VenueInfo> = {}): VenueInfo => ({
   name: "Orchid Hall",
   maxCapacity: 150,
   isActive: true,
+  setupMinutes: 0,
+  turnaroundMinutes: 0,
   ...overrides,
 });
 
