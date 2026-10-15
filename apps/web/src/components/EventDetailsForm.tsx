@@ -7,8 +7,10 @@ import {
   EVENT_TEXT_MAX_LENGTH,
   eventDetailsFromFormValues,
   parseEventDetailsInput,
+  type AffectedArrangement,
   type EventDetailsFormValues,
 } from "@spm-t5/shared";
+import { EventImpactWarning } from "@/components/EventImpactWarning";
 import { saveEventDetails, type EventEditForm } from "@/lib/events";
 
 type Key = keyof EventDetailsFormValues;
@@ -18,15 +20,21 @@ const IMPORTANT_NOTE = "Important: may affect venue or equipment arrangements";
 
 // SCRUM-111: the assigned coordinator edits an event's planning information. Ordinary and important fields are shown in two
 // groups, and each important field is marked (AC2). The shared rules check the form before it is sent (AC3), and saving
-// goes back to the event page, which says it was saved (AC5).
+// goes back to the event page, which says it was saved (AC5). SCRUM-112: an important change that affects venue bookings or
+// equipment requests is shown first, and saved only on Save anyway.
 export function EventDetailsForm({ eventId, form }: { eventId: string; form: EventEditForm }) {
   const router = useRouter();
   const [values, setValues] = useState<EventDetailsFormValues>(form.values);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
+  const [impact, setImpact] = useState<{ message: string; affected: AffectedArrangement[] }>();
 
-  const set = (key: Key) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [key]: e.target.value }));
+  // SCRUM-112: a different edit may affect different arrangements, so any change closes the warning
+  const set = (key: Key) => (e: { target: { value: string } }) => {
+    setImpact(undefined);
+    setValues((v) => ({ ...v, [key]: e.target.value }));
+  };
   const important = (key: Key) => form.importantFields.includes(key);
 
   async function onSubmit(e: FormEvent) {
@@ -40,15 +48,25 @@ export function EventDetailsForm({ eventId, form }: { eventId: string; form: Eve
       return;
     }
     setFieldErrors({});
+    await send(false);
+  }
+
+  /** Saves the edit; `confirmImpact` is SCRUM-112's Save anyway. */
+  async function send(confirmImpact: boolean) {
     setSaving(true);
-    const { ok, data } = await saveEventDetails(eventId, values);
+    const { ok, data } = await saveEventDetails(eventId, confirmImpact ? { ...values, confirmImpact: true } : values);
     if (ok) {
       router.push(`/events/${eventId}?saved=1`);
       return;
     }
+    setSaving(false);
+    if (data.code === "CONFIRM_IMPACT" && data.affected) {
+      setImpact({ message: data.error ?? "This change may affect existing arrangements.", affected: data.affected });
+      return;
+    }
+    setImpact(undefined);
     if (data.fieldErrors) setFieldErrors(data.fieldErrors);
     setError(data.error ?? "We couldn't save the event details. Please try again.");
-    setSaving(false);
   }
 
   /** One labelled box; an important one says so under its label. */
@@ -127,9 +145,19 @@ export function EventDetailsForm({ eventId, form }: { eventId: string; form: Eve
           {area("equipmentRequirements", "Equipment requirements")}
         </fieldset>
 
-        <button className="btn" type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save changes"}
-        </button>
+        {impact ? (
+          <EventImpactWarning
+            message={impact.message}
+            affected={impact.affected}
+            saving={saving}
+            onConfirm={() => send(true)}
+            onCancel={() => setImpact(undefined)}
+          />
+        ) : (
+          <button className="btn" type="submit" disabled={saving}>
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        )}
       </form>
     </section>
   );

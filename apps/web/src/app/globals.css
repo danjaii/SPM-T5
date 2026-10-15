@@ -573,3 +573,14 @@ tr:last-child td { border-bottom: 0; }
   .detail-table th, .detail-table td { display: block; width: auto; padding: 0; border: 0; white-space: normal; }
   .detail-table th { font-size: 13px; margin-bottom: 2px; }
 }
+
+/* SCRUM-112: the arrangements an important change may affect, before it is saved */
+.impact { margin-top: 8px; padding: 16px; background: var(--warn-bg); border-left: 3px solid var(--warn); }
+.impact h2 { margin: 0 0 6px; font-size: 16px; color: var(--warn); }
+.impact__list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 10px; }
+.impact__item { padding: 10px 12px; background: #fff; border: 1px solid var(--border); }
+.impact__name { margin: 0; font-weight: 600; }
+.impact__meta { margin: 2px 0 6px; font-size: 13px; color: var(--muted-foreground); }
+.impact__reasons { margin: 0; padding-left: 18px; font-size: 14px; }
+.impact__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.impact__actions .btn { width: auto; }

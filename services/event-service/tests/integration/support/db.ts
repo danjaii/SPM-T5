@@ -22,7 +22,8 @@ export function adminClient(): SupabaseClient {
 /** Password every seeded user shares (supabase/seed.sql). */
 export const SEED_PASSWORD = "ConnectSphere2026!";
 
-export type Actor = { client: SupabaseClient; userId: string };
+/** `token` is the user's access token, for calling the service's routes as them (the login cookie). */
+export type Actor = { client: SupabaseClient; userId: string; token: string };
 
 /** Signs in as a seeded user and returns a client that queries as them, so RLS applies. */
 export async function signInAs(email: string): Promise<Actor> {
@@ -35,5 +36,5 @@ export async function signInAs(email: string): Promise<Actor> {
     auth: stateless,
     global: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
   });
-  return { client, userId: data.user.id };
+  return { client, userId: data.user.id, token: data.session.access_token };
 }
