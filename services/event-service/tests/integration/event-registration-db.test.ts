@@ -49,12 +49,15 @@ describe.skipIf(!hasDb)("SCRUM-83 event_registrations in the database (migration
     return data.id as string;
   }
 
-  /** A registration arranged with the secret key, so RLS never gets in the way of setting up. */
-  async function arrangeRegistration(eventId: string, attendeeId: string, status: string) {
-    const { error } = await admin
+  /** A registration arranged with the secret key, so RLS never gets in the way of setting up. Returns its id. */
+  async function arrangeRegistration(eventId: string, attendeeId: string, status: string): Promise<string> {
+    const { data, error } = await admin
       .from("event_registrations")
-      .insert({ event_id: eventId, attendee_id: attendeeId, status, registration_details: DETAILS });
+      .insert({ event_id: eventId, attendee_id: attendeeId, status, registration_details: DETAILS })
+      .select("id")
+      .single();
     if (error) throw new Error(error.message);
+    return data.id as string;
   }
 
   /** Registers as the signed-in attendee, the way POST /events/:id/registrations does. */
@@ -195,5 +198,127 @@ describe.skipIf(!hasDb)("SCRUM-83 event_registrations in the database (migration
     expect(error?.code).toBe(DENIED);
   });
   // end of AC12
+
+  // -------------------------------------------------------------------------
+  // SCRUM-73 — Withdrawing a registration (migration 29)
+  // -------------------------------------------------------------------------
+  describe("SCRUM-73 withdrawing a registration (migration 29)", () => {
+    /** Withdraws as the signed-in actor, the way POST /events/my-registrations/:id/withdraw does; returns the rows changed. */
+    function withdrawAs(actor: Actor, registrationId: string) {
+      return actor.client
+        .from("event_registrations")
+        .update({ status: "withdrawn", withdrawn_at: new Date().toISOString() })
+        .eq("id", registrationId)
+        .select("id");
+    }
+
+    /** The registration's status as it is stored, read with the secret key so RLS can't hide it. */
+    async function storedStatus(registrationId: string) {
+      const { data } = await admin.from("event_registrations").select("status").eq("id", registrationId).single();
+      return data?.status;
+    }
+
+    // AC6: the attendee's own Pending registration becomes Withdrawn
+    it("SCRUM-73/AC6 lets an attendee withdraw their own Pending registration", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { data, error } = await withdrawAs(attendee, registrationId);
+
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+      expect(await storedStatus(registrationId)).toBe("withdrawn");
+    });
+
+    // AC6: the only change an attendee may make is to Withdrawn; they can't confirm their own registration,
+    // which would skip approval (as SCRUM-83/AC12 refuses an insert as Confirmed)
+    it("SCRUM-73/AC6 doesn't let an attendee change their own registration to Confirmed", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await attendee.client
+        .from("event_registrations")
+        .update({ status: "registered" })
+        .eq("id", registrationId)
+        .select("id");
+
+      expect(error?.code).toBe(DENIED);
+      expect(await storedStatus(registrationId)).toBe("waitlisted");
+    });
+    // end of AC6
+
+    // AC2: only a Pending or Confirmed registration can be withdrawn; a Rejected one (stored as 'cancelled') stays Rejected
+    it("SCRUM-73/AC2 doesn't let an attendee withdraw a Rejected registration", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "cancelled");
+
+      const { data } = await withdrawAs(attendee, registrationId);
+
+      expect(data ?? []).toEqual([]);
+      expect(await storedStatus(registrationId)).toBe("cancelled");
+    });
+    // end of AC2
+
+    // AC8: withdrawing a Confirmed registration gives its place back: the count behind "Event full" and the available
+    // slots (list_public_events(), SCRUM-83/AC13) drops by 1, so another attendee can register while the event is upcoming
+    it("SCRUM-73/AC8 frees the place of a withdrawn Confirmed registration", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "registered");
+      const before = await otherAttendee.client.rpc("list_public_events");
+      expect(before.data).toContainEqual(expect.objectContaining({ id: eventId, active_registrations: 1 }));
+
+      await withdrawAs(attendee, registrationId);
+
+      const after = await otherAttendee.client.rpc("list_public_events");
+      expect(after.data).toContainEqual(expect.objectContaining({ id: eventId, active_registrations: 0 }));
+    });
+    // end of AC8
+
+    // AC1: an attendee's token also works against Supabase directly, so the database itself must refuse to let one
+    // attendee withdraw another's registration (event-service refuses it too: unit test SCRUM-73/AC1)
+    it("SCRUM-73/AC1 doesn't let an attendee withdraw another attendee's registration", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { data } = await withdrawAs(otherAttendee, registrationId);
+
+      expect(data ?? []).toEqual([]);
+      expect(await storedStatus(registrationId)).toBe("waitlisted");
+    });
+
+    // AC1: the event's organiser can see its registrations (SCRUM-83/AC15), but withdrawing is the attendee's own
+    // decision, so they can't withdraw one
+    it("SCRUM-73/AC1 doesn't let the event's organiser withdraw an attendee's registration", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { data } = await withdrawAs(organiser, registrationId);
+
+      expect(data ?? []).toEqual([]);
+      expect(await storedStatus(registrationId)).toBe("waitlisted");
+    });
+
+    // AC1: withdrawing can't move the registration to another attendee, which would put a Withdrawn registration in
+    // their history. No .select(): returning the row would bring in the select policy, and this is about the update's own
+    it("SCRUM-73/AC1 doesn't let an attendee hand their registration to another attendee while withdrawing", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await attendee.client
+        .from("event_registrations")
+        .update({ status: "withdrawn", attendee_id: otherAttendee.userId })
+        .eq("id", registrationId);
+
+      expect(error?.code).toBe(DENIED);
+      const { data: stored } = await admin
+        .from("event_registrations")
+        .select("attendee_id, status")
+        .eq("id", registrationId)
+        .single();
+      expect(stored).toEqual({ attendee_id: attendee.userId, status: "waitlisted" });
+    });
+    // end of AC1
+  });
+  // end of SCRUM-73
 });
 // end of SCRUM-83

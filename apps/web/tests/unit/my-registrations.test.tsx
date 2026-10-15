@@ -1,7 +1,11 @@
 // this test file checks the attendee's "My registrations" list
 
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 import { MyRegistrationList } from "@/components/MyRegistrationList";
 import type { MyRegistration } from "@/lib/eventRegistration";
 
@@ -11,6 +15,7 @@ function aRegistration(overrides: Partial<MyRegistration> = {}): MyRegistration 
     id: "reg-1",
     status: "pending",
     registered_at: "2026-10-01T02:00:00Z",
+    can_withdraw: true,
     event: {
       id: "evt-1",
       name: "Tech Summit",
@@ -21,6 +26,18 @@ function aRegistration(overrides: Partial<MyRegistration> = {}): MyRegistration 
     ...overrides,
   };
 }
+
+/** event-service answers the withdraw POST with `status` and `body`. */
+function mockEventService(status: number, body: unknown) {
+  const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => body });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  refresh.mockClear();
+});
 
 // ---------------------------------------------------------------------------
 // SCRUM-83 — The attendee's "My registrations" page
@@ -130,3 +147,94 @@ describe("SCRUM-72 — View the status of my registrations", () => {
   // end of AC5
 });
 // end of SCRUM-72
+
+// ---------------------------------------------------------------------------
+// SCRUM-73 — Withdraw from an event, on "My registrations"
+// ---------------------------------------------------------------------------
+describe("SCRUM-73 — Withdraw from an event (My registrations)", () => {
+  // AC3: the attendee must confirm in a pop-up before the withdrawal is processed, so nothing is sent yet
+  it("SCRUM-73/AC3 asks the attendee to confirm in a pop-up before withdrawing", async () => {
+    const fetchMock = mockEventService(200, { status: "withdrawn" });
+    render(<MyRegistrationList registrations={[aRegistration()]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+
+    expect(await screen.findByRole("dialog", { name: "Withdraw from Tech Summit?" })).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  // end of AC3
+
+  // AC4: the attendee can cancel the pop-up without making any changes
+  it("SCRUM-73/AC4 closes the pop-up on Cancel without withdrawing", async () => {
+    const fetchMock = mockEventService(200, { status: "withdrawn" });
+    render(<MyRegistrationList registrations={[aRegistration()]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+    const dialog = await screen.findByRole("dialog", { name: "Withdraw from Tech Summit?" });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Pending")).toBeTruthy();
+  });
+  // end of AC4
+
+  // AC6: after confirming, the registration is withdrawn, the attendee sees a success message, and the list reloads
+  // from the server, so its status reads Withdrawn
+  it("SCRUM-73/AC6 withdraws on confirm and shows a success message", async () => {
+    const fetchMock = mockEventService(200, { status: "withdrawn" });
+    render(<MyRegistrationList registrations={[aRegistration({ id: "reg-1" })]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+    const dialog = await screen.findByRole("dialog", { name: "Withdraw from Tech Summit?" });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Yes, withdraw" }));
+
+    expect((await screen.findByRole("status")).textContent).toBe("You have withdrawn from Tech Summit.");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/events\/my-registrations\/reg-1\/withdraw$/),
+      expect.objectContaining({ method: "POST", credentials: "include" }),
+    );
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  // AC6: no success message when event-service refused (e.g. the event was cancelled after the page loaded):
+  // its reason is shown instead
+  it("SCRUM-73/AC6 shows event-service's reason when the withdrawal is refused", async () => {
+    mockEventService(409, { error: "This event has been cancelled." });
+    render(<MyRegistrationList registrations={[aRegistration()]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+    const dialog = await screen.findByRole("dialog", { name: "Withdraw from Tech Summit?" });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Yes, withdraw" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("This event has been cancelled.");
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+  // end of AC6
+
+  // AC2: only a Pending or Confirmed registration can be withdrawn, so a Withdrawn or Rejected one has no Withdraw button
+  it("SCRUM-73/AC2 offers no Withdraw for a Withdrawn or Rejected registration", () => {
+    render(
+      <MyRegistrationList
+        registrations={[
+          aRegistration({ id: "reg-withdrawn", status: "withdrawn", can_withdraw: false }),
+          aRegistration({ id: "reg-rejected", status: "rejected", can_withdraw: false }),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
+  });
+  // end of AC2
+
+  // AC5: Withdraw is disabled for an event that has started, ended or been cancelled: event-service says so with
+  // can_withdraw (unit test SCRUM-73/AC2,AC5 in event-service)
+  it("SCRUM-73/AC5 disables Withdraw when the registration can no longer be withdrawn", () => {
+    render(<MyRegistrationList registrations={[aRegistration({ status: "confirmed", can_withdraw: false })]} />);
+
+    expect((screen.getByRole("button", { name: "Withdraw" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  // end of AC5
+});
+// end of SCRUM-73

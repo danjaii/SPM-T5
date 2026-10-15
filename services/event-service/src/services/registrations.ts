@@ -11,6 +11,7 @@ const REFUSALS: Partial<Record<Availability, string>> = {
 interface EmbeddedEvent {
   id: string;
   name: string;
+  status: string;
   preferred_start_datetime: string | null;
   preferred_end_datetime: string | null;
 }
@@ -28,13 +29,15 @@ export interface MyRegistrationRow {
  * SCRUM-83/AC15: one entry on the attendee's "My registrations" page.
  * `publicEvents` are list_public_events()'s rows by event id, for the event's location (SCRUM-72/AC4).
  */
-export function toMyRegistration(row: MyRegistrationRow, publicEvents: Map<string, PublicEventRow>) {
+export function toMyRegistration(row: MyRegistrationRow, publicEvents: Map<string, PublicEventRow>, now: Date) {
   const event = Array.isArray(row.event) ? row.event[0] : row.event;
   const publicEvent = publicEvents.get(event.id);
   return {
     id: row.id,
     status: registrationStatus(row.status),
     registered_at: row.registered_at,
+    // SCRUM-73/AC2, AC5: whether the Withdraw button is offered, by the same rules as the withdraw route
+    can_withdraw: withdrawalRefusal(row.status, event, now) === null,
     event: {
       id: event.id,
       name: event.name,
@@ -76,5 +79,27 @@ export function registrationRefusal(event: PublicEventRow, now: Date): string | 
   if (refusal) return refusal;
   // SCRUM-83/AC5: one active (Pending or Confirmed) registration per attendee per event
   if (myRegistration(event.my_registration_status)) return ALREADY_REGISTERED;
+  return null;
+}
+
+/** SCRUM-73/AC2: the registration_status values that can be withdrawn: Pending (waitlisted) and Confirmed (registered). */
+const WITHDRAWABLE_STATUSES = ["waitlisted", "registered"];
+
+/**
+ * SCRUM-73: the message to refuse withdrawing a registration (its database `status`, and its `event`) at `now` with,
+ * or null when it can be withdrawn.
+ */
+export function withdrawalRefusal(
+  status: string,
+  event: { status: string; preferred_start_datetime: string | null },
+  now: Date,
+): string | null {
+  // SCRUM-73/AC2: only Pending or Confirmed; not one already Rejected or Withdrawn
+  if (!WITHDRAWABLE_STATUSES.includes(status)) return "Only a Pending or Confirmed registration can be withdrawn.";
+  // SCRUM-73/AC5: not from a cancelled event, nor once the event has started (an event that has ended has started too)
+  if (event.status === "cancelled") return "This event has been cancelled.";
+  if (event.preferred_start_datetime && new Date(event.preferred_start_datetime) <= now) {
+    return "This event has already started.";
+  }
   return null;
 }
