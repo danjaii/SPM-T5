@@ -95,9 +95,9 @@ test.describe.serial("SCRUM-109 a venue is checked against an event", () => {
 
   test("AC1 a suitable venue: Orchid Hall (109-S1, 109-S6)", async ({ page }) => {
     // Checking only reads, so the request form stays usable although the event already has a pending request.
-    await signIn(page, /coordinator/i, COORDINATOR, /\/dashboard\/event_coordinator$/);
+    await signIn(page, /Event Coordinator(?! Lead)/, COORDINATOR, /\/dashboard\/event_coordinator$/);
     await page.goto(`/events/${eventId}/venue-request`);
-    await page.getByLabel("Venue").selectOption(orchidId);
+    await page.getByLabel("Venue", { exact: true }).selectOption(orchidId);
     await page.getByRole("button", { name: "Check suitability" }).click();
 
     const report = page.getByLabel("Venue suitability");
@@ -109,9 +109,9 @@ test.describe.serial("SCRUM-109 a venue is checked against an event", () => {
   });
 
   test("AC2, AC3 an unsuitable venue lists every unmet requirement: Lotus Room (109-S2, 109-S3)", async ({ page }) => {
-    await signIn(page, /coordinator/i, COORDINATOR, /\/dashboard\/event_coordinator$/);
+    await signIn(page, /Event Coordinator(?! Lead)/, COORDINATOR, /\/dashboard\/event_coordinator$/);
     await page.goto(`/events/${eventId}/venue-request`);
-    await page.getByLabel("Venue").selectOption(lotusId);
+    await page.getByLabel("Venue", { exact: true }).selectOption(lotusId);
     await page.getByRole("button", { name: "Check suitability" }).click();
 
     const report = page.getByLabel("Venue suitability");
@@ -122,9 +122,9 @@ test.describe.serial("SCRUM-109 a venue is checked against an event", () => {
   });
 
   test("AC5 a start before opening hours is flagged from the typed time (109-S5)", async ({ page }) => {
-    await signIn(page, /coordinator/i, COORDINATOR, /\/dashboard\/event_coordinator$/);
+    await signIn(page, /Event Coordinator(?! Lead)/, COORDINATOR, /\/dashboard\/event_coordinator$/);
     await page.goto(`/events/${eventId}/venue-request`);
-    await page.getByLabel("Venue").selectOption(orchidId);
+    await page.getByLabel("Venue", { exact: true }).selectOption(orchidId);
     await page.getByLabel("Start time").fill("07:00");
     await page.getByRole("button", { name: "Check suitability" }).click();
 
@@ -133,7 +133,7 @@ test.describe.serial("SCRUM-109 a venue is checked against an event", () => {
   });
 
   test("AC7 venue staff see the report on the request they review (109-S7)", async ({ page }) => {
-    await signIn(page, /venue/i, STAFF, /\/dashboard\/venue_staff$/);
+    await signIn(page, /Venue Staff/, STAFF, /\/dashboard\/venue_staff$/);
     await page.goto(`/booking-queue/${bookingId}`);
 
     await expect(page.getByRole("heading", { name: "Suitability" })).toBeVisible();
