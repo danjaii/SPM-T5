@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { utcToSgt } from "@spm-t5/shared";
-import { toBookingDto, toDecisionDto, toSubmittedBookingDto } from "../domain/dto";
+import { toBookingDto, toCancelledBookingDto, toDecisionDto, toSubmittedBookingDto } from "../domain/dto";
 import { asyncHandler } from "../middlewares/errors";
 import type { SessionUser } from "../middlewares/session";
 import type { PortsFactory } from "../ports";
@@ -58,6 +58,15 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     asyncHandler(async (req, res) => {
       const { caller, service } = await context(res.locals.user as SessionUser);
       res.json(toSubmittedBookingDto(await service.change(caller, String(req.params.id), req.body)));
+    }),
+  );
+
+  // 102-S12: cancel one pending or approved venue booking, with a reason (body { reason }).
+  router.post(
+    "/venue-bookings/:id/cancel",
+    asyncHandler(async (req, res) => {
+      const { caller, service } = await context(res.locals.user as SessionUser);
+      res.json(toCancelledBookingDto(await service.cancel(caller, String(req.params.id), req.body)));
     }),
   );
 

@@ -1,4 +1,4 @@
-import { canRequestVenue, exceedsCapacity, isHoldingDbStatus, parseVenueBookingInput, periodsOverlap, utcToSgt, type Role } from "@spm-t5/shared";
+import { canRequestVenue, exceedsCapacity, isHoldingDbStatus, parseCancellationInput, parseVenueBookingInput, periodsOverlap, utcToSgt, type Role } from "@spm-t5/shared";
 import { bookingError, forbidden, notFound, validationFailed } from "../domain/errors";
 import type { BookingRecord } from "../domain/types";
 import type { EventInfo, EventReader } from "../readers/eventReader";
@@ -116,6 +116,26 @@ export class BookingService {
       endTime: utcToSgt(original.suggestion.end).time,
     };
     return this.submit(caller, body, { amendsBookingId: original.id, fromSuggestion: true });
+  }
+
+  /**
+   * SCRUM-102/AC2: cancels one PENDING or APPROVED venue booking with a reason. The event's other venue bookings, and the
+   * event itself (AC5), are not touched. Same access rules as changing it (AC6).
+   */
+  async cancel(caller: Caller, id: string, body: unknown): Promise<BookingRecord> {
+    const { bookings, events, now } = this.deps;
+    if (caller.role !== "event_coordinator") throw forbidden();
+    const booking = await bookings.getById(id);
+    if (!booking) throw notFound("Venue booking request not found.");
+    assertMayRequestFor(caller, await events.getById(booking.eventId));
+    if (!CHANGEABLE_DB_STATUSES.includes(booking.status)) throw bookingError("NOT_ACTIVE");
+
+    const parsed = parseCancellationInput(body);
+    if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+
+    const cancelled = await bookings.cancel([id], caller.id, now(), parsed.data.reason);
+    if (!cancelled) throw bookingError("NOT_ACTIVE"); // it was decided or withdrawn a moment ago
+    return cancelled[0];
   }
 
   /**

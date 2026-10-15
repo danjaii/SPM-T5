@@ -36,6 +36,12 @@ export interface BookingRepository {
    */
   change(id: string, change: BookingChange, at: Date): Promise<BookingRecord | null>;
 
+  /**
+   * SCRUM-102/AC2, AC3: cancels every one of these venue bookings with the reason, all or nothing. Null (and nothing
+   * cancelled) when any of them was no longer PENDING or APPROVED.
+   */
+  cancel(ids: string[], by: string, at: Date, reason: string): Promise<BookingRecord[] | null>;
+
   /** One request by id, or null (SCRUM-33 detail). */
   getById(id: string): Promise<BookingRecord | null>;
 

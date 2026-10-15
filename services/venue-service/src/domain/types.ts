@@ -24,6 +24,10 @@ export interface BookingRecord {
   reviewNotes: string | null;
   withdrawnBy: string | null;
   withdrawnAt: Date | null;
+  /** SCRUM-102: who cancelled it, when and why (102-S12). */
+  cancelledBy: string | null;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
   /** The rejected request this one amends (SCRUM-60, SCRUM-59). */
   amendsBookingId: string | null;
   /** True when created by accepting the amended request's suggestion (SCRUM-59). */

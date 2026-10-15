@@ -28,6 +28,9 @@ export class FakeBookingRepository implements BookingRepository {
       reviewNotes: null,
       withdrawnBy: null,
       withdrawnAt: null,
+      cancelledBy: null,
+      cancelledAt: null,
+      cancellationReason: null,
       amendsBookingId: null,
       fromSuggestion: false,
       suggestion: null,
@@ -82,6 +85,15 @@ export class FakeBookingRepository implements BookingRepository {
       reviewNotes: null,
     });
     return row;
+  }
+
+  async cancel(ids: string[], by: string, at: Date, reason: string): Promise<BookingRecord[] | null> {
+    const rows = ids.map((id) => this.rows.find((r) => r.id === id));
+    if (rows.some((r) => !r || !["requested", "approved"].includes(r.status))) return null; // all or nothing
+    for (const row of rows as BookingRecord[]) {
+      Object.assign(row, { status: "cancelled", cancelledBy: by, cancelledAt: at, cancellationReason: reason });
+    }
+    return rows as BookingRecord[];
   }
 
   async getById(id: string): Promise<BookingRecord | null> {

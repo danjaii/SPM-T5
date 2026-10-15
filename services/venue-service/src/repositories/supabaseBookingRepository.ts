@@ -7,6 +7,7 @@ import type { BookingRepository } from "./bookingRepository";
 export const BOOKING_COLUMNS =
   "id, event_id, venue_id, event_start_datetime, event_end_datetime, status, requested_by, created_at, " +
   "reviewed_by, reviewed_at, review_notes, withdrawn_by, withdrawn_at, amends_booking_id, from_suggestion, " +
+  "cancelled_by, cancelled_at, cancellation_reason, " +
   "suggested_venue_id, suggested_start_datetime, suggested_end_datetime, " +
   "snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, snapshot_accessibility_needs";
 
@@ -35,6 +36,9 @@ export function toBookingRecord(row: Row): BookingRecord {
     reviewNotes: (row.review_notes as string | null) ?? null,
     withdrawnBy: (row.withdrawn_by as string | null) ?? null,
     withdrawnAt: date(row.withdrawn_at),
+    cancelledBy: (row.cancelled_by as string | null) ?? null,
+    cancelledAt: date(row.cancelled_at),
+    cancellationReason: (row.cancellation_reason as string | null) ?? null,
     amendsBookingId: (row.amends_booking_id as string | null) ?? null,
     fromSuggestion: Boolean(row.from_suggestion),
     suggestion: row.suggested_venue_id
@@ -140,7 +144,7 @@ export class SupabaseBookingRepository implements BookingRepository {
   }
 
   /**
-   * SCRUM-102/AC1: through change_venue_booking() (migration 29), a security definer function, because coordinators may only
+   * SCRUM-102/AC1: through change_venue_booking() (migration 30), a security definer function, because coordinators may only
    * update a venue booking's status directly (07). It checks the caller and the venue booking and updates it in one step;
    * the overlap constraint (06) still applies. Null when the venue booking was no longer PENDING or APPROVED.
    */
@@ -154,6 +158,18 @@ export class SupabaseBookingRepository implements BookingRepository {
     });
     if (error) throw translate(error);
     return data === true ? this.getById(id) : null;
+  }
+
+  /**
+   * SCRUM-102/AC2, AC3: through cancel_venue_bookings() (migration 30), a security definer function, for the same reason
+   * as change(). It cancels all of them or none. Null when any was no longer PENDING or APPROVED.
+   */
+  async cancel(ids: string[], by: string, at: Date, reason: string): Promise<BookingRecord[] | null> {
+    const { data, error } = await this.db.rpc("cancel_venue_bookings", { p_booking_ids: ids, p_reason: reason });
+    if (error) throw translate(error);
+    if (data !== true) return null;
+    const rows = await Promise.all(ids.map((id) => this.getById(id)));
+    return rows.filter((r): r is BookingRecord => r !== null);
   }
 
   async getById(id: string): Promise<BookingRecord | null> {

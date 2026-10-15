@@ -46,6 +46,22 @@ export function toSubmittedBookingDto(s: { booking: BookingRecord; exceedsCapaci
   return { ...toBookingDto(s.booking), exceedsCapacity: s.exceedsCapacity };
 }
 
+/** A venue booking the coordinator cancelled (SCRUM-102/AC2): who, when and why. */
+export interface CancelledBookingDto extends BookingDto {
+  cancelledBy: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+}
+
+export function toCancelledBookingDto(b: BookingRecord): CancelledBookingDto {
+  return {
+    ...toBookingDto(b),
+    cancelledBy: b.cancelledBy,
+    cancelledAt: b.cancelledAt ? b.cancelledAt.toISOString() : null,
+    cancellationReason: b.cancellationReason,
+  };
+}
+
 /** The outcome of a Venue Staff decision (SCRUM-38, SCRUM-39): the request plus who decided, when and why. */
 export interface DecisionDto extends BookingDto {
   decidedBy: string | null;
