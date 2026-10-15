@@ -1,11 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { cookieValue } = vi.hoisted(() => ({ cookieValue: { current: "token-123" as string | undefined } }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => (cookieValue.current ? { value: cookieValue.current } : undefined) }),
 }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
 import { EventVenueBookings } from "@/components/EventVenueBookings";
 import type { EventVenueBookingItem } from "@/lib/venueBookings";
@@ -28,6 +28,7 @@ const aBooking = (overrides: Partial<EventVenueBookingItem> = {}): EventVenueBoo
   decidedAt: "2026-10-02T00:00:00.000Z",
   submittedAt: "2026-10-01T00:00:00.000Z",
   rejectionReason: null,
+  cancellationReason: null,
   expectedAttendance: 100,
   venueRequirements: "Theatre",
   exceedsCapacity: false,
@@ -155,3 +156,67 @@ describe("SCRUM-98/AC5 getEventVenueBookings (98-S21, 98-S27)", () => {
   });
 });
 // end of SCRUM-98
+
+// ----------------------------------------------------------------------------
+// SCRUM-102 Change and Cancel on each venue booking, and cancelled ones listed with their reason
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-102/AC1, AC2 changing and cancelling from the event's list (102-S25, 102-S26)", () => {
+  const five = [
+    aBooking({ id: "b-pending", venueName: "Orchid Hall", status: "PENDING" }),
+    aBooking({ id: "b-approved", venueName: "Lotus Room", status: "APPROVED" }),
+    aBooking({ id: "b-rejected", venueName: "Jade Room", status: "REJECTED", rejectionReason: "Too small" }),
+    aBooking({ id: "b-withdrawn", venueName: "Pearl Room", status: "WITHDRAWN" }),
+    aBooking({ id: "b-cancelled", venueName: "Ruby Room", status: "CANCELLED", cancellationReason: "Moved online" }),
+  ];
+  const rowOf = (venue: string) => rows().find((r) => r.textContent?.includes(venue))!;
+
+  // only a pending or approved venue booking can be changed or cancelled
+  it("102-S26 a pending or approved venue booking has Change and Cancel; a rejected, withdrawn or cancelled one has neither", () => {
+    render(<EventVenueBookings bookings={five} canChange />);
+
+    for (const [venue, id] of [["Orchid Hall", "b-pending"], ["Lotus Room", "b-approved"]]) {
+      const row = rowOf(venue);
+      expect(within(row).getByRole("link", { name: `Change the ${venue} venue booking` }).getAttribute("href")).toBe(`/venue-bookings/${id}/change`);
+      expect(within(row).getByRole("button", { name: `Cancel the ${venue} venue booking` })).toBeTruthy();
+    }
+    for (const venue of ["Jade Room", "Pearl Room", "Ruby Room"]) {
+      expect(within(rowOf(venue)).queryByRole("link", { name: /Change/ })).toBeNull();
+      expect(within(rowOf(venue)).queryByRole("button", { name: /Cancel/ })).toBeNull();
+    }
+  });
+
+  // a Confirmed event's venues are a "material change" (SCRUM-111 to 113), so the page offers nothing
+  it("102-S26 when the event can no longer have its venues changed, nothing is offered", () => {
+    render(<EventVenueBookings bookings={five} canChange={false} />);
+
+    expect(screen.queryByRole("link", { name: /^Change/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Cancel/ })).toBeNull();
+  });
+
+  it("102-S25 a cancelled venue booking shows Cancelled with its reason", () => {
+    render(<EventVenueBookings bookings={five} canChange />);
+
+    const row = rowOf("Ruby Room");
+    expect(row.textContent).toContain("Cancelled");
+    expect(row.textContent).toContain("Moved online");
+  });
+
+  // the cancel confirmation lists only this venue booking's equipment that is not already released (AC7)
+  it("102-S29 the cancel confirmation for a venue booking lists only its own equipment that is still needed", () => {
+    const equipment = [
+      { id: "e-1", equipment: "AV: Projector Unit", quantity: 2, venueName: "Orchid Hall", venueBookingId: "b-pending", notes: null, status: "ARRANGED" as const, statusLabel: "Arranged", releasedReason: null },
+      { id: "e-2", equipment: "Audio: Microphone", quantity: 1, venueName: "Lotus Room", venueBookingId: "b-approved", notes: null, status: "SUBMITTED" as const, statusLabel: "Submitted", releasedReason: null },
+      { id: "e-3", equipment: "Cable", quantity: 5, venueName: "Orchid Hall", venueBookingId: "b-pending", notes: null, status: "RELEASED" as const, statusLabel: "Released", releasedReason: "x" },
+    ];
+    render(<EventVenueBookings bookings={five} canChange equipment={equipment} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel the Orchid Hall venue booking" }));
+
+    const dialog = screen.getByRole("alertdialog", { name: "Cancel venue booking" });
+    expect(within(dialog).getByText("2 × AV: Projector Unit (Arranged)")).toBeTruthy();
+    expect(within(dialog).queryByText(/Microphone/)).toBeNull(); // the Lotus Room's
+    expect(within(dialog).queryByText(/Cable/)).toBeNull(); // already released
+  });
+});
+// end of SCRUM-102

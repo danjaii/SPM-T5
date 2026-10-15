@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getEvent, getEventOutcome } = vi.hoisted(() => ({ getEvent: vi.fn(), getEventOutcome: vi.fn() }));
@@ -171,6 +171,35 @@ describe("Event status page route (/events/[id])", () => {
     await open("evt-1");
 
     expect(screen.queryByRole("heading", { name: "Venue bookings" })).toBeNull();
+  });
+
+  // SCRUM-102: while the event can still have venues, its pending and approved venue bookings can be changed or cancelled;
+  // the cancel confirmation lists the equipment that the event page already loaded for that venue booking
+  it.each([
+    ["approved", true],
+    ["confirmed", false],
+  ])("SCRUM-102/AC1, AC2 102-S26: a %s event offers Change and Cancel: %s", async (status, offered) => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status, canChangeStatus: true } });
+    getEventVenueBookings.mockResolvedValue([
+      {
+        id: "b-1", eventId: "evt-1", eventName: "Tech Summit", venueId: "v-1", venueName: "Orchid Hall", date: "2026-11-14", startTime: "09:00",
+        endTime: "17:00", status: "PENDING", decidedAt: null, submittedAt: "2026-10-01T00:00:00.000Z", rejectionReason: null, cancellationReason: null,
+        expectedAttendance: 50, venueRequirements: null, exceedsCapacity: false,
+      },
+    ]);
+    getEventEquipmentRequests.mockResolvedValue({
+      requests: [{ id: "e-1", equipment: "AV: Projector Unit", quantity: 2, venueName: "Orchid Hall", venueBookingId: "b-1", notes: null, status: "ARRANGED", statusLabel: "Arranged", releasedReason: null }],
+      canCreate: false,
+    });
+
+    await open("evt-1");
+
+    expect(!!screen.queryByRole("link", { name: "Change the Orchid Hall venue booking" })).toBe(offered);
+    expect(!!screen.queryByRole("button", { name: "Cancel the Orchid Hall venue booking" })).toBe(offered);
+    if (offered) {
+      fireEvent.click(screen.getByRole("button", { name: "Cancel the Orchid Hall venue booking" }));
+      expect(screen.getByRole("alertdialog").textContent).toContain("2 × AV: Projector Unit (Arranged)");
+    }
   });
 });
 

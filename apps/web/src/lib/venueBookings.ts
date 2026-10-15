@@ -1,4 +1,5 @@
 import type { VenueBookingStatus } from "@spm-t5/shared";
+import type { EquipmentRequestView } from "./equipmentRequests";
 import { VENUE_URL, type ApiResult } from "./api";
 
 export interface VenueOption {
@@ -61,11 +62,11 @@ export interface VenueBookingInputBody {
   venueRequirements?: string;
 }
 
-/** POSTs JSON to venue-service from the browser, sending the session cookie. */
-async function postToVenueService(path: string, body?: unknown): Promise<ApiResult<{ id: string }>> {
+/** Sends JSON to venue-service from the browser (POST, or PATCH for SCRUM-102's change), with the session cookie. */
+async function postToVenueService(path: string, body?: unknown, method: "POST" | "PATCH" = "POST"): Promise<ApiResult<{ id: string }>> {
   try {
     const res = await fetch(`${VENUE_URL}${path}`, {
-      method: "POST",
+      method,
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body ?? {}),
@@ -78,6 +79,30 @@ async function postToVenueService(path: string, body?: unknown): Promise<ApiResu
 
 /** SCRUM-32: submit a venue booking request. */
 export const submitVenueBooking = (body: VenueBookingInputBody) => postToVenueService("/venue-bookings", body);
+
+/** SCRUM-102/AC1: a venue booking's new date, times and own numbers; its venue never changes. Blank numbers are left out. */
+export interface VenueBookingChangeBody {
+  date: string;
+  startTime: string;
+  endTime: string;
+  expectedAttendance?: number;
+  venueRequirements?: string;
+}
+
+/** SCRUM-102/AC1: change one pending or approved venue booking; it goes back to venue staff. */
+export const changeVenueBooking = (id: string, body: VenueBookingChangeBody) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}`, body, "PATCH");
+
+/** SCRUM-102/AC2, AC7: cancel one pending or approved venue booking with a reason; its equipment is released with it. */
+export const cancelVenueBooking = (id: string, reason: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/cancel`, { reason });
+
+/** SCRUM-102: only a PENDING or APPROVED venue booking can be changed or cancelled (the server checks again: NOT_ACTIVE). */
+export const isChangeableVenueBooking = (status: VenueBookingStatus | undefined) => status === "PENDING" || status === "APPROVED";
+
+/** SCRUM-102/AC7, AC8: the equipment requested for this venue booking that cancelling would release or changing would move. */
+export const equipmentFor = (requests: EquipmentRequestView[], venueBookingId: string) =>
+  requests.filter((r) => r.venueBookingId === venueBookingId && r.status !== "RELEASED");
 
 /** SCRUM-35: withdraw a pending request. */
 export const withdrawVenueBooking = (id: string) =>
@@ -104,6 +129,8 @@ export const rejectVenueBooking = (id: string, reason: string) =>
  * Replaces SCRUM-38's single approved venue (38-S4): an approved one is in this list too.
  */
 export interface EventVenueBookingItem extends VenueBookingChainItem {
+  /** SCRUM-102: only for a CANCELLED one. */
+  cancellationReason: string | null;
   expectedAttendance: number | null;
   venueRequirements: string | null;
   /** More people expected than the venue holds: a warning, never a refusal. */

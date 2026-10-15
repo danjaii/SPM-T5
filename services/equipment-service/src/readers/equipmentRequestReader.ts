@@ -9,6 +9,8 @@ export interface EquipmentRequestInfo {
   quantity: number;
   /** The booked venue, or null for a row made before requests named one. */
   venueName: string | null;
+  /** SCRUM-102: the venue booking it is for (venue names repeat when a venue is booked twice), or null as above. */
+  venueBookingId: string | null;
   notes: string | null;
   /** The DB equipment_reservation_status; equipmentRequestStatusOf() turns it into what the user sees. */
   status: string;
@@ -35,6 +37,7 @@ const toRequest = (r: Row): EquipmentRequestInfo => {
     equipmentType: (equipment?.type as string | null | undefined) ?? null,
     quantity: r.quantity_requested as number,
     venueName: (venue?.name as string | undefined) ?? null,
+    venueBookingId: (r.venue_booking_id as string | null | undefined) ?? null,
     notes: (r.notes as string | null) ?? null,
     status: r.status as string,
     venueBookingCancellationReason: (booking?.cancellation_reason as string | null | undefined) ?? null,
@@ -49,7 +52,7 @@ export class SupabaseEquipmentRequestReader implements EquipmentRequestReader {
     const { data, error } = await this.db
       .from("equipment_reservations")
       .select(
-        "id, event_id, quantity_requested, notes, status, created_at, equipment:equipment(name, type), " +
+        "id, event_id, venue_booking_id, quantity_requested, notes, status, created_at, equipment:equipment(name, type), " +
           "booking:venue_bookings(cancellation_reason, venue:venues!venue_bookings_venue_id_fkey(name))",
       )
       .eq("event_id", eventId)

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { canDecideEvent } from "@spm-t5/shared";
+import { canDecideEvent, canRequestVenue } from "@spm-t5/shared";
 import { CoordinatorAssignment } from "@/components/CoordinatorAssignment";
 import { EventChangeRequestForm } from "@/components/EventChangeRequestForm";
 import { EventChangeRequestList } from "@/components/EventChangeRequestList";
@@ -60,7 +60,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 coordinatorName={result.event.point_of_contact_name}
               />
               <EventComments eventId={result.event.id} />
-              <EventVenueBookings bookings={venueBookings} />
+              {/* SCRUM-102: venue bookings can be changed or cancelled while the event can still have venues */}
+              <EventVenueBookings
+                bookings={venueBookings}
+                canChange={canRequestVenue(result.event.status)}
+                equipment={equipmentRequests?.requests ?? []}
+              />
               {/* SCRUM-86/AC2, AC3: the event's equipment requests; AC6, AC7: Request equipment only when allowed */}
               <EventEquipmentRequests eventId={result.event.id} data={equipmentRequests} />
               {/* SCRUM-66: organisers see their change requests (AC7) and, while the status allows it, can make one (AC1-AC3) */}

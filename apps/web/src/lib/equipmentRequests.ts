@@ -17,9 +17,13 @@ export interface EquipmentRequestView {
   equipment: string;
   quantity: number;
   venueName: string | null;
+  /** SCRUM-102: the venue booking it is for (null for an older request with no venue). */
+  venueBookingId: string | null;
   notes: string | null;
   status: EquipmentRequestStatus;
   statusLabel: string;
+  /** SCRUM-102/AC7: for a Released one, why its venue booking was cancelled. */
+  releasedReason: string | null;
 }
 
 /** GET /events/:id/equipment-requests: the event's requests, and whether the viewer may add one (AC6, AC7). */
