@@ -93,7 +93,7 @@ test.describe.serial("SCRUM-110 suitability when requesting a venue", () => {
   });
 
   const open = async (page: Page, venueId: string) => {
-    await signIn(page, /coordinator/i, COORDINATOR, /\/dashboard\/event_coordinator$/);
+    await signIn(page, /Event Coordinator(?! Lead)/, COORDINATOR, /\/dashboard\/event_coordinator$/);
     await page.goto(`/events/${eventId}/venue-request`);
     await page.getByLabel("Venue", { exact: true }).selectOption(venueId);
   };
@@ -141,7 +141,7 @@ test.describe.serial("SCRUM-110 suitability when requesting a venue", () => {
     await page.screenshot({ path: `${SHOTS}\\05-lotus-room-pending-with-reason.png`, fullPage: true });
 
     const staff = await (await browser.newContext()).newPage();
-    await signIn(staff, /venue/i, STAFF, /\/dashboard\/venue_staff$/);
+    await signIn(staff, /Venue Staff/, STAFF, /\/dashboard\/venue_staff$/);
     await staff.goto("/booking-queue");
     const row = staff.getByRole("row").filter({ hasText: lotusName });
     await expect(row.getByText("Not suitable")).toBeVisible();
