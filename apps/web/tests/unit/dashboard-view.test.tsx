@@ -113,3 +113,38 @@ describe("Dashboard tables", () => {
   });
   // end of SCRUM-68 dashboard link
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-74 — Reaching the registration information page
+// ---------------------------------------------------------------------------
+describe("SCRUM-74 — Event registrations link", () => {
+  /** A dashboard with no tables, for a user with `role`. */
+  const dashboardFor = (role: string): DashboardData => ({
+    user: { fullName: "Jason Chua", email: "jason@example.com", role },
+    sections: [],
+  });
+
+  // AC2: an organiser reaches the registrations of the events they manage from their dashboard
+  it("SCRUM-74/AC2 links an organiser to the event registrations page", () => {
+    render(<DashboardView data={dashboardFor("event_organiser")} />);
+
+    expect(screen.getByRole("link", { name: "Event registrations" }).getAttribute("href")).toBe("/registrations-overview");
+  });
+
+  // AC2: a coordinator has the same access as an organiser, so the same link
+  it("SCRUM-74/AC2 links a coordinator to the event registrations page", () => {
+    render(<DashboardView data={dashboardFor("event_coordinator")} />);
+
+    expect(screen.getByRole("link", { name: "Event registrations" }).getAttribute("href")).toBe("/registrations-overview");
+  });
+  // end of AC2
+
+  // AC1: registration information is only for organisers and coordinators, so nobody else gets the link
+  it("SCRUM-74/AC1 doesn't link an attendee to the event registrations page", () => {
+    render(<DashboardView data={dashboardFor("attendee")} />);
+
+    expect(screen.queryByRole("link", { name: "Event registrations" })).toBeNull();
+  });
+  // end of AC1
+});
+// end of SCRUM-74

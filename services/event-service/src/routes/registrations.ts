@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { validateRegistrationForm } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
+import { lookUpRole } from "./events";
 import { toUpcomingEvent, type PublicEventRow } from "../services/upcomingEvents";
 import {
   ALREADY_REGISTERED,
@@ -15,6 +16,15 @@ import {
 } from "../services/registrations";
 
 const EVENT_NOT_FOUND = { error: "Event not found." };
+
+/** One events row as GET /events/managed selects it (SCRUM-74). */
+interface ManagedEventRow {
+  id: string;
+  name: string;
+  status: string;
+  preferred_start_datetime: string | null;
+  registration_capacity: number | null;
+}
 
 /**
  * The event as attendees see it, from the same list_public_events() the List of events uses (SCRUM-71).
@@ -85,6 +95,33 @@ export function registrationRoutes(deps: SupabaseDeps) {
     res.json({ status: "withdrawn" });
   });
 
+  // SCRUM-74: the events whose registrations the caller can view, for the dropdown on the registrations page
+  router.get("/managed", requireSession(deps), async (_req, res) => {
+    const user = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, user);
+    // SCRUM-74/AC1: registration information is for organisers and coordinators only
+    if (role !== "event_organiser" && role !== "event_coordinator") {
+      return res.status(403).json({ error: "Only event organisers and coordinators can view registrations." });
+    }
+    // SCRUM-74/AC1: a coordinator's own assigned events only (RLS lets coordinators read other events too)
+    // SCRUM-74/AC2: an organiser's own events, in the same shape
+    const column = role === "event_organiser" ? "organiser_id" : "assigned_coordinator_id";
+    const { data } = await deps
+      .forUser(user.token)
+      .from("events")
+      .select("id, name, status, preferred_start_datetime, registration_capacity")
+      .eq(column, user.id);
+    res.json(
+      ((data ?? []) as ManagedEventRow[]).map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        start_at: e.preferred_start_datetime,
+        registration_capacity: e.registration_capacity,
+      })),
+    );
+  });
+
   // SCRUM-83/AC7: what the registration form shows about the event: name, date and time, and location
   router.get("/:id/registration-form", requireSession(deps), async (req, res) => {
     const { id: attendeeId, token } = res.locals.user as SessionUser;
@@ -107,12 +144,18 @@ export function registrationRoutes(deps: SupabaseDeps) {
     const { data, error } = await deps
       .forUser(token)
       .from("event_registrations")
-      .select("id, status, registered_at, registration_details")
+      // SCRUM-74/AC5: the attendee's profile too, for a registration with no form details
+      .select("id, status, registered_at, registration_details, attendee:attendee_id(full_name, email, phone)")
       .eq("event_id", req.params.id);
     // An empty list must mean nobody has registered, so a failed call is an error, not []
     if (error) return res.status(500).json({ error: "We couldn't load this event's registrations. Please try again." });
 
-    res.json(((data ?? []) as EventRegistrationRow[]).map(toEventRegistration));
+    res.json(
+      ((data ?? []) as EventRegistrationRow[])
+        // SCRUM-74/AC8: newest first (ISO timestamps sort in time order as text)
+        .sort((a, b) => b.registered_at.localeCompare(a.registered_at))
+        .map(toEventRegistration),
+    );
   });
 
   router.post("/:id/registrations", requireSession(deps), async (req, res) => {

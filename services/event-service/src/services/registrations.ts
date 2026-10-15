@@ -54,19 +54,33 @@ export interface EventRegistrationRow {
   id: string;
   status: string;
   registered_at: string;
-  /** What the attendee submitted on the form (SCRUM-83/AC8: they may have edited their profile's details). */
-  registration_details: { name: string; email: string; phone: string };
+  /**
+   * What the attendee submitted on the form (SCRUM-83/AC8: they may have edited their profile's details).
+   * Null, or without these fields, for a registration made before the form existed (e.g. the seed data).
+   */
+  registration_details: { name?: string; email?: string; phone?: string } | null;
+  /** SCRUM-74/AC5: the attendee's profile, for a registration with no form details. Embedded, so possibly an array. */
+  attendee?: AttendeeProfile | AttendeeProfile[] | null;
+}
+
+interface AttendeeProfile {
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
 }
 
 /** SCRUM-83/AC15: one row of the registration information page that organisers and coordinators see. */
 export function toEventRegistration(row: EventRegistrationRow) {
+  const form = row.registration_details ?? {};
+  const profile = Array.isArray(row.attendee) ? row.attendee[0] : row.attendee;
   return {
     id: row.id,
     status: registrationStatus(row.status),
     registered_at: row.registered_at,
-    name: row.registration_details.name,
-    email: row.registration_details.email,
-    phone: row.registration_details.phone,
+    // SCRUM-74/AC5: what the attendee submitted on the form, or their profile when there was no form
+    name: form.name ?? profile?.full_name ?? null,
+    email: form.email ?? profile?.email ?? null,
+    phone: form.phone ?? profile?.phone ?? null,
   };
 }
 

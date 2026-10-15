@@ -38,6 +38,12 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
         <nav className="dash__links">
           <Link href="/profile">My profile</Link>
         </nav>
+        {/* SCRUM-74/AC2: organisers and coordinators both see the registrations of the events they manage */}
+        {(user.role === "event_organiser" || user.role === "event_coordinator") && (
+          <nav className="dash__links">
+            <Link href="/registrations-overview">Event registrations</Link>
+          </nav>
+        )}
         {/* SCRUM-29 AC3 + AC4 + AC6 + AC7: same shared rule venue-service uses — coordinators and venue staff only */}
         {/* if role is event coord or venue staff, we show the link that leads them to see the venue catalogue */}
         {isRole(user.role) && canViewVenueCatalogue(user.role) && (

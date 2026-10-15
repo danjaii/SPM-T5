@@ -50,6 +50,32 @@ export interface EventRegistration {
   phone: string;
 }
 
+/** SCRUM-74/AC1, AC3: one of the events whose registrations the caller can view, as GET /events/managed sends it. */
+export interface ManagedEvent {
+  id: string;
+  name: string;
+  status: string;
+  start_at: string | null;
+  registration_capacity: number | null;
+}
+
+/** SCRUM-74/AC6: the summary above an event's registrations. */
+export interface RegistrationSummary {
+  total: number;
+  byStatus: Record<RegistrationStatus, number>;
+  /** SCRUM-74/AC7: capacity minus Confirmed registrations (Pending, Rejected and Withdrawn don't use a slot). */
+  slotsRemaining: number | null;
+}
+
+/** SCRUM-74/AC6: totals an event's registrations by status. */
+export function registrationSummary(registrations: EventRegistration[], capacity: number | null): RegistrationSummary {
+  const byStatus: Record<RegistrationStatus, number> = { pending: 0, confirmed: 0, rejected: 0, withdrawn: 0 };
+  for (const r of registrations) byStatus[r.status] += 1;
+  // SCRUM-74/AC6: no capacity means no limit, so there is no figure to show
+  const slotsRemaining = capacity === null ? null : capacity - byStatus.confirmed;
+  return { total: registrations.length, byStatus, slotsRemaining };
+}
+
 /** SCRUM-83/AC12, AC14: registers the signed-in attendee for an event, from the browser, sending the session cookie. */
 export async function submitRegistration(
   eventId: string,
