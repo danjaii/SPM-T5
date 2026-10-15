@@ -93,8 +93,12 @@ describe.skipIf(!hasDb)("SCRUM-33/SCRUM-32/SCRUM-35 venue_bookings row level sec
     it("venue staff read every request", async () => {
       expect(await visibleIds(who.venueStaff, [bookingA, bookingB])).toEqual([bookingA, bookingB].sort());
 
-      const { count: all } = await admin.from("venue_bookings").select("id", { count: "exact", head: true });
-      const { count: seen } = await who.venueStaff.client.from("venue_bookings").select("id", { count: "exact", head: true });
+      // Only rows older than an hour (the seed data): other test files add and delete venue bookings while this runs (they
+      // run in parallel), so counting every row twice could catch one of them in between (seen with SCRUM-102's tests).
+      const before = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count: all } = await admin.from("venue_bookings").select("id", { count: "exact", head: true }).lt("created_at", before);
+      const { count: seen } = await who.venueStaff.client.from("venue_bookings").select("id", { count: "exact", head: true }).lt("created_at", before);
+      expect(all).toBeGreaterThan(0);
       expect(seen).toBe(all);
     });
 

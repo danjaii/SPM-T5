@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { bookingError } from "../domain/errors";
+import { bookingError, forbidden } from "../domain/errors";
 import type { BookingChange, BookingRecord, Decision, NewBooking } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
@@ -67,6 +67,9 @@ interface PgError {
 function translate(error: PgError): Error {
   const message = error.message ?? "";
   if (error.code === "23P01") return bookingError("SLOT_CONFLICT");
+  // SCRUM-102: change_venue_booking() and cancel_venue_booking() (migration 30) refuse with these
+  if (error.code === "42501") return forbidden();
+  if (error.code === "CS102") return bookingError("EVENT_NOT_ELIGIBLE");
   if (error.code === "23505") {
     // 98-S20 (migration 28): the rejected venue booking already has an active replacement
     if (message.includes("venue_bookings_one_active_replacement")) return bookingError("ACTIVE_REQUEST_EXISTS");
