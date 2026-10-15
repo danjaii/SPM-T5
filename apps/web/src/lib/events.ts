@@ -1,3 +1,4 @@
+import type { EventDetailsFormValues } from "@spm-t5/shared";
 import { EVENT_URL, type ApiResult } from "./api";
 
 export interface EventStatusView {
@@ -26,6 +27,48 @@ export interface EventDetailView extends EventStatusView {
   organiser_name: string | null;
   /** SCRUM-42/AC5: the assigned coordinator's name, or null while unassigned. */
   point_of_contact_name: string | null;
+  /** SCRUM-111/AC5: details the coordinator can edit. */
+  description?: string | null;
+  category_name?: string | null;
+  venue_requirements?: string | null;
+  /** SCRUM-111/AC6, AC7: whether this viewer may edit the event's details (the assigned coordinator, while not finished). */
+  canEdit?: boolean;
+}
+
+/** SCRUM-111/AC2: GET /events/:id/edit-form, what the edit form starts with and offers. */
+export interface EventEditForm {
+  values: EventDetailsFormValues;
+  categories: { id: string; name: string }[];
+  roomLayouts: { id: string; name: string }[];
+  /** The form's boxes for important fields (they may affect venue or equipment arrangements). */
+  importantFields: string[];
+}
+
+/** SCRUM-111/AC4: one saved edit, as GET /events/:id/change-history returns it (newest first). */
+export interface EventChangeHistoryEntry {
+  id: string;
+  changedAt: string;
+  changedBy: string | null;
+  important: boolean;
+  changes: { field: string; label: string; from: unknown; to: unknown }[];
+}
+
+/** SCRUM-111/AC1: ask event-service, from the browser, to save the edited details. */
+export async function saveEventDetails(
+  id: string,
+  values: Record<string, unknown>,
+): Promise<ApiResult<{ important?: boolean; code?: string }>> {
+  try {
+    const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } };
+  }
 }
 
 /** SCRUM-66/AC7: a change request as GET /events/:id/change-requests returns it. */

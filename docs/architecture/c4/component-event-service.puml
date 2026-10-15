@@ -11,7 +11,7 @@ title ConnectSphere — Component Diagram: Event Service (C4 Level 3)
 
 Container(web, "Web App", "Next.js, React", "Review queue (/events/review); event page (/events/[id]): request details, start review, approve/reject, coordinator + assignment history, status change; attendee dashboard List of events (/dashboard/attendee); registration form (/events/[id]/register), My registrations (/registrations), an event's registrations (/events/[id]/registrations); Lead pages: unassigned queue (/lead/queue), coordinator overview (/lead/coordinators, /lead/coordinators/[id]), assign and reassign (/lead/events/[id]/assign, /reassign)")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
-ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "events, users, event_status_history, event_comments, event_comment_mentions, event_comment_attachments, coordinator_assignment_logs, event_change_requests, event_registrations (RLS: own rows, the event's organiser and assigned coordinator); change_event_status(), assign_coordinator() and list_public_events() functions; Lead functions lead_unassigned_queue(), lead_coordinator_overview(), lead_coordinator_events(), lead_assign_coordinator(), lead_reassign_coordinator(); events_assignment_guard trigger (only a Lead changes the coordinator; closed events never)")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "events, users, event_change_history (SCRUM-111), event_status_history, event_comments, event_comment_mentions, event_comment_attachments, coordinator_assignment_logs, event_change_requests, event_registrations (RLS: own rows, the event's organiser and assigned coordinator); change_event_status(), assign_coordinator() and list_public_events() functions; Lead functions lead_unassigned_queue(), lead_coordinator_overview(), lead_coordinator_events(), lead_assign_coordinator(), lead_reassign_coordinator(); events_assignment_guard trigger (only a Lead changes the coordinator; closed events never)")
 Container(storage, "Supabase Storage", "event-attachments bucket", "Comment attachment files")
 Container(notificationSvc, "Notification Service", "Node.js/TypeScript", "Planned: reacts to status changes")
 
@@ -25,6 +25,7 @@ Container_Boundary(eventSvc, "Event Service") {
   Component(leadMw, "Lead Middleware", "middlewares/lead.ts", "requireLead: refuses every role but event_coordinator_lead (403) before a Lead route runs (SCRUM-75)")
   Component(leadRoutes, "Lead Routes", "routes/lead.ts", "GET /lead/queue (SCRUM-77), GET /lead/coordinators and /lead/coordinators/:id/events (SCRUM-81), GET /lead/events/:id/assignment + POST /assign (SCRUM-78), GET /lead/events/:id/reassignment + POST /reassign (SCRUM-79). The database functions decide and enforce; the routes map their refusals to messages")
   Component(changeRoutes, "Change Request Routes", "routes/changeRequests.ts", "POST /events/:id/change-requests — organiser of the event only; validates with the shared parser, refuses draft/cancelled/rejected/completed (409) and no-change requests (422), inserts a pending request and never updates the event. GET /events/:id/change-requests — requests with their status")
+  Component(detailsRoutes, "Event Details Routes", "routes/eventDetails.ts", "SCRUM-111: GET /events/:id/edit-form and PATCH /events/:id for the event's assigned coordinator (not for a completed, cancelled or rejected event); GET /events/:id/change-history for its coordinator and organiser. Validates with parseEventDetailsInput; saves through update_event_details() (migration 34), which updates the event and writes event_change_history together")
   Component(upcomingRoutes, "Upcoming Events Route", "routes/upcomingEvents.ts", "GET /events/upcoming — any signed-in user; mounted before the /events/:id routes; 500 (not []) when the data cannot be loaded")
   Component(upcomingRules, "Upcoming Events Rules", "services/upcomingEvents.ts", "Hides started events, sorts soonest first, picks one label (cancelled > full > closed) and maps the caller's active registration")
   Component(registrationRoutes, "Registration Routes", "routes/registrations.ts", "GET /events/:id/registration-form, POST /events/:id/registrations (Pending; 409 when closed, full, cancelled or already registered), GET /events/my-registrations, GET /events/:id/registrations; mounted before the /events/:id routes")
@@ -37,6 +38,8 @@ Container_Boundary(eventSvc, "Event Service") {
 }
 
 Rel(web, app, "Views / changes event status, reviews requests, comments, assigns coordinators (browser + server-side)", "HTTPS/JSON, session cookie")
+Rel(app, detailsRoutes, "Routes event detail edits")
+Rel(detailsRoutes, db, "update_event_details() (security definer, migration 34); reads event_change_history", "PostgREST")
 Rel(app, eventRoutes, "Routes /events requests")
 Rel(app, reviewRoutes, "Routes /events requests")
 Rel(app, commentRoutes, "Routes /events requests")

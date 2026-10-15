@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { canDecideEvent, canRequestVenue } from "@spm-t5/shared";
 import { CoordinatorAssignment } from "@/components/CoordinatorAssignment";
+import { EventChangeHistory } from "@/components/EventChangeHistory";
 import { EventChangeRequestForm } from "@/components/EventChangeRequestForm";
 import { EventChangeRequestList } from "@/components/EventChangeRequestList";
 import { EventComments } from "@/components/EventComments";
@@ -13,7 +14,7 @@ import { EventVenueBookings } from "@/components/EventVenueBookings";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
-import { getChangeRequests, getEvent, getEventOutcome } from "@/lib/getEvent";
+import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome } from "@/lib/getEvent";
 import { getEventVenueBookings } from "@/lib/venueBookingsServer";
 
 // Rendered per request: what's shown depends on who is signed in.
@@ -25,15 +26,24 @@ export const metadata: Metadata = { title: "Event status · ConnectSphere" };
 // SCRUM-42/41/43: who coordinates it, (re)assigning them, and the assignment history.
 // SCRUM-44: the review outcome (decision, when, by whom, why).
 // SCRUM-25: the conversation between the organiser and the coordinators.
-export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
+// SCRUM-111: the assigned coordinator edits the event's details; the change history for the coordinator and organiser.
+export default async function EventPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ saved?: string }>;
+}) {
   const { id } = await params;
+  const saved = (await searchParams)?.saved === "1";
   const result = await getEvent(id);
   // SCRUM-38/AC4, SCRUM-98/AC5: every venue booking of the event, when the viewer may see them (else null).
   // SCRUM-44: the coordinator's decision, when there is one and the viewer may see it (else null).
   // SCRUM-86: the equipment requests, when the viewer may see them (else null).
-  const [venueBookings, outcome, equipmentRequests] = "event" in result
-    ? await Promise.all([getEventVenueBookings(id), getEventOutcome(id), getEventEquipmentRequests(id)])
-    : [null, null, null];
+  // SCRUM-111/AC4: the change history, when the viewer may see it (else null).
+  const [venueBookings, outcome, equipmentRequests, changeHistory] = "event" in result
+    ? await Promise.all([getEventVenueBookings(id), getEventOutcome(id), getEventEquipmentRequests(id), getEventChangeHistory(id)])
+    : [null, null, null, null];
 
   const changeRequests = "event" in result && result.event.isOrganiser ? await getChangeRequests(id) : [];
 
@@ -54,7 +64,16 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 decision={outcome}
                 showAwaiting={canDecideEvent(result.event.status) && !result.event.canReview && !result.event.canChangeStatus}
               />
+              {/* SCRUM-111/AC5: back from the edit form */}
+              {saved && <div className="alert alert--ok" role="status">Event details saved.</div>}
               <EventRequestDetails event={result.event} />
+              {/* SCRUM-111/AC6, AC7: only the assigned coordinator, while the event is not finished */}
+              {result.event.canEdit && (
+                <div className="event-buttons">
+                  <Link className="btn btn--secondary" href={`/events/${result.event.id}/edit`}>Edit event details</Link>
+                </div>
+              )}
+              <EventChangeHistory entries={changeHistory} />
               <CoordinatorAssignment
                 eventId={result.event.id}
                 coordinatorName={result.event.point_of_contact_name}
