@@ -267,7 +267,9 @@ reassigns (SCRUM-79, migration 24) an event's coordinator, and only to their own
 `events_assignment_guard` trigger enforces it for every caller. This replaced SCRUM-42's coordinator self-claim and
 SCRUM-41's hand-over: the coordinators' `/events/:id/assign-coordinator` and `/eligible-coordinators` routes now only
 refuse. The Safety Officer has no accounts, dashboard or
-sign-in option yet.
+sign-in option yet. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+(SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
+event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any

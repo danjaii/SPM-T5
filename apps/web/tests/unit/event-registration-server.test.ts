@@ -12,7 +12,7 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("next/navigation", () => ({ redirect }));
 
-import { getEventRegistrations, getMyRegistrations, getRegistrationForm } from "@/lib/eventRegistrationServer";
+import { getEventRegistrations, getManagedEvents, getMyRegistrations, getRegistrationForm } from "@/lib/eventRegistrationServer";
 
 /** Pretends event-service answered with this status code and JSON body. */
 function mockServer(status: number, body: unknown) {
@@ -70,3 +70,30 @@ describe("SCRUM-83 — Loading the registration form", () => {
   // end of AC15
 });
 // end of SCRUM-83
+
+// ---------------------------------------------------------------------------
+// SCRUM-74 — Loading the events whose registrations the caller can view
+// ---------------------------------------------------------------------------
+describe("SCRUM-74 — Loading the events I manage", () => {
+  // AC1: the list comes from event-service as the signed-in user, which decides whose events they are
+  it("SCRUM-74/AC1 asks event-service for the signed-in user's managed events", async () => {
+    const events = [{ id: "evt-1", name: "Tech Summit" }];
+    const fetchMock = mockServer(200, events);
+
+    await expect(getManagedEvents()).resolves.toEqual({ events });
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:4002/events/managed");
+    expect(options.headers.cookie).toBe("cs_session=token-123");
+  });
+
+  // AC1: anyone who isn't an organiser or coordinator is refused, and the page shows event-service's reason
+  it("SCRUM-74/AC1 returns event-service's refusal instead of a list of events", async () => {
+    mockServer(403, { error: "Only event organisers and coordinators can view registrations." });
+
+    await expect(getManagedEvents()).resolves.toEqual({
+      error: "Only event organisers and coordinators can view registrations.",
+    });
+  });
+  // end of AC1
+});
+// end of SCRUM-74
