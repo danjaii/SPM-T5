@@ -271,6 +271,12 @@ a { color: var(--steel-dark); }
 .dash__links { display: flex; gap: 20px; margin: -12px 0 28px; font-size: 15px; font-weight: 500; }
 .dash__section h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); background: #fff; }
+/* SCRUM-74/AC10: a registration list past 15 rows scrolls inside its box; the header stays in view */
+.table-wrap--scroll { max-height: 41rem; overflow-y: auto; } /* about 15 rows and the header */
+.table-wrap--scroll thead th { position: sticky; top: 0; }
+/* SCRUM-74/AC6: the registration summary sits above the registrations table */
+.reg-summary { margin-bottom: 16px; }
+.reg-summary th, .reg-summary td { text-align: center; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8; vertical-align: top; }
 th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
