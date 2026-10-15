@@ -6,6 +6,9 @@ export interface VenueInfo {
   name: string;
   maxCapacity: number;
   isActive: boolean;
+  /** SCRUM-101: the venue's current times in whole minutes; 0 when never set. */
+  setupMinutes: number;
+  turnaroundMinutes: number;
 }
 
 export interface VenueReader {
@@ -15,7 +18,7 @@ export interface VenueReader {
   getByIds(venueIds: string[]): Promise<VenueInfo[]>;
 }
 
-const COLUMNS = "id, name, max_capacity, is_active";
+const COLUMNS = "id, name, max_capacity, is_active, setup_minutes, turnaround_minutes";
 
 type Row = Record<string, unknown>;
 
@@ -24,6 +27,8 @@ const toVenue = (r: Row): VenueInfo => ({
   name: r.name as string,
   maxCapacity: r.max_capacity as number,
   isActive: Boolean(r.is_active),
+  setupMinutes: (r.setup_minutes as number | null) ?? 0,
+  turnaroundMinutes: (r.turnaround_minutes as number | null) ?? 0,
 });
 
 export class SupabaseVenueReader implements VenueReader {

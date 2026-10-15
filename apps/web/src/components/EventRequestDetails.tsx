@@ -24,11 +24,15 @@ function Value({ children }: { children: ReactNode }) {
 export function EventRequestDetails({ event }: { event: EventDetailView }) {
   const rows: [string, ReactNode][] = [
     ["Organiser", event.organiser_name],
+    // SCRUM-111/AC5: details the coordinator can edit
+    ["Description", event.description],
+    ["Category", event.category_name],
     ["Purpose", event.purpose],
     ["Preferred date and time", preferredSlot(event.preferred_start_datetime, event.preferred_end_datetime)],
     ["Expected attendees", event.expected_attendance === null ? null : `${event.expected_attendance} people`],
     ["Layout preference", event.preferred_layout_name],
     ["Accessibility needs", event.accessibility_requirements],
+    ["Venue requirements", event.venue_requirements],
     ["Equipment needs", event.equipment_requirements_notes],
     ["Submitted", event.submitted_at && formatDate(event.submitted_at)],
   ];

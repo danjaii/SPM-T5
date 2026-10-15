@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { dbStatusToApi } from "@spm-t5/shared";
 import { bookingError, forbidden } from "../domain/errors";
-import type { BookingChange, BookingRecord, Decision, NewBooking } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, NewBooking, SlotConflict } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
@@ -51,6 +52,19 @@ export function toBookingRecord(row: Row): BookingRecord {
   };
 }
 
+/** A row of venue_slot_conflicts / venue_occupied_periods (migration 27). */
+function toSlotConflict(row: Row): SlotConflict {
+  return {
+    eventStart: new Date(row.event_start as string),
+    eventEnd: new Date(row.event_end as string),
+    occupiedStart: new Date(row.occupied_start as string),
+    occupiedEnd: new Date(row.occupied_end as string),
+    status: dbStatusToApi(row.status as string) === "PENDING" ? "PENDING" : "APPROVED",
+    venueName: row.venue_name as string,
+    timing: { setupMinutes: row.setup_minutes as number, turnaroundMinutes: row.turnaround_minutes as number },
+  };
+}
+
 const DEADLOCK_DETECTED = "40P01";
 const MAX_ATTEMPTS = 3;
 
@@ -83,9 +97,9 @@ export class SupabaseBookingRepository implements BookingRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   /**
-   * Asks the database through venue_slot_is_held (migration 07), a yes/no security definer helper:
+   * Asks the database through venue_slot_is_held (migration 07, padded since migration 27), a yes/no security definer helper:
    * under RLS a coordinator cannot read other coordinators' requests, so a plain select here would
-   * never see the request holding the slot. The exclusion constraint remains the authority.
+   * never see the request holding the slot. The padded-overlap trigger remains the authority.
    */
   async hasHold(venueId: string, start: Date, end: Date): Promise<boolean> {
     const { data, error } = await this.db.rpc("venue_slot_is_held", {
@@ -95,6 +109,29 @@ export class SupabaseBookingRepository implements BookingRepository {
     });
     if (error) throw new Error("Could not check the venue's availability.");
     return data === true;
+  }
+
+  /** The padded conflicts, from venue_slot_conflicts (migration 27): security definer, so other coordinators' holds are visible, and identity-free. */
+  async slotConflicts(venueId: string, start: Date, end: Date, excludeBookingId?: string): Promise<SlotConflict[]> {
+    const { data, error } = await this.db.rpc("venue_slot_conflicts", {
+      p_venue_id: venueId,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+      p_exclude_booking_id: excludeBookingId ?? null,
+    });
+    if (error) throw new Error("Could not check the venue's availability.");
+    return ((data ?? []) as Row[]).map(toSlotConflict);
+  }
+
+  /** What occupies the venue in a window, from venue_occupied_periods (migration 27). */
+  async occupiedPeriods(venueId: string, from: Date, to: Date): Promise<SlotConflict[]> {
+    const { data, error } = await this.db.rpc("venue_occupied_periods", {
+      p_venue_id: venueId,
+      p_from: from.toISOString(),
+      p_to: to.toISOString(),
+    });
+    if (error) throw new Error("Could not read the venue's availability.");
+    return ((data ?? []) as Row[]).map(toSlotConflict);
   }
 
   async listPending(): Promise<BookingRecord[]> {
