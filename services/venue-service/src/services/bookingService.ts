@@ -1,7 +1,20 @@
-import { canRequestVenue, exceedsCapacity, isHoldingDbStatus, parseCancellationInput, parseVenueBookingInput, periodsOverlap, utcToSgt, type Role } from "@spm-t5/shared";
-import { bookingError, forbidden, notFound, validationFailed } from "../domain/errors";
-import type { BookingRecord } from "../domain/types";
+import {
+  canRequestVenue,
+  checkSuitability,
+  exceedsCapacity,
+  isHoldingDbStatus,
+  parseCancellationInput,
+  parseSuitabilityOverride,
+  parseVenueBookingInput,
+  periodsOverlap,
+  unmetRequirements,
+  utcToSgt,
+  type Role,
+} from "@spm-t5/shared";
+import { bookingError, forbidden, notFound, unsuitableVenue, validationFailed } from "../domain/errors";
+import type { BookingRecord, BookingSuitability } from "../domain/types";
 import type { EventInfo, EventReader } from "../readers/eventReader";
+import type { VenueDetailsReader } from "../readers/venueDetailsReader";
 import type { VenueReader } from "../readers/venueReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
 import { SlotConflictRule } from "./slotConflictRule";
@@ -28,6 +41,8 @@ export interface BookingServiceDeps {
   bookings: BookingRepository;
   events: EventReader;
   venues: VenueReader;
+  /** SCRUM-110: the venue's layouts, hours and capacity, for the suitability check. */
+  venueDetails: VenueDetailsReader;
   now: () => Date;
 }
 
@@ -98,7 +113,7 @@ export class BookingService {
    * The suggestion's "used" state is the new request itself (from_suggestion = true); the unique index
    * in migration 06 makes a second accept fail even if two race past the pre-check (59-S3).
    */
-  async acceptSuggestion(caller: Caller, id: string): Promise<SubmittedBooking> {
+  async acceptSuggestion(caller: Caller, id: string, body?: unknown): Promise<SubmittedBooking> {
     const original = await this.loadRejectedFor(caller, id);
     if (!original.suggestion) throw bookingError("NO_SUGGESTION");
 
@@ -108,14 +123,15 @@ export class BookingService {
     }
 
     const start = utcToSgt(original.suggestion.start);
-    const body = {
+    const slot = {
+      ...(typeof body === "object" && body !== null && "overrideReason" in body ? { overrideReason: body.overrideReason } : {}),
       eventId: original.eventId,
       venueId: original.suggestion.venueId,
       date: start.date,
       startTime: start.time,
       endTime: utcToSgt(original.suggestion.end).time,
     };
-    return this.submit(caller, body, { amendsBookingId: original.id, fromSuggestion: true });
+    return this.submit(caller, slot, { amendsBookingId: original.id, fromSuggestion: true });
   }
 
   /**
@@ -147,7 +163,7 @@ export class BookingService {
     if (caller.role !== "event_coordinator") throw forbidden();
     const booking = await bookings.getById(id);
     if (!booking) throw notFound("Venue booking request not found.");
-    assertMayRequestFor(caller, await events.getById(booking.eventId));
+    const event = assertMayRequestFor(caller, await events.getById(booking.eventId));
     if (!CHANGEABLE_DB_STATUSES.includes(booking.status)) throw bookingError("NOT_ACTIVE");
 
     // the same validation as a new request; the venue is the venue booking's own and cannot change
@@ -155,6 +171,8 @@ export class BookingService {
     const parsed = parseVenueBookingInput({ ...fields, venueId: booking.venueId }, now());
     if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
     const input = parsed.data;
+    const override = parseSuitabilityOverride(body);
+    if (!override.ok) throw validationFailed(override.fieldErrors);
 
     // left out means "keep this venue booking's own", not the event's
     const expectedAttendance = input.expectedAttendance ?? booking.snapshot.expectedAttendance;
@@ -177,10 +195,50 @@ export class BookingService {
     }
     if (sameVenue.some((b) => isHoldingDbStatus(b.status) && periodsOverlap(b, input))) throw bookingError("DUPLICATE_VENUE");
 
-    const changed = await bookings.change(id, { start: input.start, end: input.end, expectedAttendance, venueRequirements }, now());
+    // 110-S10: the booking goes back to venue staff with new numbers, so the stored result is made afresh from them (the
+    // old one could say "suitable" about 40 people when it is now 200). An unsuitable change needs a reason, like a new
+    // request. Availability is the database's overlap constraint above (102-S4), which ignores this booking itself.
+    const suitability = await this.assessSuitability(
+      event,
+      booking.venueId,
+      { attendance: expectedAttendance, layoutName: venueRequirements, start: input.start, end: input.end },
+      override.data.reason,
+    );
+
+    const changed = await bookings.change(id, { start: input.start, end: input.end, expectedAttendance, venueRequirements, suitability }, now());
     if (!changed) throw bookingError("NOT_ACTIVE"); // it was decided or withdrawn a moment ago
     const venue = await venues.getById(booking.venueId);
     return { booking: changed, exceedsCapacity: exceedsCapacity(expectedAttendance, venue?.maxCapacity) };
+  }
+
+  /**
+   * SCRUM-110: judges the venue against this booking (its own attendance and layout, SCRUM-98) and the event's accessibility
+   * text. Suitable: the result to store. Not suitable: UNSUITABLE_VENUE (409, nothing written) unless the coordinator gave
+   * a reason, which is stored with the unmet requirements. Availability is never judged here; the caller has settled it.
+   */
+  private async assessSuitability(
+    event: EventInfo,
+    venueId: string,
+    booking: { attendance: number | null; layoutName: string | null; start: Date; end: Date },
+    reason: string | null,
+  ): Promise<BookingSuitability> {
+    const details = await this.deps.venueDetails.getById(venueId);
+    if (!details) throw notFound("Venue not found.");
+    const report = checkSuitability(
+      details,
+      {
+        attendance: booking.attendance,
+        layoutName: booking.layoutName,
+        accessibilityNeeds: event.accessibilityNeeds,
+        start: booking.start,
+        end: booking.end,
+      },
+      { conflict: null },
+    );
+    if (report.overall === "suitable") return { result: "suitable", unmet: [], overrideReason: null };
+    const unmet = unmetRequirements(report);
+    if (!reason) throw unsuitableVenue(unmet);
+    return { result: "not_suitable", unmet, overrideReason: reason };
   }
 
   async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<SubmittedBooking> {
@@ -198,6 +256,10 @@ export class BookingService {
       throw validationFailed(fieldErrors);
     }
     const input = parsed.data;
+
+    // 110-S2b: the reason for going ahead with an unsuitable venue; only a reason that is too long is an error.
+    const override = parseSuitabilityOverride(body);
+    if (!override.ok) throw validationFailed(override.fieldErrors);
 
     // 32-S4, 32-S3: assigned Coordinator of an eligible event.
     const event = assertMayRequestFor(caller, await events.getById(eventId));
@@ -237,6 +299,18 @@ export class BookingService {
     // 32-S10: the snapshot is copied now and never updated (DR8). 98-S6, 98-S7: the booking's own attendance and
     // requirements if it has them, the event's if not.
     const expectedAttendance = input.expectedAttendance ?? event.expectedAttendance;
+    const venueRequirements = input.venueRequirements ?? event.venueRequirements;
+
+    // 110-S1, S2, S5, S6: after the slot (availability is a hard block that no reason overrides), warn if the venue does
+    // not suit this booking, judged on the booking's own attendance and requirements (98-S6). Without a reason nothing
+    // is created; with one, the result travels with the booking.
+    const suitability = await this.assessSuitability(event, input.venueId, {
+      attendance: expectedAttendance,
+      layoutName: venueRequirements,
+      start: input.start,
+      end: input.end,
+    }, override.data.reason);
+
     const booking = await bookings.insert({
       eventId: event.id,
       venueId: input.venueId,
@@ -246,11 +320,12 @@ export class BookingService {
       snapshot: {
         eventName: event.name,
         expectedAttendance,
-        venueRequirements: input.venueRequirements ?? event.venueRequirements,
+        venueRequirements,
         accessibilityNeeds: event.accessibilityNeeds,
       },
       amendsBookingId: options.amendsBookingId ?? null,
       fromSuggestion: options.fromSuggestion ?? false,
+      suitability,
     });
 
     // 32-S9, 98-S10: more people than the venue holds is flagged, never refused.

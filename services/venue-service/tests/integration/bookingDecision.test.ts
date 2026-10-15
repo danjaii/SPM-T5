@@ -3,6 +3,7 @@ import { sgtToUtc } from "@spm-t5/shared";
 import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookingRepository";
 import { SupabaseEventReader } from "../../src/readers/supabaseEventReader";
 import { SupabaseVenueReader } from "../../src/readers/venueReader";
+import { SupabaseVenueDetailsReader } from "../../src/readers/venueDetailsReader";
 import { BookingService } from "../../src/services/bookingService";
 import { DecisionService } from "../../src/services/decisionService";
 import { TrackingService } from "../../src/services/trackingService";
@@ -65,6 +66,7 @@ describe.skipIf(!hasDb)("SCRUM-38 booking decisions against Postgres", () => {
       bookings: adminRepo,
       events: new SupabaseEventReader(admin),
       venues: new SupabaseVenueReader(admin),
+      venueDetails: new SupabaseVenueDetailsReader(admin),
       now: () => NOW,
     });
     await expect(

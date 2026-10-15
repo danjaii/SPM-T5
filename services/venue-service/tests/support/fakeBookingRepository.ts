@@ -34,6 +34,9 @@ export class FakeBookingRepository implements BookingRepository {
       amendsBookingId: null,
       fromSuggestion: false,
       suggestion: null,
+      suitability: null,
+      suitabilityUnmet: null,
+      suitabilityOverrideReason: null,
       ...partial,
     };
     this.rows.push(row);
@@ -79,6 +82,9 @@ export class FakeBookingRepository implements BookingRepository {
       start: change.start,
       end: change.end,
       snapshot: { ...row.snapshot, expectedAttendance: change.expectedAttendance, venueRequirements: change.venueRequirements },
+      ...(change.suitability
+        ? { suitability: change.suitability.result, suitabilityUnmet: change.suitability.unmet, suitabilityOverrideReason: change.suitability.overrideReason }
+        : {}),
       status: "requested",
       reviewedBy: null,
       reviewedAt: null,
@@ -135,6 +141,9 @@ export class FakeBookingRepository implements BookingRepository {
       snapshot: input.snapshot,
       amendsBookingId: input.amendsBookingId ?? null,
       fromSuggestion: input.fromSuggestion ?? false,
+      suitability: input.suitability?.result ?? null,
+      suitabilityUnmet: input.suitability?.unmet ?? null,
+      suitabilityOverrideReason: input.suitability?.overrideReason ?? null,
       status: "requested",
       createdAt: this.now(),
     });

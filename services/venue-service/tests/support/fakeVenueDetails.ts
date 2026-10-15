@@ -1,3 +1,4 @@
+import type { VenueInfo } from "../../src/readers/venueReader";
 import type { VenueDetailsReader } from "../../src/readers/venueDetailsReader";
 import type { SearchableVenue } from "../../src/readers/venueSearchReader";
 
@@ -7,6 +8,22 @@ export class FakeVenueDetailsReader implements VenueDetailsReader {
 
   async getById(venueId: string) {
     return this.venues.find((v) => v.id === venueId) ?? null;
+  }
+
+  /** Details for plain VenueInfo records: no opening limits, and Theatre, Banquet and Boardroom layouts as big as the venue. */
+  static from(venues: { venues: VenueInfo[] }): FakeVenueDetailsReader {
+    return new FakeVenueDetailsReader(
+      venues.venues.map((v) =>
+        aVenueWithDetails({
+          id: v.id,
+          name: v.name,
+          maxCapacity: v.maxCapacity,
+          openingTime: null,
+          closingTime: null,
+          layouts: ["Theatre", "Banquet", "Boardroom"].map((name) => ({ id: `layout-${name}`, name, maxCapacity: v.maxCapacity })),
+        }),
+      ),
+    );
   }
 }
 

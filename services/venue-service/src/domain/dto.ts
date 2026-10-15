@@ -16,6 +16,8 @@ export interface BookingDto {
   accessibilityNeeds: string | null;
   submittedBy: string | null;
   submittedAt: string;
+  /** SCRUM-110: the check as it was when the request was made; null for older requests. */
+  suitability: "suitable" | "not_suitable" | null;
 }
 
 export function toBookingDto(b: BookingRecord): BookingDto {
@@ -34,6 +36,7 @@ export function toBookingDto(b: BookingRecord): BookingDto {
     accessibilityNeeds: b.snapshot.accessibilityNeeds,
     submittedBy: b.requestedBy,
     submittedAt: b.createdAt.toISOString(),
+    suitability: b.suitability,
   };
 }
 
