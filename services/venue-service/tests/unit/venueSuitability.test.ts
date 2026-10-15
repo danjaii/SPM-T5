@@ -236,6 +236,15 @@ describe("SCRUM-109 inputs and overrides (109-S8, 109-S9)", () => {
     expect(res.body.overall).toBe("suitable");
   });
 
+  it("110-S6: a booking's own layout (venueRequirements) replaces the event's", async () => {
+    const { coordinator } = setup({ event: { ...techConf, expectedAttendance: 15 } });
+    const own = await coordinator("venueId=venue-2&eventId=event-1&venueRequirements=Boardroom");
+    expect(criterion(own.body, "layout").status).toBe("met");
+    expect(criterion(own.body, "capacity").status).toBe("met");
+    const theatre = await coordinator("venueId=venue-2&eventId=event-1");
+    expect(criterion(theatre.body, "layout")).toMatchObject({ status: "not_met", message: "Theatre not supported" });
+  });
+
   it("109-S8: an explicit attendance replaces the event's", async () => {
     const { coordinator } = setup({ event: { ...techConf, venueRequirements: null } });
     const res = await coordinator("venueId=venue-2&eventId=event-1&attendance=40");

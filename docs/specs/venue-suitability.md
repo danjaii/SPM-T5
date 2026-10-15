@@ -44,14 +44,14 @@ These override the text below where they conflict.
   for part of the requested period". When SCRUM-103 (setup/turnaround) merges, the seam switches to
   `SlotConflictRule.findConflict`, which returns the exact occupied period (including setup and turnaround), and the
   message then shows it. Unavailability blocks (SCRUM-105) join the same way. **[DECIDED]**
-- **The period.** From the event's proposed date and times; the caller may override `date`, `startTime`, `endTime` and
-  `attendance` (the request form checks what is typed, not only what is saved). No period known: operating hours and
+- **The period.** From the event's proposed date and times; the caller may override `date`, `startTime`, `endTime`,
+  `attendance` and `venueRequirements` (a booking's own layout, SCRUM-98) (the request form checks what is typed, not only what is saved). No period known: operating hours and
   availability are `not_checked`. **[DECIDED]**
 - **Endpoint** (`venue-service`, port 4003; needs a session, 401 otherwise) **[DECIDED]**:
 
   | Method + path | Response |
   | --- | --- |
-  | `GET /venue-suitability?venueId&eventId[&date&startTime&endTime][&attendance][&skipAvailability=true]` | 200 `{ venue, event, overall, criteria[], manualChecks[] }`, 403, 404, 422 `{ code, error, fieldErrors }` |
+  | `GET /venue-suitability?venueId&eventId[&date&startTime&endTime][&attendance][&venueRequirements][&skipAvailability=true]` | 200 `{ venue, event, overall, criteria[], manualChecks[] }`, 403, 404, 422 `{ code, error, fieldErrors }` |
 
   Only `event_coordinator` and `venue_staff` (Scenario 7); others get 403 before anything is read. A coordinator may only
   check an event assigned to them (403 otherwise, like requesting a venue). Mounted in `app.ts` after the session

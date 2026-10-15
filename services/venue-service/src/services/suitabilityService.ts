@@ -29,7 +29,7 @@ export class SuitabilityService {
 
   /**
    * Allowed for coordinators and venue staff only (Scenario 7), checked first so nothing else is revealed. The query
-   * is `venueId`, `eventId` and, optionally, `date` + `startTime` + `endTime` and `attendance`, which replace what the
+   * is `venueId`, `eventId` and, optionally, `date` + `startTime` + `endTime`, `attendance` and `venueRequirements`, which replace what the
    * event has (the request form checks what is typed). `skipAvailability=true` leaves availability unchecked: a pending
    * request holds its own slot, so Venue Staff reviewing it would otherwise always see a clash with itself.
    */
@@ -79,7 +79,8 @@ export class SuitabilityService {
       venue,
       {
         attendance: attendanceText !== "" ? Number(attendanceText) : event.expectedAttendance,
-        layoutName: event.venueRequirements,
+        // 110-S6: a booking's own layout (SCRUM-98) replaces the event's
+        layoutName: text(query.venueRequirements) || event.venueRequirements,
         accessibilityNeeds: event.accessibilityNeeds,
         start: period?.start ?? null,
         end: period?.end ?? null,
