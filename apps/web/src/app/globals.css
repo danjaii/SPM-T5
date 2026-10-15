@@ -606,3 +606,11 @@ tr:last-child td { border-bottom: 0; }
 .avail__segment--event { background: var(--steel-dark); color: #fff; }
 .avail__segment--setup, .avail__segment--turnaround { background: var(--selected); color: var(--ink); border-style: dashed; }
 @media (max-width: 800px) { .avail__bar { flex-direction: column; } .avail__segment { min-width: 0; } }
+
+/* SCRUM-46: the notification list; an unread row is highlighted, and also carries the word "Unread" */
+.notifications { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: #fff; }
+.notification { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.notification:last-child { border-bottom: 0; }
+.notification--unread { background: var(--warn-bg); border-left: 3px solid var(--warn); font-weight: 600; }
+.notification__open { flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.notification__message, .notification__related, .notification__time { font-weight: 400; font-size: 14px; color: var(--subtle); }
