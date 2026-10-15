@@ -5,6 +5,7 @@ export * from "./eventChangeRequest";
 export * from "./eventDetails";
 export * from "./eventImpact";
 export * from "./eventStatus";
+export * from "./notifications";
 export * from "./profile";
 export * from "./registration";
 export * from "./roles";
