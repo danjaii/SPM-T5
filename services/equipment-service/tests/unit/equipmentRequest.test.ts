@@ -317,3 +317,14 @@ describe("SCRUM-86/AC7 only the assigned coordinator", () => {
     expect((await list(null)).status).toBe(401);
   });
 });
+
+describe("SCRUM-116/AC3 a Safety Officer cannot edit the technical arrangements", () => {
+  it("SCRUM-116/AC3 a Safety Officer's equipment request gets 403 and nothing is saved", async () => {
+    const { submit, writer } = setup();
+    const res = await submit(valid, "safety_officer-user");
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ code: "FORBIDDEN", error: "You are not allowed to do that." });
+    expect(writer.saved).toEqual([]);
+  });
+});

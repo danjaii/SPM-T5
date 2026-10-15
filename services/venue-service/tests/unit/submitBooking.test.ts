@@ -34,6 +34,7 @@ function setup(options: { events?: FakeEventReader; venues?: FakeVenueReader } =
     "staff-1": "venue_staff",
     "tech-1": "technical_support_staff",
     "attendee-1": "attendee",
+    "safety-1": "safety_officer",
   });
   const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader() }) });
   const as = (userId: string) => ({
@@ -501,5 +502,14 @@ describe("SCRUM-98/AC6 only the assigned coordinator of an eligible event may ad
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("EVENT_NOT_ELIGIBLE");
     expect(bookings.rows).toHaveLength(1);
+  });
+});
+
+describe("SCRUM-116/AC3 a Safety Officer cannot edit the venue arrangements", () => {
+  it("SCRUM-116/AC3 a Safety Officer's venue booking request gets 403 and no row is created", async () => {
+    const { as, bookings } = setup();
+    const res = await as("safety-1").post(submit());
+    expect(res.status).toBe(403);
+    expect(bookings.rows).toHaveLength(0);
   });
 });
