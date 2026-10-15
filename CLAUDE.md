@@ -70,8 +70,11 @@ below plus `apps/web`; none of them are implemented yet (see Current state).
 Equipment/technical-support (#15-17) is owned by `equipment-service` (renamed from
 `coordinator-service`, which no longer exists — coordinator assignment moved to `event-service`,
 see #5). Attendee registration (#18) is owned by `event-service` (SCRUM-83: register, My
-registrations, and an event's registrations for its organiser and coordinator); withdrawal is not
-built yet.
+registrations, and an event's registrations for its organiser and coordinator) and SCRUM-73
+(withdraw from My registrations: `POST /events/my-registrations/:id/withdraw`, with migration 29's
+update policy letting an attendee change only their own active registration, and only to withdrawn).
+`receivesEventUpdates()` in `packages/shared` is the rule notification-service should use so a
+withdrawn attendee gets no more updates or reminders.
 
 ## Commands
 

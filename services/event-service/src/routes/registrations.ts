@@ -9,6 +9,7 @@ import {
   registrationRefusal,
   toEventRegistration,
   toMyRegistration,
+  withdrawalRefusal,
   type EventRegistrationRow,
   type MyRegistrationRow,
 } from "../services/registrations";
@@ -35,7 +36,7 @@ export function registrationRoutes(deps: SupabaseDeps) {
     const db = deps.forUser(token);
     const { data, error } = await db
       .from("event_registrations")
-      .select("id, status, registered_at, event:events(id, name, preferred_start_datetime, preferred_end_datetime)")
+      .select("id, status, registered_at, event:events(id, name, status, preferred_start_datetime, preferred_end_datetime)")
       .eq("attendee_id", attendeeId);
     // An empty list must mean there are none, so a failed call is an error, not [] (as in SCRUM-71/AC11)
     if (error) return res.status(500).json({ error: "We couldn't load your registrations. Please try again." });
@@ -49,9 +50,39 @@ export function registrationRoutes(deps: SupabaseDeps) {
     const now = new Date();
     res.json(
       ((data ?? []) as unknown as MyRegistrationRow[])
-        .map((row) => toMyRegistration(row, publicEventsById))
+        .map((row) => toMyRegistration(row, publicEventsById, now))
         .filter((r) => r.event.start_at !== null && new Date(r.event.start_at) > now),
     );
+  });
+
+  // SCRUM-73: the attendee withdraws one of their registrations
+  router.post("/my-registrations/:id/withdraw", requireSession(deps), async (req, res) => {
+    const { id: attendeeId, token } = res.locals.user as SessionUser;
+    const db = deps.forUser(token);
+
+    // SCRUM-73/AC1: only the attendee's own registration; anyone else's is "not found", so ids can't be probed
+    const { data: registration } = await db
+      .from("event_registrations")
+      .select("id, status, event:events(id, name, status, preferred_start_datetime, preferred_end_datetime)")
+      .eq("id", req.params.id)
+      .eq("attendee_id", attendeeId)
+      .maybeSingle();
+    if (!registration) return res.status(404).json({ error: "Registration not found." });
+
+    // SCRUM-73/AC2, AC5: Pending or Confirmed only, and not once the event has started or been cancelled
+    const row = registration as unknown as MyRegistrationRow;
+    const refusal = withdrawalRefusal(row.status, Array.isArray(row.event) ? row.event[0] : row.event, new Date());
+    if (refusal) return res.status(409).json({ error: refusal });
+
+    // SCRUM-73/AC6: the status becomes Withdrawn, and withdrawn_at records when
+    const { data: withdrawn } = await db
+      .from("event_registrations")
+      .update({ status: "withdrawn", withdrawn_at: new Date().toISOString() })
+      .eq("id", req.params.id)
+      .select("id");
+    // SCRUM-73/AC6: RLS refuses an update by changing no row (not with an error), so check one was changed
+    if (!withdrawn?.length) return res.status(409).json({ error: "This registration can no longer be withdrawn." });
+    res.json({ status: "withdrawn" });
   });
 
   // SCRUM-83/AC7: what the registration form shows about the event: name, date and time, and location

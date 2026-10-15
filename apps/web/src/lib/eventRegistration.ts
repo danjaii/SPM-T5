@@ -27,6 +27,8 @@ export interface MyRegistration {
   id: string;
   status: RegistrationStatus;
   registered_at: string;
+  /** SCRUM-73/AC2, AC5: whether it can be withdrawn now (Pending or Confirmed, and the event hasn't started or been cancelled). */
+  can_withdraw: boolean;
   /** SCRUM-72/AC4: venue is the event's location (null name and address while it is unknown). */
   event: {
     id: string;
@@ -64,4 +66,13 @@ export async function submitRegistration(
   } catch {
     return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
   }
+}
+
+/** SCRUM-73/AC6: withdraws one of the signed-in attendee's registrations, from the browser, sending the session cookie. */
+export async function withdrawRegistration(registrationId: string): Promise<ApiResult<{ status: RegistrationStatus }>> {
+  const res = await fetch(`${EVENT_URL}/events/my-registrations/${encodeURIComponent(registrationId)}/withdraw`, {
+    method: "POST",
+    credentials: "include",
+  });
+  return { ok: res.ok, data: await res.json() };
 }
