@@ -359,3 +359,23 @@ describe("SCRUM-8 — Edit event status", () => {
   // end of UI support
 });
 // end of SCRUM-8
+
+// SCRUM-116/AC3: the Safety Officer checks the event, but moving it on is not theirs to do
+describe("SCRUM-116/AC3 a Safety Officer cannot move an event to preparation directly", () => {
+  it("SCRUM-116/AC3 refuses a Safety Officer's status change with 403 and leaves the event unchanged", async () => {
+    const fake = createFake();
+    const safetyOfficer = fake.signIn("safety_officer");
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "awaiting_arrangements", assigned_coordinator_id: coordinator.id };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", safetyOfficer.cookie)
+      .send({ status: "confirmed" });
+
+    expect(res.status).toBe(403);
+    expect(event.status).toBe("awaiting_arrangements"); // nothing was saved
+    expect(fake.tables.event_status_history).toEqual([]);
+  });
+});

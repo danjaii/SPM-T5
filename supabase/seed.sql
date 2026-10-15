@@ -69,6 +69,11 @@ insert into auth.users (id, instance_id, aud, role, email, encrypted_password, e
   ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a02', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'samuel.tay@connectsphere.example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false),
   ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a03', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kelvin.ho@connectsphere.example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false);
 
+-- SCRUM-116: two Safety Officers, so the Safety Officer can sign in.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_sso_user, is_anonymous) values
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5b01', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'farah.ismail@connectsphere.example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false),
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5b02', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'jonathan.lee@connectsphere.example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false);
+
 -- GoTrue reads these token columns as non-null strings; left NULL, every sign-in fails with
 -- "Database error querying schema". Real sign-ups get '' from GoTrue itself.
 update auth.users set
@@ -155,6 +160,11 @@ insert into users (id, role, full_name, email, phone, organisation_id, departmen
   ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a01', 'event_coordinator_lead', 'Helen Ong', 'helen.ong@connectsphere.example.com', '+65 9100 2000', NULL, 'Event Coordination', '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00'),
   ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a02', 'event_coordinator_lead', 'Samuel Tay', 'samuel.tay@connectsphere.example.com', '+65 9100 2001', NULL, 'Event Coordination', '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00'),
   ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a03', 'event_coordinator', 'Kelvin Ho', 'kelvin.ho@connectsphere.example.com', '+65 9100 1005', NULL, 'Event Coordination', '{"email": true, "sms": true}'::jsonb, false, '2026-03-04 15:57:00', '2026-03-04 15:57:00');
+
+-- SCRUM-116: Safety Officer accounts.
+insert into users (id, role, full_name, email, phone, organisation_id, department, communication_preferences, is_active, created_at, updated_at) values
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5b01', 'safety_officer', 'Farah Ismail', 'farah.ismail@connectsphere.example.com', '+65 9100 3000', NULL, 'Operational Safety', '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00'),
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5b02', 'safety_officer', 'Jonathan Lee', 'jonathan.lee@connectsphere.example.com', '+65 9100 3001', NULL, 'Operational Safety', '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00');
 
 update users set supervising_lead_id = '3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a01'
   where id in ('70e7fa6f-5917-5aa1-b681-a8a921359a5c', 'b6c1773a-f08b-56ae-b4cf-cc3d317cc9e3', '3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a03');
