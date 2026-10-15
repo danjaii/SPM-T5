@@ -10,3 +10,5 @@ export * from "./roles";
 export * from "./supabaseClient";
 export * from "./venueBooking";
 export * from "./venueSearch";
+export * from "./venueTiming";
+export * from "./venueOccupancy";

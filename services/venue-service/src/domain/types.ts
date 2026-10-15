@@ -1,3 +1,5 @@
+import type { OccupiedPeriod, VenueTiming } from "@spm-t5/shared";
+
 /** What a request keeps of its event as at submission (DR8, 32-S10). */
 export interface BookingSnapshot {
   eventName: string;
@@ -63,4 +65,11 @@ export interface NewBooking {
   snapshot: BookingSnapshot;
   amendsBookingId?: string | null;
   fromSuggestion?: boolean;
+}
+
+/** A holding booking that blocks a requested slot (SCRUM-103): its occupied period, plus what a refusal needs to describe it. */
+export interface SlotConflict extends OccupiedPeriod {
+  venueName: string;
+  /** The venue's current times, so the message knows whether to mention setup and turnaround. */
+  timing: VenueTiming;
 }
