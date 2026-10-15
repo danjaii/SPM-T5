@@ -161,15 +161,14 @@ export class SupabaseBookingRepository implements BookingRepository {
   }
 
   /**
-   * SCRUM-102/AC2, AC3: through cancel_venue_bookings() (migration 30), a security definer function, for the same reason
-   * as change(). It cancels all of them or none. Null when any was no longer PENDING or APPROVED.
+   * SCRUM-102/AC2, AC7: through cancel_venue_booking() (migration 30), a security definer function, for the same reason as
+   * change(). It also releases the venue booking's equipment, in the same step. Null when it was no longer PENDING or
+   * APPROVED. `by` and `at` are the database's own (auth.uid(), now()), so they are not sent.
    */
-  async cancel(ids: string[], by: string, at: Date, reason: string): Promise<BookingRecord[] | null> {
-    const { data, error } = await this.db.rpc("cancel_venue_bookings", { p_booking_ids: ids, p_reason: reason });
+  async cancel(id: string, _by: string, _at: Date, reason: string): Promise<BookingRecord | null> {
+    const { data, error } = await this.db.rpc("cancel_venue_booking", { p_booking_id: id, p_reason: reason });
     if (error) throw translate(error);
-    if (data !== true) return null;
-    const rows = await Promise.all(ids.map((id) => this.getById(id)));
-    return rows.filter((r): r is BookingRecord => r !== null);
+    return data === true ? this.getById(id) : null;
   }
 
   async getById(id: string): Promise<BookingRecord | null> {

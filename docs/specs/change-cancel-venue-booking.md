@@ -44,9 +44,11 @@ These override `docs/specs/venue-booking-request.md` where they conflict.
   Withdraw stays on the venue booking's own page and in the API, unchanged. **[DECIDED]**
 - **A reason is required to cancel**, 1 to 500 characters once trimmed (the same rule as a rejection reason, 39-S2). It is
   stored with who cancelled and when, and shown in the event's list of venue bookings. **[DECIDED]**
-- **Cancel all (AC3)** cancels every PENDING and APPROVED venue booking of the event with one reason, all or nothing. Rejected,
-  withdrawn and already cancelled ones are left as they are. With nothing to cancel, it is `NOTHING_TO_CANCEL`. **[DECIDED]**
-- **Confirm first (AC4).** The page asks before cancelling one or all; going back from that question sends nothing. **[DECIDED]**
+- **No "cancel all" (AC3 dropped 2026-10-15).** The customer's change note asks that cancelling one venue booking "should
+  not automatically remove the other venue bookings unless this is explicitly required"; it does not ask for a way to cancel
+  them all at once. A coordinator can still cancel each one, each deliberately, so the team dropped AC3 to keep the story
+  small. The other ACs keep their numbers. **[DECIDED]**
+- **Confirm first (AC4).** The page asks before cancelling; going back from that question sends nothing. **[DECIDED]**
 - **The event is never cancelled by this (AC5)**, even when its last venue booking is cancelled. Its status does not change.
   **[DECIDED]**
 - **Who and when (AC6).** Only the event's current assigned coordinator, and only while the event is Approved, Planning or
@@ -55,13 +57,13 @@ These override `docs/specs/venue-booking-request.md` where they conflict.
   bookings their predecessor made. **[DECIDED]**
 - **Done in the database, in one step.** The database only lets coordinators change a venue booking's status (07, column
   grants), on purpose. So changing and cancelling go through two security definer functions, `change_venue_booking()` and
-  `cancel_venue_bookings()` (migration 29), which check the caller, the event and the venue booking and then update, like
+  `cancel_venue_booking()` (migration 29), which check the caller, the event and the venue booking and then update, like
   `reserve_equipment()` (12). The overlap constraint (06) still applies to the changed row. **[DECIDED]**
 - **Cancelled venue bookings are listed.** The event's list (SCRUM-98) and the coordinator's list (SCRUM-33) now show them as
   Cancelled, with the reason, instead of leaving them out. Older `cancelled` rows from the seed data show the same way, with no
   reason. **[DECIDED]**
 - **Cancelling releases the venue booking's equipment (AC7).** An equipment request can point at an approved venue booking
-  (SCRUM-86) and copies its start and end time. When that venue booking is cancelled (one, or cancel all), every equipment
+  (SCRUM-86) and copies its start and end time. When that venue booking is cancelled, every equipment
   request linked to it that is not already released becomes `cancelled` in the same step, so either both happen or neither
   does. `cancelled` does not hold units (18-S8 counts only `approved` and `reserved`), so Arranged equipment is free for other
   events at once. There is no choice to make, so the confirmation says it as a statement, lists the equipment, and has one
@@ -76,10 +78,10 @@ These override `docs/specs/venue-booking-request.md` where they conflict.
   be free at the new time. A change to only the attendance or requirements leaves the equipment as it is. The change form says
   this as a statement and lists the equipment. This matches SCRUM-88 AC2 (an edited request goes back to Submitted). **[DECIDED]**
 - **Equipment requests not linked to a venue booking** (older rows, `venue_booking_id` empty) are never touched. **[DECIDED]**
-- **API.** `PATCH /venue-bookings/:id` (change; body like a new request without `eventId` and `venueId`), `POST
-  /venue-bookings/:id/cancel` (body `{ reason }`), `POST /events/:eventId/venue-bookings/cancel` (cancel all, body
-  `{ reason }`). Change returns the venue booking with `exceedsCapacity`; the cancels return what was cancelled. **[PROPOSED]**
-- **Migration 29**: adds `cancelled_by`, `cancelled_at` and `cancellation_reason` to `venue_bookings`, and the two functions,
+- **API.** `PATCH /venue-bookings/:id` (change; body like a new request without `eventId` and `venueId`) and `POST
+  /venue-bookings/:id/cancel` (body `{ reason }`). Change returns the venue booking with `exceedsCapacity`; cancel returns the
+  cancelled venue booking with who cancelled it, when and why. **[DECIDED]**
+- **Migration 30** (29 is SCRUM-73's): adds `cancelled_by`, `cancelled_at` and `cancellation_reason` to `venue_bookings`, and the two functions,
   which also update `equipment_reservations` (AC7, AC8). Affects venue-service and equipment-service, and the shared equipment
   status labels (`cancelled` reads as Released). SCRUM-87's open branch also changes equipment statuses, so this is flagged in
   the PR. **[DECIDED]**
@@ -99,10 +101,9 @@ system should check only that booking again and leave the others unchanged.
 *AC2.* Given that an event has more than one venue booking, when I cancel one of them, the system should cancel only that
 booking and leave the others unchanged.
 
-*AC3.* Given that I choose to cancel all venue bookings for an event, when I confirm, the system should cancel every venue
-booking for that event.
+*AC3.* *(Dropped 2026-10-15: no "cancel all". See Implementation decisions.)*
 
-*AC4.* Given that I choose to cancel one or all venue bookings, when I make the choice, the system should ask me to confirm
+*AC4.* Given that I choose to cancel a venue booking, when I make the choice, the system should ask me to confirm
 before cancelling, and if I cancel the confirmation, all bookings should remain unchanged.
 
 *AC5.* Given that I cancel the event's only remaining venue booking, when the cancellation is confirmed, the event itself
@@ -137,10 +138,8 @@ equipment to the new date and time and send it back to Technical Support Staff f
 | 102-S12 | AC2 | Cancel one of two venue bookings (PENDING, then APPROVED) with a reason | it is CANCELLED with the reason, who and when; the other is unchanged |
 | 102-S13 | AC2 | Cancel with no reason, only spaces, or 501 characters | 422 on `reason`; nothing changes |
 | 102-S14 | AC2 | After cancelling, another request for that venue and period | 201: the cancelled one no longer holds it |
-| 102-S15 | AC3 | Cancel all, for an event with PENDING, APPROVED and REJECTED venue bookings | the PENDING and APPROVED ones are CANCELLED with the reason; the REJECTED one is unchanged |
-| 102-S16 | AC3 | Cancel all with nothing to cancel | 409 `NOTHING_TO_CANCEL` |
-| 102-S17 | AC3 | Cancel all is all or nothing | if it fails, no venue booking of the event is cancelled |
-| 102-S18 | AC4 | Press Cancel on a venue booking, or Cancel all | a confirmation with a reason box appears; nothing is sent yet |
+| 102-S15 to S17 | AC3 | *(dropped with AC3)* | |
+| 102-S18 | AC4 | Press Cancel on a venue booking | a confirmation with a reason box appears; nothing is sent yet |
 | 102-S19 | AC4 | Go back from the confirmation | nothing is sent; every venue booking is as it was |
 | 102-S20 | AC5 | Cancel the event's only remaining venue booking | the event's status is unchanged |
 | 102-S21 | AC6 | Another coordinator changes, cancels or cancels all | 403; nothing changes |
@@ -148,11 +147,11 @@ equipment to the new date and time and send it back to Technical Support Staff f
 | 102-S23 | AC6 | The event is Confirmed, Completed, Cancelled or still Submitted | 409 `EVENT_NOT_ELIGIBLE` |
 | 102-S24 | AC6 | The coordinator who took over the event cancels a venue booking their predecessor made | allowed |
 | 102-S25 | AC2 | The event's list of venue bookings | a cancelled one shows Cancelled with its reason |
-| 102-S26 | AC1 | The event page | each PENDING or APPROVED venue booking has Change and Cancel; others have neither; Cancel all only while one is active |
+| 102-S26 | AC1 | The event page | each PENDING or APPROVED venue booking has Change and Cancel; others have neither |
 | 102-S27 | AC1 | The change form | pre-filled with that venue booking's date, times, attendance and requirements; the venue is shown, not editable |
 | 102-S28 | AC7 | Cancel a venue booking with Arranged and Submitted equipment requests | both become Released in the same step; the Arranged units are available to other events again |
 | 102-S29 | AC7 | The cancel confirmation for a venue booking with linked equipment | lists the equipment as a statement; the button reads "Cancel venue booking and release equipment"; with none linked it reads "Cancel venue booking" |
-| 102-S30 | AC7 | Cancel all | the equipment of every cancelled venue booking is released; equipment of other venue bookings and unlinked equipment is untouched |
+| 102-S30 | AC7 | *(dropped with AC3)* | |
 | 102-S31 | AC7 | The event's equipment list after a release | the request shows Released, with the venue booking's cancellation reason |
 | 102-S32 | AC7 | Cancelling fails (for example the event is not eligible) | neither the venue booking nor its equipment changes |
 | 102-S33 | AC8 | Change a venue booking's time when it has an Arranged equipment request | the request takes the new start and end, becomes Submitted, and no longer holds units at the old time |
@@ -162,9 +161,9 @@ equipment to the new date and time and send it back to Technical Support Staff f
 ### Test map
 
 - Shared validation (cancel reason, change input): `packages/shared/tests/`.
-- Service rules (unit, fakes): 102-S1 to S17, S20 to S24. Database functions and the overlap constraint (integration, CI only):
-  102-S2, S4, S6, S12, S14, S15, S17, S21, S23.
-- Equipment (database functions, integration): 102-S28, S30, S32, S33, S34. Equipment list label: 102-S31.
+- Service rules (unit, fakes): 102-S1 to S14, S20 to S24. Database functions and the overlap constraint (integration, CI only):
+  102-S2, S4, S6, S12, S14, S21, S23.
+- Equipment (database functions, integration): 102-S28, S32, S33, S34. Equipment list label: 102-S31.
 - Routes and lists: 102-S25. Web: 102-S18, S19, S26, S27, S29, S35.
 
 ### Questions for the customer (none block the build)

@@ -120,6 +120,8 @@ export interface ChainItem extends BookingListItem {
 
 /** One booking in the list of an event's bookings (SCRUM-98/AC5), with its own numbers and the capacity warning. */
 export interface EventBookingItem extends ChainItem {
+  /** SCRUM-102: only for a CANCELLED one; null for every other status. */
+  cancellationReason: string | null;
   expectedAttendance: number | null;
   venueRequirements: string | null;
   exceedsCapacity: boolean;

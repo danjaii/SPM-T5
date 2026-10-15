@@ -133,9 +133,9 @@ export class BookingService {
     const parsed = parseCancellationInput(body);
     if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
 
-    const cancelled = await bookings.cancel([id], caller.id, now(), parsed.data.reason);
+    const cancelled = await bookings.cancel(id, caller.id, now(), parsed.data.reason);
     if (!cancelled) throw bookingError("NOT_ACTIVE"); // it was decided or withdrawn a moment ago
-    return cancelled[0];
+    return cancelled;
   }
 
   /**

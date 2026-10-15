@@ -61,11 +61,11 @@ export class TrackingService {
     return new Map(venues.map((v) => [v.id, v.name]));
   }
 
-  /** 33-S1, S3, S4: my events' requests, newest first. Legacy statuses outside this feature are left out. */
+  /** 33-S1, S3, S4: my events' requests, newest first. Cancelled ones are listed too (102-S25). */
   async list(caller: Caller): Promise<BookingListItem[]> {
     this.requireCoordinator(caller);
     const eventIds = await this.deps.events.listIdsAssignedTo(caller.id);
-    const bookings = (await this.deps.bookings.listByEvents(eventIds)).filter((b) => b.status !== "cancelled");
+    const bookings = await this.deps.bookings.listByEvents(eventIds);
     const names = await this.venueNames(bookings);
     return bookings.map((b) => toBookingListItem(b, names.get(b.venueId) ?? "Unknown venue"));
   }
@@ -80,9 +80,8 @@ export class TrackingService {
     if (!event) throw notFound("Event not found.");
     if (event.assignedCoordinatorId !== caller.id) throw forbidden();
 
-    const bookings = (await this.deps.bookings.listByEvent(eventId))
-      .filter((b) => b.status !== "cancelled")
-      .sort((a, b) => a.start.getTime() - b.start.getTime() || a.createdAt.getTime() - b.createdAt.getTime());
+    // 102-S25: cancelled ones are listed too, with their reason
+    const bookings = (await this.deps.bookings.listByEvent(eventId)).sort((a, b) => a.start.getTime() - b.start.getTime() || a.createdAt.getTime() - b.createdAt.getTime());
     const venues = new Map((await this.deps.venues.getByIds([...new Set(bookings.map((b) => b.venueId))])).map((v) => [v.id, v]));
 
     return bookings.map((b) => {
@@ -92,6 +91,7 @@ export class TrackingService {
         expectedAttendance: b.snapshot.expectedAttendance,
         venueRequirements: b.snapshot.venueRequirements,
         rejectionReason: rejectionReasonOf(b),
+        cancellationReason: b.cancellationReason, // only a cancelled one has a reason
         exceedsCapacity: exceedsCapacity(b.snapshot.expectedAttendance, venue?.maxCapacity),
       };
     });
