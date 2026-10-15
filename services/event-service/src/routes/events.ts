@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { attachmentProblem, canDecideEvent, canRequestChange, canReviewEvents, isEventStatus, isRole, type Role } from "@spm-t5/shared";
+import { attachmentProblem, canDecideEvent, canRequestChange, canReviewEvents, isClosedEventStatus, isEventStatus, isRole, type Role } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
@@ -63,6 +63,10 @@ interface EventDetailRow {
   submitted_at: string | null;
   assigned_coordinator_id: string | null;
   organiser: unknown;
+  // SCRUM-111/AC5
+  description: string | null;
+  venue_requirements: string | null;
+  category: unknown;
 }
 
 /**
@@ -160,6 +164,8 @@ export function eventRoutes(deps: SupabaseDeps) {
         "id, name, status, purpose, preferred_start_datetime, preferred_end_datetime, " +
         "expected_attendance, preferred_room_layout:preferred_room_layout_id(name), " +
         "accessibility_requirements, equipment_requirements_notes, submitted_at, " +
+        // SCRUM-111/AC5: the details the edit form can change
+        "description, venue_requirements, category:event_category_id(name), " +
         "assigned_coordinator_id, organiser:organiser_id(full_name)"
       )
       .eq("id", req.params.id);
@@ -207,6 +213,12 @@ export function eventRoutes(deps: SupabaseDeps) {
       submitted_at: (event.submitted_at as string | null) ?? null,
       organiser_name: embeddedName(event.organiser),
       point_of_contact_name: pointOfContactName,
+      // SCRUM-111/AC5: the latest saved details
+      description: (event.description as string | null) ?? null,
+      category_name: (event.category as { name: string } | null)?.name ?? null,
+      venue_requirements: (event.venue_requirements as string | null) ?? null,
+      // SCRUM-111/AC6, AC7: whether this viewer may edit them (PATCH /events/:id checks again)
+      canEdit: canChangeStatus && !isClosedEventStatus(event.status),
     });
   });
 

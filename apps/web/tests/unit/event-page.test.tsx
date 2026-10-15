@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getEvent, getEventOutcome } = vi.hoisted(() => ({ getEvent: vi.fn(), getEventOutcome: vi.fn() }));
 const { getEventVenueBookings } = vi.hoisted(() => ({ getEventVenueBookings: vi.fn() }));
-vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome }));
+const { getEventChangeHistory } = vi.hoisted(() => ({ getEventChangeHistory: vi.fn(async () => null as unknown) }));
+vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome, getEventChangeHistory }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getEventVenueBookings }));
 const { getEventEquipmentRequests } = vi.hoisted(() => ({ getEventEquipmentRequests: vi.fn() }));
 vi.mock("@/lib/equipmentRequestsServer", () => ({ getEventEquipmentRequests }));
@@ -260,3 +261,66 @@ describe("SCRUM-44 — review outcome on the event page", () => {
     expect(getEventOutcome).not.toHaveBeenCalled();
   });
 });
+
+// ----------------------------------------------------------------------------
+// SCRUM-111 editing the event's details from its page
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-111 the event page's Edit button, saved message and change history (111-S13, 111-S15 to 111-S17)", () => {
+  beforeEach(() => {
+    getEventVenueBookings.mockReset().mockResolvedValue(null);
+    getEventOutcome.mockReset().mockResolvedValue(null);
+    getEventEquipmentRequests.mockReset().mockResolvedValue(null);
+    getEventChangeHistory.mockReset().mockResolvedValue(null);
+    stubEventService();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const withEvent = (canEdit: boolean) =>
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: canEdit, canReview: false, canEdit } });
+
+  // event-service says whether this viewer may edit (the assigned coordinator, while the event is not finished)
+  it.each([
+    [true, true],
+    [false, false],
+  ])("111-S16, S17 canEdit %s: the Edit event details link is shown: %s", async (canEdit, shown) => {
+    withEvent(canEdit);
+
+    await open("evt-1");
+
+    const link = screen.queryByRole("link", { name: "Edit event details" });
+    expect(!!link).toBe(shown);
+    if (link) expect(link.getAttribute("href")).toBe("/events/evt-1/edit");
+  });
+
+  it("111-S15 back from the edit form, the page says the details were saved", async () => {
+    withEvent(true);
+
+    render(await EventPage({ params: Promise.resolve({ id: "evt-1" }), searchParams: Promise.resolve({ saved: "1" }) }));
+
+    expect(screen.getAllByRole("status").some((el) => el.textContent === "Event details saved.")).toBe(true); // the page has other live regions too
+  });
+
+  it("111-S15 without it, no saved message", async () => {
+    withEvent(true);
+
+    await open("evt-1");
+
+    expect(screen.queryByText("Event details saved.")).toBeNull();
+  });
+
+  it("111-S13 shows the change history it loads for this event", async () => {
+    withEvent(true);
+    getEventChangeHistory.mockResolvedValue([
+      { id: "h-1", changedAt: "2099-10-02T03:00:00+00:00", changedBy: "Rachel Tan", important: false, changes: [{ field: "name", label: "Event name", from: "Summit", to: "Tech Summit" }] },
+    ]);
+
+    await open("evt-1");
+
+    expect(getEventChangeHistory).toHaveBeenCalledWith("evt-1");
+    expect(screen.getByRole("heading", { name: "Change history" })).toBeTruthy();
+    expect(screen.getByText(/Summit → Tech Summit/)).toBeTruthy();
+  });
+});
+// end of SCRUM-111
+
