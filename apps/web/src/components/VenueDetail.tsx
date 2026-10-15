@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { VenueTimingForm } from "./VenueTimingForm";
 
 export interface VenueDetails {
@@ -51,6 +52,11 @@ export function VenueDetail({ venue }: { venue: VenueDetails }) {
         <dt>Turnaround time</dt>
         <dd>{minutes(venue.turnaround_minutes)}</dd>
       </dl>
+
+      {/* SCRUM-103: what is booked on a day, with setup and turnaround shown apart from the event */}
+      <p>
+        <Link href={`/venues/${venue.id}/availability`}>View availability</Link>
+      </p>
 
       {venue.can_edit_timing && (
         <VenueTimingForm venueId={venue.id} setupMinutes={venue.setup_minutes} turnaroundMinutes={venue.turnaround_minutes} />
