@@ -249,7 +249,13 @@ coordinator of an open event add one. The spec's open-question rules live in `pa
 The equipment catalogue, and reviewing and editing requests (SCRUM-87, SCRUM-88), are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
 `docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
-approving or rejecting a request, and applying it to the event, is not built yet. `auth-service` also serves a user's own profile
+approving or rejecting a request, and applying it to the event, is not built yet. The assigned coordinator edits an event's details
+(SCRUM-111; spec in `docs/specs/edit-event-details.md`, `routes/eventDetails.ts`, migration 34): ordinary fields (name, description,
+purpose, category) and important ones (dates and times, attendance, layout, accessibility, venue and equipment requirements; the
+lists are in `packages/shared/src/eventDetails.ts`), not for a completed, cancelled or rejected event. `update_event_details()` saves
+the edit and a row in `event_change_history` together, which the event's coordinator and organiser can read. Migration 34 also adds
+`events.venue_requirements`. Showing which arrangements an important change affects, and sending them back for review, is
+SCRUM-112 and SCRUM-113. `auth-service` also serves a user's own profile
 (SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
 separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
 can be changed. Staff (internal users) also see their department and responsibilities
