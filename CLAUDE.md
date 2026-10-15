@@ -248,7 +248,10 @@ bookings (`venue_booking_id`, migration 25), and migration 25's restrictive inse
 coordinator of an open event add one. The spec's open-question rules live in `packages/shared/src/equipmentRequest.ts`.
 Technical Support Staff review requests (SCRUM-87; same spec): a queue at `/equipment-requests`, and a status change
 through `review_equipment_request()` (migration 32), which refuses Arranged when too few units are free. The
-equipment catalogue, request notes (SCRUM-87/AC8) and editing requests (SCRUM-88) are not built yet.
+assigned Event Coordinator can change a request (SCRUM-88; same spec): `update_equipment_request()` (migration 33) saves
+the change and sends it back to Submitted, where Technical Support Staff see it marked Updated; AC7 (a new safety check)
+waits for the safety check (SCRUM-111 to 113), and AC9 is not built. The equipment catalogue and request notes
+(SCRUM-87/AC8) are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
 `docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
 approving or rejecting a request, and applying it to the event, is not built yet. `auth-service` also serves a user's own profile

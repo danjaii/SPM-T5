@@ -72,6 +72,10 @@ const projectors: EquipmentRequestView = {
   statusLabel: "Arranged",
   releasedReason: null,
   reason: null,
+  equipmentId: "eq-projector",
+  canEdit: false,
+  lastChangedBy: null,
+  lastChangedAt: null,
 };
 
 function mockServer(status: number, body: unknown) {

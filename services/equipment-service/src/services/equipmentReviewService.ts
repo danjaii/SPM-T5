@@ -5,6 +5,7 @@ import {
   EQUIPMENT_REQUEST_STATUS_LABELS,
   equipmentOptionLabel,
   equipmentRequestStatusOf,
+  isUpdatedEquipmentRequest,
   isWaitingEquipmentRequest,
   parseEquipmentRequestReviewInput,
   utcToSgt,
@@ -14,6 +15,7 @@ import { eventLocked, forbidden, notFound, notWaiting, tooFewToArrange, validati
 import type { Ports } from "../ports";
 import type { EquipmentRequestInfo } from "../readers/equipmentRequestReader";
 import type { Caller } from "./availabilityService";
+import { sgtMoment } from "./equipmentRequestService";
 
 /** SCRUM-87/AC1: one row of the queue. Dates are Singapore time. */
 export interface EquipmentQueueItem {
@@ -27,6 +29,8 @@ export interface EquipmentQueueItem {
   quantity: number;
   status: EquipmentRequestStatus;
   statusLabel: string;
+  /** SCRUM-88/AC2: the coordinator changed it since Technical Support Staff last acted on it. */
+  updated: boolean;
 }
 
 /** SCRUM-87/AC3: one request in full. Dates and times are Singapore time. */
@@ -39,6 +43,9 @@ export interface EquipmentRequestDetail extends EquipmentQueueItem {
   reason: string | null;
   /** AC4: whether its status can still be changed (Submitted or Under Review, for an event that is not finished). */
   canReview: boolean;
+  /** SCRUM-88/AC8: who last changed it, and when (Singapore time); null if never changed. */
+  lastChangedBy: string | null;
+  lastChangedAt: string | null;
 }
 
 /** The status a row shows as; the reader only returns rows that have one, apart from cancelled ones. */
@@ -57,6 +64,7 @@ function toQueueItem(r: EquipmentRequestInfo, status: EquipmentRequestStatus): E
     quantity: r.quantity,
     status,
     statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS[status],
+    updated: isUpdatedEquipmentRequest(status, r.lastChangedAt),
   };
 }
 
@@ -107,6 +115,8 @@ export class EquipmentReviewService {
       notes: r.notes,
       reason: r.reviewReason,
       canReview: isWaitingEquipmentRequest(status) && canRequestEquipment(r.eventStatus),
+      lastChangedBy: r.lastChangedBy,
+      lastChangedAt: sgtMoment(r.lastChangedAt),
     };
   }
 

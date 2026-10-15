@@ -3,7 +3,7 @@ import { EQUIPMENT_REQUEST_REVIEW_MESSAGES } from "@spm-t5/shared";
 import type { EquipmentQueueItemView } from "@/lib/equipmentRequests";
 
 // SCRUM-87/AC1: the requests waiting for action, soonest event first (equipment-service orders them).
-// AC2: none shows the spec's message.
+// AC2: none shows the spec's message. SCRUM-88/AC2: a request the coordinator changed is marked Updated.
 export function EquipmentQueueList({ requests }: { requests: EquipmentQueueItemView[] }) {
   if (requests.length === 0) return <p className="empty">{EQUIPMENT_REQUEST_REVIEW_MESSAGES.queueEmpty}</p>;
 
@@ -30,7 +30,10 @@ export function EquipmentQueueList({ requests }: { requests: EquipmentQueueItemV
               <td>{r.venueName ?? "No venue"}</td>
               <td>{r.equipment}</td>
               <td>{r.quantity}</td>
-              <td><span className="status-badge">{r.statusLabel}</span></td>
+              <td>
+                <span className="status-badge">{r.statusLabel}</span>
+                {r.updated && <> <span className="status-badge">Updated</span></>}
+              </td>
             </tr>
           ))}
         </tbody>

@@ -11,6 +11,8 @@ import {
   EQUIPMENT_REQUEST_STATUSES,
   equipmentOptionLabel,
   equipmentReadiness,
+  isEditableEquipmentRequest,
+  isUpdatedEquipmentRequest,
   equipmentRequestStatusOf,
   isWaitingEquipmentRequest,
   parseEquipmentRequestReviewInput,
@@ -203,6 +205,24 @@ describe("SCRUM-87/AC4, AC5 parseEquipmentRequestReviewInput", () => {
 describe("SCRUM-87/AC1, AC4 waiting requests", () => {
   it("Submitted and Under Review are waiting; Arranged and Cannot Fulfil are not", () => {
     expect(EQUIPMENT_REQUEST_STATUSES.filter(isWaitingEquipmentRequest)).toEqual(["SUBMITTED", "UNDER_REVIEW"]);
+  });
+});
+
+describe("SCRUM-88 which requests can be changed, and the Updated mark", () => {
+  it.each(["SUBMITTED", "UNDER_REVIEW", "ARRANGED", "CANNOT_FULFIL"] as const)("AC1, AC2: a %s request can be changed", (status) => {
+    expect(isEditableEquipmentRequest(status)).toBe(true);
+  });
+
+  it("decision: Released equipment cannot be changed", () => {
+    expect(isEditableEquipmentRequest("RELEASED")).toBe(false);
+  });
+
+  it("AC2: Updated means changed by the coordinator and still waiting at Submitted", () => {
+    const changedAt = new Date("2026-10-15T09:40:00Z");
+    expect(isUpdatedEquipmentRequest("SUBMITTED", changedAt)).toBe(true);
+    expect(isUpdatedEquipmentRequest("SUBMITTED", null)).toBe(false);
+    // staff acted on it after the change
+    expect(isUpdatedEquipmentRequest("UNDER_REVIEW", changedAt)).toBe(false);
   });
 });
 

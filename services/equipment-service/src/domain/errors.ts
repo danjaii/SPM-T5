@@ -5,7 +5,8 @@ export type ServiceErrorCode =
   | "INSUFFICIENT"
   | "NOT_FOUND"
   | "EVENT_LOCKED"
-  | "NOT_WAITING";
+  | "NOT_WAITING"
+  | "NOT_EDITABLE";
 
 export class ServiceError extends Error {
   constructor(
@@ -53,6 +54,9 @@ export const eventLocked = (message: string) => new ServiceError("EVENT_LOCKED",
 
 /** 409, SCRUM-87/AC4: the request is already Arranged or Cannot Fulfil, so its status can no longer be changed. */
 export const notWaiting = (message: string) => new ServiceError("NOT_WAITING", 409, message);
+
+/** 409, SCRUM-88 (decision): Released equipment cannot be changed. */
+export const notEditable = (message: string) => new ServiceError("NOT_EDITABLE", 409, message);
 
 /** 409, SCRUM-87 (decision): too few units are free in the request's period to mark it Arranged. */
 export const tooFewToArrange = (available: number, needed: number) =>

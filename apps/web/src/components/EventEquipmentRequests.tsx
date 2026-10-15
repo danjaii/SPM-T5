@@ -5,6 +5,7 @@ import type { EventEquipmentRequestsView } from "@/lib/equipmentRequests";
 // Technical Support Staff (equipment-service answers nobody else); null means no section. AC6, AC7: the Request
 // equipment button only when equipment-service says the viewer may add one. SCRUM-87/AC5: a Cannot Fulfil request
 // shows its reason under the status; AC6: whether the event's equipment is ready (Complete or Incomplete).
+// SCRUM-88/AC1: a Change link on each request the viewer may change; AC8: who last changed it, and when.
 export function EventEquipmentRequests({ eventId, data }: { eventId: string; data: EventEquipmentRequestsView | null }) {
   if (!data) return null;
   return (
@@ -27,6 +28,7 @@ export function EventEquipmentRequests({ eventId, data }: { eventId: string; dat
                 <th>Venue</th>
                 <th>Notes</th>
                 <th>Status</th>
+                {data.requests.some((r) => r.canEdit) && <th><span className="visually-hidden">Actions</span></th>}
               </tr>
             </thead>
             <tbody>
@@ -41,7 +43,19 @@ export function EventEquipmentRequests({ eventId, data }: { eventId: string; dat
                     {r.reason && <span className="field__hint"><br />Reason: {r.reason}</span>}
                     {/* SCRUM-102/AC7: released with its venue booking, which says why */}
                     {r.releasedReason && <span className="vb__note">Venue booking cancelled: {r.releasedReason}</span>}
+                    {r.lastChangedBy && (
+                      <span className="field__hint"><br />Last changed by {r.lastChangedBy}, {r.lastChangedAt}</span>
+                    )}
                   </td>
+                  {data.requests.some((x) => x.canEdit) && (
+                    <td>
+                      {r.canEdit && (
+                        <Link href={`/events/${eventId}/equipment-request/${r.id}`} aria-label={`Change the ${r.equipment} request`}>
+                          Change
+                        </Link>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

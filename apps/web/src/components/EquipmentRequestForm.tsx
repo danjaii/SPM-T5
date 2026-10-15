@@ -4,18 +4,37 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { parseEquipmentRequestInput } from "@spm-t5/shared";
 import { Field } from "./Field";
-import { submitEquipmentRequest, type EquipmentRequestFormData } from "@/lib/equipmentRequests";
+import {
+  submitEquipmentRequest,
+  updateEquipmentRequest,
+  type EquipmentRequestEditFormData,
+  type EquipmentRequestFormData,
+} from "@/lib/equipmentRequests";
 
 // SCRUM-86/AC1: the assigned coordinator picks an item (listed under its type), a quantity and one of the event's
 // approved venues, with optional technical notes. AC4, AC5: validation is the shared parseEquipmentRequestInput, so the
 // form and equipment-service agree; invalid fields are highlighted and everything typed is kept.
-export function EquipmentRequestForm({ form }: { form: EquipmentRequestFormData }) {
+// SCRUM-88/AC1: given an `existing` request, the same form changes it, starting on its current details. AC2: saving
+// sends it back to Technical Support Staff, which the form says first. AC3: a refused change keeps what was typed,
+// and the old details stay saved.
+export function EquipmentRequestForm({
+  form,
+  existing,
+}: {
+  form: EquipmentRequestFormData;
+  existing?: EquipmentRequestEditFormData["request"];
+}) {
   const router = useRouter();
-  const [equipmentId, setEquipmentId] = useState("");
-  const [quantity, setQuantity] = useState("");
+  // An item or venue no longer offered (retired, or no longer approved) starts unchosen, so the coordinator picks again.
+  const offered = <T extends { id: string }>(list: T[], id: string | null | undefined) =>
+    id && list.some((o) => o.id === id) ? id : "";
+  const [equipmentId, setEquipmentId] = useState(offered(form.equipment, existing?.equipmentId));
+  const [quantity, setQuantity] = useState(existing ? String(existing.quantity) : "");
   // With one approved venue there is nothing to choose, so it is picked already.
-  const [venueBookingId, setVenueBookingId] = useState(form.venues.length === 1 ? form.venues[0].id : "");
-  const [notes, setNotes] = useState("");
+  const [venueBookingId, setVenueBookingId] = useState(
+    existing ? offered(form.venues, existing.venueBookingId) : form.venues.length === 1 ? form.venues[0].id : "",
+  );
+  const [notes, setNotes] = useState(existing?.notes ?? "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -33,24 +52,32 @@ export function EquipmentRequestForm({ form }: { form: EquipmentRequestFormData 
     setFieldErrors({});
 
     setSaving(true);
-    const { ok, data } = await submitEquipmentRequest(form.event.id, input);
+    const { ok, data } = existing
+      ? await updateEquipmentRequest(form.event.id, existing.id, input)
+      : await submitEquipmentRequest(form.event.id, input);
     if (ok) {
-      // AC2: back to the event, where the new request is listed as Submitted.
+      // AC2: back to the event, where the new (or changed) request is listed as Submitted.
       router.push(`/events/${form.event.id}`);
       router.refresh();
       return;
     }
     if (data.fieldErrors) setFieldErrors(data.fieldErrors);
-    setError(data.error ?? "We couldn't submit the request. Please try again.");
+    setError(data.error ?? (existing ? "We couldn't save your changes. Please try again." : "We couldn't submit the request. Please try again."));
     setSaving(false);
   }
 
   return (
     <section className="event">
-      <h1>Request equipment</h1>
+      <h1>{existing ? "Change equipment request" : "Request equipment"}</h1>
       <p className="event__status">{form.event.name}</p>
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}
+      {existing && existing.status !== "SUBMITTED" && (
+        <p className="alert alert--info" role="status">
+          This request is {existing.statusLabel}. Saving a change sends it back to Technical Support Staff as Submitted,
+          marked Updated, so they can review it again.
+        </p>
+      )}
       {form.venues.length === 0 && (
         <p className="alert alert--info" role="status">
           This event has no approved venue booking yet. Equipment is requested for a booked venue, so request a venue
@@ -102,7 +129,9 @@ export function EquipmentRequestForm({ form }: { form: EquipmentRequestFormData 
           <textarea id="notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
-        <button className="btn" type="submit" disabled={saving}>{saving ? "Submitting…" : "Submit request"}</button>
+        <button className="btn" type="submit" disabled={saving}>
+          {existing ? (saving ? "Saving…" : "Save changes") : saving ? "Submitting…" : "Submit request"}
+        </button>
       </form>
     </section>
   );

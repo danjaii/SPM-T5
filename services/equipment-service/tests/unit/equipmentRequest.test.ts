@@ -74,6 +74,7 @@ describe("SCRUM-86/AC1 create a request", () => {
     expect(res.status).toBe(201);
     expect(res.body).toEqual({
       id: "req-new-1",
+      equipmentId: "eq-mic",
       equipment: "Audio: Wireless Microphone Set",
       quantity: 4,
       venueName: "Grand Hall",
@@ -83,6 +84,9 @@ describe("SCRUM-86/AC1 create a request", () => {
       statusLabel: "Submitted",
       reason: null,
       releasedReason: null, // SCRUM-102: only a Released one has a reason
+      canEdit: true, // SCRUM-88
+      lastChangedBy: null,
+      lastChangedAt: null,
     });
     expect(writer.saved).toEqual([
       {
@@ -163,6 +167,7 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
     expect(res.body.requests).toEqual([
       {
         id: "req-1",
+        equipmentId: "eq-projector",
         equipment: "AV: Projector Unit",
         quantity: 2,
         venueName: "Grand Hall",
@@ -172,6 +177,9 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
         statusLabel: "Submitted",
         reason: null,
         releasedReason: null, // SCRUM-102: only a Released one has a reason
+        canEdit: true, // SCRUM-88
+        lastChangedBy: null,
+        lastChangedAt: null,
       },
     ]);
   });

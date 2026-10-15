@@ -8,6 +8,8 @@ export interface EquipmentRequestInfo {
   eventName: string;
   eventStatus: string;
   eventStart: Date | null;
+  /** SCRUM-88/AC1: the item, so the change form starts on it. */
+  equipmentId: string;
   equipmentName: string;
   equipmentType: string | null;
   quantity: number;
@@ -25,6 +27,9 @@ export interface EquipmentRequestInfo {
   reviewReason: string | null;
   /** SCRUM-102 (102-S31): why its venue booking was cancelled, which released this equipment; null otherwise. */
   venueBookingCancellationReason: string | null;
+  /** SCRUM-88/AC8: who last changed it (their name) and when; null if it has not been changed since it was made. */
+  lastChangedBy: string | null;
+  lastChangedAt: Date | null;
   createdAt: Date;
 }
 
@@ -40,7 +45,8 @@ export interface EquipmentRequestReader {
 type Row = Record<string, unknown>;
 
 const COLUMNS =
-  "id, event_id, venue_booking_id, quantity_requested, notes, status, start_datetime, end_datetime, review_reason, created_at, " +
+  "id, event_id, equipment_id, venue_booking_id, quantity_requested, notes, status, start_datetime, end_datetime, " +
+  "review_reason, last_edited_at, created_at, editor:users!equipment_reservations_last_edited_by_fkey(full_name), " +
   "event:events(name, status, preferred_start_datetime), equipment:equipment(name, type), " +
   "booking:venue_bookings(cancellation_reason, venue:venues!venue_bookings_venue_id_fkey(name))";
 
@@ -49,12 +55,14 @@ const toRequest = (r: Row): EquipmentRequestInfo => {
   const equipment = r.equipment as Row | null;
   const booking = r.booking as Row | null;
   const venue = booking?.venue as Row | null | undefined;
+  const editor = r.editor as Row | null | undefined;
   return {
     id: r.id as string,
     eventId: r.event_id as string,
     eventName: (event?.name as string | undefined) ?? "Unknown event",
     eventStatus: (event?.status as string | undefined) ?? "",
     eventStart: event?.preferred_start_datetime ? new Date(event.preferred_start_datetime as string) : null,
+    equipmentId: r.equipment_id as string,
     equipmentName: (equipment?.name as string | undefined) ?? "Unknown equipment",
     equipmentType: (equipment?.type as string | null | undefined) ?? null,
     quantity: r.quantity_requested as number,
@@ -66,6 +74,8 @@ const toRequest = (r: Row): EquipmentRequestInfo => {
     end: new Date(r.end_datetime as string),
     reviewReason: (r.review_reason as string | null) ?? null,
     venueBookingCancellationReason: (booking?.cancellation_reason as string | null | undefined) ?? null,
+    lastChangedBy: r.last_edited_at ? ((editor?.full_name as string | undefined) ?? "Unknown user") : null,
+    lastChangedAt: r.last_edited_at ? new Date(r.last_edited_at as string) : null,
     createdAt: new Date(r.created_at as string),
   };
 };

@@ -72,6 +72,7 @@ describe("SCRUM-87/AC1 see the list of requests", () => {
         quantity: 2,
         status: "SUBMITTED",
         statusLabel: "Submitted",
+        updated: false, // SCRUM-88/AC2
       },
     ]);
   });
@@ -134,11 +135,14 @@ describe("SCRUM-87/AC3 see request details", () => {
       quantity: 2,
       status: "SUBMITTED",
       statusLabel: "Submitted",
+      updated: false, // SCRUM-88/AC2
       startTime: "09:00",
       endTime: "17:00",
       notes: "Two on stage",
       reason: null,
       canReview: true,
+      lastChangedBy: null, // SCRUM-88/AC8
+      lastChangedAt: null,
     });
   });
 
