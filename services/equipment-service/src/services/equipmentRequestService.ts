@@ -47,6 +47,8 @@ export interface EquipmentRequestView {
   notes: string | null;
   status: EquipmentRequestStatus;
   statusLabel: string;
+  /** SCRUM-102 (102-S31): for a Released one, why its venue booking was cancelled; null otherwise. */
+  releasedReason: string | null;
 }
 
 /** GET /events/:id/equipment-requests: the event's requests, and whether the caller may add one. */
@@ -135,6 +137,7 @@ export class EquipmentRequestService {
       notes,
       status: "SUBMITTED",
       statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS.SUBMITTED,
+      releasedReason: null,
     };
   }
 
@@ -161,6 +164,8 @@ export class EquipmentRequestService {
         notes: r.notes,
         status,
         statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS[status],
+        // only a cancelled venue booking has a reason, and cancelling it released all its equipment (migration 30)
+        releasedReason: r.venueBookingCancellationReason,
       });
     }
     return { requests, canCreate: isAssigned && canRequestEquipment(event.status) };

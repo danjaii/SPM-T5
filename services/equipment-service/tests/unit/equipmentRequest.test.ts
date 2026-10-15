@@ -78,6 +78,7 @@ describe("SCRUM-86/AC1 create a request", () => {
       notes: "Two on stage",
       status: "SUBMITTED",
       statusLabel: "Submitted",
+      releasedReason: null, // SCRUM-102: only a Released one has a reason
     });
     expect(writer.saved).toEqual([
       {
@@ -164,19 +165,32 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
         notes: "Near the stage",
         status: "SUBMITTED",
         statusLabel: "Submitted",
+        releasedReason: null, // SCRUM-102: only a Released one has a reason
       },
     ]);
   });
 
-  it("rows made before requests named a venue show no venue; cancelled rows are not shown", async () => {
+  it("rows made before requests named a venue show no venue", async () => {
+    const { list } = setup({ stored: [anEquipmentRequest({ id: "old", venueName: null, status: "reserved" })] });
+    const res = await list();
+    expect(res.body.requests).toEqual([expect.objectContaining({ id: "old", venueName: null, status: "ARRANGED", statusLabel: "Arranged" })]);
+  });
+
+  // SCRUM-102/AC7 (102-S31): the coordinator cancelled the Grand Hall venue booking ("Moved to a bigger room"), which
+  // released its 2 projectors; the list says so instead of hiding them (it used to leave cancelled rows out)
+  it("102-S31 equipment released with its venue booking shows as Released, with the venue booking's cancellation reason", async () => {
     const { list } = setup({
       stored: [
-        anEquipmentRequest({ id: "old", venueName: null, status: "reserved" }),
-        anEquipmentRequest({ id: "gone", status: "cancelled" }),
+        anEquipmentRequest({ id: "released", status: "cancelled", venueBookingCancellationReason: "Moved to a bigger room" }),
+        anEquipmentRequest({ id: "still-needed", status: "approved" }),
       ],
     });
     const res = await list();
-    expect(res.body.requests).toEqual([expect.objectContaining({ id: "old", venueName: null, status: "ARRANGED", statusLabel: "Arranged" })]);
+
+    expect(res.body.requests).toEqual([
+      expect.objectContaining({ id: "released", venueName: "Grand Hall", status: "RELEASED", statusLabel: "Released", releasedReason: "Moved to a bigger room" }),
+      expect.objectContaining({ id: "still-needed", status: "ARRANGED", releasedReason: null }),
+    ]);
   });
 
   it("Technical Support Staff can see an event's requests too, but cannot add one", async () => {

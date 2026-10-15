@@ -266,8 +266,10 @@ describe("SCRUM-86 Supabase readers and writer", () => {
           status: "requested",
           created_at: "2026-10-01T01:00:00+00:00",
           equipment: { name: "Wireless Microphone Set", type: "Audio" },
-          booking: { venue: { name: "Grand Hall" } },
+          booking: { cancellation_reason: null, venue: { name: "Grand Hall" } },
         },
+        // SCRUM-102 (102-S31): equipment released with its venue booking, which says why it was cancelled
+        { id: "rel-1", event_id: "evt-1", quantity_requested: 3, notes: null, status: "cancelled", created_at: "2026-10-02T01:00:00+00:00", equipment: { name: "Cable", type: null }, booking: { cancellation_reason: "Moved to a bigger room", venue: { name: "Orchid Hall" } } },
         // A row from before requests named a venue, for an item with no type.
         { id: "res-1", event_id: "evt-1", quantity_requested: 1, notes: null, status: "reserved", created_at: "2026-09-01T01:00:00+00:00", equipment: { name: "Cable", type: null }, booking: null },
       ],
@@ -275,8 +277,9 @@ describe("SCRUM-86 Supabase readers and writer", () => {
     });
 
     expect(await new SupabaseEquipmentRequestReader(db).forEvent("evt-1")).toEqual([
-      { id: "req-1", eventId: "evt-1", equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", notes: "On stage", status: "requested", createdAt: new Date("2026-10-01T01:00:00Z") },
-      { id: "res-1", eventId: "evt-1", equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, notes: null, status: "reserved", createdAt: new Date("2026-09-01T01:00:00Z") },
+      { id: "req-1", eventId: "evt-1", equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", notes: "On stage", status: "requested", venueBookingCancellationReason: null, createdAt: new Date("2026-10-01T01:00:00Z") },
+      { id: "rel-1", eventId: "evt-1", equipmentName: "Cable", equipmentType: null, quantity: 3, venueName: "Orchid Hall", notes: null, status: "cancelled", venueBookingCancellationReason: "Moved to a bigger room", createdAt: new Date("2026-10-02T01:00:00Z") },
+      { id: "res-1", eventId: "evt-1", equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, notes: null, status: "reserved", venueBookingCancellationReason: null, createdAt: new Date("2026-09-01T01:00:00Z") },
     ]);
     expect(calls).toContainEqual(["from", "equipment_reservations"]);
     expect(calls).toContainEqual(["eq", "event_id", "evt-1"]);
