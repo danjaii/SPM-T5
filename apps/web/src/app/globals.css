@@ -574,7 +574,6 @@ tr:last-child td { border-bottom: 0; }
   .detail-table th { font-size: 13px; margin-bottom: 2px; }
 }
 
-<<<<<<< HEAD
 /* SCRUM-112: the arrangements an important change may affect, before it is saved */
 .impact { margin-top: 8px; padding: 16px; background: var(--warn-bg); border-left: 3px solid var(--warn); }
 .impact h2 { margin: 0 0 6px; font-size: 16px; color: var(--warn); }
@@ -585,7 +584,7 @@ tr:last-child td { border-bottom: 0; }
 .impact__reasons { margin: 0; padding-left: 18px; font-size: 14px; }
 .impact__actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .impact__actions .btn { width: auto; }
-=======
+
 /* ---------- Venue availability day (SCRUM-103) ---------- */
 .avail__form { display: flex; align-items: flex-end; gap: 12px; margin: 16px 0 24px; }
 .avail__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
@@ -597,4 +596,3 @@ tr:last-child td { border-bottom: 0; }
 .avail__segment--event { background: var(--steel-dark); color: #fff; }
 .avail__segment--setup, .avail__segment--turnaround { background: var(--selected); color: var(--ink); border-style: dashed; }
 @media (max-width: 800px) { .avail__bar { flex-direction: column; } .avail__segment { min-width: 0; } }
->>>>>>> origin/main
