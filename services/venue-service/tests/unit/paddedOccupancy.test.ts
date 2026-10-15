@@ -7,6 +7,7 @@ import { SlotConflictRule } from "../../src/services/slotConflictRule";
 import type { SupabaseDeps } from "../../src/supabase";
 import { FakeBookingRepository } from "../support/fakeBookingRepository";
 import { FakeEventReader, anEvent } from "../support/fakeEventReader";
+import { FakeVenueDetailsReader } from "../support/fakeVenueDetails";
 import { FakeUserReader } from "../support/fakeUserReader";
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
@@ -39,7 +40,7 @@ function setup(holderStatus: "approved" | "requested" = "approved") {
     aVenue({ id: LOTUS, name: "Lotus Room" }),
   ]);
   const roles = new FakeRoleReader({ "coordinator-1": "event_coordinator" });
-  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader() }) });
+  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader(), venueDetails: FakeVenueDetailsReader.from(venues) }) });
   const submit = (venueId: string, startTime: string, endTime: string) =>
     request(app).post("/venue-bookings").set("Cookie", "cs_session=tok-coordinator-1").send({ eventId: "summit-b", venueId, date: DAY, startTime, endTime });
   return { bookings, submit };

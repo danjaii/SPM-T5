@@ -5,6 +5,7 @@ import type { SupabaseDeps } from "../../src/supabase";
 import { FakeBookingRepository } from "../support/fakeBookingRepository";
 import { FakeEventReader, anEvent } from "../support/fakeEventReader";
 import { FakeUserReader } from "../support/fakeUserReader";
+import { FakeVenueDetailsReader } from "../support/fakeVenueDetails";
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
 // ----------------------------------------------------------------------------
@@ -44,7 +45,7 @@ function setup() {
     "tech-1": "technical_support_staff",
     "attendee-1": "attendee",
   });
-  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader() }) });
+  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader(), venueDetails: FakeVenueDetailsReader.from(venues) }) });
 
   // Orchid Hall (venue-1) 9am-12pm and Lotus Room (venue-2) 9am-5pm, both waiting for venue staff
   const hall = bookings.seed({ eventId: "event-1", venueId: "venue-1", ...on14Nov(1, 4) });

@@ -10,7 +10,8 @@ export const BOOKING_COLUMNS =
   "reviewed_by, reviewed_at, review_notes, withdrawn_by, withdrawn_at, amends_booking_id, from_suggestion, " +
   "cancelled_by, cancelled_at, cancellation_reason, " +
   "suggested_venue_id, suggested_start_datetime, suggested_end_datetime, " +
-  "snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, snapshot_accessibility_needs";
+  "snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, snapshot_accessibility_needs, " +
+  "suitability, suitability_unmet, suitability_override_reason";
 
 type Row = Record<string, unknown>;
 
@@ -42,6 +43,9 @@ export function toBookingRecord(row: Row): BookingRecord {
     cancellationReason: (row.cancellation_reason as string | null) ?? null,
     amendsBookingId: (row.amends_booking_id as string | null) ?? null,
     fromSuggestion: Boolean(row.from_suggestion),
+    suitability: (row.suitability as "suitable" | "not_suitable" | null) ?? null,
+    suitabilityUnmet: (row.suitability_unmet as BookingRecord["suitabilityUnmet"]) ?? null,
+    suitabilityOverrideReason: (row.suitability_override_reason as string | null) ?? null,
     suggestion: row.suggested_venue_id
       ? {
           venueId: row.suggested_venue_id as string,
@@ -196,6 +200,10 @@ export class SupabaseBookingRepository implements BookingRepository {
       p_end: change.end.toISOString(),
       p_expected_attendance: change.expectedAttendance,
       p_venue_requirements: change.venueRequirements,
+      // migration 33: the suitability result made afresh for the changed numbers (null leaves the stored one)
+      p_suitability: change.suitability?.result ?? null,
+      p_suitability_unmet: change.suitability?.unmet ?? null,
+      p_suitability_override_reason: change.suitability?.overrideReason ?? null,
     });
     if (error) throw translate(error);
     return data === true ? this.getById(id) : null;
@@ -253,6 +261,9 @@ export class SupabaseBookingRepository implements BookingRepository {
       snapshot_accessibility_needs: input.snapshot.accessibilityNeeds,
       amends_booking_id: input.amendsBookingId ?? null,
       from_suggestion: input.fromSuggestion ?? false,
+      suitability: input.suitability?.result ?? null,
+      suitability_unmet: input.suitability?.unmet ?? null,
+      suitability_override_reason: input.suitability?.overrideReason ?? null,
     };
 
     // When two overlapping inserts collide head-on, Postgres aborts one as a deadlock victim (40P01;
