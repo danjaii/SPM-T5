@@ -31,7 +31,10 @@ These override `docs/specs/venue-booking-request.md` where they conflict.
 - **Changing a venue booking edits it in place and sends it back to Pending.** The coordinator can change its date, start,
   end, expected attendance and venue requirements, not its venue (a different venue is a new venue booking, SCRUM-98). The
   same row gets the new values and becomes PENDING again, with its earlier decision (who approved it, when, notes) cleared, so
-  venue staff decide on it afresh. If it was APPROVED, it stops holding the old period straight away. **[DECIDED]**
+  venue staff decide on it afresh. If it was APPROVED, it stops holding the old period straight away. Its setup start and
+  teardown end (when it has them) move with it, keeping the same buffer around the new period, so the database's
+  setup-before-start and teardown-after-end checks still hold. Left out, the attendance and requirements keep this venue
+  booking's own values (not the event's). **[DECIDED]**
 - **Only that venue booking is checked again (AC1)**, with the same rules as a new one: the shared validation, the same venue
   overlapping another of this event's venue bookings (`DUPLICATE_VENUE`), another event holding the venue (`SLOT_CONFLICT`),
   the repeat of a rejected slot (`REPEAT_OF_REJECTED`) and the capacity warning (`exceedsCapacity`, never a refusal). The
@@ -78,6 +81,12 @@ These override `docs/specs/venue-booking-request.md` where they conflict.
   be free at the new time. A change to only the attendance or requirements leaves the equipment as it is. The change form says
   this as a statement and lists the equipment. This matches SCRUM-88 AC2 (an edited request goes back to Submitted). **[DECIDED]**
 - **Equipment requests not linked to a venue booking** (older rows, `venue_booking_id` empty) are never touched. **[DECIDED]**
+- **The pages.** The event's "Venue bookings" list has Change and Cancel on each PENDING or APPROVED venue booking, only while
+  the event can still have venues. Cancel opens a confirmation in place: it names the venue booking, lists the equipment it
+  releases, asks for the reason, and has one button ("Cancel venue booking and release equipment", or "Cancel venue booking")
+  and Go back. Change opens `/venue-bookings/:id/change`, a form started from the venue booking, with the venue shown but not
+  editable and a note listing the equipment that moves with it. To know which equipment belongs to which venue booking (a
+  venue can be booked twice), each equipment request in the event's list now carries its `venueBookingId`. **[DECIDED]**
 - **API.** `PATCH /venue-bookings/:id` (change; body like a new request without `eventId` and `venueId`) and `POST
   /venue-bookings/:id/cancel` (body `{ reason }`). Change returns the venue booking with `exceedsCapacity`; cancel returns the
   cancelled venue booking with who cancelled it, when and why. **[DECIDED]**

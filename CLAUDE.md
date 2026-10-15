@@ -228,7 +228,12 @@ spec in `docs/specs/venue-booking-approval.md`). An event can hold several venue
 the one-per-event rule (DR6) is gone, the same venue for an overlapping period on one event is `DUPLICATE_VENUE`, a rejected
 request has at most one active replacement (`ACTIVE_REQUEST_EXISTS`), each booking can have its own expected attendance and
 venue requirements, more people than the venue holds is flagged (`exceedsCapacity`) rather than refused, and
-`GET /events/:id/venue-bookings` lists an event's bookings for its page. Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
+`GET /events/:id/venue-bookings` lists an event's bookings for its page. One of them can be changed (`PATCH
+/venue-bookings/:id`) or cancelled with a reason (`POST /venue-bookings/:id/cancel`) without touching the others (SCRUM-102;
+spec in `docs/specs/change-cancel-venue-booking.md`), through the security definer functions `change_venue_booking()` and
+`cancel_venue_booking()` (migration 30), only by the event's current coordinator and only before the event is Confirmed. A
+change sends it back to PENDING and moves its equipment requests to the new time, back to Submitted; cancelling releases its
+equipment requests (`cancelled`, shown as Released). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
 `available_venues` database function (`18_venue_search.sql`). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
