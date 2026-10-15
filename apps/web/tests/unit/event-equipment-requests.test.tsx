@@ -22,10 +22,12 @@ const aRequest = (over: Partial<EquipmentRequestView> = {}): EquipmentRequestVie
   equipment: "Audio: Wireless Microphone Set",
   quantity: 4,
   venueName: "Grand Hall",
+  venueBookingId: "b-1",
   notes: "Two on stage",
   status: "SUBMITTED",
   statusLabel: "Submitted",
   reason: null,
+  releasedReason: null,
   ...over,
 });
 
@@ -171,3 +173,30 @@ describe("SCRUM-86 equipment-service calls from the server", () => {
     expect(await getEventEquipmentRequests("evt-1")).toBeNull();
   });
 });
+
+// ----------------------------------------------------------------------------
+// SCRUM-102/AC7 equipment released with its venue booking
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-102/AC7 released equipment on the event page (102-S31)", () => {
+  // the Grand Hall venue booking was cancelled ("Moved to a bigger room"), which released the 4 microphones
+  it("102-S31 shows equipment released with its venue booking as Released, with why the venue booking was cancelled", () => {
+    render(
+      <EventEquipmentRequests
+        eventId="evt-1"
+        data={{ requests: [aRequest({ status: "RELEASED", statusLabel: "Released", releasedReason: "Moved to a bigger room" })], canCreate: false, readiness: null, readinessLabel: null }}
+      />,
+    );
+
+    const row = screen.getAllByRole("row")[1];
+    expect(within(row).getByText("Released")).toBeTruthy();
+    expect(within(row).getByText("Venue booking cancelled: Moved to a bigger room")).toBeTruthy();
+  });
+
+  it("102-S31 other equipment requests show no release note", () => {
+    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest()], canCreate: false, readiness: null, readinessLabel: null }} />);
+
+    expect(screen.queryByText(/Venue booking cancelled/)).toBeNull();
+  });
+});
+// end of SCRUM-102

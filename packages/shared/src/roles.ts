@@ -19,6 +19,11 @@ export function canReviewEvents(role: Role): boolean {
   return role === "event_coordinator";
 }
 
+/** SCRUM-75/AC1 + AC7: the Event Coordinator Lead is its own role; only it may use the Lead pages and actions. */
+export function isLead(role: unknown): boolean {
+  return role === "event_coordinator_lead";
+}
+
 /** SCRUM-29: the venue catalogue can only be seen by event coordinator and venue staff */
 export function canViewVenueCatalogue(role: Role): boolean {
   return role === "event_coordinator" || role === "venue_staff";

@@ -2,7 +2,7 @@
 --
 -- Requested (Submitted), approved/reserved (Arranged) and rejected (Cannot Fulfil) already exist; Under Review is
 -- new. It is added on its own because Postgres cannot use a new enum value in the transaction that adds it, and
--- migration 27's functions refer to it.
+-- migration 32's functions refer to it.
 --
 -- SCRUM-18 availability and reserve_equipment() (migration 12) count only 'approved' and 'reserved' rows, so a
 -- request Under Review never reduces availability.

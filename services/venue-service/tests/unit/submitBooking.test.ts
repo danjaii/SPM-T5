@@ -184,20 +184,75 @@ describe("SCRUM-32/AC5 invalid requested times or venue (32-S5)", () => {
   });
 });
 
-describe("SCRUM-32/AC6 one active request per event (32-S6)", () => {
-  it.each(["requested", "approved"])("32-S6 a second submit while %s is 409 ACTIVE_REQUEST_EXISTS", async (status) => {
+// SCRUM-98 replaces SCRUM-32's "one active request per event" rule (32-S6, DR6): an event can now hold several bookings.
+describe("SCRUM-98/AC1 another venue for the same event is a separate booking (98-S1, 98-S2)", () => {
+  // venue-2 is already requested or approved for this event at the very same time as the new request for venue-1
+  it.each(["requested", "approved"])("98-S1/S2 a second venue while the first is %s: 201 and two bookings on the event", async (status) => {
     const { coordinator, bookings } = setup();
-    bookings.seed({ eventId: "event-1", venueId: "venue-2", status, start: new Date("2030-12-01T01:00:00Z"), end: new Date("2030-12-01T02:00:00Z") });
+    bookings.seed({ eventId: "event-1", venueId: "venue-2", status, start: new Date("2030-11-14T01:00:00Z"), end: new Date("2030-11-14T09:00:00Z") });
+
     const res = await coordinator.post(submit());
+
+    expect(res.status).toBe(201);
+    // if code is working, we expect response 201, which means succeed with something created 
+    // it works if for one event, we can book 2 venues 
+    expect(res.body).toMatchObject({ status: "PENDING" });
+    expect(bookings.rows).toHaveLength(2);
+    expect(bookings.rows.map((b) => b.venueId).sort()).toEqual(["venue-1", "venue-2"]);
+    expect(bookings.rows.every((b) => b.eventId === "event-1")).toBe(true);
+  });
+
+  // the same hall in the morning and again in the evening is two bookings, not a clash
+  it("98-S4 the same venue again for a later period that does not overlap: 201", async () => {
+    const { coordinator, bookings } = setup();
+    bookings.seed({ eventId: "event-1", venueId: "venue-1", start: new Date("2030-11-14T01:00:00Z"), end: new Date("2030-11-14T03:00:00Z") }); // 9am-11am SGT
+
+    const res = await coordinator.post(submit({ startTime: "14:00", endTime: "17:00" }));
+
+    expect(res.status).toBe(201);
+    expect(bookings.rows).toHaveLength(2);
+  });
+
+  it("98-S5 the same venue back to back (one ends at 12:00, the next starts at 12:00): 201", async () => {
+    const { coordinator, bookings } = setup();
+    bookings.seed({ eventId: "event-1", venueId: "venue-1", start: new Date("2030-11-14T01:00:00Z"), end: new Date("2030-11-14T04:00:00Z") }); // 9am-12pm SGT
+
+    expect((await coordinator.post(submit({ startTime: "12:00", endTime: "17:00" }))).status).toBe(201);
+  });
+});
+
+describe("SCRUM-98/AC3 the same venue for an overlapping period is not allowed (98-S13 to 98-S15)", () => {
+  // this event already holds venue-1 from 10am to 12pm; the new request is venue-1 from 9am to 5pm, which overlaps it
+  const ownHold = { eventId: "event-1", venueId: "venue-1", start: new Date("2030-11-14T02:00:00Z"), end: new Date("2030-11-14T04:00:00Z") };
+
+  it.each([
+    ["98-S13", "requested"],
+    ["98-S14", "approved"],
+  ])("%s overlapping this event's own %s booking at the same venue: 409 DUPLICATE_VENUE and no row", async (_id, status) => {
+    const { coordinator, bookings } = setup();
+    bookings.seed({ ...ownHold, status });
+
+    const res = await coordinator.post(submit());
+
     expect(res.status).toBe(409);
-    expect(res.body.code).toBe("ACTIVE_REQUEST_EXISTS");
+    expect(res.body).toEqual({ code: "DUPLICATE_VENUE", error: "This event already holds this venue for part of that period." });
     expect(bookings.rows).toHaveLength(1);
   });
 
-  it.each(["rejected", "withdrawn"])("32-S6 after the earlier one is %s, submit is 201", async (status) => {
+  // a rejected or withdrawn booking no longer holds the venue, so it does not count
+  it.each(["rejected", "withdrawn"])("98-S15 overlapping this event's own %s booking at the same venue: 201", async (status) => {
     const { coordinator, bookings } = setup();
-    bookings.seed({ eventId: "event-1", venueId: "venue-2", status, start: new Date("2030-12-01T01:00:00Z"), end: new Date("2030-12-01T02:00:00Z") });
+    bookings.seed({ ...ownHold, status });
+
     expect((await coordinator.post(submit())).status).toBe(201);
+  });
+
+  // another event holding the venue is still SLOT_CONFLICT (32-S8), not DUPLICATE_VENUE
+  it("98-S13 another event's booking at the same venue is still SLOT_CONFLICT", async () => {
+    const { coordinator, bookings } = setup();
+    bookings.seed({ ...ownHold, eventId: "other-event" });
+
+    expect((await coordinator.post(submit())).body.code).toBe("SLOT_CONFLICT");
   });
 });
 
@@ -258,5 +313,193 @@ describe("SCRUM-32/AC10 event details on the request do not change afterwards (3
     await coordinator.post(submit());
     events.add(anEvent({ expectedAttendance: 150, name: "Renamed" }));
     expect(bookings.rows[0].snapshot).toMatchObject({ expectedAttendance: 120, eventName: "Summit B" });
+  });
+});
+
+// ----------------------------------------------------------------------------
+// SCRUM-98/AC2 each booking is checked with its own details (the event is 50 people, "Theatre"; venue-1 holds 150)
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-98/AC2 each booking has its own attendance and requirements (98-S6 to 98-S8)", () => {
+  // books with 80 people and banquet
+  it("98-S6 a booking with its own attendance and requirements stores those, not the event's", async () => {
+    const { coordinator, bookings } = setup();
+
+    const res = await coordinator.post(submit({ expectedAttendance: 80, venueRequirements: "Banquet" }));
+    // coordinator books 80 expected attendance and banquet
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ expectedAttendance: 80, venueRequirements: "Banquet" });
+    expect(bookings.rows[0].snapshot).toMatchObject({ expectedAttendance: 80, venueRequirements: "Banquet" });
+  });
+
+  it("98-S7 a booking without them stores the event's", async () => {
+    const { coordinator, bookings } = setup();
+
+    await coordinator.post(submit());
+
+    expect(bookings.rows[0].snapshot).toMatchObject({ expectedAttendance: 50, venueRequirements: "Theatre" });
+  });
+  //  books venue 1 with expected 120, venue 2 with expected 30
+  // two bookings on one event, each with its own numbers
+  it("98-S6 two bookings on the same event keep their own attendance", async () => {
+    const { coordinator, bookings } = setup();
+
+    await coordinator.post(submit({ expectedAttendance: 120 }));
+    await coordinator.post(submit({ venueId: "venue-2", expectedAttendance: 30 }));
+
+    expect(bookings.rows.map((b) => b.snapshot.expectedAttendance)).toEqual([120, 30]);
+  });
+  // we book a venue, we say expected is 80 attendance, we change event attendance and we dont expect venue expected of 80 to change
+
+  it("98-S8 the booking's own attendance is kept after the event's changes", async () => {
+    const events = new FakeEventReader([anEvent()]);
+    const { coordinator, bookings } = setup({ events });
+    await coordinator.post(submit({ expectedAttendance: 80 }));
+
+    events.add(anEvent({ expectedAttendance: 300 }));
+
+    expect(bookings.rows[0].snapshot.expectedAttendance).toBe(80);
+  });
+  // book with -5 people, but we get a 422 response 
+  it("98-S12 an invalid attendance is 422 with a field error and no row", async () => {
+    const { coordinator, bookings } = setup();
+
+    const res = await coordinator.post(submit({ expectedAttendance: -5 }));
+
+    expect(res.status).toBe(422);
+    expect(res.body.fieldErrors).toHaveProperty("expectedAttendance");
+    expect(bookings.rows).toHaveLength(0);
+  });
+});
+// 200 people at the 150 person venue, we should see exceed capacity to to be true 
+describe("SCRUM-98/AC2 more people than the venue holds is a warning, not a refusal (98-S10, 98-S11)", () => {
+  it("98-S10 attendance 200 at a venue for 150: 201 PENDING, flagged exceedsCapacity", async () => {
+    const { coordinator, bookings } = setup();
+
+    const res = await coordinator.post(submit({ expectedAttendance: 200 }));
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ status: "PENDING", expectedAttendance: 200, exceedsCapacity: true });
+    expect(bookings.rows).toHaveLength(1);
+  });
+  // the event expects 200 and the booking gives no number, so we take event's number of 200, and exceed capacity becomes true 
+  it("98-S10 the event's own attendance is used when the booking has none (200 at a venue for 150)", async () => {
+    const events = new FakeEventReader([anEvent({ expectedAttendance: 200 })]);
+
+    const res = await setup({ events }).coordinator.post(submit());
+
+    expect(res.body.exceedsCapacity).toBe(true);
+  });
+  // if we have 100 people at the 200 max people venue, we expect exceeds capacity to become false
+  it("98-S11 attendance 100 at a venue for 150: not flagged", async () => {
+    const res = await setup().coordinator.post(submit({ expectedAttendance: 100 }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.exceedsCapacity).toBe(false);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// SCRUM-98/AC4 one booking failing or being rejected leaves the event's other bookings as they were
+// ----------------------------------------------------------------------------
+// for the scenario, we are trying to book for venue 1, but for venue 2, it has successfully been booked 
+describe("SCRUM-98/AC4 bookings of one event are independent (98-S16 to 98-S19)", () => {
+  /** POST to any address as the given user. */
+  const postAs = (app: Parameters<typeof request>[0], userId: string, path: string, body: object = {}) =>
+    request(app).post(path).set("Cookie", `cs_session=tok-${userId}`).send(body);
+
+  /** The event already holds venue-2 on 14 Nov, 9am to 5pm, waiting for venue staff. */
+  const withOneBooking = () => {
+    const ctx = setup();
+    const other = ctx.bookings.seed({ eventId: "event-1", venueId: "venue-2", start: new Date("2030-11-14T01:00:00Z"), end: new Date("2030-11-14T09:00:00Z") });
+    return { ...ctx, other };
+  };
+  // the coordinator asks for venue 1, but another event already has it. the request is refused, nothing new is saved, and venue 2 is unaffected 
+  it("98-S16 a request refused for a clash (another event holds venue-1) creates nothing and leaves the other booking as it was", async () => {
+    const { coordinator, bookings, other } = withOneBooking();
+    bookings.seed({ eventId: "other-event", venueId: "venue-1", start: new Date("2030-11-14T03:00:00Z"), end: new Date("2030-11-14T05:00:00Z") });
+
+    const res = await coordinator.post(submit());
+
+    expect(res.body.code).toBe("SLOT_CONFLICT");
+    expect(bookings.rows.filter((b) => b.eventId === "event-1")).toEqual([other]);
+    expect(other.status).toBe("requested");
+  });
+  // the coordinator asks for venue 1, with the end time being earlier than the start time. it is refused, nothing is saved and venue 2 is unaffected 
+  it("98-S16 a request refused for a bad field creates nothing and leaves the other booking as it was", async () => {
+    const { coordinator, bookings, other } = withOneBooking();
+
+    expect((await coordinator.post(submit({ endTime: "08:00" }))).status).toBe(422);
+
+    expect(bookings.rows).toEqual([other]);
+    expect(other.status).toBe("requested");
+  });
+  // the coordinator books venue 1, but rejected by venue staff. venue 1 becomes rejected, and venue 2 is still waiting 
+  it("98-S17 venue staff rejecting one of two bookings leaves the other pending", async () => {
+    const { app, coordinator, bookings, other } = withOneBooking();
+    const second = (await coordinator.post(submit())).body;
+
+    const res = await postAs(app, "staff-1", `/venue-bookings/${second.id}/reject`, { reason: "Under renovation" });
+
+    expect(res.status).toBe(200);
+    expect(bookings.rows.find((b) => b.id === second.id)?.status).toBe("rejected");
+    expect(other.status).toBe("requested");
+  });
+  // the coordinator books venue 1 too, then withdraws it. venue 1 becomes withdrawn, and venue 2 is still waiting
+  it("98-S18 the coordinator withdrawing one of two pending bookings leaves the other pending", async () => {
+    const { app, coordinator, bookings, other } = withOneBooking();
+    const second = (await coordinator.post(submit())).body;
+
+    const res = await postAs(app, "coordinator-1", `/venue-bookings/${second.id}/withdraw`);
+
+    expect(res.status).toBe(200);
+    expect(bookings.rows.find((b) => b.id === second.id)?.status).toBe("withdrawn");
+    expect(other.status).toBe("requested");
+  });
+
+  // replacing a rejected booking is fine while another booking of the event is still pending
+  // there is also a rejected venue 1 booking. the coordinator replaces it with a new date. venue 2 is unaffected, the old venue 1
+  // stays rejected, and the new venue 1 is pending, so the event has 3 bookings in total
+  it("98-S19 amending a rejected booking while another booking is pending: 201, and the other is unchanged", async () => {
+    const { app, bookings, other } = withOneBooking();
+    const rejected = bookings.seed({ eventId: "event-1", venueId: "venue-1", status: "rejected", start: new Date("2030-11-14T01:00:00Z"), end: new Date("2030-11-14T09:00:00Z") });
+
+    const res = await postAs(app, "coordinator-1", `/venue-bookings/${rejected.id}/amend`, { venueId: "venue-1", date: "2030-11-15", startTime: "09:00", endTime: "17:00" });
+
+    expect(res.status).toBe(201);
+    expect(rejected.status).toBe("rejected");
+    expect(other.status).toBe("requested");
+    expect(bookings.rows.filter((b) => b.eventId === "event-1")).toHaveLength(3);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// SCRUM-98/AC6 the access rules stay the same for a second booking
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-98/AC6 only the assigned coordinator of an eligible event may add another venue (98-S26, 98-S29)", () => {
+  const existing = { eventId: "event-1", venueId: "venue-2", start: new Date("2030-11-14T01:00:00Z"), end: new Date("2030-11-14T09:00:00Z") };
+
+  it("98-S26 a coordinator the event is not assigned to cannot add a second venue: 403 and no row", async () => {
+    const { as, bookings } = setup();
+    bookings.seed(existing);
+
+    const res = await as("coordinator-2").post(submit());
+
+    expect(res.status).toBe(403);
+    expect(bookings.rows).toHaveLength(1);
+  });
+
+  it("98-S29 an event that is no longer eligible cannot add a second venue: 409 EVENT_NOT_ELIGIBLE and no row", async () => {
+    const events = new FakeEventReader([anEvent({ status: "cancelled" })]);
+    const { coordinator, bookings } = setup({ events });
+    bookings.seed(existing);
+
+    const res = await coordinator.post(submit());
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("EVENT_NOT_ELIGIBLE");
+    expect(bookings.rows).toHaveLength(1);
   });
 });

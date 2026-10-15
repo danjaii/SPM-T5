@@ -153,8 +153,9 @@ describe("SCRUM-60/AC4 only rejected requests can be amended (60-S4)", () => {
   });
 });
 
-describe("SCRUM-60/AC5 one active request at a time (60-S5)", () => {
-  it.each(["requested", "approved"])("60-S5 amending R1 again while the amendment is %s: 409 ACTIVE_REQUEST_EXISTS", async (status) => {
+// SCRUM-98: an event may hold several bookings, but one rejected booking has at most one pending or approved replacement.
+describe("SCRUM-60/AC5 and SCRUM-98/AC4 one replacement at a time (60-S5, 98-S20)", () => {
+  it.each(["requested", "approved"])("60-S5 / 98-S20 amending R1 again while the amendment is %s: 409 ACTIVE_REQUEST_EXISTS", async (status) => {
     const { amend, bookings, r1 } = setup();
     const original = r1();
     const first = await amend(original.id);

@@ -24,12 +24,24 @@ export interface BookingRecord {
   reviewNotes: string | null;
   withdrawnBy: string | null;
   withdrawnAt: Date | null;
+  /** SCRUM-102: who cancelled it, when and why (102-S12). */
+  cancelledBy: string | null;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
   /** The rejected request this one amends (SCRUM-60, SCRUM-59). */
   amendsBookingId: string | null;
   /** True when created by accepting the amended request's suggestion (SCRUM-59). */
   fromSuggestion: boolean;
   /** Venue Staff's suggested alternative on a rejection (SCRUM-40). */
   suggestion: { venueId: string; start: Date; end: Date } | null;
+}
+
+/** SCRUM-102/AC1: a venue booking's new period and its own numbers. Its venue never changes. */
+export interface BookingChange {
+  start: Date;
+  end: Date;
+  expectedAttendance: number | null;
+  venueRequirements: string | null;
 }
 
 /** Venue Staff's decision on a pending request. Only a rejection carries a reason and a suggestion. */

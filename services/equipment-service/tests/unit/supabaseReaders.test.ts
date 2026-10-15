@@ -262,6 +262,7 @@ describe("SCRUM-86 Supabase readers and writer", () => {
         {
           id: "req-1",
           event_id: "evt-1",
+          venue_booking_id: "vb-1",
           quantity_requested: 2,
           notes: "On stage",
           status: "requested",
@@ -271,18 +272,21 @@ describe("SCRUM-86 Supabase readers and writer", () => {
           created_at: "2026-10-01T01:00:00+00:00",
           event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: "2026-10-15T01:00:00+00:00" },
           equipment: { name: "Wireless Microphone Set", type: "Audio" },
-          booking: { venue: { name: "Grand Hall" } },
+          booking: { cancellation_reason: null, venue: { name: "Grand Hall" } },
         },
+        // SCRUM-102 (102-S31): equipment released with its venue booking, which says why it was cancelled
+        { id: "rel-1", event_id: "evt-1", venue_booking_id: "vb-2", quantity_requested: 3, notes: null, status: "cancelled", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: null, created_at: "2026-10-02T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: "2026-10-15T01:00:00+00:00" }, equipment: { name: "Cable", type: null }, booking: { cancellation_reason: "Moved to a bigger room", venue: { name: "Orchid Hall" } } },
         // A row from before requests named a venue, for an item with no type.
-        { id: "res-1", event_id: "evt-1", quantity_requested: 1, notes: null, status: "rejected", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: "All out on loan", created_at: "2026-09-01T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: null }, equipment: { name: "Cable", type: null }, booking: null },
+        { id: "res-1", event_id: "evt-1", venue_booking_id: null, quantity_requested: 1, notes: null, status: "rejected", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: "All out on loan", created_at: "2026-09-01T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: null }, equipment: { name: "Cable", type: null }, booking: null },
       ],
       error: null,
     });
 
     expect(await new SupabaseEquipmentRequestReader(db).forEvent("evt-1")).toEqual([
-      { id: "req-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", notes: "On stage", status: "requested", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, createdAt: new Date("2026-10-01T01:00:00Z") },
+      { id: "req-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", venueBookingId: "vb-1", notes: "On stage", status: "requested", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: null, createdAt: new Date("2026-10-01T01:00:00Z") },
+      { id: "rel-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentName: "Cable", equipmentType: null, quantity: 3, venueName: "Orchid Hall", venueBookingId: "vb-2", notes: null, status: "cancelled", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: "Moved to a bigger room", createdAt: new Date("2026-10-02T01:00:00Z") },
       // SCRUM-87/AC5: a Cannot Fulfil row carries its reason; an event with no date has no eventStart.
-      { id: "res-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: null, equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, notes: null, status: "rejected", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: "All out on loan", createdAt: new Date("2026-09-01T01:00:00Z") },
+      { id: "res-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: null, equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, venueBookingId: null, notes: null, status: "rejected", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: "All out on loan", venueBookingCancellationReason: null, createdAt: new Date("2026-09-01T01:00:00Z") },
     ]);
     expect(calls).toContainEqual(["from", "equipment_reservations"]);
     expect(calls).toContainEqual(["eq", "event_id", "evt-1"]);

@@ -1,7 +1,11 @@
 import { STATUS_LABELS, type EventRegistration } from "@/lib/eventRegistration";
 
+/** SCRUM-74/AC10: a list longer than this scrolls. */
+const SCROLL_AFTER_ROWS = 15;
+
+// SCRUM-74/AC5: the registration's date and time
 const formatRegistered = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-SG", { dateStyle: "medium", timeZone: "Asia/Singapore" });
+  new Date(iso).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" });
 
 // SCRUM-83/AC15: an event's registrations, for its organiser and assigned coordinator: the details each attendee
 // submitted on the form, and the registration's status
@@ -9,7 +13,8 @@ export function EventRegistrationList({ registrations }: { registrations: EventR
   if (registrations.length === 0) return <p className="empty">Nobody has registered for this event yet.</p>;
 
   return (
-    <div className="table-wrap">
+    // SCRUM-74/AC10: more than 15 rows scroll inside the box
+    <div className={registrations.length > SCROLL_AFTER_ROWS ? "table-wrap table-wrap--scroll" : "table-wrap"}>
       <table>
         <thead>
           <tr>

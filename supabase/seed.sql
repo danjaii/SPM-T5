@@ -63,6 +63,12 @@ insert into auth.users (id, instance_id, aud, role, email, encrypted_password, e
   ('9a628832-340b-5eae-b22c-fd04ffe882e3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'charmaine.ooi@example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false),
   ('083ff3a5-f9e3-54d0-ab02-88c1782e1341', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'dylan.heng@example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false);
 
+-- SCRUM-75: two Event Coordinator Leads, and a deactivated Event Coordinator (linked to a Lead, for the Lead's overview).
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_sso_user, is_anonymous) values
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a01', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'helen.ong@connectsphere.example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false),
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a02', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'samuel.tay@connectsphere.example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false),
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a03', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kelvin.ho@connectsphere.example.com', crypt('ConnectSphere2026!', gen_salt('bf')), '2026-03-04 15:57:00', '2026-03-04 15:57:00', '2026-03-04 15:57:00', '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, false, false);
+
 -- GoTrue reads these token columns as non-null strings; left NULL, every sign-in fails with
 -- "Database error querying schema". Real sign-ups get '' from GoTrue itself.
 update auth.users set
@@ -141,6 +147,19 @@ insert into users (id, role, full_name, email, phone, organisation_id, departmen
   ('a8d44891-46ff-58de-92f3-23fcbb56bfb8', 'attendee', 'Brandon Teo', 'brandon.teo@example.com', '+65 8127 2027', NULL, NULL, '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00'),
   ('9a628832-340b-5eae-b22c-fd04ffe882e3', 'attendee', 'Charmaine Ooi', 'charmaine.ooi@example.com', '+65 8128 2028', NULL, NULL, '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00'),
   ('083ff3a5-f9e3-54d0-ab02-88c1782e1341', 'attendee', 'Dylan Heng', 'dylan.heng@example.com', '+65 8129 2029', NULL, NULL, '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00');
+
+-- SCRUM-75/AC2 + AC5: Lead accounts, and which Lead supervises each coordinator (users.supervising_lead_id, migration 19).
+-- Helen Ong supervises Rachel Tan, Marcus Lim and Kelvin Ho (deactivated); Samuel Tay supervises Priya Nair and Daniel Goh.
+-- Siti Aminah is not linked to any Lead.
+insert into users (id, role, full_name, email, phone, organisation_id, department, communication_preferences, is_active, created_at, updated_at) values
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a01', 'event_coordinator_lead', 'Helen Ong', 'helen.ong@connectsphere.example.com', '+65 9100 2000', NULL, 'Event Coordination', '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00'),
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a02', 'event_coordinator_lead', 'Samuel Tay', 'samuel.tay@connectsphere.example.com', '+65 9100 2001', NULL, 'Event Coordination', '{"email": true, "sms": true}'::jsonb, true, '2026-03-04 15:57:00', '2026-03-04 15:57:00'),
+  ('3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a03', 'event_coordinator', 'Kelvin Ho', 'kelvin.ho@connectsphere.example.com', '+65 9100 1005', NULL, 'Event Coordination', '{"email": true, "sms": true}'::jsonb, false, '2026-03-04 15:57:00', '2026-03-04 15:57:00');
+
+update users set supervising_lead_id = '3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a01'
+  where id in ('70e7fa6f-5917-5aa1-b681-a8a921359a5c', 'b6c1773a-f08b-56ae-b4cf-cc3d317cc9e3', '3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a03');
+update users set supervising_lead_id = '3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5a02'
+  where id in ('7994c3f8-246c-5b7a-bb92-0767cea6a073', 'cc683354-03a1-51a9-80ca-c785b306c7de');
 
 -- ============================================================================
 -- LOOKUP TABLES

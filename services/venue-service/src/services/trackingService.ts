@@ -5,9 +5,10 @@ import {
   type BookingDetail,
   type BookingListItem,
   type ChainItem,
+  type EventBookingItem,
 } from "../domain/dto";
 import type { BookingRecord } from "../domain/types";
-import { utcToSgt } from "@spm-t5/shared";
+import { exceedsCapacity, utcToSgt } from "@spm-t5/shared";
 import type { EventReader } from "../readers/eventReader";
 import type { VenueReader } from "../readers/venueReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
@@ -60,13 +61,40 @@ export class TrackingService {
     return new Map(venues.map((v) => [v.id, v.name]));
   }
 
-  /** 33-S1, S3, S4: my events' requests, newest first. Legacy statuses outside this feature are left out. */
+  /** 33-S1, S3, S4: my events' requests, newest first. Cancelled ones are listed too (102-S25). */
   async list(caller: Caller): Promise<BookingListItem[]> {
     this.requireCoordinator(caller);
     const eventIds = await this.deps.events.listIdsAssignedTo(caller.id);
-    const bookings = (await this.deps.bookings.listByEvents(eventIds)).filter((b) => b.status !== "cancelled");
+    const bookings = await this.deps.bookings.listByEvents(eventIds);
     const names = await this.venueNames(bookings);
     return bookings.map((b) => toBookingListItem(b, names.get(b.venueId) ?? "Unknown venue"));
+  }
+
+  /**
+   * SCRUM-98/AC5 (98-S21 to S23): every booking of one event, earliest start first (then the one requested first),
+   * including rejected and withdrawn ones. Only the event's assigned Coordinator may see them (98-S27, 98-S28).
+   */
+  async forEvent(caller: Caller, eventId: string): Promise<EventBookingItem[]> {
+    this.requireCoordinator(caller);
+    const event = await this.deps.events.getById(eventId);
+    if (!event) throw notFound("Event not found.");
+    if (event.assignedCoordinatorId !== caller.id) throw forbidden();
+
+    // 102-S25: cancelled ones are listed too, with their reason
+    const bookings = (await this.deps.bookings.listByEvent(eventId)).sort((a, b) => a.start.getTime() - b.start.getTime() || a.createdAt.getTime() - b.createdAt.getTime());
+    const venues = new Map((await this.deps.venues.getByIds([...new Set(bookings.map((b) => b.venueId))])).map((v) => [v.id, v]));
+
+    return bookings.map((b) => {
+      const venue = venues.get(b.venueId);
+      return {
+        ...toBookingListItem(b, venue?.name ?? "Unknown venue"),
+        expectedAttendance: b.snapshot.expectedAttendance,
+        venueRequirements: b.snapshot.venueRequirements,
+        rejectionReason: rejectionReasonOf(b),
+        cancellationReason: b.cancellationReason, // only a cancelled one has a reason
+        exceedsCapacity: exceedsCapacity(b.snapshot.expectedAttendance, venue?.maxCapacity),
+      };
+    });
   }
 
   /** 33-S2, S5: one request with its reason, suggestion and amendment chain. */

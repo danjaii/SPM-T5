@@ -152,10 +152,17 @@ describe("SCRUM-87/AC3 see request details", () => {
     expect(res.body.canReview).toBe(false);
   });
 
-  it("a request that does not exist, or was cancelled, is a 404", async () => {
-    const { detail } = setup({ stored: [anEquipmentRequest({ id: "gone", status: "cancelled" })] });
+  it("a request that does not exist is a 404", async () => {
+    const { detail } = setup();
     expect((await detail("missing")).status).toBe(404);
-    expect((await detail("gone")).status).toBe(404);
+  });
+
+  it("equipment released with its venue booking (SCRUM-102) shows as Released, and cannot be changed", async () => {
+    const { detail, review } = setup({ stored: [anEquipmentRequest({ id: "gone", status: "cancelled" })] });
+    const res = await detail("gone");
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: "RELEASED", statusLabel: "Released", canReview: false });
+    expect((await review({ status: "ARRANGED" }, "gone")).status).toBe(409);
   });
 });
 

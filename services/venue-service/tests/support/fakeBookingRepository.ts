@@ -1,11 +1,11 @@
 import { isHoldingDbStatus, periodsOverlap } from "@spm-t5/shared";
 import { bookingError } from "../../src/domain/errors";
-import type { BookingRecord, Decision, NewBooking } from "../../src/domain/types";
+import type { BookingChange, BookingRecord, Decision, NewBooking } from "../../src/domain/types";
 import type { BookingRepository } from "../../src/repositories/bookingRepository";
 
 /**
  * In-memory BookingRepository for unit tests. It enforces the same rules as the database
- * constraints in supabase/migrations/06 (slot exclusion, one active request per event, one
+ * constraints in supabase/migrations/06 and 28 (slot exclusion, one active replacement per rejected request, one
  * suggestion acceptance), so unit tests exercise the data-layer guard, not just the pre-checks.
  * insert() checks and pushes synchronously, which makes it atomic, like the real constraint.
  */
@@ -28,6 +28,9 @@ export class FakeBookingRepository implements BookingRepository {
       reviewNotes: null,
       withdrawnBy: null,
       withdrawnAt: null,
+      cancelledBy: null,
+      cancelledAt: null,
+      cancellationReason: null,
       amendsBookingId: null,
       fromSuggestion: false,
       suggestion: null,
@@ -65,6 +68,32 @@ export class FakeBookingRepository implements BookingRepository {
     return row;
   }
 
+  async change(id: string, change: BookingChange): Promise<BookingRecord | null> {
+    const row = this.rows.find((r) => r.id === id);
+    if (!row || !["requested", "approved"].includes(row.status)) return null;
+    // the overlap constraint (06) applies to the changed row too, ignoring the row itself (102-S4, 102-S6)
+    if (this.rows.some((r) => r.id !== id && r.venueId === row.venueId && isHoldingDbStatus(r.status) && periodsOverlap(r, change))) {
+      throw bookingError("SLOT_CONFLICT");
+    }
+    Object.assign(row, {
+      start: change.start,
+      end: change.end,
+      snapshot: { ...row.snapshot, expectedAttendance: change.expectedAttendance, venueRequirements: change.venueRequirements },
+      status: "requested",
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewNotes: null,
+    });
+    return row;
+  }
+
+  async cancel(id: string, by: string, at: Date, reason: string): Promise<BookingRecord | null> {
+    const row = this.rows.find((r) => r.id === id);
+    if (!row || !["requested", "approved"].includes(row.status)) return null;
+    Object.assign(row, { status: "cancelled", cancelledBy: by, cancelledAt: at, cancellationReason: reason });
+    return row;
+  }
+
   async getById(id: string): Promise<BookingRecord | null> {
     return this.rows.find((r) => r.id === id) ?? null;
   }
@@ -80,7 +109,8 @@ export class FakeBookingRepository implements BookingRepository {
   }
 
   async insert(input: NewBooking): Promise<BookingRecord> {
-    if (this.rows.some((r) => r.eventId === input.eventId && isHoldingDbStatus(r.status))) {
+    // migration 28 (98-S20): one active replacement per rejected venue booking
+    if (input.amendsBookingId && this.rows.some((r) => r.amendsBookingId === input.amendsBookingId && isHoldingDbStatus(r.status))) {
       throw bookingError("ACTIVE_REQUEST_EXISTS");
     }
     if (

@@ -19,7 +19,6 @@ const FULL: EventDetailView = {
   submitted_at: "2026-10-01T02:00:00Z",
   organiser_name: "Sam Tan",
   point_of_contact_name: null,
-  canAssign: false,
 };
 
 const EMPTY: EventDetailView = {

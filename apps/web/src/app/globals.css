@@ -23,6 +23,8 @@
   --danger-bg: #fbeaea;
   --ok: #1f6b3a;
   --ok-bg: #e6f4ea;
+  --warn: #8a5a00;
+  --warn-bg: #fdf3dc;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -141,6 +143,9 @@ a { color: var(--steel-dark); }
 .alert { padding: 11px 14px; margin-bottom: 20px; font-size: 14px; border-left: 3px solid; }
 .alert--error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 .alert--ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+/* SCRUM-98/AC2: a warning that does not block (more people than the venue holds) */
+.alert--warning { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+.capacity-flag { display: block; margin-top: 2px; font-size: 13px; color: var(--warn); }
 
 /* SCRUM-18 equipment availability page: the form on the left, the result on the right, larger labels.
    On narrow screens the result drops below the form. */
@@ -266,6 +271,12 @@ a { color: var(--steel-dark); }
 .dash__links { display: flex; gap: 20px; margin: -12px 0 28px; font-size: 15px; font-weight: 500; }
 .dash__section h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); background: #fff; }
+/* SCRUM-74/AC10: a registration list past 15 rows scrolls inside its box; the header stays in view */
+.table-wrap--scroll { max-height: 41rem; overflow-y: auto; } /* about 15 rows and the header */
+.table-wrap--scroll thead th { position: sticky; top: 0; }
+/* SCRUM-74/AC6: the registration summary sits above the registrations table */
+.reg-summary { margin-bottom: 16px; }
+.reg-summary th, .reg-summary td { text-align: center; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8; vertical-align: top; }
 th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
@@ -289,6 +300,11 @@ tr:last-child td { border-bottom: 0; }
   padding: 4px 10px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--steel-dark); background: var(--selected); border: 1px solid var(--steel);
 }
+/* SCRUM-72/AC3: a registration's status in its own colour on "My registrations" */
+.status-badge--pending { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
+.status-badge--confirmed { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
+.status-badge--rejected { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+.status-badge--withdrawn { color: var(--subtle); background: var(--muted); border-color: var(--line); }
 .event__form { padding: 24px; background: #fff; border: 1px solid var(--border); }
 .event__missing { color: var(--subtle); font-style: italic; }
 
@@ -430,6 +446,12 @@ tr:last-child td { border-bottom: 0; }
 .vb__list { margin: 0; padding: 14px 24px 14px 40px; background: #fff; border: 1px solid var(--border); line-height: 1.8; }
 
 .vb__actions { margin-top: 8px; }
+/* SCRUM-102: Change and Cancel on each venue booking row, and the cancel confirmation */
+.vb__row-actions { white-space: nowrap; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.vb__row-actions .btn { display: inline-block; width: auto; padding: 6px 12px; font-size: 14px; text-decoration: none; }
+.vb__confirm { white-space: normal; min-width: 260px; padding: 12px; margin-top: 8px; border: 1px solid var(--border); background: var(--paper); }
+.vb__confirm .vb__list { padding: 8px 12px 8px 28px; }
 .vb__actions .btn { display: inline-block; width: auto; padding: 10px 18px; text-decoration: none; }
 .btn--secondary { background: #fff; color: var(--steel-dark); border: 1px solid var(--steel); }
 .btn--secondary:hover:not(:disabled) { background: var(--steel); color: #fff; }
@@ -522,4 +544,24 @@ tr:last-child td { border-bottom: 0; }
   html {
     @apply font-sans;
   }
+}
+
+/* ---------- Label/value detail table (SCRUM-78, SCRUM-79 assign and reassign) ---------- */
+/* Row labels, not column headers: undo the global th style (mono, uppercase, shaded) and size the label column to its
+   longest label so the values line up in one readable column. */
+.lead-summary { margin: 16px 0 28px; }
+.event-detail-card--table .detail-table { min-width: 0; }
+.detail-table th, .detail-table td { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.detail-table th {
+  width: 1%; white-space: nowrap; background: none;
+  font-family: inherit; font-size: 14px; letter-spacing: normal; text-transform: none; font-weight: 400; color: var(--subtle);
+}
+.detail-table td { color: var(--ink); font-weight: 500; }
+.detail-table tr:last-child th, .detail-table tr:last-child td { border-bottom: 0; }
+/* Phones: label above its value, so long values aren't squeezed into a narrow column */
+@media (max-width: 480px) {
+  .detail-table tr { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .detail-table tr:last-child { border-bottom: 0; }
+  .detail-table th, .detail-table td { display: block; width: auto; padding: 0; border: 0; white-space: normal; }
+  .detail-table th { font-size: 13px; margin-bottom: 2px; }
 }

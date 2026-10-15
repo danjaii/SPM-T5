@@ -3,17 +3,28 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { validateRegistrationForm } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
+import { lookUpRole } from "./events";
 import { toUpcomingEvent, type PublicEventRow } from "../services/upcomingEvents";
 import {
   ALREADY_REGISTERED,
   registrationRefusal,
   toEventRegistration,
   toMyRegistration,
+  withdrawalRefusal,
   type EventRegistrationRow,
   type MyRegistrationRow,
 } from "../services/registrations";
 
 const EVENT_NOT_FOUND = { error: "Event not found." };
+
+/** One events row as GET /events/managed selects it (SCRUM-74). */
+interface ManagedEventRow {
+  id: string;
+  name: string;
+  status: string;
+  preferred_start_datetime: string | null;
+  registration_capacity: number | null;
+}
 
 /**
  * The event as attendees see it, from the same list_public_events() the List of events uses (SCRUM-71).
@@ -32,15 +43,83 @@ export function registrationRoutes(deps: SupabaseDeps) {
   // SCRUM-83/AC15: the attendee's own registrations for "My registrations", earlier ones included (AC6: history)
   router.get("/my-registrations", requireSession(deps), async (_req, res) => {
     const { id: attendeeId, token } = res.locals.user as SessionUser;
-    const { data, error } = await deps
-      .forUser(token)
+    const db = deps.forUser(token);
+    const { data, error } = await db
       .from("event_registrations")
-      .select("id, status, registered_at, event:events(id, name, preferred_start_datetime, preferred_end_datetime)")
+      .select("id, status, registered_at, event:events(id, name, status, preferred_start_datetime, preferred_end_datetime)")
       .eq("attendee_id", attendeeId);
     // An empty list must mean there are none, so a failed call is an error, not [] (as in SCRUM-71/AC11)
     if (error) return res.status(500).json({ error: "We couldn't load your registrations. Please try again." });
 
-    res.json(((data ?? []) as unknown as MyRegistrationRow[]).map(toMyRegistration));
+    // SCRUM-72/AC4: each event's location comes from list_public_events(), as on the List of events (SCRUM-71/AC3):
+    // RLS doesn't let an attendee read venue bookings, and this function shows them the venue of a public event
+    const { data: publicEvents } = await db.rpc("list_public_events");
+    const publicEventsById = new Map(((publicEvents ?? []) as PublicEventRow[]).map((e) => [e.id, e] as const));
+
+    // SCRUM-72/AC1: upcoming events only, so one that has started is left out (the same rule as SCRUM-71/AC2)
+    const now = new Date();
+    res.json(
+      ((data ?? []) as unknown as MyRegistrationRow[])
+        .map((row) => toMyRegistration(row, publicEventsById, now))
+        .filter((r) => r.event.start_at !== null && new Date(r.event.start_at) > now),
+    );
+  });
+
+  // SCRUM-73: the attendee withdraws one of their registrations
+  router.post("/my-registrations/:id/withdraw", requireSession(deps), async (req, res) => {
+    const { id: attendeeId, token } = res.locals.user as SessionUser;
+    const db = deps.forUser(token);
+
+    // SCRUM-73/AC1: only the attendee's own registration; anyone else's is "not found", so ids can't be probed
+    const { data: registration } = await db
+      .from("event_registrations")
+      .select("id, status, event:events(id, name, status, preferred_start_datetime, preferred_end_datetime)")
+      .eq("id", req.params.id)
+      .eq("attendee_id", attendeeId)
+      .maybeSingle();
+    if (!registration) return res.status(404).json({ error: "Registration not found." });
+
+    // SCRUM-73/AC2, AC5: Pending or Confirmed only, and not once the event has started or been cancelled
+    const row = registration as unknown as MyRegistrationRow;
+    const refusal = withdrawalRefusal(row.status, Array.isArray(row.event) ? row.event[0] : row.event, new Date());
+    if (refusal) return res.status(409).json({ error: refusal });
+
+    // SCRUM-73/AC6: the status becomes Withdrawn, and withdrawn_at records when
+    const { data: withdrawn } = await db
+      .from("event_registrations")
+      .update({ status: "withdrawn", withdrawn_at: new Date().toISOString() })
+      .eq("id", req.params.id)
+      .select("id");
+    // SCRUM-73/AC6: RLS refuses an update by changing no row (not with an error), so check one was changed
+    if (!withdrawn?.length) return res.status(409).json({ error: "This registration can no longer be withdrawn." });
+    res.json({ status: "withdrawn" });
+  });
+
+  // SCRUM-74: the events whose registrations the caller can view, for the dropdown on the registrations page
+  router.get("/managed", requireSession(deps), async (_req, res) => {
+    const user = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, user);
+    // SCRUM-74/AC1: registration information is for organisers and coordinators only
+    if (role !== "event_organiser" && role !== "event_coordinator") {
+      return res.status(403).json({ error: "Only event organisers and coordinators can view registrations." });
+    }
+    // SCRUM-74/AC1: a coordinator's own assigned events only (RLS lets coordinators read other events too)
+    // SCRUM-74/AC2: an organiser's own events, in the same shape
+    const column = role === "event_organiser" ? "organiser_id" : "assigned_coordinator_id";
+    const { data } = await deps
+      .forUser(user.token)
+      .from("events")
+      .select("id, name, status, preferred_start_datetime, registration_capacity")
+      .eq(column, user.id);
+    res.json(
+      ((data ?? []) as ManagedEventRow[]).map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        start_at: e.preferred_start_datetime,
+        registration_capacity: e.registration_capacity,
+      })),
+    );
   });
 
   // SCRUM-83/AC7: what the registration form shows about the event: name, date and time, and location
@@ -65,12 +144,18 @@ export function registrationRoutes(deps: SupabaseDeps) {
     const { data, error } = await deps
       .forUser(token)
       .from("event_registrations")
-      .select("id, status, registered_at, registration_details")
+      // SCRUM-74/AC5: the attendee's profile too, for a registration with no form details
+      .select("id, status, registered_at, registration_details, attendee:attendee_id(full_name, email, phone)")
       .eq("event_id", req.params.id);
     // An empty list must mean nobody has registered, so a failed call is an error, not []
     if (error) return res.status(500).json({ error: "We couldn't load this event's registrations. Please try again." });
 
-    res.json(((data ?? []) as EventRegistrationRow[]).map(toEventRegistration));
+    res.json(
+      ((data ?? []) as EventRegistrationRow[])
+        // SCRUM-74/AC8: newest first (ISO timestamps sort in time order as text)
+        .sort((a, b) => b.registered_at.localeCompare(a.registered_at))
+        .map(toEventRegistration),
+    );
   });
 
   router.post("/:id/registrations", requireSession(deps), async (req, res) => {

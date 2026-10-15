@@ -26,7 +26,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use(express.json());
 
   // The web app (a different origin in dev) calls this service directly from the browser, with cookies.
-  // Same approach as event-service's app.ts, plus POST for submit/withdraw/amend.
+  // Same approach as event-service's app.ts, plus POST for submit/withdraw/amend and PATCH for change (SCRUM-102).
   app.use((req, res, next) => {
     const allowed = process.env.WEB_ORIGIN ?? "http://localhost:3000";
     if (req.headers.origin === allowed) {
@@ -34,7 +34,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
         "Access-Control-Allow-Origin": allowed,
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
         Vary: "Origin",
       });
     }

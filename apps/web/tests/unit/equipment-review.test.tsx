@@ -227,6 +227,8 @@ describe("SCRUM-87/AC5 give a reason for Cannot Fulfil", () => {
       status: "CANNOT_FULFIL",
       statusLabel: "Cannot Fulfil",
       reason: "All out on loan",
+      venueBookingId: "vb-1",
+      releasedReason: null,
     };
     render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [request], canCreate: false, readiness: "INCOMPLETE", readinessLabel: "Incomplete" }} />);
     const statusCell = within(screen.getAllByRole("row")[1]).getAllByRole("cell")[4];

@@ -55,7 +55,7 @@ export interface EquipmentRequestReview {
   reason: string | null;
 }
 
-/** What review_equipment_request() (migration 27) answered. */
+/** What review_equipment_request() (migration 32) answered. */
 export type ReviewOutcome =
   | { outcome: "updated" | "not_found" | "not_reviewable" | "event_locked" }
   | { outcome: "insufficient"; available: number };
@@ -66,7 +66,7 @@ export interface EquipmentRequestReviewer {
 }
 
 /**
- * The real reviewer: calls review_equipment_request() (migration 27) as the caller. It refuses anyone but Technical
+ * The real reviewer: calls review_equipment_request() (migration 32) as the caller. It refuses anyone but Technical
  * Support Staff, and checks what is free and saves Arranged in one step, so two people cannot arrange the last units.
  */
 export class SupabaseEquipmentRequestReviewer implements EquipmentRequestReviewer {

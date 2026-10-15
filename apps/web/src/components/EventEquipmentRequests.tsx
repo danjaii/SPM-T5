@@ -39,6 +39,8 @@ export function EventEquipmentRequests({ eventId, data }: { eventId: string; dat
                   <td>
                     {r.statusLabel}
                     {r.reason && <span className="field__hint"><br />Reason: {r.reason}</span>}
+                    {/* SCRUM-102/AC7: released with its venue booking, which says why */}
+                    {r.releasedReason && <span className="vb__note">Venue booking cancelled: {r.releasedReason}</span>}
                   </td>
                 </tr>
               ))}

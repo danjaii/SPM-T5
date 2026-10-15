@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { canDecideEvent } from "@spm-t5/shared";
+import { canDecideEvent, canRequestVenue } from "@spm-t5/shared";
 import { CoordinatorAssignment } from "@/components/CoordinatorAssignment";
 import { EventChangeRequestForm } from "@/components/EventChangeRequestForm";
 import { EventChangeRequestList } from "@/components/EventChangeRequestList";
@@ -9,12 +9,12 @@ import { EventEquipmentRequests } from "@/components/EventEquipmentRequests";
 import { EventRequestDetails } from "@/components/EventRequestDetails";
 import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
-import { EventVenueBooking } from "@/components/EventVenueBooking";
+import { EventVenueBookings } from "@/components/EventVenueBookings";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { getChangeRequests, getEvent, getEventOutcome } from "@/lib/getEvent";
-import { getApprovedVenueBooking } from "@/lib/venueBookingsServer";
+import { getEventVenueBookings } from "@/lib/venueBookingsServer";
 
 // Rendered per request: what's shown depends on who is signed in.
 export const dynamic = "force-dynamic";
@@ -28,11 +28,11 @@ export const metadata: Metadata = { title: "Event status · ConnectSphere" };
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const result = await getEvent(id);
-  // SCRUM-38/AC4: the approved venue, when there is one and the viewer may see it (else null).
+  // SCRUM-38/AC4, SCRUM-98/AC5: every venue booking of the event, when the viewer may see them (else null).
   // SCRUM-44: the coordinator's decision, when there is one and the viewer may see it (else null).
   // SCRUM-86: the equipment requests, when the viewer may see them (else null).
-  const [venueBooking, outcome, equipmentRequests] = "event" in result
-    ? await Promise.all([getApprovedVenueBooking(id), getEventOutcome(id), getEventEquipmentRequests(id)])
+  const [venueBookings, outcome, equipmentRequests] = "event" in result
+    ? await Promise.all([getEventVenueBookings(id), getEventOutcome(id), getEventEquipmentRequests(id)])
     : [null, null, null];
 
   const changeRequests = "event" in result && result.event.isOrganiser ? await getChangeRequests(id) : [];
@@ -58,10 +58,14 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               <CoordinatorAssignment
                 eventId={result.event.id}
                 coordinatorName={result.event.point_of_contact_name}
-                canAssign={result.event.canAssign}
               />
               <EventComments eventId={result.event.id} />
-              <EventVenueBooking booking={venueBooking} />
+              {/* SCRUM-102: venue bookings can be changed or cancelled while the event can still have venues */}
+              <EventVenueBookings
+                bookings={venueBookings}
+                canChange={canRequestVenue(result.event.status)}
+                equipment={equipmentRequests?.requests ?? []}
+              />
               {/* SCRUM-86/AC2, AC3: the event's equipment requests; AC6, AC7: Request equipment only when allowed */}
               <EventEquipmentRequests eventId={result.event.id} data={equipmentRequests} />
               {/* SCRUM-66: organisers see their change requests (AC7) and, while the status allows it, can make one (AC1-AC3) */}

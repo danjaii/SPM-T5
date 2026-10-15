@@ -143,8 +143,15 @@ describe("SCRUM-86/AC2,AC3 each request shows its own status", () => {
     expect(EQUIPMENT_REQUEST_STATUS_LABELS[equipmentRequestStatusOf(dbStatus)!]).toBe(label);
   });
 
-  it("a cancelled row is not shown", () => {
-    expect(equipmentRequestStatusOf("cancelled")).toBeUndefined();
+  // SCRUM-102/AC7 (102-S31) replaced "a cancelled row is not shown": equipment released with its venue booking is shown
+  // an equipment request released with its venue booking is shown as released
+  it("102-S31 a cancelled row shows as Released", () => {
+    expect(EQUIPMENT_REQUEST_STATUS_LABELS[equipmentRequestStatusOf("cancelled")!]).toBe("Released");
+  });
+  // an equipment request with a status the system doesnt know is hidden
+  // if equipment has some random status that is not recog by the system (which shouldnt happen in the first place), the equipment wont be shown in the equipment request tabl
+  it("an unknown status is not shown", () => {
+    expect(equipmentRequestStatusOf("nope")).toBeUndefined();
   });
 });
 
@@ -206,6 +213,11 @@ describe("SCRUM-87/AC6 equipmentReadiness", () => {
 
   it.each(["SUBMITTED", "UNDER_REVIEW", "CANNOT_FULFIL"] as const)("Incomplete when any request is %s", (status) => {
     expect(equipmentReadiness(["ARRANGED", status])).toBe("INCOMPLETE");
+  });
+
+  it("Released equipment (SCRUM-102) is not counted", () => {
+    expect(equipmentReadiness(["ARRANGED", "RELEASED"])).toBe("COMPLETE");
+    expect(equipmentReadiness(["RELEASED"])).toBeNull();
   });
 
   it("nothing to say when there are no requests", () => {

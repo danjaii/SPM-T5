@@ -37,6 +37,31 @@ export function toBookingDto(b: BookingRecord): BookingDto {
   };
 }
 
+/** A booking just requested (SCRUM-32, 60, 59), with SCRUM-98's capacity warning. */
+export interface SubmittedBookingDto extends BookingDto {
+  exceedsCapacity: boolean;
+}
+
+export function toSubmittedBookingDto(s: { booking: BookingRecord; exceedsCapacity: boolean }): SubmittedBookingDto {
+  return { ...toBookingDto(s.booking), exceedsCapacity: s.exceedsCapacity };
+}
+
+/** A venue booking the coordinator cancelled (SCRUM-102/AC2): who, when and why. */
+export interface CancelledBookingDto extends BookingDto {
+  cancelledBy: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+}
+
+export function toCancelledBookingDto(b: BookingRecord): CancelledBookingDto {
+  return {
+    ...toBookingDto(b),
+    cancelledBy: b.cancelledBy,
+    cancelledAt: b.cancelledAt ? b.cancelledAt.toISOString() : null,
+    cancellationReason: b.cancellationReason,
+  };
+}
+
 /** The outcome of a Venue Staff decision (SCRUM-38, SCRUM-39): the request plus who decided, when and why. */
 export interface DecisionDto extends BookingDto {
   decidedBy: string | null;
@@ -91,6 +116,15 @@ export function toBookingListItem(b: BookingRecord, venueName: string): BookingL
 /** One step of an amendment chain, shown with its own outcome (33-S5). */
 export interface ChainItem extends BookingListItem {
   rejectionReason: string | null;
+}
+
+/** One booking in the list of an event's bookings (SCRUM-98/AC5), with its own numbers and the capacity warning. */
+export interface EventBookingItem extends ChainItem {
+  /** SCRUM-102: only for a CANCELLED one; null for every other status. */
+  cancellationReason: string | null;
+  expectedAttendance: number | null;
+  venueRequirements: string | null;
+  exceedsCapacity: boolean;
 }
 
 export interface BookingDetail extends BookingListItem {

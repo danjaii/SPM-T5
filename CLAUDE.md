@@ -70,8 +70,11 @@ below plus `apps/web`; none of them are implemented yet (see Current state).
 Equipment/technical-support (#15-17) is owned by `equipment-service` (renamed from
 `coordinator-service`, which no longer exists — coordinator assignment moved to `event-service`,
 see #5). Attendee registration (#18) is owned by `event-service` (SCRUM-83: register, My
-registrations, and an event's registrations for its organiser and coordinator); withdrawal is not
-built yet.
+registrations, and an event's registrations for its organiser and coordinator) and SCRUM-73
+(withdraw from My registrations: `POST /events/my-registrations/:id/withdraw`, with migration 29's
+update policy letting an attendee change only their own active registration, and only to withdrawn).
+`receivesEventUpdates()` in `packages/shared` is the rule notification-service should use so a
+withdrawn attendee gets no more updates or reminders.
 
 ## Commands
 
@@ -224,7 +227,16 @@ Parts of the repo are still scaffolding — `notification-service` listens on it
 `services/*/src/index.ts` are leftovers from the original scaffold. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
-spec in `docs/specs/venue-booking-approval.md`). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
+spec in `docs/specs/venue-booking-approval.md`). An event can hold several venue bookings (SCRUM-98; spec in `docs/specs/multiple-venue-bookings.md`, migration 28):
+the one-per-event rule (DR6) is gone, the same venue for an overlapping period on one event is `DUPLICATE_VENUE`, a rejected
+request has at most one active replacement (`ACTIVE_REQUEST_EXISTS`), each booking can have its own expected attendance and
+venue requirements, more people than the venue holds is flagged (`exceedsCapacity`) rather than refused, and
+`GET /events/:id/venue-bookings` lists an event's bookings for its page. One of them can be changed (`PATCH
+/venue-bookings/:id`) or cancelled with a reason (`POST /venue-bookings/:id/cancel`) without touching the others (SCRUM-102;
+spec in `docs/specs/change-cancel-venue-booking.md`), through the security definer functions `change_venue_booking()` and
+`cancel_venue_booking()` (migration 30), only by the event's current coordinator and only before the event is Confirmed. A
+change sends it back to PENDING and moves its equipment requests to the new time, back to Submitted; cancelling releases its
+equipment requests (`cancelled`, shown as Released). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
 `available_venues` database function (`18_venue_search.sql`). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
@@ -235,7 +247,7 @@ request is a `requested` row in `equipment_reservations`, for a catalogue item a
 bookings (`venue_booking_id`, migration 25), and migration 25's restrictive insert policy lets only the assigned
 coordinator of an open event add one. The spec's open-question rules live in `packages/shared/src/equipmentRequest.ts`.
 Technical Support Staff review requests (SCRUM-87; same spec): a queue at `/equipment-requests`, and a status change
-through `review_equipment_request()` (migration 27), which refuses Arranged when too few units are free. The
+through `review_equipment_request()` (migration 32), which refuses Arranged when too few units are free. The
 equipment catalogue, request notes (SCRUM-87/AC8) and editing requests (SCRUM-88) are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
 `docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
@@ -247,7 +259,19 @@ can be changed. Staff (internal users) also see their department and responsibil
 `role_responsibilities` table (migration 17). The attendee's List of events can be searched live (SCRUM-9; spec in `docs/specs/event-search.md`): the browser filters the cards as
 the attendee types, using the organisation, category and coordinator names that `list_public_events()` now returns (migration 20). The
 shared role list now has seven roles: the Event Coordinator Lead and the Safety Officer (week 7 customer
-changes) exist as roles (migration 16), but have no accounts, dashboards or sign-in option yet.
+changes) exist as roles (migration 16). The Lead is being built out (spec in `docs/specs/event-coordinator-lead-role.md`):
+it has a sign-in option, a home page and seeded accounts, and each Event Coordinator can be linked to the one Lead who
+supervises them (`users.supervising_lead_id`, migration 19; SCRUM-75). Leads share one unassigned queue (SCRUM-77,
+`lead_unassigned_queue()` in migration 21). A closed event is completed, cancelled or rejected: `CLOSED_EVENT_STATUSES` in
+`packages/shared` and `is_closed_event_status()` in migration 21, kept equal by a test. A Lead sees their active
+coordinators' workload and non-closed events (SCRUM-81, migration 22). Only a Lead assigns (SCRUM-78, migration 23) or
+reassigns (SCRUM-79, migration 24) an event's coordinator, and only to their own active coordinators; the
+`events_assignment_guard` trigger enforces it for every caller. This replaced SCRUM-42's coordinator self-claim and
+SCRUM-41's hand-over: the coordinators' `/events/:id/assign-coordinator` and `/eligible-coordinators` routes now only
+refuse. The Safety Officer has no accounts, dashboard or
+sign-in option yet. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+(SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
+event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any

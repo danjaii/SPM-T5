@@ -13,6 +13,8 @@ export interface EquipmentRequestInfo {
   quantity: number;
   /** The booked venue, or null for a row made before requests named one. */
   venueName: string | null;
+  /** SCRUM-102: the venue booking it is for (venue names repeat when a venue is booked twice), or null as above. */
+  venueBookingId: string | null;
   notes: string | null;
   /** The DB equipment_reservation_status; equipmentRequestStatusOf() turns it into what the user sees. */
   status: string;
@@ -21,6 +23,8 @@ export interface EquipmentRequestInfo {
   end: Date;
   /** SCRUM-87/AC5: why it cannot be fulfilled, once staff said so. */
   reviewReason: string | null;
+  /** SCRUM-102 (102-S31): why its venue booking was cancelled, which released this equipment; null otherwise. */
+  venueBookingCancellationReason: string | null;
   createdAt: Date;
 }
 
@@ -36,14 +40,15 @@ export interface EquipmentRequestReader {
 type Row = Record<string, unknown>;
 
 const COLUMNS =
-  "id, event_id, quantity_requested, notes, status, start_datetime, end_datetime, review_reason, created_at, " +
+  "id, event_id, venue_booking_id, quantity_requested, notes, status, start_datetime, end_datetime, review_reason, created_at, " +
   "event:events(name, status, preferred_start_datetime), equipment:equipment(name, type), " +
-  "booking:venue_bookings(venue:venues!venue_bookings_venue_id_fkey(name))";
+  "booking:venue_bookings(cancellation_reason, venue:venues!venue_bookings_venue_id_fkey(name))";
 
 const toRequest = (r: Row): EquipmentRequestInfo => {
   const event = r.event as Row | null;
   const equipment = r.equipment as Row | null;
-  const venue = (r.booking as Row | null)?.venue as Row | null | undefined;
+  const booking = r.booking as Row | null;
+  const venue = booking?.venue as Row | null | undefined;
   return {
     id: r.id as string,
     eventId: r.event_id as string,
@@ -54,11 +59,13 @@ const toRequest = (r: Row): EquipmentRequestInfo => {
     equipmentType: (equipment?.type as string | null | undefined) ?? null,
     quantity: r.quantity_requested as number,
     venueName: (venue?.name as string | undefined) ?? null,
+    venueBookingId: (r.venue_booking_id as string | null | undefined) ?? null,
     notes: (r.notes as string | null) ?? null,
     status: r.status as string,
     start: new Date(r.start_datetime as string),
     end: new Date(r.end_datetime as string),
     reviewReason: (r.review_reason as string | null) ?? null,
+    venueBookingCancellationReason: (booking?.cancellation_reason as string | null | undefined) ?? null,
     createdAt: new Date(r.created_at as string),
   };
 };

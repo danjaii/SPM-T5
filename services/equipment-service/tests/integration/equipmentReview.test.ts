@@ -5,7 +5,7 @@ import { SupabaseEquipmentRequestReviewer } from "../../src/writers/equipmentReq
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-87: migrations 26 and 27 against a real Postgres, through the real reader and reviewer, signed in as seeded
+ * SCRUM-87: migrations 31 and 32 against a real Postgres, through the real reader and reviewer, signed in as seeded
  * users so RLS applies. These are the checks the unit tests cannot make: review_equipment_request() refuses
  * everyone but Technical Support Staff, checks availability and saves in one step, and a coordinator cannot change a
  * status by updating the row directly. Fixtures are made with the secret key, prefixed "IT-87", and removed afterwards.
@@ -17,7 +17,7 @@ const ORGANISER = "jason.chua@techconnect.example.com"; // event_organiser
 // A far-future day (SCRUM-86's suite uses 2033), and the suite's own venue and items, so nothing overlaps.
 const at = (day: number, hour: number) => new Date(Date.UTC(2034, 4, day, hour, 0, 0));
 
-describe.skipIf(!hasDb)("SCRUM-87 reviewing equipment requests (migrations 26, 27)", () => {
+describe.skipIf(!hasDb)("SCRUM-87 reviewing equipment requests (migrations 31, 32)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const eventIds: string[] = [];
   const equipmentIds: string[] = [];
@@ -116,7 +116,7 @@ describe.skipIf(!hasDb)("SCRUM-87 reviewing equipment requests (migrations 26, 2
     const reader = new SupabaseEquipmentRequestReader(aaron.client);
 
     expect((await reader.waiting()).map((w) => w.id)).toContain(r.id);
-    // The venue name needs migration 27's venue_bookings policy: staff could not read venue bookings before.
+    // The venue name needs migration 32's venue_bookings policy: staff could not read venue bookings before.
     expect(await reader.find(r.id)).toMatchObject({
       eventName: `IT-87 event ${r.day}`,
       eventStatus: "planning",
@@ -189,7 +189,7 @@ describe.skipIf(!hasDb)("SCRUM-87 reviewing equipment requests (migrations 26, 2
     const r = await newRequest();
     await expect(review(rachel, r.id, "approved")).rejects.toThrow(/Only Technical Support Staff/);
 
-    // The blanket policy from 02_rls.sql would allow this; migration 27's restrictive policy does not.
+    // The blanket policy from 02_rls.sql would allow this; migration 32's restrictive policy does not.
     await rachel.client.from("equipment_reservations").update({ status: "approved" }).eq("id", r.id);
     expect((await rowOf(r.id)).status).toBe("requested");
   });

@@ -77,10 +77,12 @@ describe("SCRUM-86/AC1 create a request", () => {
       equipment: "Audio: Wireless Microphone Set",
       quantity: 4,
       venueName: "Grand Hall",
+      venueBookingId: "vb-hall",
       notes: "Two on stage",
       status: "SUBMITTED",
       statusLabel: "Submitted",
       reason: null,
+      releasedReason: null, // SCRUM-102: only a Released one has a reason
     });
     expect(writer.saved).toEqual([
       {
@@ -164,23 +166,45 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
         equipment: "AV: Projector Unit",
         quantity: 2,
         venueName: "Grand Hall",
+        venueBookingId: "vb-hall",
         notes: "Near the stage",
         status: "SUBMITTED",
         statusLabel: "Submitted",
         reason: null,
+        releasedReason: null, // SCRUM-102: only a Released one has a reason
       },
     ]);
   });
 
-  it("rows made before requests named a venue show no venue; cancelled rows are not shown", async () => {
+  it("rows made before requests named a venue show no venue", async () => {
+    const { list } = setup({ stored: [anEquipmentRequest({ id: "old", venueName: null, status: "reserved" })] });
+    const res = await list();
+    expect(res.body.requests).toEqual([expect.objectContaining({ id: "old", venueName: null, status: "ARRANGED", statusLabel: "Arranged" })]);
+  });
+
+  // SCRUM-102/AC7 (102-S31): the coordinator cancelled the Grand Hall venue booking ("Moved to a bigger room"), which
+  // released its 2 projectors; the list says so instead of hiding them (it used to leave cancelled rows out)
+  it("102-S31 equipment released with its venue booking shows as Released, with the venue booking's cancellation reason", async () => {
     const { list } = setup({
       stored: [
-        anEquipmentRequest({ id: "old", venueName: null, status: "reserved" }),
-        anEquipmentRequest({ id: "gone", status: "cancelled" }),
+        anEquipmentRequest({ id: "released", status: "cancelled", venueBookingCancellationReason: "Moved to a bigger room" }),
+        anEquipmentRequest({ id: "still-needed", status: "approved" }),
       ],
     });
     const res = await list();
-    expect(res.body.requests).toEqual([expect.objectContaining({ id: "old", venueName: null, status: "ARRANGED", statusLabel: "Arranged" })]);
+
+    expect(res.body.requests).toEqual([
+      expect.objectContaining({ id: "released", venueName: "Grand Hall", status: "RELEASED", statusLabel: "Released", releasedReason: "Moved to a bigger room" }),
+      expect.objectContaining({ id: "still-needed", status: "ARRANGED", releasedReason: null }),
+    ]);
+    // SCRUM-87/AC6: released equipment is no longer needed, so the rest being Arranged makes the event Complete
+    expect(res.body.readiness).toBe("COMPLETE");
+  });
+
+  it("SCRUM-87/AC5 a request sent back to Submitted by a venue booking change no longer shows its old reason", async () => {
+    const { list } = setup({ stored: [anEquipmentRequest({ id: "moved", status: "requested", reviewReason: "All out on loan" })] });
+    const res = await list();
+    expect(res.body.requests).toEqual([expect.objectContaining({ id: "moved", status: "SUBMITTED", reason: null })]);
   });
 
   it("Technical Support Staff can see an event's requests too, but cannot add one", async () => {

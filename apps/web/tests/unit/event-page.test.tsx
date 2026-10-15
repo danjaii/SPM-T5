@@ -1,10 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getEvent, getEventOutcome } = vi.hoisted(() => ({ getEvent: vi.fn(), getEventOutcome: vi.fn() }));
-const { getApprovedVenueBooking } = vi.hoisted(() => ({ getApprovedVenueBooking: vi.fn() }));
+const { getEventVenueBookings } = vi.hoisted(() => ({ getEventVenueBookings: vi.fn() }));
 vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome }));
-vi.mock("@/lib/venueBookingsServer", () => ({ getApprovedVenueBooking }));
+vi.mock("@/lib/venueBookingsServer", () => ({ getEventVenueBookings }));
 const { getEventEquipmentRequests } = vi.hoisted(() => ({ getEventEquipmentRequests: vi.fn() }));
 vi.mock("@/lib/equipmentRequestsServer", () => ({ getEventEquipmentRequests }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
@@ -26,7 +26,7 @@ const stubEventService = () =>
 
 describe("Event status page route (/events/[id])", () => {
   beforeEach(() => {
-    getApprovedVenueBooking.mockReset().mockResolvedValue(null);
+    getEventVenueBookings.mockReset().mockResolvedValue(null);
     getEventOutcome.mockReset().mockResolvedValue(null);
     getEventEquipmentRequests.mockReset().mockResolvedValue(null);
     stubEventService();
@@ -90,23 +90,23 @@ describe("Event status page route (/events/[id])", () => {
     expect(screen.getByRole("alert").textContent).toBe("Event not found.");
   });
 
-  it("SCRUM-42/AC5, AC8: shows the assigned coordinator and, for coordinators, the reassign action", async () => {
+  // SCRUM-79/AC9: the reassign action half was retired; a Lead reassigns from the Lead's pages now
+  it("SCRUM-42/AC5: shows the assigned coordinator", async () => {
     getEvent.mockResolvedValue({
       event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: false, canReview: false,
-        canAssign: true, point_of_contact_name: "Alice Coord" },
+        point_of_contact_name: "Alice Coord" },
     });
 
     await open("evt-1");
 
     expect(screen.getByRole("heading", { name: "Coordinator" })).toBeTruthy();
     expect(screen.getByText("Alice Coord")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Reassign coordinator" })).toBeTruthy();
   });
 
   it("SCRUM-23/AC2: reads top to bottom — details, coordinator, then the manual status change", async () => {
     getEvent.mockResolvedValue({
       event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: true, canReview: false,
-        canAssign: true, point_of_contact_name: "Alice Coord", organiser_name: "Sam Tan" },
+        point_of_contact_name: "Alice Coord", organiser_name: "Sam Tan" },
     });
 
     await open("evt-1");
@@ -144,36 +144,72 @@ describe("Event status page route (/events/[id])", () => {
 
     expect(screen.getByRole("alert").textContent).toBe(error);
     expect(screen.queryByRole("heading", { name: "Request details" })).toBeNull();
-    expect(getApprovedVenueBooking).not.toHaveBeenCalled();
+    expect(getEventVenueBookings).not.toHaveBeenCalled();
   });
 
-  it("SCRUM-38/AC4 38-S4: shows the approved venue booking under the event", async () => {
+  // SCRUM-98/AC5 replaced SCRUM-38's single approved venue with every venue booking of the event (approved ones included)
+  it("SCRUM-38/AC4 38-S4, SCRUM-98/AC5 98-S24: shows every venue booking of the event under it", async () => {
     getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "approved", canChangeStatus: true } });
-    getApprovedVenueBooking.mockResolvedValue({ venueName: "Orchid Hall", date: "2026-11-14", startTime: "09:00", endTime: "17:00" });
+    const booking = (id: string, venueName: string, status: string) => ({
+      id, eventId: "evt-1", eventName: "Tech Summit", venueId: id, venueName, date: "2026-11-14", startTime: "09:00", endTime: "17:00",
+      status, decidedAt: null, submittedAt: "2026-10-01T00:00:00.000Z", rejectionReason: null, expectedAttendance: 50,
+      venueRequirements: null, exceedsCapacity: false,
+    });
+    getEventVenueBookings.mockResolvedValue([booking("b-1", "Orchid Hall", "APPROVED"), booking("b-2", "Lotus Room", "PENDING")]);
 
     await open("evt-1");
 
-    expect(getApprovedVenueBooking).toHaveBeenCalledWith("evt-1");
-    expect(screen.getByText("Orchid Hall")).toBeTruthy();
+    expect(getEventVenueBookings).toHaveBeenCalledWith("evt-1");
+    expect(screen.getByRole("heading", { name: "Venue bookings" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Orchid Hall" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Lotus Room" })).toBeTruthy();
   });
 
-  it("SCRUM-38/AC4 38-S4: shows no venue section when there is none", async () => {
+  it("SCRUM-38/AC4 38-S4, SCRUM-98/AC6 98-S27: shows no venue section to a viewer who may not see it", async () => {
     getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "approved", canChangeStatus: false } });
 
     await open("evt-1");
 
-    expect(screen.queryByText("Orchid Hall")).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Venue booking" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Venue bookings" })).toBeNull();
+  });
+
+  // SCRUM-102: while the event can still have venues, its pending and approved venue bookings can be changed or cancelled;
+  // the cancel confirmation lists the equipment that the event page already loaded for that venue booking
+  it.each([
+    ["approved", true],
+    ["confirmed", false],
+  ])("SCRUM-102/AC1, AC2 102-S26: a %s event offers Change and Cancel: %s", async (status, offered) => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status, canChangeStatus: true } });
+    getEventVenueBookings.mockResolvedValue([
+      {
+        id: "b-1", eventId: "evt-1", eventName: "Tech Summit", venueId: "v-1", venueName: "Orchid Hall", date: "2026-11-14", startTime: "09:00",
+        endTime: "17:00", status: "PENDING", decidedAt: null, submittedAt: "2026-10-01T00:00:00.000Z", rejectionReason: null, cancellationReason: null,
+        expectedAttendance: 50, venueRequirements: null, exceedsCapacity: false,
+      },
+    ]);
+    getEventEquipmentRequests.mockResolvedValue({
+      requests: [{ id: "e-1", equipment: "AV: Projector Unit", quantity: 2, venueName: "Orchid Hall", venueBookingId: "b-1", notes: null, status: "ARRANGED", statusLabel: "Arranged", releasedReason: null }],
+      canCreate: false,
+    });
+
+    await open("evt-1");
+
+    expect(!!screen.queryByRole("link", { name: "Change the Orchid Hall venue booking" })).toBe(offered);
+    expect(!!screen.queryByRole("button", { name: "Cancel the Orchid Hall venue booking" })).toBe(offered);
+    if (offered) {
+      fireEvent.click(screen.getByRole("button", { name: "Cancel the Orchid Hall venue booking" }));
+      expect(screen.getByRole("alertdialog").textContent).toContain("2 × AV: Projector Unit (Arranged)");
+    }
   });
 });
 
 describe("SCRUM-44 — review outcome on the event page", () => {
   const organiserView = (status: string) => ({
-    event: { id: "evt-1", name: "Tech Summit", status, canChangeStatus: false, canReview: false, canAssign: false, point_of_contact_name: "Rachel Tan" },
+    event: { id: "evt-1", name: "Tech Summit", status, canChangeStatus: false, canReview: false, point_of_contact_name: "Rachel Tan" },
   });
 
   beforeEach(() => {
-    getApprovedVenueBooking.mockReset().mockResolvedValue(null);
+    getEventVenueBookings.mockReset().mockResolvedValue(null);
     getEventOutcome.mockReset().mockResolvedValue(null);
     stubEventService();
   });
