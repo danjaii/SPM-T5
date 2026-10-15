@@ -294,7 +294,8 @@ describe("SCRUM-32/AC8 the slot is already held (32-S8)", () => {
     bookings.seed({ eventId: "other-event", venueId: "venue-1", start: new Date("2030-11-14T03:00:00Z"), end: new Date("2030-11-14T05:00:00Z") });
     const res = await coordinator.post(submit());
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ code: "SLOT_CONFLICT", error: "This venue is already held for part of that period." });
+    // SCRUM-103: the refusal names the occupied period (the held request is 11:00-13:00 in Singapore time)
+    expect(res.body).toEqual({ code: "SLOT_CONFLICT", error: "venue-1 is occupied from 11:00 to 13:00" });
     expect(bookings.rows).toHaveLength(1);
   });
 });

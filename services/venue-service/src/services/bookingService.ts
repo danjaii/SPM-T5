@@ -3,21 +3,24 @@ import {
   checkSuitability,
   exceedsCapacity,
   isHoldingDbStatus,
+  paddedPeriod,
   parseCancellationInput,
   parseSuitabilityOverride,
   parseVenueBookingInput,
   periodsOverlap,
   unmetRequirements,
   utcToSgt,
+  type Period,
   type Role,
+  type VenueTiming,
 } from "@spm-t5/shared";
-import { bookingError, forbidden, notFound, unsuitableVenue, validationFailed } from "../domain/errors";
+import { BookingError, bookingError, forbidden, notFound, unsuitableVenue, validationFailed } from "../domain/errors";
 import type { BookingRecord, BookingSuitability } from "../domain/types";
 import type { EventInfo, EventReader } from "../readers/eventReader";
 import type { VenueDetailsReader } from "../readers/venueDetailsReader";
 import type { VenueReader } from "../readers/venueReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
-import { SlotConflictRule } from "./slotConflictRule";
+import { SlotConflictRule, slotConflictError } from "./slotConflictRule";
 
 export interface Caller {
   id: string;
@@ -48,6 +51,14 @@ export interface BookingServiceDeps {
 
 /** SCRUM-102: the DB statuses a venue booking can be changed or cancelled in (PENDING and APPROVED). */
 const CHANGEABLE_DB_STATUSES = ["requested", "approved"];
+
+/**
+ * SCRUM-103 + SCRUM-98: two periods at the same venue clash when their padded periods (setup before, turnaround after) overlap.
+ * Used for this event's own other bookings (DUPLICATE_VENUE); the database trigger (migration 27) is the authority.
+ */
+function clashes(a: Period, b: Period, timing: VenueTiming): boolean {
+  return periodsOverlap(paddedPeriod(a, timing), paddedPeriod(b, timing));
+}
 
 /** DR2 + DR9: only the event's assigned Coordinator, and only for an eligible event. */
 export function assertMayRequestFor(caller: Caller, event: EventInfo | null): EventInfo {
@@ -188,16 +199,22 @@ export class BookingService {
 
     // 102-S10 (32-S7's rule) and 102-S5 (98-S13's rule), against the event's other venue bookings only (102-S6). Another
     // event holding the venue is the database's overlap constraint (102-S4), which also ignores the row being changed.
+    const venue = await venues.getById(booking.venueId);
+    const timing = { setupMinutes: venue?.setupMinutes ?? 0, turnaroundMinutes: venue?.turnaroundMinutes ?? 0 };
     const others = (await bookings.listByEvent(booking.eventId)).filter((b) => b.id !== booking.id);
     const sameVenue = others.filter((b) => b.venueId === booking.venueId);
     if (sameVenue.some((b) => b.status === "rejected" && b.start.getTime() === input.start.getTime() && b.end.getTime() === input.end.getTime())) {
       throw bookingError("REPEAT_OF_REJECTED");
     }
-    if (sameVenue.some((b) => isHoldingDbStatus(b.status) && periodsOverlap(b, input))) throw bookingError("DUPLICATE_VENUE");
+    if (sameVenue.some((b) => isHoldingDbStatus(b.status) && clashes(b, input, timing))) throw bookingError("DUPLICATE_VENUE");
+
+    // SCRUM-103: another event holding the venue, setup and turnaround included, naming the occupied period. The row being
+    // changed does not count against itself.
+    await this.slotRule.check(booking.venueId, input.start, input.end, booking.id);
 
     // 110-S10: the booking goes back to venue staff with new numbers, so the stored result is made afresh from them (the
     // old one could say "suitable" about 40 people when it is now 200). An unsuitable change needs a reason, like a new
-    // request. Availability is the database's overlap constraint above (102-S4), which ignores this booking itself.
+    // request. Availability is the slot check above, which ignores this booking itself.
     const suitability = await this.assessSuitability(
       event,
       booking.venueId,
@@ -205,9 +222,13 @@ export class BookingService {
       override.data.reason,
     );
 
-    const changed = await bookings.change(id, { start: input.start, end: input.end, expectedAttendance, venueRequirements, suitability }, now());
+    const changed = await this.persist(
+      () => bookings.change(id, { start: input.start, end: input.end, expectedAttendance, venueRequirements, suitability }, now()),
+      booking.venueId,
+      input,
+      booking.id,
+    );
     if (!changed) throw bookingError("NOT_ACTIVE"); // it was decided or withdrawn a moment ago
-    const venue = await venues.getById(booking.venueId);
     return { booking: changed, exceedsCapacity: exceedsCapacity(expectedAttendance, venue?.maxCapacity) };
   }
 
@@ -239,6 +260,22 @@ export class BookingService {
     const unmet = unmetRequirements(report);
     if (!reason) throw unsuitableVenue(unmet);
     return { result: "not_suitable", unmet, overrideReason: reason };
+  }
+
+  /**
+   * SCRUM-103/103-S7: runs the write. If another request won the race between the pre-check and the write, the database only
+   * says "held" (SLOT_CONFLICT), so look the holder up again and give the same specific message as the pre-check.
+   */
+  private async persist<T>(write: () => Promise<T>, venueId: string, period: Period, excludeBookingId?: string): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if (error instanceof BookingError && error.code === "SLOT_CONFLICT") {
+        const conflict = await this.slotRule.findConflict(venueId, period.start, period.end, excludeBookingId);
+        if (conflict) throw slotConflictError(conflict);
+      }
+      throw error;
+    }
   }
 
   async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<SubmittedBooking> {
@@ -289,7 +326,7 @@ export class BookingService {
     // 98-S13, 98-S14: this event already holds the same venue for an overlapping period. Checked before the
     // slot check, which would refuse it too but with a message that points at someone else.
     const ownOverlap = history.some(
-      (b) => b.venueId === input.venueId && isHoldingDbStatus(b.status) && periodsOverlap(b, input),
+      (b) => b.venueId === input.venueId && isHoldingDbStatus(b.status) && clashes(b, input, venue),
     );
     if (ownOverlap) throw bookingError("DUPLICATE_VENUE");
 
@@ -311,22 +348,27 @@ export class BookingService {
       end: input.end,
     }, override.data.reason);
 
-    const booking = await bookings.insert({
-      eventId: event.id,
-      venueId: input.venueId,
-      start: input.start,
-      end: input.end,
-      requestedBy: caller.id,
-      snapshot: {
-        eventName: event.name,
-        expectedAttendance,
-        venueRequirements,
-        accessibilityNeeds: event.accessibilityNeeds,
-      },
-      amendsBookingId: options.amendsBookingId ?? null,
-      fromSuggestion: options.fromSuggestion ?? false,
-      suitability,
-    });
+    const booking = await this.persist(
+      () =>
+        bookings.insert({
+          eventId: event.id,
+          venueId: input.venueId,
+          start: input.start,
+          end: input.end,
+          requestedBy: caller.id,
+          snapshot: {
+            eventName: event.name,
+            expectedAttendance,
+            venueRequirements,
+            accessibilityNeeds: event.accessibilityNeeds,
+          },
+          amendsBookingId: options.amendsBookingId ?? null,
+          fromSuggestion: options.fromSuggestion ?? false,
+          suitability,
+        }),
+      input.venueId,
+      input,
+    );
 
     // 32-S9, 98-S10: more people than the venue holds is flagged, never refused.
     return { booking, exceedsCapacity: exceedsCapacity(expectedAttendance, venue.maxCapacity) };

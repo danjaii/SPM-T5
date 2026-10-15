@@ -24,7 +24,12 @@ const VENUE = { id: "v1", name: "Orchid Hall", max_capacity: 150, is_active: tru
 describe("SupabaseVenueReader", () => {
   it("maps a venue row", async () => {
     const reader = new SupabaseVenueReader(stubDb({ data: VENUE, error: null }));
-    expect(await reader.getById("v1")).toEqual({ id: "v1", name: "Orchid Hall", maxCapacity: 150, isActive: true });
+    expect(await reader.getById("v1")).toEqual({ id: "v1", name: "Orchid Hall", maxCapacity: 150, isActive: true, setupMinutes: 0, turnaroundMinutes: 0 });
+  });
+
+  it("SCRUM-101: reads the setup and turnaround times", async () => {
+    const reader = new SupabaseVenueReader(stubDb({ data: { ...VENUE, setup_minutes: 30, turnaround_minutes: 45 }, error: null }));
+    expect(await reader.getById("v1")).toMatchObject({ setupMinutes: 30, turnaroundMinutes: 45 });
   });
 
   it("returns null for a missing venue and throws on errors", async () => {

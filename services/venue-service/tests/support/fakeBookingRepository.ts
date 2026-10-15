@@ -1,6 +1,6 @@
-import { isHoldingDbStatus, periodsOverlap } from "@spm-t5/shared";
+import { dbStatusToApi, isHoldingDbStatus, paddedPeriod, periodsOverlap, type Period, type VenueTiming } from "@spm-t5/shared";
 import { bookingError } from "../../src/domain/errors";
-import type { BookingChange, BookingRecord, Decision, NewBooking } from "../../src/domain/types";
+import type { BookingChange, BookingRecord, Decision, NewBooking, SlotConflict } from "../../src/domain/types";
 import type { BookingRepository } from "../../src/repositories/bookingRepository";
 
 /**
@@ -8,12 +8,34 @@ import type { BookingRepository } from "../../src/repositories/bookingRepository
  * constraints in supabase/migrations/06 and 28 (slot exclusion, one active replacement per rejected request, one
  * suggestion acceptance), so unit tests exercise the data-layer guard, not just the pre-checks.
  * insert() checks and pushes synchronously, which makes it atomic, like the real constraint.
+ * Since SCRUM-103 the slot rule compares padded periods (the trigger in migration 27), using the venue's
+ * current setup and turnaround times from setVenue(); a venue never given times is 0 and 0.
  */
 export class FakeBookingRepository implements BookingRepository {
   readonly rows: BookingRecord[] = [];
   private counter = 0;
 
   constructor(private readonly now: () => Date = () => new Date("2026-10-01T00:00:00.000Z")) {}
+
+  private readonly venues = new Map<string, VenueTiming & { name: string }>();
+
+  /** SCRUM-103: gives a venue its name and current setup and turnaround times. */
+  setVenue(venueId: string, venue: Partial<VenueTiming> & { name?: string }): void {
+    this.venues.set(venueId, { name: venue.name ?? venueId, setupMinutes: venue.setupMinutes ?? 0, turnaroundMinutes: venue.turnaroundMinutes ?? 0 });
+  }
+
+  private venueOf(venueId: string) {
+    return this.venues.get(venueId) ?? { name: venueId, setupMinutes: 0, turnaroundMinutes: 0 };
+  }
+
+  /** The holding requests at this venue whose padded period overlaps the padded `p`, earliest first. */
+  private conflictsWith(venueId: string, p: Period, excludeId?: string): BookingRecord[] {
+    const venue = this.venueOf(venueId);
+    const wanted = paddedPeriod(p, venue);
+    return this.rows
+      .filter((r) => r.id !== excludeId && r.venueId === venueId && isHoldingDbStatus(r.status) && periodsOverlap(paddedPeriod(r, venue), wanted))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }
 
   /** Adds a row directly, bypassing every rule. For arranging test fixtures. */
   seed(partial: Partial<BookingRecord> & Pick<BookingRecord, "eventId" | "venueId" | "start" | "end">): BookingRecord {
@@ -44,9 +66,33 @@ export class FakeBookingRepository implements BookingRepository {
   }
 
   async hasHold(venueId: string, start: Date, end: Date): Promise<boolean> {
-    return this.rows.some(
-      (r) => r.venueId === venueId && isHoldingDbStatus(r.status) && periodsOverlap(r, { start, end }),
-    );
+    return this.conflictsWith(venueId, { start, end }).length > 0;
+  }
+
+  async slotConflicts(venueId: string, start: Date, end: Date, excludeBookingId?: string): Promise<SlotConflict[]> {
+    const venue = this.venueOf(venueId);
+    return this.conflictsWith(venueId, { start, end }, excludeBookingId).map((r) => this.occupied(r, venue));
+  }
+
+  async occupiedPeriods(venueId: string, from: Date, to: Date): Promise<SlotConflict[]> {
+    const venue = this.venueOf(venueId);
+    return this.rows
+      .filter((r) => r.venueId === venueId && isHoldingDbStatus(r.status) && periodsOverlap(paddedPeriod(r, venue), { start: from, end: to }))
+      .sort((a, b) => a.start.getTime() - b.start.getTime())
+      .map((r) => this.occupied(r, venue));
+  }
+
+  private occupied(r: BookingRecord, venue: VenueTiming & { name: string }): SlotConflict {
+    const padded = paddedPeriod(r, venue);
+    return {
+      eventStart: r.start,
+      eventEnd: r.end,
+      occupiedStart: padded.start,
+      occupiedEnd: padded.end,
+      status: dbStatusToApi(r.status) === "PENDING" ? "PENDING" : "APPROVED",
+      venueName: venue.name,
+      timing: { setupMinutes: venue.setupMinutes, turnaroundMinutes: venue.turnaroundMinutes },
+    };
   }
 
   async listPending(): Promise<BookingRecord[]> {
@@ -74,8 +120,8 @@ export class FakeBookingRepository implements BookingRepository {
   async change(id: string, change: BookingChange): Promise<BookingRecord | null> {
     const row = this.rows.find((r) => r.id === id);
     if (!row || !["requested", "approved"].includes(row.status)) return null;
-    // the overlap constraint (06) applies to the changed row too, ignoring the row itself (102-S4, 102-S6)
-    if (this.rows.some((r) => r.id !== id && r.venueId === row.venueId && isHoldingDbStatus(r.status) && periodsOverlap(r, change))) {
+    // the padded-overlap trigger (27) applies to the changed row too, ignoring the row itself (102-S4, 102-S6, 103)
+    if (this.conflictsWith(row.venueId, change, id).length > 0) {
       throw bookingError("SLOT_CONFLICT");
     }
     Object.assign(row, {
@@ -125,11 +171,7 @@ export class FakeBookingRepository implements BookingRepository {
     ) {
       throw bookingError("SUGGESTION_ALREADY_USED");
     }
-    if (
-      this.rows.some(
-        (r) => r.venueId === input.venueId && isHoldingDbStatus(r.status) && periodsOverlap(r, input),
-      )
-    ) {
+    if (this.conflictsWith(input.venueId, input).length > 0) {
       throw bookingError("SLOT_CONFLICT");
     }
     return this.seed({

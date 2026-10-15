@@ -1,4 +1,4 @@
-import type { BookingChange, BookingRecord, Decision, NewBooking } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, NewBooking, SlotConflict } from "../domain/types";
 
 /**
  * Storage for venue booking requests. The real implementation is Postgres (venue_bookings); the
@@ -6,8 +6,17 @@ import type { BookingChange, BookingRecord, Decision, NewBooking } from "../doma
  * their violations into BookingErrors and never leak the raw database message (36-S5).
  */
 export interface BookingRepository {
-  /** True if a PENDING/APPROVED request already holds this venue over any part of the period. */
+  /** True if a PENDING/APPROVED request already holds this venue over any part of the period, setup and turnaround included (SCRUM-103). */
   hasHold(venueId: string, start: Date, end: Date): Promise<boolean>;
+
+  /**
+   * SCRUM-103: the holding requests whose padded period (setup before, turnaround after) overlaps this padded
+   * request, earliest first, ignoring `excludeBookingId` (a booking being changed, SCRUM-102). Identities are never returned (36-S5).
+   */
+  slotConflicts(venueId: string, start: Date, end: Date, excludeBookingId?: string): Promise<SlotConflict[]>;
+
+  /** SCRUM-103: the holding requests whose padded period overlaps the window, earliest first (the availability view). */
+  occupiedPeriods(venueId: string, from: Date, to: Date): Promise<SlotConflict[]>;
 
   /** PENDING requests, oldest first: the Venue Staff queue (seam for SCRUM-37). */
   listPending(): Promise<BookingRecord[]>;
