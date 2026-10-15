@@ -75,7 +75,7 @@ describe("SCRUM-23/AC3 — missing optional information", () => {
     const { container } = render(<EventRequestDetails event={EMPTY} />);
 
     const values = [...container.querySelectorAll("dd")];
-    expect(values).toHaveLength(8);
+    expect(values).toHaveLength(11); // SCRUM-111 added description, category and venue requirements
     for (const value of values) expect(value.textContent).toBe(NOT_PROVIDED);
   });
 
