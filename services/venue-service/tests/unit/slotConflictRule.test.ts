@@ -53,7 +53,8 @@ describe("SCRUM-36/AC1 overlapping requests are refused (36-S1)", () => {
       await expect(rule.check(ORCHID, requested.start, requested.end)).rejects.toMatchObject({
         code: "SLOT_CONFLICT",
         httpStatus: 409,
-        message: "This venue is already held for part of that period.",
+        // SCRUM-103: the refusal now says which period is occupied (a venue with no times has no suffix).
+        message: "venue-orchid-hall is occupied from 09:00 to 17:00",
       });
 
       // The data-layer guard refuses it too, and nothing is created.
@@ -131,7 +132,7 @@ describe("SCRUM-36/AC5 the refusal does not expose other events (36-S5)", () => 
     const body = (error as BookingError).toBody();
     expect(body).toEqual({
       code: "SLOT_CONFLICT",
-      error: "This venue is already held for part of that period.",
+      error: "venue-orchid-hall is occupied from 09:00 to 17:00",
     });
 
     const serialised = JSON.stringify(body);
