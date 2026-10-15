@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { parseVenueBookingInput, VENUE_REQUIREMENTS_MAX_LENGTH } from "@spm-t5/shared";
+import { parseVenueBookingInput, VENUE_REQUIREMENTS_MAX_LENGTH, type UnmetRequirement } from "@spm-t5/shared";
 import { Field } from "./Field";
+import { UnsuitableConfirm } from "./UnsuitableConfirm";
 import type { EquipmentRequestView } from "@/lib/equipmentRequests";
 import { changeVenueBooking, type VenueBookingChangeBody, type VenueBookingDetailView } from "@/lib/venueBookings";
 
@@ -21,6 +22,8 @@ export function VenueBookingChangeForm({ booking, equipment }: { booking: VenueB
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
+  // SCRUM-110: the changed numbers no longer suit the venue; the change is saved only after a reason
+  const [unsuitable, setUnsuitable] = useState<{ unmet: UnmetRequirement[]; body: VenueBookingChangeBody }>();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -46,14 +49,22 @@ export function VenueBookingChangeForm({ booking, equipment }: { booking: VenueB
     if (parsed.data.expectedAttendance !== undefined) body.expectedAttendance = parsed.data.expectedAttendance;
     if (parsed.data.venueRequirements !== undefined) body.venueRequirements = parsed.data.venueRequirements;
 
+    await send(body);
+  }
+
+  async function send(body: VenueBookingChangeBody) {
     setSaving(true);
     const { ok, data } = await changeVenueBooking(booking.id, body);
     if (ok) {
       router.push(`/events/${booking.eventId}`);
       return;
     }
-    if (data.fieldErrors) setFieldErrors(data.fieldErrors);
-    setError(data.error ?? "We couldn't save the change. Please try again.");
+    if (data.code === "UNSUITABLE_VENUE" && data.unmet) {
+      setUnsuitable({ unmet: data.unmet, body });
+    } else {
+      if (data.fieldErrors) setFieldErrors(data.fieldErrors);
+      setError(data.error ?? "We couldn't save the change. Please try again.");
+    }
     setSaving(false);
   }
 
@@ -94,7 +105,16 @@ export function VenueBookingChangeForm({ booking, equipment }: { booking: VenueB
         <Field id="venueRequirements" label="Venue requirements for this venue" maxLength={VENUE_REQUIREMENTS_MAX_LENGTH}
           value={requirements} error={fieldErrors.venueRequirements} onChange={(e) => setRequirements(e.target.value)} />
 
-        <button className="btn" type="submit" disabled={saving}>{saving ? "Saving…" : "Save change"}</button>
+        {unsuitable ? (
+          <UnsuitableConfirm
+            unmet={unsuitable.unmet}
+            busy={saving}
+            onCancel={() => setUnsuitable(undefined)}
+            onConfirm={(overrideReason) => send({ ...unsuitable.body, overrideReason })}
+          />
+        ) : (
+          <button className="btn" type="submit" disabled={saving}>{saving ? "Saving…" : "Save change"}</button>
+        )}
       </form>
     </section>
   );

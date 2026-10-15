@@ -11,11 +11,14 @@ interface Props {
   date: string;
   startTime: string;
   endTime: string;
+  /** SCRUM-110/AC6: this booking's own attendance and layout (SCRUM-98); left out, the event's are used. */
+  attendance?: number;
+  venueRequirements?: string;
   run?: typeof checkVenueSuitability;
 }
 
 // SCRUM-109: "Check suitability" on the venue request form. Information only: it never blocks the request.
-export function SuitabilityCheck({ eventId, venueId, date, startTime, endTime, run = checkVenueSuitability }: Props) {
+export function SuitabilityCheck({ eventId, venueId, date, startTime, endTime, attendance, venueRequirements, run = checkVenueSuitability }: Props) {
   const [report, setReport] = useState<SuitabilityView>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -28,7 +31,7 @@ export function SuitabilityCheck({ eventId, venueId, date, startTime, endTime, r
     }
     setError(undefined);
     setBusy(true);
-    const { ok, data } = await run({ venueId, eventId, date, startTime, endTime });
+    const { ok, data } = await run({ venueId, eventId, date, startTime, endTime, attendance, venueRequirements });
     if (ok) setReport(data);
     else setError(Object.values(data.fieldErrors ?? {})[0] ?? data.error ?? "We couldn't check this venue. Please try again.");
     setBusy(false);

@@ -21,6 +21,8 @@ export interface SuitabilityQuery {
   startTime?: string;
   endTime?: string;
   attendance?: number | null;
+  /** The booking's own layout name (SCRUM-98); left out, the event's. */
+  venueRequirements?: string;
   /** True where the venue is already held by the very request being looked at (the Venue Staff queue). */
   skipAvailability?: boolean;
 }
@@ -33,6 +35,7 @@ export function suitabilityParams(query: SuitabilityQuery): URLSearchParams {
     if (value) params.set(key, value);
   }
   if (query.attendance != null) params.set("attendance", String(query.attendance));
+  if (query.venueRequirements) params.set("venueRequirements", query.venueRequirements);
   if (query.skipAvailability) params.set("skipAvailability", "true");
   return params;
 }
