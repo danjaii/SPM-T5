@@ -104,7 +104,7 @@ test.describe("SCRUM-103 setup and turnaround in availability and conflict check
     await signInAsCoordinator(page);
     await request(page, "12:30", "14:00");
 
-    await expect(page.getByRole("alert")).toContainText(`${venueName} is occupied from 09:30 to 12:45, including setup and turnaround`);
+    await expect(page.locator(".alert")).toContainText(`${venueName} is occupied from 09:30 to 12:45, including setup and turnaround`);
     await page.screenshot({ path: `${SHOTS}\\02-request-refused.png`, fullPage: true });
   });
 
