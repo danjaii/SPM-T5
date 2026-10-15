@@ -1,4 +1,4 @@
-import { utcToSgt, type VenueBookingStatus } from "@spm-t5/shared";
+import { utcToSgt, type UnmetRequirement, type VenueBookingStatus } from "@spm-t5/shared";
 
 // Browser-safe types and helpers for the Venue Staff queue (SCRUM-37). The fetchers that read the
 // session cookie live in ./bookingQueueServer.
@@ -6,6 +6,8 @@ import { utcToSgt, type VenueBookingStatus } from "@spm-t5/shared";
 /** A row in the pending request queue: GET /booking-queue. Date and times are Singapore time. */
 export interface QueueItemView {
   id: string;
+  /** The event the request is for (SCRUM-109). */
+  eventId: string;
   venueId: string;
   venueName: string;
   date: string;
@@ -19,6 +21,10 @@ export interface QueueItemView {
   submittedAt: string;
   /** Set when this request amends an earlier, rejected one (37-S4). */
   amendsRequestId: string | null;
+  /** SCRUM-110: the check as it was at submission; null for requests made before it existed. */
+  suitability: "suitable" | "not_suitable" | null;
+  suitabilityUnmet: UnmetRequirement[];
+  suitabilityOverrideReason: string | null;
 }
 
 /** One request in any status: GET /booking-queue/:id. */
@@ -29,6 +35,10 @@ export interface QueueDetailView extends QueueItemView {
   rejectionReason: string | null;
   suggestion: null;
 }
+
+/** SCRUM-110/AC4: how the queue words the stored result; older requests were never checked. */
+export const suitabilityLabel = (s: "suitable" | "not_suitable" | null) =>
+  s === "suitable" ? "Suitable" : s === "not_suitable" ? "Not suitable" : "Not checked";
 
 /** An instant as Singapore "YYYY-MM-DD HH:MM". */
 export function formatSgt(iso: string): string {

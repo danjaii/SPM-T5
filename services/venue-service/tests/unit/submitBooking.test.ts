@@ -6,6 +6,7 @@ import type { SupabaseDeps } from "../../src/supabase";
 import { FakeBookingRepository } from "../support/fakeBookingRepository";
 import { FakeEventReader, anEvent } from "../support/fakeEventReader";
 import { FakeUserReader } from "../support/fakeUserReader";
+import { FakeVenueDetailsReader } from "../support/fakeVenueDetails";
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
 const NOW = new Date("2026-10-01T00:00:00.000Z");
@@ -36,7 +37,7 @@ function setup(options: { events?: FakeEventReader; venues?: FakeVenueReader } =
     "attendee-1": "attendee",
     "safety-1": "safety_officer",
   });
-  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader() }) });
+  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader(), venueDetails: FakeVenueDetailsReader.from(venues) }) });
   const as = (userId: string) => ({
     post: (body: unknown) => request(app).post("/venue-bookings").set("Cookie", `cs_session=tok-${userId}`).send(body as object),
     get: (path: string) => request(app).get(path).set("Cookie", `cs_session=tok-${userId}`),
@@ -299,10 +300,10 @@ describe("SCRUM-32/AC8 the slot is already held (32-S8)", () => {
   });
 });
 
-describe("SCRUM-32/AC9 attendance above capacity is not blocked (32-S9)", () => {
-  it("32-S9 attendance 200 at a 150-seat venue is still PENDING", async () => {
+describe("SCRUM-32/AC9 attendance above capacity is not blocked (32-S9, changed by SCRUM-110)", () => {
+  it("32-S9 attendance 200 at a 150-seat venue is still PENDING once the coordinator confirms with a reason", async () => {
     const events = new FakeEventReader([anEvent({ expectedAttendance: 200 })]);
-    const res = await setup({ events }).coordinator.post(submit());
+    const res = await setup({ events }).coordinator.post(submit({ overrideReason: "Organiser will add an overflow room" }));
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ status: "PENDING", expectedAttendance: 200 });
   });
@@ -375,11 +376,11 @@ describe("SCRUM-98/AC2 each booking has its own attendance and requirements (98-
   });
 });
 // 200 people at the 150 person venue, we should see exceed capacity to to be true 
-describe("SCRUM-98/AC2 more people than the venue holds is a warning, not a refusal (98-S10, 98-S11)", () => {
+describe("SCRUM-98/AC2 more people than the venue holds is a warning, not a refusal (98-S10, 98-S11; SCRUM-110 asks for a reason first)", () => {
   it("98-S10 attendance 200 at a venue for 150: 201 PENDING, flagged exceedsCapacity", async () => {
     const { coordinator, bookings } = setup();
 
-    const res = await coordinator.post(submit({ expectedAttendance: 200 }));
+    const res = await coordinator.post(submit({ expectedAttendance: 200, overrideReason: "Overflow room arranged" }));
 
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ status: "PENDING", expectedAttendance: 200, exceedsCapacity: true });
@@ -389,7 +390,7 @@ describe("SCRUM-98/AC2 more people than the venue holds is a warning, not a refu
   it("98-S10 the event's own attendance is used when the booking has none (200 at a venue for 150)", async () => {
     const events = new FakeEventReader([anEvent({ expectedAttendance: 200 })]);
 
-    const res = await setup({ events }).coordinator.post(submit());
+    const res = await setup({ events }).coordinator.post(submit({ overrideReason: "Overflow room arranged" }));
 
     expect(res.body.exceedsCapacity).toBe(true);
   });

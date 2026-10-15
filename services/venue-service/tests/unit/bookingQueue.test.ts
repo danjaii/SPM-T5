@@ -58,6 +58,7 @@ describe("SCRUM-37/AC1 the queue lists pending requests with their event details
     // The event was edited since (its name is "Summit B" now): the queue shows what was requested (DR8).
     expect(res.body[0]).toEqual({
       id: "booking-1",
+      eventId: "event-1",
       venueId: "venue-1",
       venueName: "Orchid Hall",
       date: "2030-11-14",
@@ -70,6 +71,9 @@ describe("SCRUM-37/AC1 the queue lists pending requests with their event details
       requestedByName: "Casey Coordinator",
       submittedAt: at(9).toISOString(),
       amendsRequestId: null,
+      suitability: null,
+      suitabilityUnmet: [],
+      suitabilityOverrideReason: null,
     });
     expect(res.body.map((r: { venueName: string }) => r.venueName)).toEqual(["Orchid Hall", "Lotus Room", "Lotus Room"]);
     expect(res.body[2].requestedByName).toBeNull();

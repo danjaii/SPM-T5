@@ -5,6 +5,7 @@ import { createApp } from "../../src/app";
 import type { SupabaseDeps } from "../../src/supabase";
 import { FakeBookingRepository } from "../support/fakeBookingRepository";
 import { FakeEventReader, anEvent } from "../support/fakeEventReader";
+import { FakeVenueDetailsReader } from "../support/fakeVenueDetails";
 import { FakeUserReader } from "../support/fakeUserReader";
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
@@ -32,7 +33,7 @@ function setup() {
   const events = new FakeEventReader([anEvent({ id: "summit-b", name: "Summit B" })]);
   const venues = new FakeVenueReader([aVenue({ id: ORCHID, name: "Orchid Hall", setupMinutes: 30, turnaroundMinutes: 45 })]);
   const roles = new FakeRoleReader({ "coordinator-1": "event_coordinator" });
-  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader() }) });
+  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader(), venueDetails: FakeVenueDetailsReader.from(venues) }) });
   const as = () => ({
     post: (path: string, body: object) => request(app).post(path).set("Cookie", "cs_session=tok-coordinator-1").send(body),
     patch: (path: string, body: object) => request(app).patch(path).set("Cookie", "cs_session=tok-coordinator-1").send(body),

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatSgt, type QueueDetailView } from "@/lib/bookingQueue";
+import { formatSgt, suitabilityLabel, type QueueDetailView } from "@/lib/bookingQueue";
 import { bookingStatusLabel } from "@/lib/venueBookings";
 
 // SCRUM-37/AC6: one request, whatever its status. A decided one also shows who decided it, when, and why.
@@ -24,6 +24,8 @@ export function BookingQueueDetail({ booking }: { booking: QueueDetailView }) {
         <dd>{booking.venueRequirements || "None specified"}</dd>
         <dt>Accessibility needs</dt>
         <dd>{booking.accessibilityNeeds || "None specified"}</dd>
+        <dt>Suitability</dt>
+        <dd>{suitabilityLabel(booking.suitability)}</dd>
         <dt>Requested by</dt>
         <dd>{booking.requestedByName ?? "Unknown"}</dd>
         <dt>Submitted</dt>
@@ -37,6 +39,21 @@ export function BookingQueueDetail({ booking }: { booking: QueueDetailView }) {
           </>
         )}
       </dl>
+
+      {booking.suitability === "not_suitable" && (
+        <section aria-label="Requirements not met">
+          <h2>Requirements not met</h2>
+          <ul>
+            {booking.suitabilityUnmet.map((u) => (
+              <li key={u.key}>
+                <strong>{u.label}:</strong> {u.message}
+              </li>
+            ))}
+          </ul>
+          <h2>Coordinator&apos;s reason</h2>
+          <p>{booking.suitabilityOverrideReason}</p>
+        </section>
+      )}
 
       {booking.rejectionReason && (
         <>
