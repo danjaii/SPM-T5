@@ -3,7 +3,7 @@ import { layoutIdsIn, sentBackNote } from "../src/sentBack";
 
 // ----------------------------------------------------------------------------
 // SCRUM-113/AC3 (docs/specs/send-back-affected-arrangements.md): a venue booking or equipment request sent back for review
-// stores the event's changes ({ field: { from, to } }, migration 39). sentBackNote turns them into the lines Venue Staff
+// stores the event's changes ({ field: { from, to } }, migration 40). sentBackNote turns them into the lines Venue Staff
 // and Technical Support Staff read, so venue-service and equipment-service word them the same way.
 // ----------------------------------------------------------------------------
 

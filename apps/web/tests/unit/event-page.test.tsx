@@ -154,7 +154,7 @@ describe("Event status page route (/events/[id])", () => {
     const booking = (id: string, venueName: string, status: string) => ({
       id, eventId: "evt-1", eventName: "Tech Summit", venueId: id, venueName, date: "2026-11-14", startTime: "09:00", endTime: "17:00",
       status, decidedAt: null, submittedAt: "2026-10-01T00:00:00.000Z", rejectionReason: null, expectedAttendance: 50,
-      venueRequirements: null, exceedsCapacity: false,
+      venueRequirements: null, exceedsCapacity: false, flags: [],
     });
     getEventVenueBookings.mockResolvedValue([booking("b-1", "Orchid Hall", "APPROVED"), booking("b-2", "Lotus Room", "PENDING")]);
 
@@ -185,7 +185,7 @@ describe("Event status page route (/events/[id])", () => {
       {
         id: "b-1", eventId: "evt-1", eventName: "Tech Summit", venueId: "v-1", venueName: "Orchid Hall", date: "2026-11-14", startTime: "09:00",
         endTime: "17:00", status: "PENDING", decidedAt: null, submittedAt: "2026-10-01T00:00:00.000Z", rejectionReason: null, cancellationReason: null,
-        expectedAttendance: 50, venueRequirements: null, exceedsCapacity: false,
+        expectedAttendance: 50, venueRequirements: null, exceedsCapacity: false, flags: [],
       },
     ]);
     getEventEquipmentRequests.mockResolvedValue({

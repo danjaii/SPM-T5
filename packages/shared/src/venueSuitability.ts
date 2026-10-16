@@ -1,4 +1,5 @@
 import { utcToSgt } from "./venueBooking";
+import { formatShortSgt } from "./venueUnavailability";
 
 // SCRUM-109 (docs/specs/venue-suitability.md): does a venue suit an event? One pure check, shared by venue-service
 // (the endpoint, the booking request) and apps/web, so every screen answers the same way. No I/O here: the caller
@@ -56,6 +57,8 @@ export interface AvailabilityConflict {
   start: Date;
   end: Date;
   exact?: boolean;
+  /** SCRUM-105: `unavailable` when the period is a maintenance-style block rather than a held booking (the default). */
+  kind?: "held" | "unavailable";
 }
 
 /** The answer of the availability lookup. Pass null to the check when there was nothing to look up. */
@@ -135,6 +138,9 @@ function checkAvailability(availability: AvailabilityResult | null): CriterionRe
   if (!availability) return notChecked("availability");
   const { conflict } = availability;
   if (!conflict) return result("availability", "met", "Free for the whole period");
+  if (conflict.kind === "unavailable") {
+    return result("availability", "not_met", `Unavailable from ${formatShortSgt(conflict.start)} to ${formatShortSgt(conflict.end)}`);
+  }
   if (conflict.exact === false) return result("availability", "not_met", "Already held for part of the requested period");
   const from = utcToSgt(conflict.start);
   const to = utcToSgt(conflict.end);

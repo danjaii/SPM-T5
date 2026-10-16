@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { canViewVenueCatalogue, isLead, isRole } from "@spm-t5/shared";
+import { canMakeSafetyDecision, canViewVenueCatalogue, isLead, isRole } from "@spm-t5/shared";
+import { notificationsLinkLabel } from "@/lib/notifications";
 import { roleLabel } from "@/lib/roles";
 import { BfcacheGuard } from "./BfcacheGuard";
 import { LogoutButton } from "./LogoutButton";
@@ -14,6 +15,8 @@ export interface DashboardData {
     columns: { key: string; label: string; linkKey?: string }[];
     rows: Record<string, string | number>[];
   }[];
+  /** SCRUM-46: how many notifications are unread; null when notification-service could not be reached. */
+  notifications?: { unread: number | null };
 }
 
 /** children: extra sections a role's page adds below the tables (e.g. the attendee's List of events, SCRUM-71). */
@@ -37,6 +40,8 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
         {/* SCRUM-68: every signed-in user has a profile to view and update, whatever their role */}
         <nav className="dash__links">
           <Link href="/profile">My profile</Link>
+          {/* SCRUM-46: every role has notifications; the count is left off if the service could not be reached */}
+          <Link href="/notifications">{notificationsLinkLabel(data.notifications?.unread)}</Link>
         </nav>
         {/* SCRUM-74/AC2: organisers and coordinators both see the registrations of the events they manage */}
         {(user.role === "event_organiser" || user.role === "event_coordinator") && (
@@ -51,6 +56,8 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
             <Link href="/venues">Venue catalogue</Link>
             {/* SCRUM-65: searching venues for an event is for event coordinators */}
             {user.role === "event_coordinator" && <Link href="/venues/search">Search venues</Link>}
+            {/* SCRUM-104/AC3: the coordinator's venue bookings, where a Buffer conflict flag shows */}
+            {user.role === "event_coordinator" && <Link href="/venue-bookings">My venue bookings</Link>}
             {/* SCRUM-37/AC7: the pending request queue is for venue staff only */}
             {user.role === "venue_staff" && <Link href="/booking-queue">Pending booking requests</Link>}
           </nav>
@@ -70,6 +77,12 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
           <nav className="dash__links">
             <Link href="/lead/queue">Unassigned event requests</Link>
             <Link href="/lead/coordinators">Coordinator overview</Link>
+          </nav>
+        )}
+        {/* SCRUM-99/AC2: the Safety Officer home page links to the events waiting for a safety check */}
+        {isRole(user.role) && canMakeSafetyDecision(user.role) && (
+          <nav className="dash__links">
+            <Link href="/safety-checks">Waiting for safety check</Link>
           </nav>
         )}
         {sections.map((section) => (

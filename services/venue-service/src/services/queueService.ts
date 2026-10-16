@@ -1,5 +1,6 @@
-import { layoutIdsIn } from "@spm-t5/shared";
+import { layoutIdsIn, type FlagDto } from "@spm-t5/shared";
 import { forbidden, notFound } from "../domain/errors";
+import { toFlagDto } from "../domain/dto";
 import { toQueueDetail, toQueueItem, type QueueDetail, type QueueItem } from "../domain/queueDto";
 import type { BookingRecord } from "../domain/types";
 import type { UserReader } from "../readers/userReader";
@@ -31,15 +32,34 @@ export class QueueService {
     return this.deps.venues.layoutNames([...new Set(bookings.flatMap((b) => layoutIdsIn(b.sentBackChanges)))]);
   }
 
+  /**
+   * SCRUM-104: the open flags of these bookings for Venue Staff, by booking id. Staff may read every booking, so each flag
+   * also carries the other booking's event name (read here from its snapshot, never stored with the flag).
+   */
+  private async flagDtos(bookings: BookingRecord[]): Promise<Map<string, FlagDto[]>> {
+    const flags = await this.deps.bookings.flagsFor(bookings.map((b) => b.id));
+    const others = new Map<string, string | null>();
+    for (const id of new Set(flags.flatMap((f) => (f.otherBookingId ? [f.otherBookingId] : [])))) {
+      others.set(id, (await this.deps.bookings.getById(id))?.snapshot.eventName || null);
+    }
+    const byBooking = new Map<string, FlagDto[]>();
+    for (const f of flags) {
+      const dto = toFlagDto(f, { otherEventName: f.otherBookingId ? (others.get(f.otherBookingId) ?? null) : null });
+      byBooking.set(f.bookingId, [...(byBooking.get(f.bookingId) ?? []), dto]);
+    }
+    return byBooking;
+  }
+
   /** 37-S1 to S5: every PENDING request for every venue (DR14), earliest submission first. */
   async list(caller: Caller): Promise<QueueItem[]> {
     this.requireVenueStaff(caller);
     const pending = await this.deps.bookings.listPending();
     const venues = await this.venueNames(pending);
     const people = await this.deps.users.namesOf([...new Set(pending.flatMap((b) => (b.requestedBy ? [b.requestedBy] : [])))]);
+    const flags = await this.flagDtos(pending);
     const layouts = await this.layoutNames(pending);
     return pending.map((b) =>
-      toQueueItem(b, venues.get(b.venueId) ?? "Unknown venue", (b.requestedBy && people.get(b.requestedBy)) || null, layouts),
+      toQueueItem(b, venues.get(b.venueId) ?? "Unknown venue", (b.requestedBy && people.get(b.requestedBy)) || null, flags.get(b.id), layouts),
     );
   }
 
@@ -51,6 +71,12 @@ export class QueueService {
     const venues = await this.venueNames([booking]);
     const ids = [booking.requestedBy, booking.reviewedBy].filter((x): x is string => Boolean(x));
     const people = await this.deps.users.namesOf(ids);
-    return toQueueDetail(booking, venues.get(booking.venueId) ?? "Unknown venue", people, await this.layoutNames([booking]));
+    return toQueueDetail(
+      booking,
+      venues.get(booking.venueId) ?? "Unknown venue",
+      people,
+      (await this.flagDtos([booking])).get(booking.id),
+      await this.layoutNames([booking]),
+    );
   }
 }

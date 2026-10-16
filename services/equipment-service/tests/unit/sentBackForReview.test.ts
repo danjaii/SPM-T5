@@ -18,7 +18,7 @@ import {
 } from "../support/fakes";
 
 /**
- * SCRUM-113/AC3: an equipment request sent back for review after an important event change (migration 39) shows
+ * SCRUM-113/AC3: an equipment request sent back for review after an important event change (migration 40) shows
  * Technical Support Staff what changed, and the coordinator sees it is waiting for review again
  * (docs/specs/send-back-affected-arrangements.md). The database stores the note and clears it on the next review
  * (event-service tests/integration/sendBackDb.test.ts); these cover how equipment-service shows it.
@@ -31,7 +31,7 @@ import {
 
 const SENT_BACK_AT = new Date("2026-10-02T03:00:00.000Z");
 
-/** The note migration 39 stores: the start, attendance, layout, venue and equipment requirements all changed. */
+/** The note migration 40 stores: the start, attendance, layout, venue and equipment requirements all changed. */
 const NOTE = {
   preferred_start_datetime: { from: "2026-10-15T01:00:00.000Z", to: "2026-10-16T01:00:00.000Z" },
   expected_attendance: { from: 480, to: 600 },

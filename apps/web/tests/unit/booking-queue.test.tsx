@@ -19,7 +19,7 @@ import { getBookingQueue, getQueuedBooking } from "@/lib/bookingQueueServer";
 const item = (over: Partial<QueueItemView> = {}): QueueItemView => ({
   id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", venueName: "Grand Hall", date: "2099-01-01", startTime: "09:00", endTime: "12:00",
   eventName: "Tech Summit", expectedAttendance: 120, venueRequirements: "Projector", accessibilityNeeds: "Step-free access",
-  requestedByName: "Rachel Tan", submittedAt: "2098-12-01T02:30:00.000Z", amendsRequestId: null, ...over,
+  requestedByName: "Rachel Tan", submittedAt: "2098-12-01T02:30:00.000Z", amendsRequestId: null, flags: [], ...over,
 });
 
 const detail = (over: Partial<QueueDetailView> = {}): QueueDetailView => ({

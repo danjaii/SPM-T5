@@ -32,7 +32,8 @@ services:
       EVENT_SERVICE_URL: http://event-service:4000
       VENUE_SERVICE_URL: http://venue-service:4000
       EQUIPMENT_SERVICE_URL: http://equipment-service:4000
-    depends_on: [auth-service, event-service, venue-service, equipment-service]
+      NOTIFICATION_SERVICE_URL: http://notification-service:4000
+    depends_on: [auth-service, event-service, venue-service, equipment-service, notification-service]
 
   auth-service:
     <<: *service

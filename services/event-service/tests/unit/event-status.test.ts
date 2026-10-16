@@ -8,7 +8,8 @@ import type { SupabaseDeps } from "../../src/supabase";
 // ---------------------------------------------------------------------------
 type Row = Record<string, unknown>;
 
-function createFake() {
+/** `refuse`: the error change_event_status raises instead of saving, as the events_safety_gate trigger (migration 37) does. */
+function createFake(refuse?: { code: string; message: string }) {
   const sessions = new Map<string, string>(); // login token -> user id
   const tables: Record<string, Row[]> = { users: [], events: [], event_status_history: [] };
 
@@ -27,6 +28,7 @@ function createFake() {
 
   /** Pretends to be the change_event_status database function (supabase/migrations/04_change_event_status.sql). */
   const changeEventStatus = (callerId: string | undefined, args: Row) => {
+    if (refuse) return { data: null, error: refuse };
     const event = tables.events.find((e) => e.id === args.p_event_id);
     if (!event) return { data: null, error: null };
     tables.event_status_history.push({
@@ -377,5 +379,24 @@ describe("SCRUM-116/AC3 a Safety Officer cannot move an event to preparation dir
     expect(res.status).toBe(403);
     expect(event.status).toBe("awaiting_arrangements"); // nothing was saved
     expect(fake.tables.event_status_history).toEqual([]);
+  });
+});
+
+// SCRUM-99/AC7: the events_safety_gate trigger (migration 37) refuses confirmed without a Safety Approved check
+describe("SCRUM-99/AC7 an event cannot skip the safety check", () => {
+  it("SCRUM-99/AC7 answers 409 when the database refuses to confirm an event that is not Safety Approved", async () => {
+    const fake = createFake({ code: "SC001", message: "Event has not been Safety Approved" });
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "awaiting_arrangements", assigned_coordinator_id: coordinator.id };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "confirmed" });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This event can't move to preparation until it is Safety Approved." });
+    expect(event.status).toBe("awaiting_arrangements");
   });
 });

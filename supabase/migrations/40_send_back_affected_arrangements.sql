@@ -1,6 +1,6 @@
 -- SCRUM-113 (docs/specs/send-back-affected-arrangements.md): confirming an important event change sends the arrangements
--- it affects back for review, in the same step as saving it. Follows 34_edit_event_details.sql (35 to 38 are SCRUM-46,
--- SCRUM-104 and SCRUM-105's).
+-- it affects back for review, in the same step as saving it. Follows 34_edit_event_details.sql (35 to 39 are SCRUM-46,
+-- SCRUM-104, SCRUM-99 and SCRUM-105's).
 --
 -- 1. sent_back_changes, sent_back_at on venue_bookings and equipment_reservations: the event's changes that sent it back
 --    ({ field: { from, to } }, as in event_change_history) and when, so Venue Staff and Technical Support Staff can see what

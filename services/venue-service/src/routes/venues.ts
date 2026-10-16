@@ -1,5 +1,20 @@
 import { Router } from "express";
-import { canEditVenueTiming, sgtToUtc, canViewVenueCatalogue, isRole, parseVenueSearchInput, parseVenueTimingInput, type Role } from "@spm-t5/shared";
+import {
+  bookingsAffectedMessage,
+  bufferConflictSummary,
+  canEditVenueTiming,
+  canMarkVenueUnavailable,
+  sgtToUtc,
+  utcToSgt,
+  canViewVenueCatalogue,
+  isRole,
+  parseUnavailabilityInput,
+  parseVenueSearchInput,
+  parseVenueTimingInput,
+  unavailabilityBlockView,
+  type AffectedPairDto,
+  type Role,
+} from "@spm-t5/shared";
 import { forbidden, notFound, validationFailed } from "../domain/errors";
 import type { SupabaseDeps } from "../supabase";
 import { asyncHandler } from "../middlewares/errors";
@@ -7,7 +22,8 @@ import { requireSession, type SessionUser } from "../middlewares/session";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "../readers/venueSearchReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
 import { SupabaseBookingRepository } from "../repositories/supabaseBookingRepository";
-import { SupabaseVenueTimingWriter, type VenueTimingWriter } from "../readers/venueTimingWriter";
+import { SupabaseVenueTimingWriter, type AffectedPair, type VenueTimingWriter } from "../readers/venueTimingWriter";
+import { SupabaseVenueUnavailabilityStore, type VenueUnavailabilityStore } from "../readers/venueUnavailabilityStore";
 import { searchVenues } from "../services/venueSearchService";
 
 /** A venue as Supabase returns it when fetched together with its layouts and facilities (nested). */
@@ -27,6 +43,25 @@ interface VenueDetailRow {
   turnaround_minutes: number | null;
 }
 
+/** SCRUM-104/AC1: an affected pair as the API shows it, with the sentence Venue Staff are told. */
+function toAffectedPairDto(p: AffectedPair): AffectedPairDto {
+  const side = (s: AffectedPair["first"] | AffectedPair["second"]) => ({
+    bookingId: s.bookingId,
+    eventName: s.eventName,
+    date: utcToSgt(s.eventStart).date,
+    startTime: utcToSgt(s.eventStart).time,
+    endTime: utcToSgt(s.eventEnd).time,
+  });
+  return {
+    summary: bufferConflictSummary(
+      { name: p.first.eventName, eventStart: p.first.eventStart, occupiedUntil: p.first.occupiedUntil },
+      { name: p.second.eventName, eventStart: p.second.eventStart, occupiedFrom: p.second.occupiedFrom },
+    ),
+    first: { ...side(p.first), occupiedUntil: p.first.occupiedUntil.toISOString() },
+    second: { ...side(p.second), occupiedFrom: p.second.occupiedFrom.toISOString() },
+  };
+}
+
 /** True when YYYY-MM-DD is a day that exists (2026-02-30 does not). */
 function isRealDate(date: string): boolean {
   const [year, month, day] = date.split("-").map(Number);
@@ -40,6 +75,7 @@ export function venueRoutes(
   now: () => Date = () => new Date(),
   timingFor: (accessToken: string) => VenueTimingWriter = (token) => new SupabaseVenueTimingWriter(deps.forUser(token)),
   occupancyFor: (accessToken: string) => Pick<BookingRepository, "occupiedPeriods"> = (token) => new SupabaseBookingRepository(deps.forUser(token)),
+  unavailabilityFor: (accessToken: string) => VenueUnavailabilityStore = (token) => new SupabaseVenueUnavailabilityStore(deps.forUser(token)),
 ) {
   const router = Router();
 
@@ -85,7 +121,7 @@ export function venueRoutes(
   );
 
   // SCRUM-29 AC2: one venue with all its characteristics, fetched together with its layouts and facilities
-  router.get("/:id", async (req, res) => {
+  router.get("/:id", asyncHandler(async (req, res) => {
     const { token } = res.locals.user as SessionUser;
 
     const { data: venue } = await deps
@@ -98,6 +134,10 @@ export function venueRoutes(
       .eq("id", req.params.id)
       .maybeSingle<VenueDetailRow>();
     if (!venue) return res.status(404).json({ error: "Venue not found." });
+
+    // SCRUM-105: the blocks that have not ended, earliest first. Only venue staff get the notes and who made them (105-S6).
+    const forStaff = canMarkVenueUnavailable(res.locals.role as Role);
+    const upcoming = (await unavailabilityFor(token).list(venue.id, forStaff)).filter((b) => b.end.getTime() > now().getTime());
 
     // Flatten the nested layouts/facilities into simple lists the web app can show directly
     res.json({
@@ -114,10 +154,12 @@ export function venueRoutes(
       setup_minutes: venue.setup_minutes ?? 0,
       turnaround_minutes: venue.turnaround_minutes ?? 0,
       can_edit_timing: canEditVenueTiming(res.locals.role as Role),
+      can_mark_unavailable: forStaff,
+      unavailability: upcoming.map((b) => unavailabilityBlockView(b, forStaff)),
       layouts: (venue.venue_supported_layouts ?? []).map((l) => ({ name: l.room_layouts.name, max_capacity: l.max_capacity_for_layout })),
       facilities: (venue.venue_facilities ?? []).map((f) => f.facilities.name),
     });
-  });
+  }));
 
   // SCRUM-103: what occupies a venue on one day, setup and turnaround included (103-S5).
   router.get(
@@ -141,6 +183,8 @@ export function venueRoutes(
       const from = sgtToUtc(date, "00:00");
       const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
       const periods = await occupancyFor(token).occupiedPeriods(venue.id, from, to);
+      // SCRUM-105: the blocks touching that day, drawn as "Unavailable" (the block itself has no setup or turnaround)
+      const blocks = (await unavailabilityFor(token).list(venue.id, false)).filter((b) => b.start.getTime() < to.getTime() && b.end.getTime() > from.getTime());
 
       res.set("Cache-Control", "no-store").json({
         venue: { id: venue.id, name: venue.name },
@@ -154,6 +198,7 @@ export function venueRoutes(
           occupied_start: p.occupiedStart.toISOString(),
           occupied_end: p.occupiedEnd.toISOString(),
         })),
+        unavailable: blocks.map((b) => unavailabilityBlockView(b, false)),
       });
     }),
   );
@@ -173,8 +218,34 @@ export function venueRoutes(
       if (!venue) throw notFound("Venue not found.");
 
       const { setupMinutes, turnaroundMinutes } = parsed.data;
-      await timingFor(token).set(req.params.id as string, setupMinutes, turnaroundMinutes);
-      res.json({ setup_minutes: setupMinutes, turnaround_minutes: turnaroundMinutes });
+      // SCRUM-104: the save also flags the existing bookings that now clash, and says which (104-S1, 104-S6)
+      const pairs = await timingFor(token).set(req.params.id as string, setupMinutes, turnaroundMinutes);
+      res.json({
+        setup_minutes: setupMinutes,
+        turnaround_minutes: turnaroundMinutes,
+        affected: pairs.map(toAffectedPairDto),
+        message: bookingsAffectedMessage(pairs.length),
+      });
+    }),
+  );
+
+  // SCRUM-105: Venue Staff mark a venue unavailable for a period with a reason. The role comes before the body (105-S6), the same
+  // shared parser as the form checks the body (105-S2, 105-S3), and mark_venue_unavailable enforces both again in the database.
+  router.post(
+    "/:id/unavailability",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      if (!canMarkVenueUnavailable(res.locals.role as Role)) throw forbidden("Only venue staff can mark a venue unavailable.");
+
+      const parsed = parseUnavailabilityInput(req.body);
+      if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+
+      const { data: venue } = await deps.forUser(token).from("venues").select("id").eq("id", req.params.id).maybeSingle();
+      if (!venue) throw notFound("Venue not found.");
+
+      const { start, end, reason, notes } = parsed.data;
+      const block = await unavailabilityFor(token).mark(req.params.id as string, { start, end, reason, ...(notes !== undefined ? { notes } : {}) });
+      res.status(201).json({ block: unavailabilityBlockView(block, true) });
     }),
   );
 

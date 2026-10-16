@@ -22,7 +22,7 @@ What the customer documents say:
   queue, SCRUM-37), an equipment request returns to Submitted (Technical Support Staff review, SCRUM-87). **[DECIDED]**
 - **Which arrangements.** Exactly the ones SCRUM-112's warning listed (`affectedArrangements()`), and only when the coordinator
   confirms the change (Save anyway). A change with no warning sends nothing back (AC5). **[DECIDED]**
-- **One step with the save.** `update_event_details()` (migration 39 replaces it) saves the event, its history row, and sends
+- **One step with the save.** `update_event_details()` (migration 40 replaces it) saves the event, its history row, and sends
   the listed arrangements back together, so a change is never saved without its arrangements being sent back. event-service
   passes the ids; the function only touches that event's own active ones (pending or approved venue bookings; Submitted, Under
   Review or Arranged equipment requests). **[DECIDED]**

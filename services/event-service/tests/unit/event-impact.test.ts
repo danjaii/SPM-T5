@@ -279,7 +279,7 @@ describe("SCRUM-112/AC7 and the SCRUM-111 checks come before any warning", () =>
 
 // ----------------------------------------------------------------------------
 // SCRUM-113: Save anyway sends what the warning listed back for review (docs/specs/send-back-affected-arrangements.md).
-// The database does the sending back (update_event_details(), migration 39; tests/integration/sendBackDb.test.ts); these
+// The database does the sending back (update_event_details(), migration 40; tests/integration/sendBackDb.test.ts); these
 // cover which ids the route passes it.
 // ----------------------------------------------------------------------------
 

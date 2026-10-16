@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-113 against Postgres (migration 39): confirming an important change sends the arrangements SCRUM-112 listed back
+ * SCRUM-113 against Postgres (migration 40): confirming an important change sends the arrangements SCRUM-112 listed back
  * for review, in the same step as saving it. update_event_details(p_event_id, p_changes, p_send_back) sends the listed venue
  * bookings back to Pending and equipment requests back to Submitted, stores what changed on each, and returns a Confirmed
  * event to Planning. docs/specs/send-back-affected-arrangements.md. Fixtures are made with the secret key, named "IT-113-",
@@ -20,7 +20,7 @@ const SLOT = { start: "2031-04-07T02:00:00+00:00", end: "2031-04-07T04:00:00+00:
 
 type Row = Record<string, unknown>;
 
-describe.skipIf(!hasDb)("SCRUM-113 send back affected arrangements (migration 39)", () => {
+describe.skipIf(!hasDb)("SCRUM-113 send back affected arrangements (migration 40)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   let coordinator: Actor;
   let otherCoordinator: Actor;

@@ -2,7 +2,7 @@ import { EVENT_FIELD_LABELS, EVENT_IMPORTANT_FIELDS } from "./eventDetails";
 
 // SCRUM-113 (docs/specs/send-back-affected-arrangements.md): what changed on an event, as staff read it on a venue booking
 // or equipment request sent back for review. The note is stored as the event's changes ({ field: { from, to } },
-// migration 39); only the important fields are shown, because an ordinary change does not affect an arrangement.
+// migration 40); only the important fields are shown, because an ordinary change does not affect an arrangement.
 
 export type SentBackChange = { field: string; label: string; from: unknown; to: unknown };
 export type SentBackNote = { sentBackAt: string; changes: SentBackChange[] };

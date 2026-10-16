@@ -4,6 +4,7 @@ import { requireSession } from "./middlewares/session";
 import type { BookingRepository } from "./repositories/bookingRepository";
 import type { VenueTimingWriter } from "./readers/venueTimingWriter";
 import type { VenueSearchReader } from "./readers/venueSearchReader";
+import type { VenueUnavailabilityStore } from "./readers/venueUnavailabilityStore";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { bookingQueueRoutes } from "./routes/bookingQueue";
 import { suitabilityRoutes } from "./routes/suitability";
@@ -23,6 +24,8 @@ export interface AppOptions {
   venueTiming?: (accessToken: string) => VenueTimingWriter;
   /** Where the venue availability view (SCRUM-103) reads occupied periods from; tests pass a fake. Defaults to venue_occupied_periods as the caller. */
   venueAvailability?: (accessToken: string) => Pick<BookingRepository, "occupiedPeriods">;
+  /** Where unavailability blocks are read and saved (SCRUM-105); tests pass a fake. Defaults to the table and mark_venue_unavailable as the caller. */
+  venueUnavailability?: (accessToken: string) => VenueUnavailabilityStore;
 }
 
 // Exported separately from listen() so tests can mount the app without opening a port.
@@ -53,7 +56,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.get("/health", (_req, res) => res.json(healthCheck()));
 
   // SCRUM-29: the read-only venue catalogue, GET /venues and /venues/:id (coordinators and venue staff).
-  app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability));
+  app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
   app.use(requireSession(deps), venueBookingRoutes(portsFor, now), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));

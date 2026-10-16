@@ -21,6 +21,7 @@ import type { VenueDetailsReader } from "../readers/venueDetailsReader";
 import type { VenueReader } from "../readers/venueReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
 import { SlotConflictRule, slotConflictError } from "./slotConflictRule";
+import { UnavailabilityRule, unavailableError } from "./unavailabilityRule";
 
 export interface Caller {
   id: string;
@@ -72,9 +73,11 @@ export function assertMayRequestFor(caller: Caller, event: EventInfo | null): Ev
 /** SCRUM-32: the one path that creates a venue booking request (also used by SCRUM-60 and SCRUM-59). */
 export class BookingService {
   private readonly slotRule: SlotConflictRule;
+  private readonly blockRule: UnavailabilityRule;
 
   constructor(private readonly deps: BookingServiceDeps) {
     this.slotRule = new SlotConflictRule(deps.bookings);
+    this.blockRule = new UnavailabilityRule(deps.bookings);
   }
 
   /**
@@ -211,6 +214,8 @@ export class BookingService {
     // SCRUM-103: another event holding the venue, setup and turnaround included, naming the occupied period. The row being
     // changed does not count against itself.
     await this.slotRule.check(booking.venueId, input.start, input.end, booking.id);
+    // SCRUM-105: then an unavailability block, padded period against the block itself (105-S4)
+    await this.blockRule.check(booking.venueId, input.start, input.end);
 
     // 110-S10: the booking goes back to venue staff with new numbers, so the stored result is made afresh from them (the
     // old one could say "suitable" about 40 people when it is now 200). An unsuitable change needs a reason, like a new
@@ -274,6 +279,11 @@ export class BookingService {
         const conflict = await this.slotRule.findConflict(venueId, period.start, period.end, excludeBookingId);
         if (conflict) throw slotConflictError(conflict);
       }
+      // SCRUM-105: the trigger refused a block made after the pre-check; name its period like the pre-check does
+      if (error instanceof BookingError && error.code === "VENUE_UNAVAILABLE") {
+        const block = await this.blockRule.findBlock(venueId, period.start, period.end);
+        if (block) throw unavailableError(block);
+      }
       throw error;
     }
   }
@@ -332,6 +342,8 @@ export class BookingService {
 
     // 32-S8: friendly pre-check; the database constraint stays the authority (36-S4).
     await this.slotRule.check(input.venueId, input.start, input.end);
+    // SCRUM-105: a held slot is reported first (SCRUM-103 unchanged), then an unavailability block (105-S4, 105-S5).
+    await this.blockRule.check(input.venueId, input.start, input.end);
 
     // 32-S10: the snapshot is copied now and never updated (DR8). 98-S6, 98-S7: the booking's own attendance and
     // requirements if it has them, the event's if not.

@@ -222,8 +222,8 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-Parts of the repo are still scaffolding — `notification-service` listens on its port but only serves
-`GET /health` (no notifications are sent yet), and the `healthCheck()` exports in
+Parts of the repo are still scaffolding — `notification-service` is the read side of in-app notifications only (SCRUM-46,
+below); no email or SMS is sent yet, and the `healthCheck()` exports in
 `services/*/src/index.ts` are leftovers from the original scaffold. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
@@ -237,7 +237,7 @@ spec in `docs/specs/change-cancel-venue-booking.md`), through the security defin
 `cancel_venue_booking()` (migration 30), only by the event's current coordinator and only before the event is Confirmed. A
 change sends it back to PENDING and moves its equipment requests to the new time, back to Submitted; cancelling releases its
 equipment requests (`cancelled`, shown as Released). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
-`available_venues` database function (`18_venue_search.sql`). Each venue has a setup and a turnaround time in whole minutes (SCRUM-101; spec in `docs/specs/venue-setup-turnaround.md`, migration 26): Venue Staff edit them on the venue detail page through `PUT /venues/:id/timing`, coordinators only read them, and they pad every booking (SCRUM-103; spec in `docs/specs/venue-padded-occupancy.md`, migration 27): a request, amendment or change is refused when its setup and turnaround overlap another booking's, the refusal names the occupied period, and `GET /venues/:id/availability` shows setup and turnaround apart from the event. A venue can be checked against an event (SCRUM-109; spec in `docs/specs/venue-suitability.md`): `GET /venue-suitability` runs the shared `checkSuitability` (capacity, layout, operating hours and availability are judged; facilities and accessibility text are not checked yet). SCRUM-40 (suggested alternative) is not built: the
+`available_venues` database function (`18_venue_search.sql`). Each venue has a setup and a turnaround time in whole minutes (SCRUM-101; spec in `docs/specs/venue-setup-turnaround.md`, migration 26): Venue Staff edit them on the venue detail page through `PUT /venues/:id/timing`, coordinators only read them, and they pad every booking (SCRUM-103; spec in `docs/specs/venue-padded-occupancy.md`, migration 27): a request, amendment or change is refused when its setup and turnaround overlap another booking's, the refusal names the occupied period, and `GET /venues/:id/availability` shows setup and turnaround apart from the event. Raising a venue's times flags the existing bookings that now clash (SCRUM-104; spec in `docs/specs/venue-buffer-conflicts.md`, migration 36): `set_venue_timing()` writes `venue_booking_flags` rows in the same transaction and `PUT /venues/:id/timing` lists the pairs, a flagged booking keeps its status but shows "Buffer conflict" to its coordinator and cannot be approved (`BOOKING_FLAGGED`, trigger code `CS104`; reject still works). Venue Staff can mark a venue temporarily unavailable (SCRUM-105; spec in `docs/specs/venue-unavailability.md`, migrations 38 and 39): only the `mark_venue_unavailable()` function writes `venue_unavailability`, a new request whose padded period touches a block is refused with `VENUE_UNAVAILABLE` (SQLSTATE `CS105`), and until SCRUM-106 flags the bookings already inside a new block a Pending one there can still be approved. A venue can be checked against an event (SCRUM-109; spec in `docs/specs/venue-suitability.md`): `GET /venue-suitability` runs the shared `checkSuitability` (capacity, layout, operating hours and availability are judged; facilities and accessibility text are not checked yet). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`) and for reserving equipment
 for an event (SCRUM-19; spec in `docs/specs/equipment-reservation.md`, saved atomically by the
@@ -261,7 +261,7 @@ requests it may affect, and why (SCRUM-112; spec in `docs/specs/important-change
 `packages/shared/src/eventImpact.ts`): `PATCH /events/:id` answers 409 `CONFIRM_IMPACT` with the list, and saves only when sent
 again with `confirmImpact: true` (Save anyway). A raised attendance lists every active venue booking, all treated alike, and
 Save anyway sends the listed ones back for review (SCRUM-113; spec in
-`docs/specs/send-back-affected-arrangements.md`, migration 39): `update_event_details()` gains `p_send_back` and, in the same
+`docs/specs/send-back-affected-arrangements.md`, migration 40): `update_event_details()` gains `p_send_back` and, in the same
 step, returns those venue bookings to Pending (still holding their venue) and equipment requests to Submitted (units
 released), stores what changed on each (`sent_back_changes`, `sent_back_at`, shown by `sentBackNote()` in
 `packages/shared/src/sentBack.ts` on the Venue Staff queue and the Technical Support Staff review page), and returns a
@@ -283,10 +283,19 @@ coordinators' workload and non-closed events (SCRUM-81, migration 22). Only a Le
 reassigns (SCRUM-79, migration 24) an event's coordinator, and only to their own active coordinators; the
 `events_assignment_guard` trigger enforces it for every caller. This replaced SCRUM-42's coordinator self-claim and
 SCRUM-41's hand-over: the coordinators' `/events/:id/assign-coordinator` and `/eligible-coordinators` routes now only
-refuse. The Safety Officer has no accounts, dashboard or
-sign-in option yet. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+refuse. A Safety Officer runs the Operational Safety Check (SCRUM-99; spec in `docs/specs/operational-safety-check.md`,
+`routes/safetyChecks.ts`, migration 37): `/safety-checks` lists the events ready for a check (awaiting arrangements, every
+active venue booking approved, every equipment request arranged, no decision yet), `/safety-checks/[id]` shows the safety
+information (migration 37 adds `venues.emergency_access` and `venues.restrictions`) and records Approve, Reject (reason
+required) or Request Changes (comment required) in `safety_checks`. The `events_safety_gate` trigger stops anyone, the
+service role included, moving an event to confirmed until its latest decision is approved. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
 event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
+
+Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
+`notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
+`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and every dashboard links to it; producers (SCRUM-47,
+SCRUM-106) are not built and will write rows in the same transaction as their change.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
@@ -295,7 +304,8 @@ Known gaps to fix rather than work around:
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
   new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
-  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket
+  `11_event_registrations.sql` for `event_registrations` and `35_notifications_own_rows.sql` for `notifications`; the
+  other tables are still blanket
   (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
 
 

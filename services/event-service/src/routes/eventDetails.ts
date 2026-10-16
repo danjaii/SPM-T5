@@ -234,7 +234,7 @@ export function eventDetailsRoutes(deps: SupabaseDeps, now: () => Date) {
       });
     }
 
-    // SCRUM-113: the same arrangements are sent back for review in the same step (migration 39); it works out
+    // SCRUM-113: the same arrangements are sent back for review in the same step (migration 40); it works out
     // "important" itself
     const sendBack = affected.length > 0 && {
       p_send_back: {

@@ -8,7 +8,7 @@ import { FakeUserReader } from "../support/fakeUserReader";
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
 /**
- * SCRUM-113/AC3: a venue booking sent back for review after an important event change (migration 39) shows Venue Staff
+ * SCRUM-113/AC3: a venue booking sent back for review after an important event change (migration 40) shows Venue Staff
  * what changed, and the coordinator sees it is waiting for review again (docs/specs/send-back-affected-arrangements.md).
  * The database stores the note and clears it on the next decision (event-service tests/integration/sendBackDb.test.ts);
  * these cover how venue-service shows it.
@@ -29,7 +29,7 @@ const NOW = new Date("2030-10-01T00:00:00.000Z");
 const SENT_BACK_AT = new Date("2030-10-02T03:00:00.000Z");
 const slot = { start: new Date("2030-11-14T02:00:00Z"), end: new Date("2030-11-14T04:00:00Z") };
 
-/** The note migration 39 stores: attendance 480 to 600, the layout Theatre to Banquet, and the name (not shown). */
+/** The note migration 40 stores: attendance 480 to 600, the layout Theatre to Banquet, and the name (not shown). */
 const NOTE = {
   name: { from: "Summit", to: "Summit 2030" },
   expected_attendance: { from: 480, to: 600 },

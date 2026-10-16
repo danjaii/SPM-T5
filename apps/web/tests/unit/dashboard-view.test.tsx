@@ -157,3 +157,20 @@ describe("SCRUM-74 — Event registrations link", () => {
   // end of AC1
 });
 // end of SCRUM-74
+
+// ---------------------------------------------------------------------------
+// SCRUM-99 — the Safety Officer reaches the events waiting for a safety check
+// ---------------------------------------------------------------------------
+describe("SCRUM-99/AC2 Waiting for safety check link", () => {
+  it("SCRUM-99/AC2 links a Safety Officer to the events waiting for a safety check", () => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role: "safety_officer" } }} />);
+
+    expect(screen.getByRole("link", { name: "Waiting for safety check" }).getAttribute("href")).toBe("/safety-checks");
+  });
+
+  it.each(ROLES.filter((role) => role !== "safety_officer"))("SCRUM-99/AC2 does not offer the link to a %s", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    expect(screen.queryByRole("link", { name: "Waiting for safety check" })).toBeNull();
+  });
+});

@@ -1,4 +1,4 @@
-import { utcToSgt, type SentBackNote, type UnmetRequirement, type VenueBookingStatus } from "@spm-t5/shared";
+import { utcToSgt, type FlagDto, type SentBackNote, type UnmetRequirement, type VenueBookingStatus } from "@spm-t5/shared";
 
 // Browser-safe types and helpers for the Venue Staff queue (SCRUM-37). The fetchers that read the
 // session cookie live in ./bookingQueueServer.
@@ -25,6 +25,8 @@ export interface QueueItemView {
   suitability: "suitable" | "not_suitable" | null;
   suitabilityUnmet: UnmetRequirement[];
   suitabilityOverrideReason: string | null;
+  /** SCRUM-104: open flags, each with the other booking's event name and id. A flagged request cannot be approved. */
+  flags: FlagDto[];
   /** SCRUM-113/AC3: what changed on the event when it was sent back for review; null (or missing) otherwise. */
   sentBack?: SentBackNote | null;
 }
