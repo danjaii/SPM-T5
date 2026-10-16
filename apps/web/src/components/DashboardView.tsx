@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { canViewVenueCatalogue, isLead, isRole } from "@spm-t5/shared";
+import { canMakeSafetyDecision, canViewVenueCatalogue, isLead, isRole } from "@spm-t5/shared";
 import { notificationsLinkLabel } from "@/lib/notifications";
 import { roleLabel } from "@/lib/roles";
 import { BfcacheGuard } from "./BfcacheGuard";
@@ -77,6 +77,12 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
           <nav className="dash__links">
             <Link href="/lead/queue">Unassigned event requests</Link>
             <Link href="/lead/coordinators">Coordinator overview</Link>
+          </nav>
+        )}
+        {/* SCRUM-99/AC2: the Safety Officer home page links to the events waiting for a safety check */}
+        {isRole(user.role) && canMakeSafetyDecision(user.role) && (
+          <nav className="dash__links">
+            <Link href="/safety-checks">Waiting for safety check</Link>
           </nav>
         )}
         {sections.map((section) => (

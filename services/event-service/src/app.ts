@@ -6,6 +6,7 @@ import { eventRoutes } from "./routes/events";
 import { leadRoutes } from "./routes/lead";
 import { upcomingEventRoutes } from "./routes/upcomingEvents";
 import { registrationRoutes } from "./routes/registrations";
+import { safetyCheckRoutes } from "./routes/safetyChecks";
 import { cors } from "./middlewares/cors";
 import { healthCheck } from "./index";
 
@@ -33,5 +34,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/events", eventRoutes(deps));
   // SCRUM-75: the Event Coordinator Lead's pages and actions
   app.use("/lead", leadRoutes(deps));
+  // SCRUM-99: the Safety Officer's Operational Safety Check
+  app.use("/safety-checks", safetyCheckRoutes(deps));
   return app;
 }
