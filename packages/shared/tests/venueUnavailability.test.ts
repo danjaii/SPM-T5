@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { sgtToUtc } from "../src/venueBooking";
+import { sgtToUtc, VENUE_BOOKING_ERROR_CODES, VENUE_BOOKING_MESSAGES } from "../src/venueBooking";
 import {
+  unavailabilityBlockView,
   SELECTABLE_UNAVAILABILITY_REASONS,
   UNAVAILABILITY_REASON_LABELS,
   UNAVAILABILITY_REASONS,
@@ -166,5 +167,48 @@ describe("SCRUM-105/AC6 canMarkVenueUnavailable (105-S6)", () => {
     expect(canMarkVenueUnavailable("event_coordinator")).toBe(false);
     expect(canMarkVenueUnavailable("event_organiser")).toBe(false);
     expect(canMarkVenueUnavailable(undefined)).toBe(false);
+  });
+});
+
+describe("SCRUM-105/AC4 the VENUE_UNAVAILABLE refusal code (105-S4)", () => {
+  it("105-S4: is a booking error code with a generic message that names no period or reason", () => {
+    expect(VENUE_BOOKING_ERROR_CODES).toContain("VENUE_UNAVAILABLE");
+    expect(VENUE_BOOKING_MESSAGES.VENUE_UNAVAILABLE).toBe("This venue is unavailable for part of that period.");
+  });
+});
+
+describe("SCRUM-105/AC1 unavailabilityBlockView (105-S1)", () => {
+  const row = {
+    id: "b1",
+    start: sgtToUtc("2026-11-14", "08:00"),
+    end: sgtToUtc("2026-11-16", "18:00"),
+    reason: "safety",
+    notes: "Fire door repair",
+    recordedByName: "Kenneth Wong",
+    recordedAt: new Date("2026-11-01T02:30:00.000Z"),
+  };
+
+  it("105-S1: shows the period in Singapore time, the reason label and, for staff, the notes and who recorded it", () => {
+    expect(unavailabilityBlockView(row, true)).toEqual({
+      id: "b1",
+      start: row.start.toISOString(),
+      end: row.end.toISOString(),
+      startDate: "2026-11-14",
+      startTime: "08:00",
+      endDate: "2026-11-16",
+      endTime: "18:00",
+      reason: "safety",
+      reasonLabel: "Safety concern",
+      notes: "Fire door repair",
+      recordedBy: "Kenneth Wong",
+      recordedAt: "2026-11-01T02:30:00.000Z",
+    });
+  });
+
+  it("105-S6: leaves the notes and who recorded it out for anyone else", () => {
+    const view = unavailabilityBlockView(row, false);
+    expect(view).not.toHaveProperty("notes");
+    expect(view).not.toHaveProperty("recordedBy");
+    expect(view).toMatchObject({ reasonLabel: "Safety concern", startDate: "2026-11-14" });
   });
 });

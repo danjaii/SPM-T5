@@ -65,6 +65,65 @@ export function unavailableMessage(venueName: string, start: Date, end: Date): s
 }
 
 // ---------------------------------------------------------------------------
+// 105-S1, 105-S6: a block as the API returns it.
+// ---------------------------------------------------------------------------
+
+/** A block as read from the database, with the name of the member of staff who recorded it. */
+export interface UnavailabilityBlockRow {
+  id: string;
+  start: Date;
+  end: Date;
+  reason: string;
+  notes: string | null;
+  recordedByName: string | null;
+  recordedAt: Date;
+}
+
+/** The JSON shape of a block (Singapore date and time fields, UTC instants, the reason's label). */
+export interface UnavailabilityBlockView {
+  id: string;
+  start: string;
+  end: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  reason: string;
+  reasonLabel: string;
+  recordedAt: string;
+  /** Venue staff only. */
+  notes?: string | null;
+  /** Venue staff only: the name of the member of staff who recorded it. */
+  recordedBy?: string | null;
+}
+
+/**
+ * The block for a response. Coordinators see the period and the reason label; `notes` and `recordedBy` are left out unless
+ * `forStaff` (open question 3 in the spec: row-level security cannot hide a single column, so the service does).
+ */
+export function unavailabilityBlockView(row: UnavailabilityBlockRow, forStaff: boolean): UnavailabilityBlockView {
+  const start = utcToSgt(row.start);
+  const end = utcToSgt(row.end);
+  const view: UnavailabilityBlockView = {
+    id: row.id,
+    start: row.start.toISOString(),
+    end: row.end.toISOString(),
+    startDate: start.date,
+    startTime: start.time,
+    endDate: end.date,
+    endTime: end.time,
+    reason: row.reason,
+    reasonLabel: unavailabilityReasonLabel(row.reason) ?? row.reason,
+    recordedAt: row.recordedAt.toISOString(),
+  };
+  if (forStaff) {
+    view.notes = row.notes;
+    view.recordedBy = row.recordedByName;
+  }
+  return view;
+}
+
+// ---------------------------------------------------------------------------
 // 105-S1..S3: input validation, identical in the form (apps/web) and the API (venue-service).
 // ---------------------------------------------------------------------------
 
