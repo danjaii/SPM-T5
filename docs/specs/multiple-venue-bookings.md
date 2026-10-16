@@ -56,7 +56,7 @@ These override `docs/specs/venue-booking-request.md` where they conflict (DR6 an
   **[DECIDED]**
 - **Not in this story:** changing or cancelling one booking (SCRUM-102), and the event becoming Confirmed only once all its
   bookings are approved. **[DECIDED]**
-- **Migration 28** (26 and 27 are on the SCRUM-87 branch): drops `venue_bookings_one_active_per_event` and redefines
+- **Migration 28** (SCRUM-87's migrations came later, as 31 and 32): drops `venue_bookings_one_active_per_event` and redefines
   `list_public_events()`. Affects venue-service and event-service. **[DECIDED]**
 
 ---

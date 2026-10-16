@@ -5,7 +5,12 @@ import { SupabaseReservationReader, type ReservationReader } from "./readers/res
 import { SupabaseRoleReader, type RoleReader } from "./readers/roleReader";
 import { SupabaseVenueBookingReader, type VenueBookingReader } from "./readers/venueBookingReader";
 import type { SupabaseDeps } from "./supabase";
-import { SupabaseEquipmentRequestWriter, type EquipmentRequestWriter } from "./writers/equipmentRequestWriter";
+import {
+  SupabaseEquipmentRequestReviewer,
+  SupabaseEquipmentRequestWriter,
+  type EquipmentRequestReviewer,
+  type EquipmentRequestWriter,
+} from "./writers/equipmentRequestWriter";
 import { SupabaseReservationWriter, type ReservationWriter } from "./writers/reservationWriter";
 
 /** Everything the routes read and write, built per request for the caller's token. */
@@ -23,6 +28,8 @@ export interface Ports {
   requests: EquipmentRequestReader;
   /** SCRUM-86: saves equipment requests. */
   requestWriter: EquipmentRequestWriter;
+  /** SCRUM-87: changes a request's status. */
+  reviewer: EquipmentRequestReviewer;
 }
 
 export type PortsFactory = (accessToken: string) => Ports;
@@ -40,6 +47,7 @@ export function supabasePorts(deps: SupabaseDeps): PortsFactory {
       venueBookings: new SupabaseVenueBookingReader(db),
       requests: new SupabaseEquipmentRequestReader(db),
       requestWriter: new SupabaseEquipmentRequestWriter(db),
+      reviewer: new SupabaseEquipmentRequestReviewer(db),
     };
   };
 }

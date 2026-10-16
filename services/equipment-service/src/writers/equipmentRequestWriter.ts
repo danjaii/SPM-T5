@@ -46,3 +46,40 @@ export class SupabaseEquipmentRequestWriter implements EquipmentRequestWriter {
     return { id: (data as { id: string }).id };
   }
 }
+
+/** SCRUM-87/AC4, AC5: a status change, as the service hands it over. dbStatus is under_review, approved or rejected. */
+export interface EquipmentRequestReview {
+  requestId: string;
+  dbStatus: string;
+  /** Cannot Fulfil only. */
+  reason: string | null;
+}
+
+/** What review_equipment_request() (migration 32) answered. */
+export type ReviewOutcome =
+  | { outcome: "updated" | "not_found" | "not_reviewable" | "event_locked" }
+  | { outcome: "insufficient"; available: number };
+
+/** SCRUM-87: changes a request's status. The real one checks and saves in one step inside the database. */
+export interface EquipmentRequestReviewer {
+  review(review: EquipmentRequestReview): Promise<ReviewOutcome>;
+}
+
+/**
+ * The real reviewer: calls review_equipment_request() (migration 32) as the caller. It refuses anyone but Technical
+ * Support Staff, and checks what is free and saves Arranged in one step, so two people cannot arrange the last units.
+ */
+export class SupabaseEquipmentRequestReviewer implements EquipmentRequestReviewer {
+  constructor(private readonly db: SupabaseClient) {}
+
+  async review(review: EquipmentRequestReview): Promise<ReviewOutcome> {
+    const { data, error } = await this.db.rpc("review_equipment_request", {
+      p_request_id: review.requestId,
+      p_status: review.dbStatus,
+      p_reason: review.reason,
+    });
+    if (error) throw new Error(`Reviewing the equipment request failed: ${error.message}`, { cause: error });
+    const row = (data as Array<{ outcome: ReviewOutcome["outcome"]; available: number | null }>)[0];
+    return row.outcome === "insufficient" ? { outcome: "insufficient", available: row.available ?? 0 } : { outcome: row.outcome };
+  }
+}

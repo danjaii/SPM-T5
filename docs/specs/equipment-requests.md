@@ -12,12 +12,21 @@ Where this spec meets the existing schema (`supabase/migrations/01_schema.sql`) 
 - **Data model.** An equipment request is a row in the existing `equipment_reservations` table (migration 25 extends it); there is no separate requests table. SCRUM-18 availability and SCRUM-19's `reserve_equipment()` count only `approved` and `reserved` rows, so a new request (`requested`) never reduces availability.
 - **Equipment type.** The coordinator picks a specific catalogue item, from a list grouped by the item's type (e.g. "Audio: Wireless Microphone Set"). This is how "equipment type is picked from a list" is met. Retired items are not offered.
 - **Field mapping.** Item = `equipment_id`; quantity = `quantity_requested`; technical notes = `notes`; requested by = `requested_by`; venue = `venue_booking_id` (new). The request's start and end are copied from the venue booking.
-- **Status mapping.** Submitted = `requested`; Arranged = `approved` or `reserved`; Cannot Fulfil = `rejected`; `cancelled` rows are not shown. Under Review needs a new enum value, added with SCRUM-87.
+- **Status mapping.** Submitted = `requested`; Arranged = `approved` or `reserved`; Cannot Fulfil = `rejected`; `cancelled` rows are not shown. Under Review = `under_review` (new enum value, migration 31).
 - **Existing rows.** Every row for an event is shown as one of its requests, including reservations made before this feature (they show "No venue").
 - **Finished events.** Requests cannot be created when the event is Completed, Cancelled **or Rejected**.
 - **Venue.** Only the event's **approved** venue bookings are offered, meaning the ones the venue pages show as Approved (legacy `tentative` and `confirmed` rows included). Open question 1 is answered as: a venue is required.
 - **Quantity message.** Equipment requests use "Quantity must be a whole number of 1 or more"; the SCRUM-18/19 forms keep their own wording.
 - **Where the assumptions live.** Each open-question rule is one constant in `packages/shared/src/equipmentRequest.ts`; the database copy of the finished-event rule is kept equal to it by an integration test.
+
+SCRUM-87 decisions (2026-10-14):
+
+- **Arranged checks availability.** Arranged (`approved`) holds units, so it is refused when too few units of the item are free in the request's period, using SCRUM-18's rule. The check and the save are one step in the database (`review_equipment_request()`, migration 32), like SCRUM-19's `reserve_equipment()`. This goes beyond "Checking if equipment is available" being out of scope, to stop equipment being promised twice.
+- **Cannot Fulfil reason** is stored on the request (`review_reason`), up to 500 characters. AC8 (notes with author and time) is not built in this story.
+- **Finished events.** Requests for a Completed, Cancelled or Rejected event are left out of the queue and cannot be changed (same list as SCRUM-86/AC6).
+- **AC6 readiness.** Shown on the event as Complete or Incomplete; an event with no requests (cancelled ones do not count) shows neither. Open question 3 is assumed yes: `EQUIPMENT_READY_STATUSES`.
+- **Queue order.** Soonest event first (the event's date, or the request's own date when the event has none), then the oldest request.
+- **AC7.** Only Technical Support Staff see the queue and change a status: equipment-service refuses everyone else (403), and migration 32 adds a restrictive update policy so a direct database update by anyone else changes nothing. Technical Support Staff can now read the venue bookings that requests name, so the venue shows.
 
 ---
 

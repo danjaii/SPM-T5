@@ -66,6 +66,8 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
             <Link href="/equipment-availability">Check equipment availability</Link>
             {/* SCRUM-19: reserving equipment is for Technical Support Staff only */}
             <Link href="/equipment-reservation">Reserve equipment</Link>
+            {/* SCRUM-87/AC7: reviewing equipment requests is for Technical Support Staff only */}
+            <Link href="/equipment-requests">Equipment requests</Link>
           </nav>
         )}
         {/* SCRUM-75/AC4: the Lead home page links to the unassigned event queue and the coordinator overview */}
