@@ -28,6 +28,8 @@ export function BookingQueueList({ requests }: { requests: QueueItemView[] }) {
               <td>
                 <Link href={`/booking-queue/${r.id}`}>{r.eventName}</Link>
                 {r.amendsRequestId && <span className="status-badge">Amends an earlier request</span>}
+                {/* SCRUM-104/AC4: text, not colour alone */}
+                {r.flags.length > 0 && <span className="status-badge status-badge--flag">Flagged: {r.flags.map((f) => f.label).join(", ")}</span>}
               </td>
               <td>{r.venueName}</td>
               <td>{r.date}</td>

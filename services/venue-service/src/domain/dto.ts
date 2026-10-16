@@ -15,7 +15,7 @@ export function toFlagDto(f: FlagRecord, staff?: { otherEventName: string | null
       f.otherStart && f.otherEnd
         ? { date: utcToSgt(f.otherStart).date, startTime: utcToSgt(f.otherStart).time, endTime: utcToSgt(f.otherEnd).time }
         : null,
-    ...(staff ? { otherEventName: staff.otherEventName } : {}),
+    ...(staff ? { otherEventName: staff.otherEventName, otherBookingId: f.otherBookingId } : {}),
   };
 }
 

@@ -162,7 +162,7 @@ describe("SCRUM-110/AC2 the same warning when changing a booking or accepting a 
   const booking: VenueBookingDetailView = {
     id: "b-1", eventId: "evt-1", eventName: "TechConf 2026", venueId: "ven-2", venueName: "Lotus Room",
     date: "2099-01-01", startTime: "09:00", endTime: "12:00", status: "REJECTED", decidedAt: "2098-12-05T00:00:00.000Z",
-    submittedAt: "2098-12-01T00:00:00.000Z", expectedAttendance: 40, venueRequirements: null, accessibilityNeeds: null,
+    submittedAt: "2098-12-01T00:00:00.000Z", flags: [], expectedAttendance: 40, venueRequirements: null, accessibilityNeeds: null,
     rejectionReason: "Renovation", suggestion: { venueId: "ven-2", venueName: "Lotus Room", date: "2099-01-02", startTime: "09:00", endTime: "12:00" },
     amendsRequestId: null, chain: [],
   } as VenueBookingDetailView;
@@ -200,7 +200,7 @@ describe("SCRUM-110/AC4 venue staff see the result (110-S4)", () => {
   const item = (over: Partial<QueueItemView> = {}): QueueItemView => ({
     id: "b-1", eventId: "evt-1", venueId: "ven-2", venueName: "Lotus Room", date: "2099-01-01", startTime: "09:00", endTime: "12:00",
     eventName: "TechConf 2026", expectedAttendance: 120, venueRequirements: "Theatre", accessibilityNeeds: null,
-    requestedByName: "Rachel Tan", submittedAt: "2098-12-01T02:30:00.000Z", amendsRequestId: null,
+    requestedByName: "Rachel Tan", submittedAt: "2098-12-01T02:30:00.000Z", amendsRequestId: null, flags: [],
     suitability: "not_suitable", suitabilityUnmet: unmet, suitabilityOverrideReason: REASON, ...over,
   });
   const detail = (over: Partial<QueueDetailView> = {}): QueueDetailView => ({

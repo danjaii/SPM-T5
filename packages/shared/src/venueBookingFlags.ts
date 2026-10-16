@@ -48,6 +48,8 @@ export interface FlagDto {
   otherPeriod: FlagPeriodDto | null;
   /** Staff DTOs only. */
   otherEventName?: string | null;
+  /** Staff DTOs only: the other booking, so the queue can link to it. A coordinator is never given it. */
+  otherBookingId?: string | null;
 }
 
 /**

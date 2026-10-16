@@ -49,7 +49,7 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
               </section>
             )}
             {/* SCRUM-38/39: renders only while the request is PENDING; the server checks again. */}
-            <VenueStaffDecision booking={{ id: result.booking.id, status: result.booking.status }} />
+            <VenueStaffDecision booking={{ id: result.booking.id, status: result.booking.status, flagged: result.booking.flags.length > 0 }} />
           </>
         ) : (
           <div className="alert alert--error" role="alert">{result.error}</div>

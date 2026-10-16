@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { parseVenueTimingInput } from "@spm-t5/shared";
+import { parseVenueTimingInput, type AffectedPairDto } from "@spm-t5/shared";
 import { putVenueTiming } from "@/lib/venueTiming";
 import { Field } from "./Field";
 
@@ -18,11 +18,14 @@ export function VenueTimingForm({ venueId, setupMinutes, turnaroundMinutes }: { 
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState<string>();
   const [saved, setSaved] = useState(false);
+  // SCRUM-104: what the save said about the existing bookings (the pairs that now clash, or that none do)
+  const [impact, setImpact] = useState<{ message: string; affected: AffectedPairDto[] }>();
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSaved(false);
+    setImpact(undefined);
     setFailure(undefined);
 
     const parsed = parseVenueTimingInput({ setupMinutes: setup, turnaroundMinutes: turnaround });
@@ -37,6 +40,7 @@ export function VenueTimingForm({ venueId, setupMinutes, turnaroundMinutes }: { 
     setBusy(false);
     if (ok) {
       setSaved(true);
+      setImpact({ message: data.message, affected: data.affected ?? [] });
       router.refresh();
     } else if (data.fieldErrors) {
       setErrors(data.fieldErrors);
@@ -49,7 +53,23 @@ export function VenueTimingForm({ venueId, setupMinutes, turnaroundMinutes }: { 
     <form className="profile-form" onSubmit={onSubmit} noValidate aria-label="Setup and turnaround times">
       <h2>Edit setup and turnaround times</h2>
       {failure && <div className="alert alert--error" role="alert">{failure}</div>}
-      {saved && <div className="alert alert--ok" role="status">The times were saved.</div>}
+      {saved && (
+        <div className="alert alert--ok" role="status">
+          The times were saved.
+          {/* 104-S1, 104-S6: which existing bookings now clash, or that none do */}
+          {impact && <p>{impact.message}</p>}
+        </div>
+      )}
+      {saved && impact && impact.affected.length > 0 && (
+        <div className="alert alert--warning" aria-label="Bookings that now conflict">
+          <p>These bookings are flagged &ldquo;Buffer conflict&rdquo;. Nothing was cancelled or withdrawn: their coordinators can see the flag and resolve it.</p>
+          <ul>
+            {impact.affected.map((p) => (
+              <li key={`${p.first.bookingId}-${p.second.bookingId}`}>{p.summary}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <Field
         id="setupMinutes"
         label="Setup time (minutes)"
