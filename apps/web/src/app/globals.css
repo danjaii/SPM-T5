@@ -605,4 +605,6 @@ tr:last-child td { border-bottom: 0; }
 .avail__segment { flex-basis: 0; min-width: 120px; padding: 6px 8px; font-size: 13px; line-height: 1.3; border: 1px solid var(--steel-dark); }
 .avail__segment--event { background: var(--steel-dark); color: #fff; }
 .avail__segment--setup, .avail__segment--turnaround { background: var(--selected); color: var(--ink); border-style: dashed; }
+/* SCRUM-105: an unavailability block, named in text; the stripes and red are only a second cue */
+.avail__segment--unavailable { background: repeating-linear-gradient(135deg, var(--danger-bg), var(--danger-bg) 8px, #fff 8px, #fff 16px); color: var(--danger); border-color: var(--danger); font-weight: 600; }
 @media (max-width: 800px) { .avail__bar { flex-direction: column; } .avail__segment { min-width: 0; } }
