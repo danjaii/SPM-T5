@@ -27,6 +27,8 @@ jobs:
       # The cloudbees/plantuml-github-action this used to call no longer exists; PlantUML's official Docker
       # image does the same job. -failfast2 makes a syntax error in a .puml fail the job instead of rendering
       # an error picture. Output goes to docs/architecture/c4/rendered (-o is relative to each .puml).
+      # The diagrams include C4 from the image's bundled stdlib (!include <C4/...>), not a raw.githubusercontent.com
+      # URL: a failed download there fails every diagram with "No diagram found".
       - name: Render PlantUML C4 diagrams to SVG
         run: docker run --rm -v "$PWD:/work" -w /work plantuml/plantuml -failfast2 -tsvg -o rendered docs/architecture/c4/*.puml
 

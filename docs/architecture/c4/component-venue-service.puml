@@ -1,5 +1,5 @@
 @startuml component-venue-service
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include <C4/C4_Component>
 
 title ConnectSphere — Component Diagram: Venue Service (C4 Level 3)
 ' Built so far: the read-only venue catalogue (SCRUM-29) and the venue booking request stories
