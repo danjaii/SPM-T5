@@ -63,12 +63,14 @@ test.beforeAll(async () => {
   }
 
   await rest("notifications?title=like.E2E-46*", { method: "DELETE" });
+  // One request per row: PostgREST refuses a bulk insert whose rows have different keys.
   await rest("notifications", {
     method: "POST",
-    body: JSON.stringify([
-      { user_id: rachel.id, type: "event_submitted", title: OWN_TITLE, message: "E2E own event row.", event_id: ownEventId, created_at: new Date(Date.now() - 60_000).toISOString() },
-      { user_id: rachel.id, type: "venue_booking_flagged", title: RESTRICTED_TITLE, message: "E2E restricted row.", ...restricted },
-    ]),
+    body: JSON.stringify({ user_id: rachel.id, type: "event_submitted", title: OWN_TITLE, message: "E2E own event row.", event_id: ownEventId, created_at: new Date(Date.now() - 60_000).toISOString() }),
+  });
+  await rest("notifications", {
+    method: "POST",
+    body: JSON.stringify({ user_id: rachel.id, type: "venue_booking_flagged", title: RESTRICTED_TITLE, message: "E2E restricted row.", ...restricted }),
   });
 });
 
