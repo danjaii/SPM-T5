@@ -5,6 +5,7 @@ import type { EventInfo } from "../../src/readers/eventReader";
 import {
   FakeEquipmentReader,
   FakeEquipmentRequestReader,
+  FakeEquipmentRequestReviewer,
   FakeEquipmentRequestWriter,
   FakeEventReader,
   FakeReservationReader,
@@ -41,6 +42,7 @@ function setup(event: EventInfo) {
       venueBookings: new FakeVenueBookingReader(),
       requests: new FakeEquipmentRequestReader(),
       requestWriter: writer,
+      reviewer: new FakeEquipmentRequestReviewer(),
     }),
   });
   const submit = () => request(app).post("/events/evt-devops/equipment-requests").set("Cookie", "cs_session=tok-coord-1").send({});

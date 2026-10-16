@@ -5,7 +5,13 @@ import type { ReservationInfo, ReservationReader } from "../../src/readers/reser
 import type { EquipmentRequestInfo, EquipmentRequestReader } from "../../src/readers/equipmentRequestReader";
 import type { RoleReader } from "../../src/readers/roleReader";
 import type { VenueBookingInfo, VenueBookingReader } from "../../src/readers/venueBookingReader";
-import type { EquipmentRequestWriter, NewEquipmentRequest } from "../../src/writers/equipmentRequestWriter";
+import type {
+  EquipmentRequestReview,
+  EquipmentRequestReviewer,
+  EquipmentRequestWriter,
+  NewEquipmentRequest,
+  ReviewOutcome,
+} from "../../src/writers/equipmentRequestWriter";
 import type { NewReservation, ReservationWriter, ReserveOutcome } from "../../src/writers/reservationWriter";
 import type { SupabaseDeps } from "../../src/supabase";
 
@@ -179,10 +185,16 @@ export class FakeVenueBookingReader implements VenueBookingReader {
   }
 }
 
-/** One saved request. Defaults to 2 Projector Units for "evt-devops" in the Grand Hall, Submitted. */
+/**
+ * One saved request. Defaults to 2 Projector Units for the approved "DevOps Summit" ("evt-devops") in the Grand Hall,
+ * Submitted, 15 Oct 2026, 09:00 to 17:00 Singapore time.
+ */
 export const anEquipmentRequest = (overrides: Partial<EquipmentRequestInfo> = {}): EquipmentRequestInfo => ({
   id: "req-1",
   eventId: "evt-devops",
+  eventName: "DevOps Summit",
+  eventStatus: "approved",
+  eventStart: new Date("2026-10-15T01:00:00Z"),
   equipmentName: "Projector Unit",
   equipmentType: "AV",
   quantity: 2,
@@ -190,6 +202,9 @@ export const anEquipmentRequest = (overrides: Partial<EquipmentRequestInfo> = {}
   venueBookingId: "vb-hall",
   notes: null,
   status: "requested",
+  start: new Date("2026-10-15T01:00:00Z"),
+  end: new Date("2026-10-15T09:00:00Z"),
+  reviewReason: null,
   venueBookingCancellationReason: null,
   createdAt: new Date("2026-10-01T01:00:00Z"),
   ...overrides,
@@ -200,6 +215,14 @@ export class FakeEquipmentRequestReader implements EquipmentRequestReader {
 
   async forEvent(eventId: string) {
     return this.items.filter((r) => r.eventId === eventId);
+  }
+
+  async waiting() {
+    return this.items.filter((r) => ["requested", "under_review"].includes(r.status));
+  }
+
+  async find(id: string) {
+    return this.items.find((r) => r.id === id);
   }
 }
 
@@ -213,11 +236,35 @@ export class FakeEquipmentRequestWriter implements EquipmentRequestWriter {
   }
 }
 
-/** The SCRUM-86 ports with nothing in them, for test setups that do not use requests. */
+/**
+ * SCRUM-87: records every status change it is asked to make and answers with a set outcome. On "updated" it also
+ * changes the row in `stored` (shared with a FakeEquipmentRequestReader), as review_equipment_request() does.
+ */
+export class FakeEquipmentRequestReviewer implements EquipmentRequestReviewer {
+  readonly reviewed: EquipmentRequestReview[] = [];
+
+  constructor(
+    private readonly outcome: ReviewOutcome = { outcome: "updated" },
+    private readonly stored: EquipmentRequestInfo[] = [],
+  ) {}
+
+  async review(review: EquipmentRequestReview) {
+    this.reviewed.push(review);
+    const row = this.stored.find((r) => r.id === review.requestId);
+    if (this.outcome.outcome === "updated" && row) {
+      row.status = review.dbStatus;
+      row.reviewReason = review.reason;
+    }
+    return this.outcome;
+  }
+}
+
+/** The SCRUM-86/87 ports with nothing in them, for test setups that do not use requests. */
 export const noRequestPorts = () => ({
   venueBookings: new FakeVenueBookingReader(),
   requests: new FakeEquipmentRequestReader(),
   requestWriter: new FakeEquipmentRequestWriter(),
+  reviewer: new FakeEquipmentRequestReviewer(),
 });
 
 // end of SCRUM-86 fakes

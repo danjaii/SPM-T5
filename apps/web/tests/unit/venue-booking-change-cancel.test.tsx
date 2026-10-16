@@ -73,6 +73,7 @@ const projectors: EquipmentRequestView = {
   status: "ARRANGED",
   statusLabel: "Arranged",
   releasedReason: null,
+  reason: null,
 };
 
 function mockServer(status: number, body: unknown) {

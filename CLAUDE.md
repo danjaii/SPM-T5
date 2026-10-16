@@ -246,7 +246,9 @@ Coordinator can also request equipment for their event (SCRUM-86; spec in `docs/
 request is a `requested` row in `equipment_reservations`, for a catalogue item and one of the event's approved venue
 bookings (`venue_booking_id`, migration 25), and migration 25's restrictive insert policy lets only the assigned
 coordinator of an open event add one. The spec's open-question rules live in `packages/shared/src/equipmentRequest.ts`.
-The equipment catalogue, and reviewing and editing requests (SCRUM-87, SCRUM-88), are not built yet.
+Technical Support Staff review requests (SCRUM-87; same spec): a queue at `/equipment-requests`, and a status change
+through `review_equipment_request()` (migration 32), which refuses Arranged when too few units are free. The
+equipment catalogue, request notes (SCRUM-87/AC8) and editing requests (SCRUM-88) are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
 `docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
 approving or rejecting a request, and applying it to the event, is not built yet. The assigned coordinator edits an event's details
