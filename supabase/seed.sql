@@ -1090,3 +1090,49 @@ insert into activity_log (id, actor_id, action_type, entity_type, entity_id, des
   ('91853a53-0e49-5f7d-a1f3-573afebcabb1', NULL, 'registration_waitlisted', 'event_registration', '5e2a77a4-5c7e-52d0-a373-44f2e8dc1184', 'Registration waitlisted.', '2026-07-19 14:00:00'),
   ('9f7ea406-d916-5c08-879c-e2a23bc8c3c2', NULL, 'registration_waitlisted', 'event_registration', 'ec99ce60-2250-5865-a347-0b886eb84a0a', 'Registration waitlisted.', '2026-07-19 15:00:00'),
   ('f784508f-f126-5caa-a664-5d47d3c3f42f', NULL, 'registration_waitlisted', 'event_registration', 'bab12eca-0861-558f-8030-f5a68dd00f56', 'Registration waitlisted.', '2026-07-19 16:00:00');
+
+-- ============================================================================
+-- SCRUM-99: OPERATIONAL SAFETY CHECK
+-- ============================================================================
+-- Events whose venue and technical arrangements are complete, so the Safety Officer has something to review
+-- (docs/specs/operational-safety-check.md). All are coordinated by Priya Nair. SIDH Clinical Systems Training (above) is
+-- the event that is not ready yet: its equipment is still waiting.
+--   TechConnect Product Launch 2027         ready, every safety detail recorded (try Approve, then Confirmed)
+--   Meridian Capital Client Forum 2027      ready, its venue has no safety notes (shows Not recorded; try Reject)
+--   TechConnect Partner Networking Night 2027  already Safety Approved by Farah Ismail (the coordinator can confirm it)
+
+-- AC3: emergency access and restrictions for the venues these events use (migration 37)
+update venues set
+  emergency_access = 'Two fire exits on the east wall and one at the rear loading bay; assembly point at Bayfront Plaza.',
+  restrictions     = 'No open flames or pyrotechnics. Amplified sound must end by 22:00. Max 2 m stage height.'
+where id = '6051c530-2420-5cd9-b5fb-84f17ae882d2'; -- Marina Bayview Hall B
+update venues set
+  emergency_access = 'Main lobby exit and two stairwells (north and south); fire lift to the ground floor.',
+  restrictions     = 'No food or drink in the lab wing.'
+where id = '57009ce5-23cc-56ec-85fa-36a7e6045143'; -- Marina Bayview Hall A
+
+insert into events (id, name, description, purpose, event_category_id, client_organisation_id, organiser_id, assigned_coordinator_id, status, is_draft, preferred_start_datetime, preferred_end_datetime, expected_attendance, preferred_room_layout_id, accessibility_requirements, equipment_requirements_notes, registration_required, submitted_at, created_at, updated_at) values
+  ('99a00001-0000-4000-8000-000000000001', 'TechConnect Product Launch 2027', 'Product launch keynote and demos for TechConnect Solutions.', 'Launch the 2027 product line to partners and press.', '581dc98e-2e3e-5219-9253-1f6433890219', 'e35a9d68-a57d-596b-a750-a0928d10a33b', '90d13c5f-df66-5662-9238-3d1a281b1aa0', '7994c3f8-246c-5b7a-bb92-0767cea6a073', 'awaiting_arrangements', false, '2027-03-10 09:00:00', '2027-03-10 17:00:00', 130, 'a685c8bf-c57d-5cb4-be30-49dedce9a02b', 'Four wheelchair spaces near the stage; live captioning on the main screen.', 'PA system and interpreter headsets.', false, '2026-09-01 10:00:00', '2026-09-01 10:00:00', '2026-10-01 10:00:00'),
+  ('99a00001-0000-4000-8000-000000000002', 'Meridian Capital Client Forum 2027', 'Client forum for Meridian Capital Partners.', 'Brief key clients on the 2027 outlook.', '581dc98e-2e3e-5219-9253-1f6433890219', '60493a5d-77d1-58dd-9322-9cb8d6f919be', 'c703e34a-a463-51be-8537-02424e26b726', '7994c3f8-246c-5b7a-bb92-0767cea6a073', 'awaiting_arrangements', false, '2027-03-17 09:00:00', '2027-03-17 13:00:00', 90, 'a685c8bf-c57d-5cb4-be30-49dedce9a02b', NULL, 'Name badge printer at registration.', false, '2026-09-05 10:00:00', '2026-09-05 10:00:00', '2026-10-02 10:00:00'),
+  ('99a00001-0000-4000-8000-000000000003', 'TechConnect Partner Networking Night 2027', 'Evening networking reception for TechConnect partners.', 'Strengthen partner relationships after the launch.', '581dc98e-2e3e-5219-9253-1f6433890219', 'e35a9d68-a57d-596b-a750-a0928d10a33b', '90d13c5f-df66-5662-9238-3d1a281b1aa0', '7994c3f8-246c-5b7a-bb92-0767cea6a073', 'awaiting_arrangements', false, '2027-03-11 18:00:00', '2027-03-11 21:00:00', 100, '29c40591-b4fb-505f-960e-23a6fb3d7a99', 'Step-free route from the drop-off point.', 'PA system for speeches.', false, '2026-09-02 10:00:00', '2026-09-02 10:00:00', '2026-10-03 10:00:00');
+
+-- Approved venue bookings (snapshot columns as bookingService fills them, see above)
+insert into venue_bookings (id, event_id, venue_id, requested_by, reviewed_by, status, event_start_datetime, event_end_datetime, snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, created_at, reviewed_at) values
+  ('99b00001-0000-4000-8000-000000000001', '99a00001-0000-4000-8000-000000000001', '6051c530-2420-5cd9-b5fb-84f17ae882d2', '7994c3f8-246c-5b7a-bb92-0767cea6a073', 'd5db6185-11f3-50dd-a7f2-6d83ad30f422', 'approved', '2027-03-10 09:00:00', '2027-03-10 17:00:00', 'TechConnect Product Launch 2027', 130, 'Theatre', '2026-09-10 10:00:00', '2026-09-12 10:00:00'),
+  ('99b00001-0000-4000-8000-000000000002', '99a00001-0000-4000-8000-000000000002', '162b311c-4990-5009-a15b-e60e69ff64c2', '7994c3f8-246c-5b7a-bb92-0767cea6a073', 'd5db6185-11f3-50dd-a7f2-6d83ad30f422', 'approved', '2027-03-17 09:00:00', '2027-03-17 13:00:00', 'Meridian Capital Client Forum 2027', 90, 'Theatre', '2026-09-11 10:00:00', '2026-09-13 10:00:00'),
+  ('99b00001-0000-4000-8000-000000000003', '99a00001-0000-4000-8000-000000000003', '57009ce5-23cc-56ec-85fa-36a7e6045143', '7994c3f8-246c-5b7a-bb92-0767cea6a073', 'd5db6185-11f3-50dd-a7f2-6d83ad30f422', 'approved', '2027-03-11 18:00:00', '2027-03-11 21:00:00', 'TechConnect Partner Networking Night 2027', 100, 'Banquet', '2026-09-11 11:00:00', '2026-09-13 11:00:00');
+
+-- AC3: a known restriction during the launch (Known venue restrictions lists it)
+insert into venue_unavailability (id, venue_id, start_datetime, end_datetime, reason, notes, created_by, created_at) values
+  ('99c00001-0000-4000-8000-000000000001', '6051c530-2420-5cd9-b5fb-84f17ae882d2', '2027-03-10 06:00:00', '2027-03-10 08:30:00', 'maintenance', 'East lift serviced before the event; use the west lift for step-free access.', 'd5db6185-11f3-50dd-a7f2-6d83ad30f422', '2026-09-20 10:00:00');
+
+-- Arranged equipment (reserved); notes are the equipment placement the Safety Officer sees
+insert into equipment_reservations (id, event_id, equipment_id, venue_booking_id, quantity_requested, quantity_reserved, status, requested_by, reviewed_by, start_datetime, end_datetime, notes, created_at) values
+  ('99d00001-0000-4000-8000-000000000001', '99a00001-0000-4000-8000-000000000001', 'e4c1ea01-5d0b-5e0e-a78b-327bd7feb579', '99b00001-0000-4000-8000-000000000001', 2, 2, 'reserved', '7994c3f8-246c-5b7a-bb92-0767cea6a073', '5395b460-c0a1-5b23-8fd6-110a6938bb54', '2027-03-10 09:00:00', '2027-03-10 17:00:00', 'Speakers either side of the stage, cables taped along the wall, clear of the east fire exits.', '2026-09-15 10:00:00'),
+  ('99d00001-0000-4000-8000-000000000002', '99a00001-0000-4000-8000-000000000001', 'a93c00ba-7301-58d9-afdd-de3db9465f27', '99b00001-0000-4000-8000-000000000001', 1, 1, 'reserved', '7994c3f8-246c-5b7a-bb92-0767cea6a073', '5395b460-c0a1-5b23-8fd6-110a6938bb54', '2027-03-10 09:00:00', '2027-03-10 17:00:00', 'Headset desk at the entrance, outside the aisle.', '2026-09-15 10:00:00'),
+  ('99d00001-0000-4000-8000-000000000003', '99a00001-0000-4000-8000-000000000002', '18938f20-2f06-51db-8eb2-0865854967f8', '99b00001-0000-4000-8000-000000000002', 1, 1, 'reserved', '7994c3f8-246c-5b7a-bb92-0767cea6a073', '5395b460-c0a1-5b23-8fd6-110a6938bb54', '2027-03-17 09:00:00', '2027-03-17 13:00:00', NULL, '2026-09-16 10:00:00'),
+  ('99d00001-0000-4000-8000-000000000004', '99a00001-0000-4000-8000-000000000003', 'e4c1ea01-5d0b-5e0e-a78b-327bd7feb579', '99b00001-0000-4000-8000-000000000003', 1, 1, 'reserved', '7994c3f8-246c-5b7a-bb92-0767cea6a073', '5395b460-c0a1-5b23-8fd6-110a6938bb54', '2027-03-11 18:00:00', '2027-03-11 21:00:00', 'One speaker by the podium, away from the main doors.', '2026-09-16 11:00:00');
+
+-- AC5 + AC8: the Networking Night was already approved by Farah Ismail, so it can go to preparation
+insert into safety_checks (id, event_id, decided_by, decision, reason, decided_at) values
+  ('99e00001-0000-4000-8000-000000000001', '99a00001-0000-4000-8000-000000000003', '3f1c2a7e-8b4d-5e6f-9a0b-1c2d3e4f5b01', 'approved', 'Exits clear, PA well away from the doors.', '2026-10-10 10:00:00');

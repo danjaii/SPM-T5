@@ -280,8 +280,12 @@ coordinators' workload and non-closed events (SCRUM-81, migration 22). Only a Le
 reassigns (SCRUM-79, migration 24) an event's coordinator, and only to their own active coordinators; the
 `events_assignment_guard` trigger enforces it for every caller. This replaced SCRUM-42's coordinator self-claim and
 SCRUM-41's hand-over: the coordinators' `/events/:id/assign-coordinator` and `/eligible-coordinators` routes now only
-refuse. The Safety Officer has no accounts, dashboard or
-sign-in option yet. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+refuse. A Safety Officer runs the Operational Safety Check (SCRUM-99; spec in `docs/specs/operational-safety-check.md`,
+`routes/safetyChecks.ts`, migration 37): `/safety-checks` lists the events ready for a check (awaiting arrangements, every
+active venue booking approved, every equipment request arranged, no decision yet), `/safety-checks/[id]` shows the safety
+information (migration 37 adds `venues.emergency_access` and `venues.restrictions`) and records Approve, Reject (reason
+required) or Request Changes (comment required) in `safety_checks`. The `events_safety_gate` trigger stops anyone, the
+service role included, moving an event to confirmed until its latest decision is approved. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
 event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
 
