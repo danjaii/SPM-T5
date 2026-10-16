@@ -3,7 +3,7 @@ import type { RoleReader } from "../../src/readers/roleReader";
 import type { VenueInfo, VenueReader } from "../../src/readers/venueReader";
 
 export class FakeVenueReader implements VenueReader {
-  constructor(private readonly venues: VenueInfo[] = []) {}
+  constructor(readonly venues: VenueInfo[] = []) {}
 
   async getById(venueId: string) {
     return this.venues.find((v) => v.id === venueId) ?? null;
@@ -19,6 +19,8 @@ export const aVenue = (overrides: Partial<VenueInfo> = {}): VenueInfo => ({
   name: "Orchid Hall",
   maxCapacity: 150,
   isActive: true,
+  setupMinutes: 0,
+  turnaroundMinutes: 0,
   ...overrides,
 });
 

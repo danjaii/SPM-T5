@@ -24,6 +24,11 @@ export function isLead(role: unknown): boolean {
   return role === "event_coordinator_lead";
 }
 
+/** SCRUM-116/AC1 + AC2: only the Safety Officer may approve, reject or request changes in a safety check. */
+export function canMakeSafetyDecision(role: Role): boolean {
+  return role === "safety_officer";
+}
+
 /** SCRUM-29: the venue catalogue can only be seen by event coordinator and venue staff */
 export function canViewVenueCatalogue(role: Role): boolean {
   return role === "event_coordinator" || role === "venue_staff";

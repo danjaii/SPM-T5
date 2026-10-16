@@ -32,7 +32,7 @@ export interface VenueSearchReader {
 
 type Row = Record<string, unknown>;
 
-interface VenueRow {
+export interface VenueRow {
   id: string;
   name: string;
   address: string;
@@ -45,9 +45,30 @@ interface VenueRow {
   venue_facilities: { facilities: { id: string; name: string } }[] | null;
 }
 
-const SELECT =
+export const VENUE_SELECT =
   "id, name, address, max_capacity, operating_hours_start, operating_hours_end, is_accessible, accessibility_notes, " +
   "venue_supported_layouts(max_capacity_for_layout, room_layouts(id, name)), venue_facilities(facilities(id, name))";
+
+/** One venue row, with its layouts and facilities embedded, as the search and the suitability check read it. */
+export function toSearchableVenue(v: VenueRow): SearchableVenue {
+  return {
+    id: v.id,
+    name: v.name,
+    address: v.address,
+    maxCapacity: v.max_capacity,
+    // Postgres returns time columns as "HH:MM:SS"; the search compares and shows "HH:MM".
+    openingTime: v.operating_hours_start?.slice(0, 5) ?? null,
+    closingTime: v.operating_hours_end?.slice(0, 5) ?? null,
+    isAccessible: v.is_accessible,
+    accessibilityNotes: v.accessibility_notes,
+    layouts: (v.venue_supported_layouts ?? []).map((l) => ({
+      id: l.room_layouts.id,
+      name: l.room_layouts.name,
+      maxCapacity: l.max_capacity_for_layout,
+    })),
+    facilities: (v.venue_facilities ?? []).map((f) => ({ id: f.facilities.id, name: f.facilities.name })),
+  };
+}
 
 export class SupabaseVenueSearchReader implements VenueSearchReader {
   constructor(private readonly db: SupabaseClient) {}
@@ -63,25 +84,9 @@ export class SupabaseVenueSearchReader implements VenueSearchReader {
   }
 
   async activeVenues(): Promise<SearchableVenue[]> {
-    const { data, error } = await this.db.from("venues").select(SELECT).eq("is_active", true).order("name");
+    const { data, error } = await this.db.from("venues").select(VENUE_SELECT).eq("is_active", true).order("name");
     if (error) throw new Error(`Reading venues failed: ${error.message}`, { cause: error });
-    return ((data ?? []) as unknown as VenueRow[]).map((v) => ({
-      id: v.id,
-      name: v.name,
-      address: v.address,
-      maxCapacity: v.max_capacity,
-      // Postgres returns time columns as "HH:MM:SS"; the search compares and shows "HH:MM".
-      openingTime: v.operating_hours_start?.slice(0, 5) ?? null,
-      closingTime: v.operating_hours_end?.slice(0, 5) ?? null,
-      isAccessible: v.is_accessible,
-      accessibilityNotes: v.accessibility_notes,
-      layouts: (v.venue_supported_layouts ?? []).map((l) => ({
-        id: l.room_layouts.id,
-        name: l.room_layouts.name,
-        maxCapacity: l.max_capacity_for_layout,
-      })),
-      facilities: (v.venue_facilities ?? []).map((f) => ({ id: f.facilities.id, name: f.facilities.name })),
-    }));
+    return ((data ?? []) as unknown as VenueRow[]).map(toSearchableVenue);
   }
 
   async options(): Promise<SearchOptions> {

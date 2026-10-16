@@ -51,6 +51,7 @@ export const VENUE_BOOKING_ERROR_CODES = [
   "VERSION_CONFLICT",
   "NO_CHANGES",
   "NOT_ACTIVE",
+  "UNSUITABLE_VENUE",
 ] as const;
 export type VenueBookingErrorCode = (typeof VENUE_BOOKING_ERROR_CODES)[number];
 
@@ -71,6 +72,7 @@ export const VENUE_BOOKING_MESSAGES = {
   NO_CHANGES: "Nothing was changed.",
   // SCRUM-102 (102-S11): a rejected one is amended instead (SCRUM-60); a withdrawn or cancelled one is finished
   NOT_ACTIVE: "Only a pending or approved venue booking can be changed or cancelled.",
+  UNSUITABLE_VENUE: "This venue does not meet all of the event's requirements. Confirm with a reason to continue.",
 } as const;
 
 // ---------------------------------------------------------------------------

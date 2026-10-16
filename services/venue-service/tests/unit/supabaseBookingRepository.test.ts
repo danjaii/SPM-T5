@@ -164,9 +164,18 @@ describe("SCRUM-102 SupabaseBookingRepository.change and cancel", () => {
     expect(calls).toEqual([
       {
         fn: "change_venue_booking",
-        args: { p_booking_id: "booking-1", p_start: "2031-03-03T02:00:00.000Z", p_end: "2031-03-03T05:00:00.000Z", p_expected_attendance: 80, p_venue_requirements: "Banquet" },
+        args: { p_booking_id: "booking-1", p_start: "2031-03-03T02:00:00.000Z", p_end: "2031-03-03T05:00:00.000Z", p_expected_attendance: 80, p_venue_requirements: "Banquet", p_suitability: null, p_suitability_unmet: null, p_suitability_override_reason: null },
       },
     ]);
+  });
+
+  it("110-S10: change also sends the suitability result made afresh for the new numbers (migration 33)", async () => {
+    const { repo, calls } = stubRpc({ data: true });
+    const unmet = [{ key: "capacity" as const, label: "Capacity", message: "Expected attendance 80 exceeds capacity 60" }];
+
+    await repo.change("booking-1", { ...aChange, suitability: { result: "not_suitable", unmet, overrideReason: "Overflow room" } }, new Date());
+
+    expect(calls[0].args).toMatchObject({ p_suitability: "not_suitable", p_suitability_unmet: unmet, p_suitability_override_reason: "Overflow room" });
   });
 
   it("102-S12: cancel sends the venue booking and the reason to cancel_venue_booking, then reads it back", async () => {

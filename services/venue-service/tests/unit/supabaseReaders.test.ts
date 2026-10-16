@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import { supabasePorts } from "../../src/ports";
 import { SupabaseRoleReader } from "../../src/readers/roleReader";
 import { SupabaseUserReader } from "../../src/readers/userReader";
+import { SupabaseVenueDetailsReader } from "../../src/readers/venueDetailsReader";
 import { SupabaseVenueReader } from "../../src/readers/venueReader";
 import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookingRepository";
 import type { SupabaseDeps } from "../../src/supabase";
@@ -23,13 +24,52 @@ const VENUE = { id: "v1", name: "Orchid Hall", max_capacity: 150, is_active: tru
 describe("SupabaseVenueReader", () => {
   it("maps a venue row", async () => {
     const reader = new SupabaseVenueReader(stubDb({ data: VENUE, error: null }));
-    expect(await reader.getById("v1")).toEqual({ id: "v1", name: "Orchid Hall", maxCapacity: 150, isActive: true });
+    expect(await reader.getById("v1")).toEqual({ id: "v1", name: "Orchid Hall", maxCapacity: 150, isActive: true, setupMinutes: 0, turnaroundMinutes: 0 });
+  });
+
+  it("SCRUM-101: reads the setup and turnaround times", async () => {
+    const reader = new SupabaseVenueReader(stubDb({ data: { ...VENUE, setup_minutes: 30, turnaround_minutes: 45 }, error: null }));
+    expect(await reader.getById("v1")).toMatchObject({ setupMinutes: 30, turnaroundMinutes: 45 });
   });
 
   it("returns null for a missing venue and throws on errors", async () => {
     expect(await new SupabaseVenueReader(stubDb({ data: null, error: null })).getById("x")).toBeNull();
     const failing = new SupabaseVenueReader(stubDb({ data: null, error: { message: "down" } }));
     await expect(failing.getById("x")).rejects.toThrow(/Reading venue failed/);
+  });
+});
+
+describe("SupabaseVenueDetailsReader (SCRUM-109)", () => {
+  const ROW = {
+    id: "v1",
+    name: "Orchid Hall",
+    address: "1 Orchard Road",
+    max_capacity: 200,
+    operating_hours_start: "08:00:00",
+    operating_hours_end: "22:00:00",
+    is_accessible: true,
+    accessibility_notes: null,
+    venue_supported_layouts: [{ max_capacity_for_layout: 180, room_layouts: { id: "l1", name: "Theatre" } }],
+    venue_facilities: [{ facilities: { id: "f1", name: "Projector" } }],
+  };
+
+  it("maps the venue with its hours trimmed to HH:MM, layouts and facilities", async () => {
+    const venue = await new SupabaseVenueDetailsReader(stubDb({ data: ROW, error: null })).getById("v1");
+    expect(venue).toMatchObject({
+      id: "v1",
+      maxCapacity: 200,
+      openingTime: "08:00",
+      closingTime: "22:00",
+      layouts: [{ id: "l1", name: "Theatre", maxCapacity: 180 }],
+      facilities: [{ id: "f1", name: "Projector" }],
+    });
+  });
+
+  it("returns null for a missing venue and throws on errors", async () => {
+    expect(await new SupabaseVenueDetailsReader(stubDb({ data: null, error: null })).getById("x")).toBeNull();
+    await expect(new SupabaseVenueDetailsReader(stubDb({ data: null, error: { message: "down" } })).getById("x")).rejects.toThrow(
+      /Reading venue failed/,
+    );
   });
 });
 
@@ -163,7 +203,7 @@ describe("supabasePorts", () => {
     const tokens: string[] = [];
     const deps = { anon: {}, forUser: (t: string) => (tokens.push(t), stubDb({ data: null, error: null })) } as unknown as SupabaseDeps;
     const ports = supabasePorts(deps)("caller-token");
-    expect(Object.keys(ports).sort()).toEqual(["bookings", "events", "roles", "users", "venues"]);
+    expect(Object.keys(ports).sort()).toEqual(["bookings", "events", "roles", "users", "venueDetails", "venues"]);
     expect(tokens).toEqual(["caller-token"]);
   });
 });

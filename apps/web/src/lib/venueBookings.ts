@@ -1,4 +1,4 @@
-import type { VenueBookingStatus } from "@spm-t5/shared";
+import type { UnmetRequirement, VenueBookingStatus } from "@spm-t5/shared";
 import type { EquipmentRequestView } from "./equipmentRequests";
 import { VENUE_URL, type ApiResult } from "./api";
 
@@ -60,10 +60,15 @@ export interface VenueBookingInputBody {
   /** SCRUM-98/AC2: this venue booking's own numbers; left out means "use the event's". */
   expectedAttendance?: number;
   venueRequirements?: string;
+  /** SCRUM-110: why the coordinator requests a venue that does not suit the booking; sent only after the warning. */
+  overrideReason?: string;
 }
 
+/** What venue-service answers: the new id, or (409 UNSUITABLE_VENUE) the requirements that are not met. */
+export type VenueBookingResult = ApiResult<{ id: string; code?: string; unmet?: UnmetRequirement[] }>;
+
 /** Sends JSON to venue-service from the browser (POST, or PATCH for SCRUM-102's change), with the session cookie. */
-async function postToVenueService(path: string, body?: unknown, method: "POST" | "PATCH" = "POST"): Promise<ApiResult<{ id: string }>> {
+async function postToVenueService(path: string, body?: unknown, method: "POST" | "PATCH" = "POST"): Promise<VenueBookingResult> {
   try {
     const res = await fetch(`${VENUE_URL}${path}`, {
       method,
@@ -87,6 +92,8 @@ export interface VenueBookingChangeBody {
   endTime: string;
   expectedAttendance?: number;
   venueRequirements?: string;
+  /** SCRUM-110: sent only after the warning that the changed booking does not suit the venue. */
+  overrideReason?: string;
 }
 
 /** SCRUM-102/AC1: change one pending or approved venue booking; it goes back to venue staff. */
@@ -113,8 +120,8 @@ export const amendVenueBooking = (id: string, body: Omit<VenueBookingInputBody, 
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/amend`, body);
 
 /** SCRUM-59: accept the suggested alternative on a rejected request. */
-export const acceptVenueSuggestion = (id: string) =>
-  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/accept-suggestion`);
+export const acceptVenueSuggestion = (id: string, overrideReason?: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/accept-suggestion`, overrideReason ? { overrideReason } : undefined);
 
 /** SCRUM-38: Venue Staff approve a pending request. */
 export const approveVenueBooking = (id: string) =>
