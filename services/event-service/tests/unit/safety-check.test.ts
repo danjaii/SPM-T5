@@ -141,7 +141,10 @@ describe("SCRUM-99/AC3 view safety information (GET /safety-checks/:id)", () => 
   });
 });
 
-/** A saved decision, as record_safety_decision() (migration 35) returns it. */
+/**
+ * A saved decision, as record_safety_decision() (migration 35) returns it. It is declared `returns table`, so PostgREST
+ * sends a one-row array, not an object.
+ */
 const saved = (over: Row = {}): Row => ({
   id: "chk-1",
   event_id: "evt-1",
@@ -155,7 +158,7 @@ const saved = (over: Row = {}): Row => ({
 
 describe("SCRUM-99/AC4 + AC5 approve an event (POST /safety-checks/:id/decision)", () => {
   it("SCRUM-99/AC5 saves an Approve and marks the event Safety Approved", async () => {
-    const { app, rpc } = makeApp({ data: saved(), error: null });
+    const { app, rpc } = makeApp({ data: [saved()], error: null });
 
     const res = await request(app)
       .post("/safety-checks/evt-1/decision")
@@ -186,7 +189,7 @@ describe("SCRUM-99/AC6 reject an event", () => {
 describe("SCRUM-99/AC8 record the decision", () => {
   it("SCRUM-99/AC8 records the reason and returns the officer, decision, date and time, and reason", async () => {
     const rejected = saved({ decision: "rejected", reason: "Fire exit blocked by the stage" });
-    const { app, rpc } = makeApp({ data: rejected, error: null });
+    const { app, rpc } = makeApp({ data: [rejected], error: null });
 
     const res = await request(app)
       .post("/safety-checks/evt-1/decision")

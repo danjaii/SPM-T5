@@ -1,4 +1,7 @@
+import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createApp } from "../../src/app";
+import { createSupabaseDeps } from "../../src/supabase";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
@@ -254,5 +257,21 @@ describe.skipIf(!hasDb)("SCRUM-99 Operational Safety Check (database)", () => {
 
     expect(error?.code).toBe("42501");
     expect(data).toBeNull();
+  });
+
+  // The route reads what PostgREST really sends (record_safety_decision() returns a table, so a one-row array); the unit
+  // tests' fake once sent an object, and the page crashed on the missing decided_at.
+  it("SCRUM-99/AC5 SCRUM-99/AC8 POST /safety-checks/:id/decision returns the saved decision the page shows", async () => {
+    const eventId = await readyEvent();
+    const app = createApp(createSupabaseDeps());
+
+    const res = await request(app)
+      .post(`/safety-checks/${eventId}/decision`)
+      .set("Cookie", `cs_session=${who.safetyOfficer.token}`)
+      .send({ decision: "approved", reason: "Exits clear" });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ decision: "approved", reason: "Exits clear", officer_name: "Farah Ismail", label: "Safety Approved" });
+    expect(Number.isNaN(Date.parse(res.body.decided_at))).toBe(false);
   });
 });

@@ -59,7 +59,8 @@ export function safetyCheckRoutes(deps: SupabaseDeps) {
       console.error("record_safety_decision failed:", error.message);
       return res.status(500).json({ error: "We couldn't save your decision. Please try again." });
     }
-    const row = data as { decision: SafetyDecision };
+    // record_safety_decision() returns a table, so PostgREST sends its one row in an array
+    const [row] = data as { decision: SafetyDecision }[];
     return res.status(201).json({ ...row, label: SAFETY_DECISION_LABELS[row.decision] });
   });
 
