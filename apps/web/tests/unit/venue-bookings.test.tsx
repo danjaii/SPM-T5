@@ -18,7 +18,7 @@ import type { VenueBookingDetailView } from "@/lib/venueBookings";
 const item = (over = {}) => ({
   id: "b-1", eventId: "evt-1", eventName: "Tech Summit", venueId: "ven-1", venueName: "Grand Hall",
   date: "2099-01-01", startTime: "09:00", endTime: "12:00", status: "PENDING" as const,
-  decidedAt: null, submittedAt: "2098-12-01T00:00:00.000Z", ...over,
+  decidedAt: null, submittedAt: "2098-12-01T00:00:00.000Z", flags: [], ...over,
 });
 
 function mockServer(status: number, body: unknown) {

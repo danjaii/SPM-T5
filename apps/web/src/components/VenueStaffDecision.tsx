@@ -10,9 +10,9 @@ type Step = "idle" | "approve" | "reason" | "reject";
 // SCRUM-38 / SCRUM-39: Venue Staff approve or reject a pending request, each after a confirm step. Shown only
 // while it is PENDING; the server checks again, so a stale screen just gets a clear refusal (NOT_PENDING,
 // SLOT_IN_PAST). The reject form validates with the same schema as the API (39-S2).
-export function VenueStaffDecision({ booking }: { booking: { id: string; status: VenueBookingStatus | undefined } }) {
+export function VenueStaffDecision({ booking }: { booking: { id: string; status: VenueBookingStatus | undefined; flagged?: boolean } }) {
   const router = useRouter();
-  const allowed = decisionActions(booking.status);
+  const allowed = decisionActions(booking.status, booking.flagged);
   const [step, setStep] = useState<Step>("idle");
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string>();
@@ -50,6 +50,10 @@ export function VenueStaffDecision({ booking }: { booking: { id: string; status:
     <section className="vb__actions">
       <h2>Decision</h2>
       {error && <div className="alert alert--error" role="alert">{error}</div>}
+      {/* SCRUM-104/AC4: Approve is not offered for a flagged request; say why, and that rejecting is still possible */}
+      {booking.flagged && !allowed.approve && (
+        <p>This request is flagged, so it cannot be approved until the conflict is resolved. You can still reject it.</p>
+      )}
 
       {step === "idle" && (
         <p>

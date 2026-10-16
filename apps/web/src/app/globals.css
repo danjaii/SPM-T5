@@ -305,6 +305,9 @@ tr:last-child td { border-bottom: 0; }
 .status-badge--confirmed { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
 .status-badge--rejected { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
 .status-badge--withdrawn { color: var(--subtle); background: var(--muted); border-color: var(--line); }
+/* SCRUM-104: a flagged booking; always paired with the text "Flagged: …", never colour alone */
+.status-badge--flag { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); margin-left: 6px; }
+.vb__flag { color: var(--warn); }
 .event__form { padding: 24px; background: #fff; border: 1px solid var(--border); }
 .event__missing { color: var(--subtle); font-style: italic; }
 
@@ -608,3 +611,13 @@ tr:last-child td { border-bottom: 0; }
 /* SCRUM-105: an unavailability block, named in text; the stripes and red are only a second cue */
 .avail__segment--unavailable { flex: 1; background: repeating-linear-gradient(135deg, var(--danger-bg), var(--danger-bg) 8px, #fff 8px, #fff 16px); color: var(--danger); border-color: var(--danger); font-weight: 600; }
 @media (max-width: 800px) { .avail__bar { flex-direction: column; } .avail__segment { min-width: 0; } }
+
+/* SCRUM-46: the notification list; an unread row is highlighted, and also carries the word "Unread" */
+.notifications { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: #fff; }
+.notification { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.notification:last-child { border-bottom: 0; }
+.notification--unread { background: var(--warn-bg); border-left: 3px solid var(--warn); font-weight: 600; }
+.notification__open { flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.notification__message, .notification__related, .notification__time { font-weight: 400; font-size: 14px; color: var(--subtle); }
+/* the shared .btn is full width; here it sits beside the text, so keep it to its own width */
+.notification .btn { width: auto; flex: none; white-space: nowrap; }

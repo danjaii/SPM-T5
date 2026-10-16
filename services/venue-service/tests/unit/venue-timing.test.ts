@@ -50,6 +50,7 @@ function createFake() {
       const venue = tables.venues.find((v) => v.id === venueId)!;
       venue.setup_minutes = setup;
       venue.turnaround_minutes = turnaround;
+      return []; // SCRUM-104: no existing booking is affected
     });
     const timing: VenueTimingWriter = { set };
     return { set, factory: () => timing };
@@ -71,7 +72,9 @@ describe("SCRUM-101/AC1 venue staff set the setup and turnaround times (101-S1)"
     const put = await request(app).put("/venues/orchid/timing").set("Cookie", staff.cookie).send({ setupMinutes: 30, turnaroundMinutes: 45 });
 
     expect(put.status).toBe(200);
-    expect(put.body).toEqual({ setup_minutes: 30, turnaround_minutes: 45 });
+    // SCRUM-104 adds `affected` and `message` to the SCRUM-101 body, so the old fields are matched, not the whole body
+    expect(put.body).toMatchObject({ setup_minutes: 30, turnaround_minutes: 45 });
+    expect(put.body).toMatchObject({ affected: [], message: "No existing bookings are affected." });
     expect(writer.set).toHaveBeenCalledWith("orchid", 30, 45);
 
     const get = await request(app).get("/venues/orchid").set("Cookie", staff.cookie);

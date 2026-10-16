@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dbStatusToApi } from "@spm-t5/shared";
-import { bookingError, forbidden } from "../domain/errors";
-import type { BookingChange, BookingRecord, Decision, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
+import { BookingError, bookingError, forbidden } from "../domain/errors";
+import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
@@ -90,6 +90,8 @@ function translate(error: PgError): Error {
   if (error.code === "CS102") return bookingError("EVENT_NOT_ELIGIBLE");
   // SCRUM-105: the padded-overlap trigger (migration 38) found the period inside an unavailability block
   if (error.code === "CS105") return bookingError("VENUE_UNAVAILABLE");
+  // SCRUM-104: the approve guard (migration 36) refuses a request that still carries an open flag
+  if (error.code === "CS104") return bookingError("BOOKING_FLAGGED");
   if (error.code === "23505") {
     // 98-S20 (migration 28): the rejected venue booking already has an active replacement
     if (message.includes("venue_bookings_one_active_replacement")) return bookingError("ACTIVE_REQUEST_EXISTS");
@@ -176,7 +178,12 @@ export class SupabaseBookingRepository implements BookingRepository {
       .eq("status", "requested")
       .select(BOOKING_COLUMNS)
       .maybeSingle();
-    if (error) throw new Error("Could not update the venue booking request.", { cause: error });
+    if (error) {
+      // A refusal the database makes on purpose (CS104 flagged, 42501) is a BookingError, not a 500 (104-S4).
+      const known = translate(error);
+      if (known instanceof BookingError) throw known;
+      throw new Error("Could not update the venue booking request.", { cause: error });
+    }
     return data ? toBookingRecord(data as unknown as Row) : null;
   }
 
@@ -236,6 +243,31 @@ export class SupabaseBookingRepository implements BookingRepository {
     const { data, error } = await this.db.rpc("cancel_venue_booking", { p_booking_id: id, p_reason: reason });
     if (error) throw translate(error);
     return data === true ? this.getById(id) : null;
+  }
+
+  /**
+   * SCRUM-104: the open flags on these bookings, oldest first, read as the caller. RLS (migration 36) shows Venue Staff
+   * every flag and a coordinator only the flags on bookings of their own events.
+   */
+  async flagsFor(bookingIds: string[]): Promise<FlagRecord[]> {
+    if (bookingIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from("venue_booking_flags")
+      .select("id, booking_id, kind, other_booking_id, other_start, other_end, created_at")
+      .in("booking_id", bookingIds)
+      .is("resolved_at", null)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw new Error("Could not read the venue booking flags.");
+    return ((data ?? []) as Row[]).map((row) => ({
+      id: row.id as string,
+      bookingId: row.booking_id as string,
+      kind: row.kind as FlagRecord["kind"],
+      otherBookingId: (row.other_booking_id as string | null) ?? null,
+      otherStart: date(row.other_start),
+      otherEnd: date(row.other_end),
+      createdAt: new Date(row.created_at as string),
+    }));
   }
 
   async getById(id: string): Promise<BookingRecord | null> {

@@ -1,4 +1,4 @@
-import type { BookingChange, BookingRecord, Decision, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
 
 /**
  * Storage for venue booking requests. The real implementation is Postgres (venue_bookings); the
@@ -37,6 +37,7 @@ export interface BookingRepository {
   /**
    * Approves or rejects the request if, and only if, it is still PENDING (seam for SCRUM-38 to 40).
    * A rejection may carry a reason and a suggested alternative. Null when it was not pending.
+   * Throws BOOKING_FLAGGED when approving a request that carries an open flag (SCRUM-104, enforced by the database).
    */
   decide(
     id: string,
@@ -56,6 +57,12 @@ export interface BookingRepository {
    * step. Null (and nothing changed) when it was no longer PENDING or APPROVED.
    */
   cancel(id: string, by: string, at: Date, reason: string): Promise<BookingRecord | null>;
+
+  /**
+   * SCRUM-104: the open flags (buffer conflicts) on these bookings, oldest first. Only flags the caller may read come back.
+   * Their presence blocks approving a pending request (104-S4); a flag never changes a booking's status.
+   */
+  flagsFor(bookingIds: string[]): Promise<FlagRecord[]>;
 
   /** One request by id, or null (SCRUM-33 detail). */
   getById(id: string): Promise<BookingRecord | null>;

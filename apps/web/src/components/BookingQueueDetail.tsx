@@ -11,6 +11,25 @@ export function BookingQueueDetail({ booking }: { booking: QueueDetailView }) {
         Status <span className="status-badge">{bookingStatusLabel(booking.status)}</span>
       </p>
 
+      {/* SCRUM-104/AC4: why Approve is missing, and the booking it clashes with */}
+      {booking.flags.length > 0 && (
+        <div className="alert alert--warning" aria-label="Flags">
+          <strong>Flagged: {booking.flags.map((f) => f.label).join(", ")}</strong>
+          <ul>
+            {booking.flags.map((f) => (
+              <li key={f.id}>
+                {f.otherBookingId ? (
+                  <Link href={`/booking-queue/${f.otherBookingId}`}>{f.otherEventName ?? "Another booking"}</Link>
+                ) : (
+                  f.label
+                )}
+                {f.otherPeriod && <> at this venue, {f.otherPeriod.date} {f.otherPeriod.startTime}–{f.otherPeriod.endTime}</>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <dl className="vb__facts">
         <dt>Venue</dt>
         <dd>{booking.venueName}</dd>

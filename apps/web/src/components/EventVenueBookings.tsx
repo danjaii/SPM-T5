@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { describeFlag } from "@spm-t5/shared";
 import { VenueBookingCancel } from "./VenueBookingCancel";
 import type { EquipmentRequestView } from "@/lib/equipmentRequests";
 import { bookingStatusLabel, equipmentFor, isChangeableVenueBooking, type EventVenueBookingItem } from "@/lib/venueBookings";
@@ -49,6 +50,9 @@ export function EventVenueBookings({
                   </td>
                   <td>
                     <span className="status-badge">{bookingStatusLabel(b.status)}</span>
+                    {b.flags.map((f) => (
+                      <span className="vb__note vb__flag" key={f.id}>{describeFlag(f)}</span>
+                    ))}
                     {b.rejectionReason && <span className="vb__note">{b.rejectionReason}</span>}
                     {b.cancellationReason && <span className="vb__note">{b.cancellationReason}</span>}
                   </td>

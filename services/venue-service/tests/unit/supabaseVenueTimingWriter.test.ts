@@ -4,7 +4,7 @@ import { SupabaseVenueTimingWriter } from "../../src/readers/venueTimingWriter";
 
 describe("SCRUM-101/AC1 SupabaseVenueTimingWriter calls set_venue_timing (101-S1)", () => {
   it("101-S1: passes the venue and both times to the function", async () => {
-    const rpc = vi.fn(async () => ({ error: null }));
+    const rpc = vi.fn(async () => ({ data: [], error: null }));
     await new SupabaseVenueTimingWriter({ rpc } as unknown as SupabaseClient).set("v1", 30, 45);
     expect(rpc).toHaveBeenCalledWith("set_venue_timing", { p_venue_id: "v1", p_setup: 30, p_turnaround: 45 });
   });

@@ -1,4 +1,4 @@
-import { dbStatusToApi, utcToSgt, type UnmetRequirement, type VenueBookingStatus } from "@spm-t5/shared";
+import { dbStatusToApi, utcToSgt, type FlagDto, type UnmetRequirement, type VenueBookingStatus } from "@spm-t5/shared";
 import { rejectionReasonOf } from "./dto";
 import type { BookingRecord } from "./types";
 
@@ -26,6 +26,8 @@ export interface QueueItem {
   suitabilityUnmet: UnmetRequirement[];
   /** Why the coordinator requested a venue that does not suit the event. */
   suitabilityOverrideReason: string | null;
+  /** SCRUM-104: the open flags, with the other booking's event name (Venue Staff only). A flagged request cannot be approved. */
+  flags: FlagDto[];
 }
 
 /** One request opened from the queue or by its address: a queue item plus its status and outcome (37-S6). */
@@ -38,7 +40,7 @@ export interface QueueDetail extends QueueItem {
   suggestion: null;
 }
 
-export function toQueueItem(b: BookingRecord, venueName: string, requestedByName: string | null): QueueItem {
+export function toQueueItem(b: BookingRecord, venueName: string, requestedByName: string | null, flags: FlagDto[] = []): QueueItem {
   return {
     id: b.id,
     eventId: b.eventId,
@@ -57,14 +59,15 @@ export function toQueueItem(b: BookingRecord, venueName: string, requestedByName
     suitability: b.suitability,
     suitabilityUnmet: b.suitabilityUnmet ?? [],
     suitabilityOverrideReason: b.suitabilityOverrideReason,
+    flags,
   };
 }
 
-export function toQueueDetail(b: BookingRecord, venueName: string, names: Map<string, string>): QueueDetail {
+export function toQueueDetail(b: BookingRecord, venueName: string, names: Map<string, string>, flags: FlagDto[] = []): QueueDetail {
   const status = dbStatusToApi(b.status);
   const decided = status === "APPROVED" || status === "REJECTED";
   return {
-    ...toQueueItem(b, venueName, (b.requestedBy && names.get(b.requestedBy)) || null),
+    ...toQueueItem(b, venueName, (b.requestedBy && names.get(b.requestedBy)) || null, flags),
     status,
     decidedByName: decided && b.reviewedBy ? (names.get(b.reviewedBy) ?? null) : null,
     decidedAt: decided && b.reviewedAt ? b.reviewedAt.toISOString() : null,
