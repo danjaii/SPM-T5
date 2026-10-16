@@ -25,7 +25,7 @@ import {
 
 // ----------------------------------------------------------------------------
 // SCRUM-88: the assigned coordinator (coord-1, see fakes.ts) changes an equipment request. The fake writer changes
-// the stored row as update_equipment_request() (migration 33) does; the real function is tested in tests/integration.
+// the stored row as update_equipment_request() (migration 37) does; the real function is tested in tests/integration.
 // ----------------------------------------------------------------------------
 
 const EVENT = "evt-devops";

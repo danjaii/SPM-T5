@@ -26,7 +26,7 @@ export interface EquipmentRequestChange {
   end: Date;
 }
 
-/** What update_equipment_request() (migration 33) answered. */
+/** What update_equipment_request() (migration 37) answered. */
 export type ChangeOutcome = "updated" | "not_found" | "not_editable" | "event_locked" | "venue_invalid";
 
 /** Saves a request, and (SCRUM-88) a coordinator's change to one. */
@@ -63,7 +63,7 @@ export class SupabaseEquipmentRequestWriter implements EquipmentRequestWriter {
   }
 
   /**
-   * SCRUM-88: calls update_equipment_request() (migration 33) as the caller. It refuses anyone but the event's
+   * SCRUM-88: calls update_equipment_request() (migration 37) as the caller. It refuses anyone but the event's
    * assigned coordinator, and saves the change and sends the request back to Submitted in one step.
    */
   async update(change: EquipmentRequestChange): Promise<ChangeOutcome> {
