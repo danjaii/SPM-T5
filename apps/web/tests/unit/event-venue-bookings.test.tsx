@@ -27,6 +27,7 @@ const aBooking = (overrides: Partial<EventVenueBookingItem> = {}): EventVenueBoo
   status: "APPROVED",
   decidedAt: "2026-10-02T00:00:00.000Z",
   submittedAt: "2026-10-01T00:00:00.000Z",
+  flags: [],
   rejectionReason: null,
   cancellationReason: null,
   expectedAttendance: 100,

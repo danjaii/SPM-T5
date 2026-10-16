@@ -2,13 +2,14 @@ import { forbidden, notFound } from "../domain/errors";
 import {
   rejectionReasonOf,
   toBookingListItem,
+  toFlagDto,
   type BookingDetail,
   type BookingListItem,
   type ChainItem,
   type EventBookingItem,
 } from "../domain/dto";
 import type { BookingRecord } from "../domain/types";
-import { exceedsCapacity, utcToSgt } from "@spm-t5/shared";
+import { exceedsCapacity, utcToSgt, type FlagDto } from "@spm-t5/shared";
 import type { EventReader } from "../readers/eventReader";
 import type { VenueReader } from "../readers/venueReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
@@ -61,13 +62,23 @@ export class TrackingService {
     return new Map(venues.map((v) => [v.id, v.name]));
   }
 
+  /** SCRUM-104/AC3: the open flags of these bookings as a coordinator may see them (the other period, no event name), by booking id. */
+  private async flagDtos(bookings: BookingRecord[]): Promise<Map<string, FlagDto[]>> {
+    const byBooking = new Map<string, FlagDto[]>();
+    for (const f of await this.deps.bookings.flagsFor(bookings.map((b) => b.id))) {
+      byBooking.set(f.bookingId, [...(byBooking.get(f.bookingId) ?? []), toFlagDto(f)]);
+    }
+    return byBooking;
+  }
+
   /** 33-S1, S3, S4: my events' requests, newest first. Cancelled ones are listed too (102-S25). */
   async list(caller: Caller): Promise<BookingListItem[]> {
     this.requireCoordinator(caller);
     const eventIds = await this.deps.events.listIdsAssignedTo(caller.id);
     const bookings = await this.deps.bookings.listByEvents(eventIds);
     const names = await this.venueNames(bookings);
-    return bookings.map((b) => toBookingListItem(b, names.get(b.venueId) ?? "Unknown venue"));
+    const flags = await this.flagDtos(bookings);
+    return bookings.map((b) => toBookingListItem(b, names.get(b.venueId) ?? "Unknown venue", flags.get(b.id)));
   }
 
   /**
@@ -83,11 +94,12 @@ export class TrackingService {
     // 102-S25: cancelled ones are listed too, with their reason
     const bookings = (await this.deps.bookings.listByEvent(eventId)).sort((a, b) => a.start.getTime() - b.start.getTime() || a.createdAt.getTime() - b.createdAt.getTime());
     const venues = new Map((await this.deps.venues.getByIds([...new Set(bookings.map((b) => b.venueId))])).map((v) => [v.id, v]));
+    const flags = await this.flagDtos(bookings);
 
     return bookings.map((b) => {
       const venue = venues.get(b.venueId);
       return {
-        ...toBookingListItem(b, venue?.name ?? "Unknown venue"),
+        ...toBookingListItem(b, venue?.name ?? "Unknown venue", flags.get(b.id)),
         expectedAttendance: b.snapshot.expectedAttendance,
         venueRequirements: b.snapshot.venueRequirements,
         rejectionReason: rejectionReasonOf(b),
@@ -108,7 +120,8 @@ export class TrackingService {
     const chain = amendmentChain(booking, await this.deps.bookings.listByEvent(booking.eventId));
     const names = await this.venueNames([booking, ...chain]);
     const nameOf = (venueId: string) => names.get(venueId) ?? "Unknown venue";
-    const item = (b: BookingRecord) => toBookingListItem(b, nameOf(b.venueId));
+    const flags = await this.flagDtos([booking, ...chain]);
+    const item = (b: BookingRecord) => toBookingListItem(b, nameOf(b.venueId), flags.get(b.id));
     const chainItems: ChainItem[] = chain.map((b) => ({ ...item(b), rejectionReason: rejectionReasonOf(b) }));
 
     const s = booking.suggestion;
