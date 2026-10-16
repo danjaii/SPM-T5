@@ -26,9 +26,13 @@ const aRequest = (over: Partial<EquipmentRequestView> = {}): EquipmentRequestVie
   notes: "Two on stage",
   status: "SUBMITTED",
   statusLabel: "Submitted",
+  reason: null,
   releasedReason: null,
   ...over,
 });
+
+/** SCRUM-87/AC6: what equipment-service says when readiness is not what the test is about. */
+const noReadiness = { readiness: null, readinessLabel: null };
 
 function mockServer(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => body });
@@ -44,7 +48,7 @@ afterEach(() => {
 
 describe("SCRUM-86/AC2 see the request on the event", () => {
   it("shows the equipment, quantity, venue, notes and status", () => {
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest()], canCreate: true }} />);
+    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest()], canCreate: true, ...noReadiness }} />);
 
     const row = screen.getAllByRole("row")[1];
     expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual([
@@ -57,14 +61,14 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
   });
 
   it("shows 'No venue' and a dash for a request with no venue or notes", () => {
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest({ venueName: null, notes: null })], canCreate: false }} />);
+    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest({ venueName: null, notes: null })], canCreate: false, ...noReadiness }} />);
     const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell").map((c) => c.textContent);
     expect(cells[2]).toBe("No venue");
     expect(cells[3]).toBe("—");
   });
 
   it("says so when nothing has been requested yet", () => {
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [], canCreate: true }} />);
+    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [], canCreate: true, ...noReadiness }} />);
     expect(screen.getByText("No equipment has been requested for this event yet.")).toBeTruthy();
   });
 
@@ -82,6 +86,7 @@ describe("SCRUM-86/AC3 several requests per event", () => {
         data={{
           requests: [aRequest(), aRequest({ id: "r2", equipment: "AV: Projector Unit", status: "ARRANGED", statusLabel: "Arranged" })],
           canCreate: true,
+          ...noReadiness,
         }}
       />,
     );
@@ -92,12 +97,12 @@ describe("SCRUM-86/AC3 several requests per event", () => {
 
 describe("SCRUM-86/AC6, AC7 who can add a request", () => {
   it("the assigned coordinator of an open event gets the Request equipment button", () => {
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [], canCreate: true }} />);
+    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [], canCreate: true, ...noReadiness }} />);
     expect(screen.getByRole("link", { name: "Request equipment" }).getAttribute("href")).toBe("/events/evt-1/equipment-request");
   });
 
   it("a finished event, or anyone else, gets no button", () => {
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest()], canCreate: false }} />);
+    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest()], canCreate: false, ...noReadiness }} />);
     expect(screen.queryByRole("link", { name: "Request equipment" })).toBeNull();
   });
 });
@@ -153,7 +158,7 @@ describe("SCRUM-86 equipment-service calls from the server", () => {
   });
 
   it("the event's requests: the reply when allowed, otherwise null so the page leaves the section out", async () => {
-    const view = { requests: [aRequest()], canCreate: true };
+    const view = { requests: [aRequest()], canCreate: true, ...noReadiness };
     const fetchMock = mockServer(200, view);
     expect(await getEventEquipmentRequests("evt 1")).toEqual(view);
     expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:4004/events/evt%201/equipment-requests");
@@ -179,7 +184,7 @@ describe("SCRUM-102/AC7 released equipment on the event page (102-S31)", () => {
     render(
       <EventEquipmentRequests
         eventId="evt-1"
-        data={{ requests: [aRequest({ status: "RELEASED", statusLabel: "Released", releasedReason: "Moved to a bigger room" })], canCreate: false }}
+        data={{ requests: [aRequest({ status: "RELEASED", statusLabel: "Released", releasedReason: "Moved to a bigger room" })], canCreate: false, readiness: null, readinessLabel: null }}
       />,
     );
 
@@ -189,7 +194,7 @@ describe("SCRUM-102/AC7 released equipment on the event page (102-S31)", () => {
   });
 
   it("102-S31 other equipment requests show no release note", () => {
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest()], canCreate: false }} />);
+    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [aRequest()], canCreate: false, readiness: null, readinessLabel: null }} />);
 
     expect(screen.queryByText(/Venue booking cancelled/)).toBeNull();
   });

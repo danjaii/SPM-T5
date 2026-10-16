@@ -9,6 +9,7 @@ import type { VenueBookingInfo } from "../../src/readers/venueBookingReader";
 import {
   FakeEquipmentReader,
   FakeEquipmentRequestReader,
+  FakeEquipmentRequestReviewer,
   FakeEquipmentRequestWriter,
   FakeEventReader,
   FakeReservationReader,
@@ -47,6 +48,7 @@ function setup({
       venueBookings: new FakeVenueBookingReader(bookings),
       requests: new FakeEquipmentRequestReader(stored),
       requestWriter: writer,
+      reviewer: new FakeEquipmentRequestReviewer(),
     }),
   });
   const as = (user: string | null, req: request.Test) => (user ? req.set("Cookie", `cs_session=tok-${user}`) : req);
@@ -79,6 +81,7 @@ describe("SCRUM-86/AC1 create a request", () => {
       notes: "Two on stage",
       status: "SUBMITTED",
       statusLabel: "Submitted",
+      reason: null,
       releasedReason: null, // SCRUM-102: only a Released one has a reason
     });
     expect(writer.saved).toEqual([
@@ -167,6 +170,7 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
         notes: "Near the stage",
         status: "SUBMITTED",
         statusLabel: "Submitted",
+        reason: null,
         releasedReason: null, // SCRUM-102: only a Released one has a reason
       },
     ]);
@@ -193,13 +197,26 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
       expect.objectContaining({ id: "released", venueName: "Grand Hall", status: "RELEASED", statusLabel: "Released", releasedReason: "Moved to a bigger room" }),
       expect.objectContaining({ id: "still-needed", status: "ARRANGED", releasedReason: null }),
     ]);
+    // SCRUM-87/AC6: released equipment is no longer needed, so the rest being Arranged makes the event Complete
+    expect(res.body.readiness).toBe("COMPLETE");
+  });
+
+  it("SCRUM-87/AC5 a request sent back to Submitted by a venue booking change no longer shows its old reason", async () => {
+    const { list } = setup({ stored: [anEquipmentRequest({ id: "moved", status: "requested", reviewReason: "All out on loan" })] });
+    const res = await list();
+    expect(res.body.requests).toEqual([expect.objectContaining({ id: "moved", status: "SUBMITTED", reason: null })]);
   });
 
   it("Technical Support Staff can see an event's requests too, but cannot add one", async () => {
     const { list } = setup({ stored: [anEquipmentRequest()] });
     const res = await list("tech-1");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ requests: [expect.objectContaining({ id: "req-1" })], canCreate: false });
+    expect(res.body).toEqual({
+      requests: [expect.objectContaining({ id: "req-1" })],
+      canCreate: false,
+      readiness: "INCOMPLETE",
+      readinessLabel: "Incomplete",
+    });
   });
 
   it("an event that does not exist is a 404", async () => {

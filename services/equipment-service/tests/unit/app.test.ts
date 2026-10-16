@@ -38,7 +38,7 @@ describe("SCRUM-18 browser access to equipment-service", () => {
     const res = await request(app).options("/equipment-reservations").set("Origin", "http://localhost:3000");
     // the browser asks which methods the service allows; it must now say POST is allowed too, not just GET
     expect(res.status).toBe(204);
-    expect(res.headers["access-control-allow-methods"]).toBe("GET,POST,OPTIONS");
+    expect(res.headers["access-control-allow-methods"]).toBe("GET,POST,PATCH,OPTIONS");
   });
 
   it("gives any other website no permission", async () => {

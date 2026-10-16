@@ -4,7 +4,7 @@ import { supabasePorts } from "../../src/ports";
 import { SupabaseEquipmentReader } from "../../src/readers/equipmentReader";
 import { SupabaseEquipmentRequestReader } from "../../src/readers/equipmentRequestReader";
 import { SupabaseVenueBookingReader } from "../../src/readers/venueBookingReader";
-import { SupabaseEquipmentRequestWriter } from "../../src/writers/equipmentRequestWriter";
+import { SupabaseEquipmentRequestReviewer, SupabaseEquipmentRequestWriter } from "../../src/writers/equipmentRequestWriter";
 import { SupabaseEventReader } from "../../src/readers/eventReader";
 import { SupabaseReservationReader } from "../../src/readers/reservationReader";
 import { SupabaseRoleReader } from "../../src/readers/roleReader";
@@ -20,12 +20,12 @@ vi.mock("@supabase/supabase-js", () => ({ createClient: vi.fn(() => ({})) }));
 // The other tests use fake readers; these check the real readers ask Supabase the right questions.
 // ----------------------------------------------------------------------------
 
-type Reply = { data: unknown; error: { message: string } | null };
+type Reply = { data: unknown; error: { message: string; code?: string } | null };
 
 function stubDb(reply: Reply) {
   const calls: Array<[string, ...unknown[]]> = [];
   const chain: Record<string, unknown> = {};
-  for (const method of ["select", "eq", "lt", "gt", "order"]) {
+  for (const method of ["select", "eq", "in", "lt", "gt", "order"]) {
     chain[method] = (...args: unknown[]) => {
       calls.push([method, ...args]);
       return chain;
@@ -147,6 +147,7 @@ describe("SCRUM-18 Supabase readers", () => {
     expect(ports.venueBookings).toBeInstanceOf(SupabaseVenueBookingReader);
     expect(ports.requests).toBeInstanceOf(SupabaseEquipmentRequestReader);
     expect(ports.requestWriter).toBeInstanceOf(SupabaseEquipmentRequestWriter);
+    expect(ports.reviewer).toBeInstanceOf(SupabaseEquipmentRequestReviewer);
   });
 
   it("createSupabaseDeps refuses to start without the Supabase settings, and connects when they are set", () => {
@@ -265,22 +266,27 @@ describe("SCRUM-86 Supabase readers and writer", () => {
           quantity_requested: 2,
           notes: "On stage",
           status: "requested",
+          start_datetime: "2026-10-15T01:00:00+00:00",
+          end_datetime: "2026-10-15T09:00:00+00:00",
+          review_reason: null,
           created_at: "2026-10-01T01:00:00+00:00",
+          event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: "2026-10-15T01:00:00+00:00" },
           equipment: { name: "Wireless Microphone Set", type: "Audio" },
           booking: { cancellation_reason: null, venue: { name: "Grand Hall" } },
         },
         // SCRUM-102 (102-S31): equipment released with its venue booking, which says why it was cancelled
-        { id: "rel-1", event_id: "evt-1", venue_booking_id: "vb-2", quantity_requested: 3, notes: null, status: "cancelled", created_at: "2026-10-02T01:00:00+00:00", equipment: { name: "Cable", type: null }, booking: { cancellation_reason: "Moved to a bigger room", venue: { name: "Orchid Hall" } } },
+        { id: "rel-1", event_id: "evt-1", venue_booking_id: "vb-2", quantity_requested: 3, notes: null, status: "cancelled", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: null, created_at: "2026-10-02T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: "2026-10-15T01:00:00+00:00" }, equipment: { name: "Cable", type: null }, booking: { cancellation_reason: "Moved to a bigger room", venue: { name: "Orchid Hall" } } },
         // A row from before requests named a venue, for an item with no type.
-        { id: "res-1", event_id: "evt-1", venue_booking_id: null, quantity_requested: 1, notes: null, status: "reserved", created_at: "2026-09-01T01:00:00+00:00", equipment: { name: "Cable", type: null }, booking: null },
+        { id: "res-1", event_id: "evt-1", venue_booking_id: null, quantity_requested: 1, notes: null, status: "rejected", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: "All out on loan", created_at: "2026-09-01T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: null }, equipment: { name: "Cable", type: null }, booking: null },
       ],
       error: null,
     });
 
     expect(await new SupabaseEquipmentRequestReader(db).forEvent("evt-1")).toEqual([
-      { id: "req-1", eventId: "evt-1", equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", venueBookingId: "vb-1", notes: "On stage", status: "requested", venueBookingCancellationReason: null, createdAt: new Date("2026-10-01T01:00:00Z") },
-      { id: "rel-1", eventId: "evt-1", equipmentName: "Cable", equipmentType: null, quantity: 3, venueName: "Orchid Hall", venueBookingId: "vb-2", notes: null, status: "cancelled", venueBookingCancellationReason: "Moved to a bigger room", createdAt: new Date("2026-10-02T01:00:00Z") },
-      { id: "res-1", eventId: "evt-1", equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, venueBookingId: null, notes: null, status: "reserved", venueBookingCancellationReason: null, createdAt: new Date("2026-09-01T01:00:00Z") },
+      { id: "req-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", venueBookingId: "vb-1", notes: "On stage", status: "requested", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: null, createdAt: new Date("2026-10-01T01:00:00Z") },
+      { id: "rel-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentName: "Cable", equipmentType: null, quantity: 3, venueName: "Orchid Hall", venueBookingId: "vb-2", notes: null, status: "cancelled", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: "Moved to a bigger room", createdAt: new Date("2026-10-02T01:00:00Z") },
+      // SCRUM-87/AC5: a Cannot Fulfil row carries its reason; an event with no date has no eventStart.
+      { id: "res-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: null, equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, venueBookingId: null, notes: null, status: "rejected", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: "All out on loan", venueBookingCancellationReason: null, createdAt: new Date("2026-09-01T01:00:00Z") },
     ]);
     expect(calls).toContainEqual(["from", "equipment_reservations"]);
     expect(calls).toContainEqual(["eq", "event_id", "evt-1"]);
@@ -354,3 +360,81 @@ describe("SCRUM-86 Supabase readers and writer", () => {
   });
 });
 // end of SCRUM-86 Supabase readers and writer
+
+// ----------------------------------------------------------------------------
+// SCRUM-87 Supabase reader queries and the reviewer
+// ----------------------------------------------------------------------------
+describe("SCRUM-87 Supabase reader and reviewer", () => {
+  const row = {
+    id: "req-1",
+    event_id: "evt-1",
+    quantity_requested: 2,
+    notes: null,
+    status: "under_review",
+    start_datetime: "2026-10-15T01:00:00+00:00",
+    end_datetime: "2026-10-15T09:00:00+00:00",
+    review_reason: null,
+    created_at: "2026-10-01T01:00:00+00:00",
+    event: null,
+    equipment: { name: "Projector Unit", type: "AV" },
+    booking: null,
+  };
+
+  it("SCRUM-87/AC1 waiting() asks for the Submitted and Under Review rows", async () => {
+    const { db, calls } = stubDb({ data: [row], error: null });
+    const [request] = await new SupabaseEquipmentRequestReader(db).waiting();
+    // A row whose event cannot be read is still named, rather than failing.
+    expect(request).toMatchObject({ id: "req-1", eventName: "Unknown event", eventStatus: "", eventStart: null, status: "under_review" });
+    expect(calls).toContainEqual(["in", "status", ["requested", "under_review"]]);
+  });
+
+  it("SCRUM-87/AC3 find() reads one row by id, and answers undefined when there is none", async () => {
+    const found = stubDb({ data: row, error: null });
+    expect(await new SupabaseEquipmentRequestReader(found.db).find("req-1")).toMatchObject({ id: "req-1" });
+    expect(found.calls).toContainEqual(["eq", "id", "req-1"]);
+
+    expect(await new SupabaseEquipmentRequestReader(stubDb({ data: null, error: null }).db).find("req-x")).toBeUndefined();
+    // 22P02: not a uuid at all, so no such request (a 404, not a crash).
+    const notUuid = stubDb({ data: null, error: { message: "invalid input syntax for type uuid", code: "22P02" } });
+    expect(await new SupabaseEquipmentRequestReader(notUuid.db).find("abc")).toBeUndefined();
+  });
+
+  it("the SCRUM-87 reader queries throw when Supabase fails", async () => {
+    const { db } = stubDb({ data: null, error: { message: "down" } });
+    await expect(new SupabaseEquipmentRequestReader(db).waiting()).rejects.toThrow(/Reading equipment requests failed/);
+    await expect(new SupabaseEquipmentRequestReader(db).find("req-1")).rejects.toThrow(/Reading the equipment request failed/);
+  });
+
+  /** A pretend Supabase for the reviewer: records the function call and gives back a set reply. */
+  function rpcDb(reply: Reply) {
+    const calls: Array<[string, unknown]> = [];
+    const db = {
+      rpc: async (fn: string, args: unknown) => {
+        calls.push([fn, args]);
+        return reply;
+      },
+    } as unknown as SupabaseClient;
+    return { db, calls };
+  }
+
+  const review = { requestId: "req-1", dbStatus: "rejected", reason: "All out on loan" };
+
+  it("SCRUM-87/AC4, AC5 SupabaseEquipmentRequestReviewer calls review_equipment_request() with the status and reason", async () => {
+    const { db, calls } = rpcDb({ data: [{ outcome: "updated", available: null }], error: null });
+    expect(await new SupabaseEquipmentRequestReviewer(db).review(review)).toEqual({ outcome: "updated" });
+    expect(calls).toEqual([["review_equipment_request", { p_request_id: "req-1", p_status: "rejected", p_reason: "All out on loan" }]]);
+  });
+
+  it("SupabaseEquipmentRequestReviewer passes on how many were free when Arranged is refused", async () => {
+    const { db } = rpcDb({ data: [{ outcome: "insufficient", available: 3 }], error: null });
+    expect(await new SupabaseEquipmentRequestReviewer(db).review(review)).toEqual({ outcome: "insufficient", available: 3 });
+    const none = rpcDb({ data: [{ outcome: "insufficient", available: null }], error: null });
+    expect(await new SupabaseEquipmentRequestReviewer(none.db).review(review)).toEqual({ outcome: "insufficient", available: 0 });
+  });
+
+  it("SupabaseEquipmentRequestReviewer throws when the database refuses (e.g. not Technical Support Staff)", async () => {
+    const { db } = rpcDb({ data: null, error: { message: "Only Technical Support Staff can review equipment requests" } });
+    await expect(new SupabaseEquipmentRequestReviewer(db).review(review)).rejects.toThrow(/Reviewing the equipment request failed/);
+  });
+});
+// end of SCRUM-87 Supabase reader and reviewer
