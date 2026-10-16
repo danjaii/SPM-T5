@@ -31,7 +31,7 @@ SCRUM-87 decisions (2026-10-14):
 SCRUM-88 decisions (2026-10-15):
 
 - **Scope.** AC1 to AC6 and AC8 are built. AC7 (a new safety check when equipment changes after the Safety Officer approved) is not: the safety check is SCRUM-111 to 113. AC9 (old details next to new) is not built.
-- **How a change is saved.** Migration 32 lets only Technical Support Staff update a request directly, so the coordinator's change goes through one database function, `update_equipment_request()` (migration 37). It checks the caller is the event's assigned coordinator (which follows a Lead's reassignment, AC5), the event is not finished (AC4), the request is not Released, and the venue is one of the event's approved bookings, then saves.
+- **How a change is saved.** Migration 32 lets only Technical Support Staff update a request directly, so the coordinator's change goes through one database function, `update_equipment_request()` (migration 38). It checks the caller is the event's assigned coordinator (which follows a Lead's reassignment, AC5), the event is not finished (AC4), the request is not Released, and the venue is one of the event's approved bookings, then saves.
 - **Back to Submitted (AC2, open question 6).** Any change, the notes alone included, sends the request back to Submitted. Its last review is cleared (who reviewed it, when, the Cannot Fulfil reason), and an Arranged request stops holding its units.
 - **Updated.** Technical Support Staff see a request marked Updated when the coordinator changed it and it is still Submitted, so the mark goes once they change its status.
 - **Which requests can be changed.** Submitted, Under Review, Arranged and Cannot Fulfil. Released ones (SCRUM-102) cannot, because their venue booking was cancelled.

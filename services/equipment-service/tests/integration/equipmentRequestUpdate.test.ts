@@ -4,7 +4,7 @@ import { SupabaseEquipmentRequestWriter, type EquipmentRequestChange } from "../
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-88: migration 37 against a real Postgres, through the real writer and reader, signed in as seeded users so
+ * SCRUM-88: migration 38 against a real Postgres, through the real writer and reader, signed in as seeded users so
  * RLS applies. These are the checks the unit tests cannot make: update_equipment_request() lets only the event's
  * assigned coordinator change a request, sends it back to Submitted and releases what it held, records who changed
  * it, and refuses Released equipment, finished events and other events' venues. Fixtures are made with the secret
@@ -18,7 +18,7 @@ const ORGANISER = "jason.chua@techconnect.example.com"; // event_organiser
 // A far-future day (SCRUM-86 uses 2033, SCRUM-87 2034), and the suite's own venue and items, so nothing overlaps.
 const at = (day: number, hour: number) => new Date(Date.UTC(2035, 4, day, hour, 0, 0));
 
-describe.skipIf(!hasDb)("SCRUM-88 changing equipment requests (migration 37)", () => {
+describe.skipIf(!hasDb)("SCRUM-88 changing equipment requests (migration 38)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const eventIds: string[] = [];
   const equipmentIds: string[] = [];
