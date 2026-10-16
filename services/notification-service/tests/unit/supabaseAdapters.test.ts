@@ -118,7 +118,14 @@ describe("SCRUM-46 wiring", () => {
 
   it("createSupabaseDeps needs the Supabase URL and key", () => {
     expect(() => createSupabaseDeps({})).toThrow("SUPABASE_URL");
+  });
+
+  // supabase-js looks for a native WebSocket as soon as it builds a client, even though this service never uses realtime.
+  // Node 22+ has one (every Dockerfile and CI's integration job run Node 22); the unit-test job runs Node 20, which does
+  // not, so this half only runs where a client can be built.
+  it.skipIf(typeof globalThis.WebSocket === "undefined")("createSupabaseDeps builds an anon client and a per-user client", () => {
     const made = createSupabaseDeps({ SUPABASE_URL: "http://127.0.0.1:54321", SUPABASE_PUBLISHABLE_KEY: "k" });
+    expect(made.anon).toBeDefined();
     expect(made.forUser("token")).toBeDefined();
   });
 
