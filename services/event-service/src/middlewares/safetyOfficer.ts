@@ -6,7 +6,7 @@ import type { SessionUser } from "./session";
 
 /**
  * SCRUM-99/AC2: the safety check pages and actions are for Safety Officers only. Goes after requireSession. This refuses
- * everyone else before the route runs; the migration 35 functions refuse them too.
+ * everyone else before the route runs; the migration 37 functions refuse them too.
  */
 export function requireSafetyOfficer(deps: SupabaseDeps) {
   return async (_req: Request, res: Response, next: NextFunction) => {

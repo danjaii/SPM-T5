@@ -5,7 +5,7 @@ import type { SupabaseDeps } from "../../src/supabase";
 
 /**
  * SCRUM-99 (docs/specs/operational-safety-check.md): the Operational Safety Check routes. Which events are ready, what
- * the safety information is, and whether a decision may be saved are decided by the database functions in migration 35
+ * the safety information is, and whether a decision may be saved are decided by the database functions in migration 37
  * (see tests/integration/safetyCheckDb.test.ts). These tests cover the routes: who may call them and what they return.
  */
 type Row = Record<string, unknown>;
@@ -83,7 +83,7 @@ describe("SCRUM-99/AC2 view events waiting for a safety check (GET /safety-check
   });
 });
 
-/** One event's safety information, as safety_check_details() (migration 35) returns it. */
+/** One event's safety information, as safety_check_details() (migration 37) returns it. */
 const details = {
   id: "evt-1",
   name: "Tech Summit",
@@ -142,7 +142,7 @@ describe("SCRUM-99/AC3 view safety information (GET /safety-checks/:id)", () => 
 });
 
 /**
- * A saved decision, as record_safety_decision() (migration 35) returns it. It is declared `returns table`, so PostgREST
+ * A saved decision, as record_safety_decision() (migration 37) returns it. It is declared `returns table`, so PostgREST
  * sends a one-row array, not an object.
  */
 const saved = (over: Row = {}): Row => ({

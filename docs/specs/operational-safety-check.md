@@ -16,7 +16,7 @@ These override the text below where they conflict.
 - **No new event status.** "Preparation" is `confirmed`. An event is **ready for a safety check** when its status is
   `awaiting_arrangements`, it has at least one active venue booking and every active one is `approved`/`confirmed`, every
   equipment request still needed is Arranged (`approved`/`reserved`; Released ones don't count, Cannot Fulfil blocks), and
-  no safety decision has been recorded yet. `is_ready_for_safety_check()` in migration 35 is the one definition. **[DECIDED]**
+  no safety decision has been recorded yet. `is_ready_for_safety_check()` in migration 37 is the one definition. **[DECIDED]**
 - **The gate is in the database.** The `events_safety_gate` trigger refuses any change of `events.status` to `confirmed`
   unless the event's latest safety decision is `approved` (`SC001`). Unlike `events_assignment_guard` it applies to every
   caller, the service role included. `PATCH /events/:id/status` answers 409 for it. `canProceedToPreparation()` in
@@ -28,7 +28,7 @@ These override the text below where they conflict.
 - **One decision per readiness.** After any decision the event leaves the queue and a second decision is refused
   (`SC002`). After Reject or Request Changes the event cannot be confirmed. Sending it back into the queue once its
   arrangements change is not built (see Open questions). **[PROPOSED]**
-- **AC3 data.** Migration 35 adds `venues.emergency_access` and `venues.restrictions`. Equipment placement is the
+- **AC3 data.** Migration 37 adds `venues.emergency_access` and `venues.restrictions`. Equipment placement is the
   equipment request's `notes`. Known venue restrictions also list the venue's unavailability during the booking. An empty
   value is shown as "Not recorded". Venue Staff editing the two new columns is a later story. **[DECIDED]**
 - **Who.** Only a Safety Officer (`canMakeSafetyDecision`) reaches the routes (`requireSafetyOfficer`) and the database
@@ -62,7 +62,7 @@ These override the text below where they conflict.
 
 - `packages/shared/tests/safetyCheck.test.ts`: decision and reason rules, `canProceedToPreparation`.
 - `services/event-service/tests/unit/safety-check.test.ts`: the routes; `event-status.test.ts`: the 409 for `SC001`.
-- `services/event-service/tests/integration/safetyCheckDb.test.ts`: migration 35 against Postgres (gate, readiness,
+- `services/event-service/tests/integration/safetyCheckDb.test.ts`: migration 37 against Postgres (gate, readiness,
   queue, decisions, details, who may call what).
 - `apps/web/tests/unit/safety-check-*.test.tsx`, `dashboard-view.test.tsx`: the pages and form.
 

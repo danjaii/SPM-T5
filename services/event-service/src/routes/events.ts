@@ -616,7 +616,7 @@ export function eventRoutes(deps: SupabaseDeps) {
         p_reason: typeof req.body.reason === "string" ? req.body.reason : null,
       })
       .maybeSingle();
-    // SCRUM-99/AC7: the events_safety_gate trigger (migration 35) refuses preparation before a Safety Approved check
+    // SCRUM-99/AC7: the events_safety_gate trigger (migration 37) refuses preparation before a Safety Approved check
     if (error?.code === "SC001") {
       return res.status(409).json({ error: "This event can't move to preparation until it is Safety Approved." });
     }

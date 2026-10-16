@@ -4,7 +4,7 @@ import type { SupabaseDeps } from "../supabase";
 import { requireSafetyOfficer } from "../middlewares/safetyOfficer";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
-/** How record_safety_decision() refuses (SQLSTATEs from migration 35), and what the Safety Officer is told. */
+/** How record_safety_decision() refuses (SQLSTATEs from migration 37), and what the Safety Officer is told. */
 const DECISION_REFUSALS: Record<string, { status: number; error: string }> = {
   SC002: { status: 409, error: "This event isn't waiting for a safety check." }, // not ready, or already decided
   P0002: { status: 404, error: "Event not found." },
@@ -12,7 +12,7 @@ const DECISION_REFUSALS: Record<string, { status: number; error: string }> = {
 
 /**
  * SCRUM-99 (docs/specs/operational-safety-check.md): the Safety Officer's Operational Safety Check. Each route calls a
- * database function from migration 35 as the caller, so the database decides what is ready and what may be saved.
+ * database function from migration 37 as the caller, so the database decides what is ready and what may be saved.
  */
 export function safetyCheckRoutes(deps: SupabaseDeps) {
   const router = Router();

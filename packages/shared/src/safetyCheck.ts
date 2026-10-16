@@ -1,7 +1,7 @@
 // SCRUM-99 (docs/specs/operational-safety-check.md): the Operational Safety Check rules, shared so apps/web and
 // event-service validate a decision the same way.
 
-/** AC4: the outcomes a Safety Officer can choose. Must match the safety_decision enum (migration 35). */
+/** AC4: the outcomes a Safety Officer can choose. Must match the safety_decision enum (migration 37). */
 export const SAFETY_DECISIONS = ["approved", "rejected", "changes_requested"] as const;
 export type SafetyDecision = (typeof SAFETY_DECISIONS)[number];
 
@@ -26,7 +26,7 @@ export function safetyDecisionProblem({ decision, reason }: { decision: unknown;
 
 /**
  * AC5 + AC7: an event may move to preparation (confirmed) only when its latest safety decision is Approve. Null means it
- * has not been checked yet. The database's events_safety_gate trigger (migration 35) enforces the same rule.
+ * has not been checked yet. The database's events_safety_gate trigger (migration 37) enforces the same rule.
  */
 export function canProceedToPreparation(latestDecision: SafetyDecision | null): boolean {
   return latestDecision === "approved";

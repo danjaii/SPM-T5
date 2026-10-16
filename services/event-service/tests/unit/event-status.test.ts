@@ -8,7 +8,7 @@ import type { SupabaseDeps } from "../../src/supabase";
 // ---------------------------------------------------------------------------
 type Row = Record<string, unknown>;
 
-/** `refuse`: the error change_event_status raises instead of saving, as the events_safety_gate trigger (migration 35) does. */
+/** `refuse`: the error change_event_status raises instead of saving, as the events_safety_gate trigger (migration 37) does. */
 function createFake(refuse?: { code: string; message: string }) {
   const sessions = new Map<string, string>(); // login token -> user id
   const tables: Record<string, Row[]> = { users: [], events: [], event_status_history: [] };
@@ -382,7 +382,7 @@ describe("SCRUM-116/AC3 a Safety Officer cannot move an event to preparation dir
   });
 });
 
-// SCRUM-99/AC7: the events_safety_gate trigger (migration 35) refuses confirmed without a Safety Approved check
+// SCRUM-99/AC7: the events_safety_gate trigger (migration 37) refuses confirmed without a Safety Approved check
 describe("SCRUM-99/AC7 an event cannot skip the safety check", () => {
   it("SCRUM-99/AC7 answers 409 when the database refuses to confirm an event that is not Safety Approved", async () => {
     const fake = createFake({ code: "SC001", message: "Event has not been Safety Approved" });

@@ -1101,7 +1101,7 @@ insert into activity_log (id, actor_id, action_type, entity_type, entity_id, des
 --   Meridian Capital Client Forum 2027      ready, its venue has no safety notes (shows Not recorded; try Reject)
 --   TechConnect Partner Networking Night 2027  already Safety Approved by Farah Ismail (the coordinator can confirm it)
 
--- AC3: emergency access and restrictions for the venues these events use (migration 35)
+-- AC3: emergency access and restrictions for the venues these events use (migration 37)
 update venues set
   emergency_access = 'Two fire exits on the east wall and one at the rear loading bay; assembly point at Bayfront Plaza.',
   restrictions     = 'No open flames or pyrotechnics. Amplified sound must end by 22:00. Max 2 m stage height.'

@@ -5,7 +5,7 @@ import { createSupabaseDeps } from "../../src/supabase";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-99 against Postgres (migration 35, docs/specs/operational-safety-check.md): the safety check queue, details and
+ * SCRUM-99 against Postgres (migration 37, docs/specs/operational-safety-check.md): the safety check queue, details and
  * decisions, and the events_safety_gate trigger that keeps an event out of preparation (confirmed) until it is Safety
  * Approved. Fixtures are made with the secret key, named "IT-99-", dated 2031 and removed afterwards.
  */
