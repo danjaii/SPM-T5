@@ -1,6 +1,11 @@
 import type { AddressInfo } from "node:net";
 import { targetKey, type AccessReader, type Target } from "../../src/readers/accessReader";
-import type { NotificationRepository, NotificationRow } from "../../src/repositories/notificationRepository";
+import {
+  AcknowledgeError,
+  type AssignmentState,
+  type NotificationRepository,
+  type NotificationRow,
+} from "../../src/repositories/notificationRepository";
 import type { SupabaseDeps } from "../../src/supabase";
 import { createApp } from "../../src/app";
 
@@ -23,7 +28,26 @@ export function row(over: Partial<NotificationRow> = {}): NotificationRow {
 /** In-memory notifications that, like row level security, only ever answer for the asking user. */
 export class FakeRepo implements NotificationRepository {
   queries: { userId: string; limit?: number }[] = [];
+  /** SCRUM-20: the assignments the technician can read, by id; every lookup; every acknowledgement. */
+  states = new Map<string, AssignmentState>();
+  stateLookups: string[][] = [];
+  acknowledged: string[] = [];
+  /** SCRUM-20: when set, acknowledging fails as the database function would, with this SQLSTATE. */
+  ackRefusal?: string;
   constructor(public rows: NotificationRow[]) {}
+
+  async assignmentStates(ids: string[]) {
+    this.stateLookups.push(ids);
+    return new Map(ids.flatMap((id) => (this.states.has(id) ? [[id, { ...this.states.get(id)! }] as [string, AssignmentState]] : [])));
+  }
+  async acknowledge(id: string) {
+    if (this.ackRefusal) throw new AcknowledgeError(this.ackRefusal, "refused");
+    this.acknowledged.push(id);
+    const found = this.rows.find((r) => r.id === id)!;
+    found.is_read = true;
+    const state = this.states.get(found.technical_staff_assignment_id ?? "");
+    if (state) state.acknowledgedAt = "2026-10-16T02:00:00Z";
+  }
 
   async list(userId: string, limit: number) {
     this.queries.push({ userId, limit });

@@ -26,6 +26,9 @@ Container_Boundary(equipmentSvc, "Equipment Service") {
   Component(writer, "Reservation Writer", "writers/reservationWriter.ts", "Calls the reserve_equipment() database function as the caller: it locks the equipment row, re-checks availability and saves the reservation in one step, so two people cannot take the last units")
   Component(shared, "Shared Rules", "@spm-t5/shared", "parseAvailabilityInput and the reservation input checks (same prompts as the web form), Singapore time; SCRUM-86/87 equipmentRequest.ts: parseEquipmentRequestInput, parseEquipmentRequestReviewInput, statuses, readiness and the open-question rules")
 
+  Component(assignRoutes, "Technical Assignment Routes", "routes/technicalAssignments.ts", "SCRUM-20: GET and POST /events/:id/technical-assignments, PATCH /technical-assignments/:id, POST /technical-assignments/:id/cancel")
+  Component(assignSvc, "Technical Assignment Service", "services/technicalAssignmentService.ts", "SCRUM-20: only the event's assigned coordinator (others 403); not for a finished event (409); a Technical Support Staff member and one of the event's approved venue bookings (422); assigns, changes the venue booking, times or note, and cancels with a reason; lists the event's assignments as Assigned, Acknowledged or Cancelled")
+  Component(assignStore, "Technical Assignment Store", "repositories/technicalAssignmentStore.ts", "SCRUM-20: reads technical_staff_assignments with the technician's and venue's names, as the caller; calls assign_technical_staff(), change_technical_assignment() and cancel_technical_assignment() (migration 41), which check again and write the technician's notification in the same transaction")
   Component(catalogue, "Equipment Catalogue", "Planned", "Technical Support Staff maintain equipment and its operational status")
 }
 
@@ -45,6 +48,12 @@ Rel(requestSvc, readers, "Event, catalogue, venue bookings, requests, role")
 Rel(requestSvc, requestWriter, "Saves a request")
 Rel(requestWriter, db, "Inserts into equipment_reservations (migration 25 policy); calls review_equipment_request() (migration 32)", "PostgREST")
 Rel(routes, availabilitySvc, "Options and check")
+Rel(app, assignRoutes, "Routes /events/:id/technical-assignments and /technical-assignments")
+Rel(assignRoutes, assignSvc, "List, assign, change, cancel")
+Rel(assignSvc, shared, "Checks the form (technicalAssignment.ts)")
+Rel(assignSvc, readers, "Event, its approved venue bookings, role")
+Rel(assignSvc, assignStore, "Reads and writes assignments")
+Rel(assignStore, db, "technical_staff_assignments; the migration 41 functions", "PostgREST")
 Rel(routes, reservationSvc, "Reservable events and reserve")
 Rel(availabilitySvc, shared, "Checks the input")
 Rel(availabilitySvc, readers, "Catalogue, reservations, role")

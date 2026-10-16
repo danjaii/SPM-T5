@@ -4,6 +4,7 @@ import { createApp } from "../../src/app";
 import { NotificationError } from "../../src/domain/errors";
 import { errorHandler } from "../../src/middlewares/errors";
 import { SupabaseAccessReader } from "../../src/readers/accessReader";
+import { AcknowledgeError } from "../../src/repositories/notificationRepository";
 import { SupabaseNotificationRepository } from "../../src/repositories/supabaseNotificationRepository";
 import { createSupabaseDeps } from "../../src/supabase";
 import { deps } from "../support/fakes";
@@ -67,6 +68,43 @@ describe("SCRUM-46/AC4 SupabaseNotificationRepository marks read (46-S4)", () =>
     const repo = new SupabaseNotificationRepository(fakeDb({ data: null, error: null }).db);
     expect(await repo.markRead("u-1", "n-9")).toBeNull();
     expect(await repo.find("u-1", "n-9")).toBeNull();
+  });
+});
+
+describe("SCRUM-20/AC4, AC5 SupabaseNotificationRepository acknowledging (20-S8, 20-S11)", () => {
+  it("20-S11: reads the assignments' acknowledgement, cancellation and last change, by id", async () => {
+    const row = { id: "a-1", acknowledged_at: null, cancelled_at: null, changed_at: "2026-10-02T09:00:00Z" };
+    const { db, calls, tables } = fakeDb({ data: [row], error: null });
+
+    const states = await new SupabaseNotificationRepository(db).assignmentStates(["a-1"]);
+
+    expect(states).toEqual(new Map([["a-1", { acknowledgedAt: null, cancelledAt: null, changedAt: "2026-10-02T09:00:00Z" }]]));
+    expect(tables).toEqual(["technical_staff_assignments"]);
+    expect(calls).toContainEqual(["in", ["id", ["a-1"]]]);
+  });
+
+  it("20-S11: no ids, no query; a database error is thrown", async () => {
+    const { db, tables } = fakeDb(boom);
+    expect(await new SupabaseNotificationRepository(db).assignmentStates([])).toEqual(new Map());
+    expect(tables).toEqual([]);
+    await expect(new SupabaseNotificationRepository(db).assignmentStates(["a-1"])).rejects.toThrow("boom");
+  });
+
+  it("20-S8: acknowledges through migration 41's function, and keeps a refusal's SQLSTATE", async () => {
+    const rpcCalls: unknown[] = [];
+    const answer = (result: unknown) =>
+      ({ rpc: async (fn: string, args: unknown) => (rpcCalls.push([fn, args]), result) }) as unknown as SupabaseClient;
+
+    await new SupabaseNotificationRepository(answer({ data: "2026-10-16T02:00:00Z", error: null })).acknowledge("n-1");
+    expect(rpcCalls).toEqual([["acknowledge_technical_assignment", { p_notification_id: "n-1" }]]);
+
+    const refused = await new SupabaseNotificationRepository(answer({ error: { message: "OUT_OF_DATE", code: "CS021" } }))
+      .acknowledge("n-1")
+      .catch((e: unknown) => e);
+    expect(refused).toBeInstanceOf(AcknowledgeError);
+    expect((refused as AcknowledgeError).code).toBe("CS021");
+    const noCode = await new SupabaseNotificationRepository(answer({ error: { message: "?" } })).acknowledge("n-1").catch((e: unknown) => e);
+    expect((noCode as AcknowledgeError).code).toBe("");
   });
 });
 

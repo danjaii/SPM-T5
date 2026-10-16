@@ -18,3 +18,16 @@ export async function markNotificationRead(id: string): Promise<ApiResult<Notifi
 export function notificationsLinkLabel(unread: number | null | undefined): string {
   return typeof unread === "number" ? `Notifications (${unread} unread)` : "Notifications";
 }
+
+/** SCRUM-20/AC4, AC5: acknowledges an on-site assignment notification; answers with it read and acknowledged. */
+export async function acknowledgeNotification(id: string): Promise<ApiResult<NotificationItem>> {
+  try {
+    const res = await fetch(`${NOTIFICATION_URL}/notifications/${encodeURIComponent(id)}/acknowledge`, {
+      method: "POST",
+      credentials: "include",
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
+  }
+}
