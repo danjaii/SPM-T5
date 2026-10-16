@@ -38,6 +38,7 @@ Container_Boundary(venueSvc, "Venue Service") {
   Component(suitabilitySvc, "Suitability Service", "services/suitabilityService.ts, services/availabilityLookup.ts, readers/venueDetailsReader.ts", "SCRUM-109: reads the venue and event as the caller and runs the shared checkSuitability (capacity, layout, accessibility, facilities, operating hours, availability); availability goes through one lookup seam")
   Component(timing, "Venue Timing", "routes/venues.ts, readers/venueTimingWriter.ts", "SCRUM-101: PUT /venues/:id/timing (Venue Staff only, 403 first, then shared validation) saves the venue's setup and turnaround minutes through set_venue_timing; GET /venues/:id returns them with can_edit_timing")
   Component(padded, "Padded Occupancy", "services/slotConflictRule.ts, routes/venues.ts, packages/shared venueOccupancy.ts", "SCRUM-103: a booking occupies its venue from its setup to the end of its turnaround; the conflict check names the occupied period (findConflict), GET /venues/:id/availability?date= shows each booking as Setup, Event and Turnaround; applies to submit, amend, accept-suggestion and change")
+  Component(unavailability, "Venue Unavailability", "routes/venues.ts, readers/venueUnavailabilityStore.ts, services/unavailabilityRule.ts", "SCRUM-105: POST /venues/:id/unavailability (Venue Staff only, 403 first, then shared validation) saves a block through mark_venue_unavailable; GET /venues/:id lists upcoming blocks (notes and recorder for staff only) with can_mark_unavailable; the availability route adds unavailable[]; submit, change and the lost-race path refuse a padded request that touches a block (409 VENUE_UNAVAILABLE, naming the period, never the reason)")
   Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks, shown as a calendar")
 }
 
@@ -87,5 +88,9 @@ Rel(timing, db, "set_venue_timing() (security definer, migration 26) is the only
 Rel(timing, shared, "parseVenueTimingInput, canEditVenueTiming")
 Rel(app, padded, "Routes availability requests; the slot rule runs inside the booking service")
 Rel(padded, db, "venue_slot_conflicts() / venue_occupied_periods() (security definer, migration 27); the padded-overlap trigger replaces venue_bookings_no_overlap and is the atomic guarantee", "PostgREST RPC")
+Rel(app, unavailability, "Routes unavailability requests; the block rule runs inside the booking service")
+Rel(bookingSvc, unavailability, "Checks the padded request against blocks after the slot check (SCRUM-105)")
+Rel(unavailability, db, "mark_venue_unavailable() is the only writer of venue_unavailability; venue_unavailability_conflicts() (security definer, migration 38) for the pre-check; the padded-overlap trigger raises CS105 and is the atomic guarantee", "PostgREST RPC")
+Rel(unavailability, shared, "parseUnavailabilityInput, unavailableMessage, canMarkVenueUnavailable")
 Rel(app, availability, "Planned")
 @enduml

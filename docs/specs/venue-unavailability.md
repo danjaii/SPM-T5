@@ -55,7 +55,7 @@ These override the text below where they conflict.
      until SCRUM-106 flags it and SCRUM-104's guard refuses it. Merge 106 straight after 105. **[DECIDED]**
   2. `venue_unavailability_conflicts(venue, start, end)` (new, `security definer`, venue staff and coordinators only, `42501`
      otherwise) returns the blocks that overlap the padded period of a would-be booking, with the venue name, for the
-     friendly pre-check and for the message after a lost race. It returns period only: no reason, notes or `created_by`.
+     friendly pre-check and for the message after a lost race. It returns the period, the reason (key) and the venue name only: no notes and no `created_by`.
      **[DECIDED]**
   3. `available_venues(start, end)` (18, redefined in 27) is redefined again (v3): the venue's **padded** request period
      is compared with the unpadded block, so venue search (SCRUM-65) never offers a venue that a request would refuse.
@@ -77,7 +77,7 @@ These override the text below where they conflict.
 
   | Method + path | Who | Response |
   | --- | --- | --- |
-  | `POST /venues/:id/unavailability` body `{ startDate, startTime, endDate, endTime, reason, notes? }` (Singapore time) | venue_staff | 201 the new block (see below); 403 for a coordinator (checked before validation, even for an invalid body); 404 unknown venue; 422 `{ code: "VALIDATION_FAILED", error, fieldErrors }` |
+  | `POST /venues/:id/unavailability` body `{ startDate, startTime, endDate, endTime, reason, notes? }` (Singapore time) | venue_staff | 201 `{ block }` (see below); 403 for a coordinator (checked before validation, even for an invalid body); 404 unknown venue; 422 `{ code: "VALIDATION_FAILED", error, fieldErrors }` |
   | `GET /venues/:id` | coordinator, venue_staff | adds `can_mark_unavailable` (true for venue staff only) and `unavailability`, the venue's blocks that have not ended, earliest first |
   | `GET /venues/:id/availability?date=` (SCRUM-103) | coordinator, venue_staff | adds `unavailable`, the blocks touching that Singapore day, so the page can draw them |
 
