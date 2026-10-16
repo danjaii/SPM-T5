@@ -1,5 +1,5 @@
 @startuml component-event-service
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include <C4/C4_Component>
 
 title ConnectSphere — Component Diagram: Event Service (C4 Level 3)
 ' Built so far: event status management (SCRUM-6 view as coordinator, SCRUM-7 view as organiser,

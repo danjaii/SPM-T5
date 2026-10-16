@@ -1,5 +1,5 @@
 @startuml container
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include <C4/C4_Container>
 
 title ConnectSphere — Container Diagram (C4 Level 2)
 
