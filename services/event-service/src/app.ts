@@ -1,6 +1,7 @@
 import express from "express";
 import type { SupabaseDeps } from "./supabase";
 import { changeRequestRoutes } from "./routes/changeRequests";
+import { changeRequestReviewRoutes } from "./routes/changeRequestReview";
 import { eventDetailsRoutes } from "./routes/eventDetails";
 import { eventRoutes } from "./routes/events";
 import { leadRoutes } from "./routes/lead";
@@ -36,5 +37,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/lead", leadRoutes(deps));
   // SCRUM-99: the Safety Officer's Operational Safety Check
   app.use("/safety-checks", safetyCheckRoutes(deps));
+  // SCRUM-67: the event's coordinator reviews its change requests
+  app.use("/change-requests", changeRequestReviewRoutes(deps));
   return app;
 }

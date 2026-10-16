@@ -9,8 +9,9 @@ import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { lookUpRole } from "./events";
 
+// SCRUM-67: venue_requirements too (an events column since SCRUM-111), so a request records the event's real value
 const EVENT_FIELDS =
-  "id, status, expected_attendance, preferred_start_datetime, preferred_end_datetime, equipment_requirements_notes";
+  "id, status, expected_attendance, preferred_start_datetime, preferred_end_datetime, venue_requirements, equipment_requirements_notes";
 
 // SCRUM-66: an event organiser asks for changes to an event after it has been submitted.
 export function changeRequestRoutes(deps: SupabaseDeps) {
@@ -63,6 +64,7 @@ export function changeRequestRoutes(deps: SupabaseDeps) {
         expected_attendance: (event.expected_attendance as number | null) ?? null,
         preferred_start_datetime: (event.preferred_start_datetime as string | null) ?? null,
         preferred_end_datetime: (event.preferred_end_datetime as string | null) ?? null,
+        venue_requirements: (event.venue_requirements as string | null) ?? null,
         equipment_requirements_notes: (event.equipment_requirements_notes as string | null) ?? null,
       },
       new Date(),
