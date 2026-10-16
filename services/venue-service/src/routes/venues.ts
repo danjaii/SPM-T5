@@ -1,5 +1,16 @@
 import { Router } from "express";
-import { canEditVenueTiming, sgtToUtc, canViewVenueCatalogue, isRole, parseVenueSearchInput, parseVenueTimingInput, type Role } from "@spm-t5/shared";
+import {
+  canEditVenueTiming,
+  canMarkVenueUnavailable,
+  sgtToUtc,
+  canViewVenueCatalogue,
+  isRole,
+  parseUnavailabilityInput,
+  parseVenueSearchInput,
+  parseVenueTimingInput,
+  unavailabilityBlockView,
+  type Role,
+} from "@spm-t5/shared";
 import { forbidden, notFound, validationFailed } from "../domain/errors";
 import type { SupabaseDeps } from "../supabase";
 import { asyncHandler } from "../middlewares/errors";
@@ -8,6 +19,7 @@ import { SupabaseVenueSearchReader, type VenueSearchReader } from "../readers/ve
 import type { BookingRepository } from "../repositories/bookingRepository";
 import { SupabaseBookingRepository } from "../repositories/supabaseBookingRepository";
 import { SupabaseVenueTimingWriter, type VenueTimingWriter } from "../readers/venueTimingWriter";
+import { SupabaseVenueUnavailabilityStore, type VenueUnavailabilityStore } from "../readers/venueUnavailabilityStore";
 import { searchVenues } from "../services/venueSearchService";
 
 /** A venue as Supabase returns it when fetched together with its layouts and facilities (nested). */
@@ -40,6 +52,7 @@ export function venueRoutes(
   now: () => Date = () => new Date(),
   timingFor: (accessToken: string) => VenueTimingWriter = (token) => new SupabaseVenueTimingWriter(deps.forUser(token)),
   occupancyFor: (accessToken: string) => Pick<BookingRepository, "occupiedPeriods"> = (token) => new SupabaseBookingRepository(deps.forUser(token)),
+  unavailabilityFor: (accessToken: string) => VenueUnavailabilityStore = (token) => new SupabaseVenueUnavailabilityStore(deps.forUser(token)),
 ) {
   const router = Router();
 
@@ -85,7 +98,7 @@ export function venueRoutes(
   );
 
   // SCRUM-29 AC2: one venue with all its characteristics, fetched together with its layouts and facilities
-  router.get("/:id", async (req, res) => {
+  router.get("/:id", asyncHandler(async (req, res) => {
     const { token } = res.locals.user as SessionUser;
 
     const { data: venue } = await deps
@@ -98,6 +111,10 @@ export function venueRoutes(
       .eq("id", req.params.id)
       .maybeSingle<VenueDetailRow>();
     if (!venue) return res.status(404).json({ error: "Venue not found." });
+
+    // SCRUM-105: the blocks that have not ended, earliest first. Only venue staff get the notes and who made them (105-S6).
+    const forStaff = canMarkVenueUnavailable(res.locals.role as Role);
+    const upcoming = (await unavailabilityFor(token).list(venue.id, forStaff)).filter((b) => b.end.getTime() > now().getTime());
 
     // Flatten the nested layouts/facilities into simple lists the web app can show directly
     res.json({
@@ -114,10 +131,12 @@ export function venueRoutes(
       setup_minutes: venue.setup_minutes ?? 0,
       turnaround_minutes: venue.turnaround_minutes ?? 0,
       can_edit_timing: canEditVenueTiming(res.locals.role as Role),
+      can_mark_unavailable: forStaff,
+      unavailability: upcoming.map((b) => unavailabilityBlockView(b, forStaff)),
       layouts: (venue.venue_supported_layouts ?? []).map((l) => ({ name: l.room_layouts.name, max_capacity: l.max_capacity_for_layout })),
       facilities: (venue.venue_facilities ?? []).map((f) => f.facilities.name),
     });
-  });
+  }));
 
   // SCRUM-103: what occupies a venue on one day, setup and turnaround included (103-S5).
   router.get(
@@ -141,6 +160,8 @@ export function venueRoutes(
       const from = sgtToUtc(date, "00:00");
       const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
       const periods = await occupancyFor(token).occupiedPeriods(venue.id, from, to);
+      // SCRUM-105: the blocks touching that day, drawn as "Unavailable" (the block itself has no setup or turnaround)
+      const blocks = (await unavailabilityFor(token).list(venue.id, false)).filter((b) => b.start.getTime() < to.getTime() && b.end.getTime() > from.getTime());
 
       res.set("Cache-Control", "no-store").json({
         venue: { id: venue.id, name: venue.name },
@@ -154,6 +175,7 @@ export function venueRoutes(
           occupied_start: p.occupiedStart.toISOString(),
           occupied_end: p.occupiedEnd.toISOString(),
         })),
+        unavailable: blocks.map((b) => unavailabilityBlockView(b, false)),
       });
     }),
   );
@@ -175,6 +197,26 @@ export function venueRoutes(
       const { setupMinutes, turnaroundMinutes } = parsed.data;
       await timingFor(token).set(req.params.id as string, setupMinutes, turnaroundMinutes);
       res.json({ setup_minutes: setupMinutes, turnaround_minutes: turnaroundMinutes });
+    }),
+  );
+
+  // SCRUM-105: Venue Staff mark a venue unavailable for a period with a reason. The role comes before the body (105-S6), the same
+  // shared parser as the form checks the body (105-S2, 105-S3), and mark_venue_unavailable enforces both again in the database.
+  router.post(
+    "/:id/unavailability",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      if (!canMarkVenueUnavailable(res.locals.role as Role)) throw forbidden("Only venue staff can mark a venue unavailable.");
+
+      const parsed = parseUnavailabilityInput(req.body);
+      if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+
+      const { data: venue } = await deps.forUser(token).from("venues").select("id").eq("id", req.params.id).maybeSingle();
+      if (!venue) throw notFound("Venue not found.");
+
+      const { start, end, reason, notes } = parsed.data;
+      const block = await unavailabilityFor(token).mark(req.params.id as string, { start, end, reason, ...(notes !== undefined ? { notes } : {}) });
+      res.status(201).json({ block: unavailabilityBlockView(block, true) });
     }),
   );
 
