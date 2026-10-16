@@ -1,5 +1,23 @@
-import { dbStatusToApi, utcToSgt, type VenueBookingStatus } from "@spm-t5/shared";
-import type { BookingRecord } from "./types";
+import { dbStatusToApi, flagLabel, utcToSgt, type FlagDto, type VenueBookingStatus } from "@spm-t5/shared";
+import type { BookingRecord, FlagRecord } from "./types";
+
+/**
+ * SCRUM-104: an open flag as the API shows it. The coordinator's version carries the other booking's period and no event
+ * name (36-S5); Venue Staff pass `otherEventName` to get it too (the name is joined at read time, never stored).
+ */
+export function toFlagDto(f: FlagRecord, staff?: { otherEventName: string | null }): FlagDto {
+  return {
+    id: f.id,
+    kind: f.kind,
+    label: flagLabel(f.kind) ?? f.kind,
+    createdAt: f.createdAt.toISOString(),
+    otherPeriod:
+      f.otherStart && f.otherEnd
+        ? { date: utcToSgt(f.otherStart).date, startTime: utcToSgt(f.otherStart).time, endTime: utcToSgt(f.otherEnd).time }
+        : null,
+    ...(staff ? { otherEventName: staff.otherEventName } : {}),
+  };
+}
 
 /** A venue booking request as the API shows it: Singapore date and times, API status (DR3, DR4). */
 export interface BookingDto {
@@ -95,9 +113,11 @@ export interface BookingListItem {
   /** Only for APPROVED and REJECTED (33-S1). */
   decidedAt: string | null;
   submittedAt: string;
+  /** SCRUM-104: the open flags on this booking (buffer conflicts); empty when none. */
+  flags: FlagDto[];
 }
 
-export function toBookingListItem(b: BookingRecord, venueName: string): BookingListItem {
+export function toBookingListItem(b: BookingRecord, venueName: string, flags: FlagDto[] = []): BookingListItem {
   const start = utcToSgt(b.start);
   const status = dbStatusToApi(b.status);
   const decided = (status === "APPROVED" || status === "REJECTED") && b.reviewedAt;
@@ -113,6 +133,7 @@ export function toBookingListItem(b: BookingRecord, venueName: string): BookingL
     status,
     decidedAt: decided ? b.reviewedAt!.toISOString() : null,
     submittedAt: b.createdAt.toISOString(),
+    flags,
   };
 }
 
