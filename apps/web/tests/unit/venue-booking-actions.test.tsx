@@ -11,7 +11,7 @@ import { bookingActions, type VenueBookingDetailView } from "@/lib/venueBookings
 const detail = (over: Partial<VenueBookingDetailView> = {}): VenueBookingDetailView => ({
   id: "b-1", eventId: "evt-1", eventName: "Tech Summit", venueId: "ven-1", venueName: "Grand Hall",
   date: "2099-01-01", startTime: "09:00", endTime: "12:00", status: "PENDING",
-  decidedAt: null, submittedAt: "2098-12-01T00:00:00.000Z",
+  decidedAt: null, submittedAt: "2098-12-01T00:00:00.000Z", flags: [],
   expectedAttendance: 120, venueRequirements: "Projector", accessibilityNeeds: null,
   rejectionReason: null, suggestion: null, amendsRequestId: null, chain: [],
   ...over,

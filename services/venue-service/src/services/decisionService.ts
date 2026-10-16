@@ -44,6 +44,9 @@ export class DecisionService {
     const booking = await this.loadPending(caller, id);
     // 38-S8: the check uses the injected clock, so tests decide what "now" is.
     if (booking.start.getTime() < now().getTime()) throw bookingError("SLOT_IN_PAST");
+    // 104-S4: a flagged request cannot be approved until the conflict is gone; rejecting stays allowed. The database trigger
+    // (migration 36, CS104) is the authority; this check gives the clear refusal first.
+    if ((await bookings.flagsFor([id])).length > 0) throw bookingError("BOOKING_FLAGGED");
 
     const approved = await bookings.decide(id, { outcome: "approved" }, caller.id, now());
     if (!approved) throw bookingError("NOT_PENDING");

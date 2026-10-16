@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { describeFlag } from "@spm-t5/shared";
 import { bookingStatusLabel, type VenueBookingDetailView } from "@/lib/venueBookings";
 
 // SCRUM-33/AC4: read-only view of one request: outcome, rejection reason, suggested alternative, amendment chain.
@@ -9,6 +10,16 @@ export function VenueBookingDetail({ booking }: { booking: VenueBookingDetailVie
       <p className="event__status">
         Status <span className="status-badge">{bookingStatusLabel(booking.status)}</span>
       </p>
+
+      {/* SCRUM-104/AC3: raised when the venue's setup or turnaround time was raised; change or cancel one booking to clear it */}
+      {booking.flags.length > 0 && (
+        <div className="alert alert--warning" aria-label="Flags">
+          {booking.flags.map((f) => (
+            <p key={f.id}>{describeFlag(f)}</p>
+          ))}
+          <p>Change or cancel this booking to resolve it.</p>
+        </div>
+      )}
 
       <dl className="vb__facts">
         <dt>Venue</dt>
