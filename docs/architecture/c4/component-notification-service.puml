@@ -1,0 +1,41 @@
+@startuml component-notification-service
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title ConnectSphere — Component Diagram: Notification Service (C4 Level 3)
+' Built so far: viewing and managing a user's own in-app notifications (docs/specs/notifications.md, SCRUM-46).
+' Rows are written by producers, not by this service (ADR 0002). Components marked "Planned" come with SCRUM-47.
+
+Container(web, "Web App", "Next.js, React", "Notifications page (/notifications) and the Notifications (n unread) link on every dashboard")
+System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
+System_Ext(emailProvider, "Email/SMS Provider")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "notifications (own rows only: migration 34), events, venue_bookings, users")
+
+Container_Boundary(notificationSvc, "Notification Service") {
+  Component(app, "App", "Express (app.ts, server.ts)", "CORS for the web app's origin (GET, POST, credentials); injectable repository and access reader; /health; mounts /notifications behind the session check; error handler")
+  Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
+  Component(errors, "Error Handler", "middlewares/errors.ts, domain/errors.ts", "NotificationError -> 404/422 with a code and message; anything unexpected -> generic 500")
+  Component(routes, "Notification Routes", "routes/notifications.ts", "GET /notifications?limit= (newest first, with unreadCount), GET /notifications/unread-count, POST /notifications/:id/read (422 for a bad id)")
+  Component(svc, "Notification Service", "services/notificationService.ts", "Turns rows into items with the related event or booking and its page; marks read idempotently; a target the caller can no longer see gets no link and the no-access wording (AC5, AC7)")
+  Component(repo, "Notification Repository", "repositories/supabaseNotificationRepository.ts", "Lists, counts, finds and marks read the caller's rows, as the caller, so RLS applies; only is_read can be written")
+  Component(access, "Access Reader", "readers/accessReader.ts", "Looks up the caller's role and the names of the events and venue bookings they can still see, as the caller")
+  Component(shared, "Shared Rules", "@spm-t5/shared notifications.ts", "NotificationItem, notificationHref, NO_ACCESS_LABEL, parseNotificationLimit")
+
+  Component(dispatch, "Email/SMS Dispatch", "Planned", "Reacts to new notification rows through a database webhook, not polling (ADR 0002)")
+}
+
+Rel(web, app, "Lists (server-side); marks read (browser)", "HTTPS/JSON, session cookie")
+Rel(app, session, "Requires a signed-in caller")
+Rel(session, supabaseAuth, "Verifies session token", "HTTPS")
+Rel(app, errors, "Renders failures")
+Rel(app, routes, "Routes /notifications")
+Rel(routes, svc, "List, count, mark read")
+Rel(routes, shared, "Parses the limit")
+Rel(svc, shared, "Maps a target to its page")
+Rel(svc, repo, "Own notifications")
+Rel(svc, access, "What the caller can still see")
+Rel(repo, db, "Selects and updates notifications (migration 34 policies and grants)", "PostgREST")
+Rel(access, db, "Reads users, events, venue_bookings (their RLS applies)", "PostgREST")
+
+Rel(app, dispatch, "Planned")
+Rel(dispatch, emailProvider, "Sends notifications", "HTTPS/SMTP")
+@enduml
