@@ -1,4 +1,4 @@
-import type { OccupiedPeriod, UnmetRequirement, VenueTiming } from "@spm-t5/shared";
+import type { OccupiedPeriod, UnmetRequirement, VenueBookingFlagKind, VenueTiming } from "@spm-t5/shared";
 
 /** What a request keeps of its event as at submission (DR8, 32-S10). */
 export interface BookingSnapshot {
@@ -89,4 +89,16 @@ export interface SlotConflict extends OccupiedPeriod {
   venueName: string;
   /** The venue's current times, so the message knows whether to mention setup and turnaround. */
   timing: VenueTiming;
+}
+
+/** SCRUM-104: one open flag on a venue booking (migration 36). Holds the other booking's period, never an event name. */
+export interface FlagRecord {
+  id: string;
+  bookingId: string;
+  kind: VenueBookingFlagKind;
+  /** The other booking of a buffer conflict; null for a flag about a maintenance block (SCRUM-106). */
+  otherBookingId: string | null;
+  otherStart: Date | null;
+  otherEnd: Date | null;
+  createdAt: Date;
 }

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { canEditVenueTiming, sgtToUtc, canViewVenueCatalogue, isRole, parseVenueSearchInput, parseVenueTimingInput, type Role } from "@spm-t5/shared";
+import { bookingsAffectedMessage, bufferConflictSummary, canEditVenueTiming, sgtToUtc, utcToSgt, canViewVenueCatalogue, isRole, parseVenueSearchInput, parseVenueTimingInput, type AffectedPairDto, type Role } from "@spm-t5/shared";
 import { forbidden, notFound, validationFailed } from "../domain/errors";
 import type { SupabaseDeps } from "../supabase";
 import { asyncHandler } from "../middlewares/errors";
@@ -7,7 +7,7 @@ import { requireSession, type SessionUser } from "../middlewares/session";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "../readers/venueSearchReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
 import { SupabaseBookingRepository } from "../repositories/supabaseBookingRepository";
-import { SupabaseVenueTimingWriter, type VenueTimingWriter } from "../readers/venueTimingWriter";
+import { SupabaseVenueTimingWriter, type AffectedPair, type VenueTimingWriter } from "../readers/venueTimingWriter";
 import { searchVenues } from "../services/venueSearchService";
 
 /** A venue as Supabase returns it when fetched together with its layouts and facilities (nested). */
@@ -25,6 +25,25 @@ interface VenueDetailRow {
   venue_facilities: { facilities: { name: string } }[] | null;
   setup_minutes: number | null;
   turnaround_minutes: number | null;
+}
+
+/** SCRUM-104/AC1: an affected pair as the API shows it, with the sentence Venue Staff are told. */
+function toAffectedPairDto(p: AffectedPair): AffectedPairDto {
+  const side = (s: AffectedPair["first"] | AffectedPair["second"]) => ({
+    bookingId: s.bookingId,
+    eventName: s.eventName,
+    date: utcToSgt(s.eventStart).date,
+    startTime: utcToSgt(s.eventStart).time,
+    endTime: utcToSgt(s.eventEnd).time,
+  });
+  return {
+    summary: bufferConflictSummary(
+      { name: p.first.eventName, eventStart: p.first.eventStart, occupiedUntil: p.first.occupiedUntil },
+      { name: p.second.eventName, eventStart: p.second.eventStart, occupiedFrom: p.second.occupiedFrom },
+    ),
+    first: { ...side(p.first), occupiedUntil: p.first.occupiedUntil.toISOString() },
+    second: { ...side(p.second), occupiedFrom: p.second.occupiedFrom.toISOString() },
+  };
 }
 
 /** True when YYYY-MM-DD is a day that exists (2026-02-30 does not). */
@@ -173,8 +192,14 @@ export function venueRoutes(
       if (!venue) throw notFound("Venue not found.");
 
       const { setupMinutes, turnaroundMinutes } = parsed.data;
-      await timingFor(token).set(req.params.id as string, setupMinutes, turnaroundMinutes);
-      res.json({ setup_minutes: setupMinutes, turnaround_minutes: turnaroundMinutes });
+      // SCRUM-104: the save also flags the existing bookings that now clash, and says which (104-S1, 104-S6)
+      const pairs = await timingFor(token).set(req.params.id as string, setupMinutes, turnaroundMinutes);
+      res.json({
+        setup_minutes: setupMinutes,
+        turnaround_minutes: turnaroundMinutes,
+        affected: pairs.map(toAffectedPairDto),
+        message: bookingsAffectedMessage(pairs.length),
+      });
     }),
   );
 

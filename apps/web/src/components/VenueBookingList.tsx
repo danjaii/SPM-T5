@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { describeFlag } from "@spm-t5/shared";
 import { bookingStatusLabel, type VenueBookingListItem } from "@/lib/venueBookings";
 
 const formatDecided = (iso: string) =>
@@ -28,7 +29,13 @@ export function VenueBookingList({ bookings }: { bookings: VenueBookingListItem[
               <td>{b.venueName}</td>
               <td>{b.date}</td>
               <td>{b.startTime}–{b.endTime}</td>
-              <td><span className="status-badge">{bookingStatusLabel(b.status)}</span></td>
+              <td>
+                <span className="status-badge">{bookingStatusLabel(b.status)}</span>
+                {/* SCRUM-104/AC3: the flag and the other booking's time, as text */}
+                {b.flags.map((f) => (
+                  <span className="vb__note vb__flag" key={f.id}>{describeFlag(f)}</span>
+                ))}
+              </td>
               <td>
                 {(b.status === "APPROVED" || b.status === "REJECTED") && b.decidedAt ? formatDecided(b.decidedAt) : ""}
               </td>

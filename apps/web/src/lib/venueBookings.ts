@@ -1,4 +1,4 @@
-import type { UnmetRequirement, VenueBookingStatus } from "@spm-t5/shared";
+import type { FlagDto, UnmetRequirement, VenueBookingStatus } from "@spm-t5/shared";
 import type { EquipmentRequestView } from "./equipmentRequests";
 import { VENUE_URL, type ApiResult } from "./api";
 
@@ -35,6 +35,8 @@ export interface VenueBookingListItem {
   /** Only for APPROVED and REJECTED. */
   decidedAt: string | null;
   submittedAt: string;
+  /** SCRUM-104: the open flags (Buffer conflict) with the other booking's period, never its event name. */
+  flags: FlagDto[];
 }
 
 export interface VenueBookingChainItem extends VenueBookingListItem {
@@ -148,9 +150,10 @@ export interface EventVenueBookingItem extends VenueBookingChainItem {
  * Which decisions Venue Staff are offered (38-S2). Only a PENDING request can be decided; the server
  * enforces this again, so a stale screen just gets a NOT_PENDING refusal.
  */
-export function decisionActions(status: VenueBookingStatus | undefined) {
+export function decisionActions(status: VenueBookingStatus | undefined, flagged = false) {
   const pending = status === "PENDING";
-  return { approve: pending, reject: pending };
+  // SCRUM-104/AC4: a flagged request cannot be approved, but can still be rejected (the server and database refuse it too)
+  return { approve: pending && !flagged, reject: pending };
 }
 
 /**

@@ -10,6 +10,7 @@ export * from "./registration";
 export * from "./roles";
 export * from "./supabaseClient";
 export * from "./venueBooking";
+export * from "./venueBookingFlags";
 export * from "./venueSearch";
 export * from "./venueSuitability";
 export * from "./venueTiming";
