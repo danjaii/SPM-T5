@@ -34,10 +34,21 @@ export function NotificationList({ items: initial }: { items: NotificationItem[]
     if (item.related?.href) router.push(item.related.href);
   }
 
-  if (items.length === 0) return <p className="empty">You have no notifications.</p>;
+  // counted from the rows on screen, so it never disagrees with them while a refresh is on its way
+  const unreadCount = items.filter((i) => !i.isRead).length;
+
+  if (items.length === 0) {
+    return (
+      <>
+        <p className="dash__lede">0 unread</p>
+        <p className="empty">You have no notifications.</p>
+      </>
+    );
+  }
 
   return (
     <>
+      <p className="dash__lede">{unreadCount} unread</p>
       {error && <div className="alert alert--error" role="alert">{error}</div>}
       <ul className="notifications">
         {items.map((item) => (

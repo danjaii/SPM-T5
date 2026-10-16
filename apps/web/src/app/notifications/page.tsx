@@ -24,10 +24,7 @@ export default async function NotificationsPage() {
         <Link className="back-link" href="/dashboard">← Back to dashboard</Link>
         <h1>Notifications</h1>
         {"items" in result ? (
-          <>
-            <p className="dash__lede">{result.unreadCount} unread</p>
-            <NotificationList items={result.items} />
-          </>
+          <NotificationList items={result.items} />
         ) : (
           <div className="alert alert--error" role="alert">{result.error}</div>
         )}

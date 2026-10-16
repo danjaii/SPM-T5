@@ -80,6 +80,16 @@ describe("SCRUM-46/AC4 + AC5 selecting a notification (46-S4, 46-S5)", () => {
     expect(container.querySelector(".notification--unread")).toBeNull();
   });
 
+  it("46-S4: the unread count above the list follows the rows as they are marked read", async () => {
+    mockServer(200, { ...unread, isRead: true });
+    render(<NotificationList items={[unread, read]} />);
+    expect(screen.getByText("1 unread")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark as read" }));
+
+    await waitFor(() => expect(screen.getByText("0 unread")).toBeDefined());
+  });
+
   it("46-S4: Mark as read marks it without leaving the page", async () => {
     const fetchMock = mockServer(200, { ...unread, isRead: true });
     const { container } = render(<NotificationList items={[unread]} />);
