@@ -94,7 +94,7 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     "/venue-bookings/:id/accept-suggestion",
     asyncHandler(async (req, res) => {
       const { caller, service } = await context(res.locals.user as SessionUser);
-      res.status(201).json(toSubmittedBookingDto(await service.acceptSuggestion(caller, String(req.params.id))));
+      res.status(201).json(toSubmittedBookingDto(await service.acceptSuggestion(caller, String(req.params.id), req.body)));
     }),
   );
 

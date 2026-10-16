@@ -5,6 +5,7 @@ import type { SupabaseDeps } from "../../src/supabase";
 import { FakeBookingRepository } from "../support/fakeBookingRepository";
 import { FakeEventReader, anEvent } from "../support/fakeEventReader";
 import { FakeUserReader } from "../support/fakeUserReader";
+import { FakeVenueDetailsReader } from "../support/fakeVenueDetails";
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
 // ----------------------------------------------------------------------------
@@ -44,7 +45,7 @@ function setup() {
     "tech-1": "technical_support_staff",
     "attendee-1": "attendee",
   });
-  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader() }) });
+  const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader(), venueDetails: FakeVenueDetailsReader.from(venues) }) });
 
   // Orchid Hall (venue-1) 9am-12pm and Lotus Room (venue-2) 9am-5pm, both waiting for venue staff
   const hall = bookings.seed({ eventId: "event-1", venueId: "venue-1", ...on14Nov(1, 4) });
@@ -145,7 +146,7 @@ describe("SCRUM-102/AC1 change one venue booking (102-S1)", () => {
   it("102-S7 changing to more people than the venue holds: 200, flagged exceedsCapacity (a warning, not a refusal)", async () => {
     const { change, hall } = setup();
 
-    const res = await change(hall.id, { date: "2030-11-14", startTime: "09:00", endTime: "12:00", expectedAttendance: 200 });
+    const res = await change(hall.id, { date: "2030-11-14", startTime: "09:00", endTime: "12:00", expectedAttendance: 200, overrideReason: "Overflow room arranged" });
 
     expect(res.status).toBe(200);
     expect(res.body.exceedsCapacity).toBe(true);

@@ -482,3 +482,17 @@ describe("SCRUM-75 — Event Coordinator Lead sign-in", () => {
   // end of AC4
 });
 // end of SCRUM-75
+
+// ---------------------------------------------------------------------------
+// SCRUM-116 — Safety Officer sign-in
+// ---------------------------------------------------------------------------
+describe("SCRUM-116/AC4 — Safety Officer sign-in", () => {
+  it("SCRUM-116/AC4 a Safety Officer logs in with the Safety Officer role and is sent to their own dashboard", async () => {
+    fake.seedUser("farah@example.com", "safety_officer");
+    const res = await login("farah@example.com", "Passw0rd!", "safety_officer");
+
+    expect(res.status).toBe(200);
+    expect(res.body.redirectTo).toBe("/dashboard/safety_officer");
+    expect(res.body.user).toMatchObject({ email: "farah@example.com", role: "safety_officer" });
+  });
+});

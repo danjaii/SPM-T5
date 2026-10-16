@@ -17,9 +17,9 @@ import type { QueueDetailView, QueueItemView } from "@/lib/bookingQueue";
 import { getBookingQueue, getQueuedBooking } from "@/lib/bookingQueueServer";
 
 const item = (over: Partial<QueueItemView> = {}): QueueItemView => ({
-  id: "b-1", venueId: "ven-1", venueName: "Grand Hall", date: "2099-01-01", startTime: "09:00", endTime: "12:00",
+  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", venueName: "Grand Hall", date: "2099-01-01", startTime: "09:00", endTime: "12:00",
   eventName: "Tech Summit", expectedAttendance: 120, venueRequirements: "Projector", accessibilityNeeds: "Step-free access",
-  requestedByName: "Rachel Tan", submittedAt: "2098-12-01T02:30:00.000Z", amendsRequestId: null, ...over,
+  requestedByName: "Rachel Tan", submittedAt: "2098-12-01T02:30:00.000Z", amendsRequestId: null, flags: [], ...over,
 });
 
 const detail = (over: Partial<QueueDetailView> = {}): QueueDetailView => ({
@@ -53,8 +53,9 @@ describe("SCRUM-37/AC1 queue contents (37-S1)", () => {
     expect(cells[4].textContent).toBe("120");
     expect(cells[5].textContent).toBe("Projector");
     expect(cells[6].textContent).toBe("Step-free access");
-    expect(cells[7].textContent).toBe("Rachel Tan");
-    expect(cells[8].textContent).toBe("2098-12-01 10:30"); // 02:30 UTC is 10:30 in Singapore
+    expect(cells[7].textContent).toBe("Not checked"); // SCRUM-110: no stored result on this request
+    expect(cells[8].textContent).toBe("Rachel Tan");
+    expect(cells[9].textContent).toBe("2098-12-01 10:30"); // 02:30 UTC is 10:30 in Singapore
   });
 
   it("shows placeholders for details the request did not have", () => {
@@ -68,7 +69,7 @@ describe("SCRUM-37/AC1 queue contents (37-S1)", () => {
     expect(cells[4].textContent).toBe("Not specified");
     expect(cells[5].textContent).toBe("None specified");
     expect(cells[6].textContent).toBe("None specified");
-    expect(cells[7].textContent).toBe("Unknown");
+    expect(cells[8].textContent).toBe("Unknown");
   });
 });
 

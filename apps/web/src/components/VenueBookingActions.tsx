@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { UnsuitableConfirm } from "./UnsuitableConfirm";
+import type { UnmetRequirement } from "@spm-t5/shared";
 import {
   acceptVenueSuggestion,
   bookingActions,
@@ -18,10 +20,12 @@ export function VenueBookingActions({ booking }: { booking: VenueBookingDetailVi
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  // SCRUM-110: the suggested venue does not suit the booking; accepted only after a reason
+  const [unsuitable, setUnsuitable] = useState<UnmetRequirement[]>();
 
   if (!allowed.withdraw && !allowed.amend && !allowed.acceptSuggestion) return null;
 
-  async function run(action: () => Promise<{ ok: boolean; data: { id?: string; error?: string } }>, goToNew: boolean) {
+  async function run(action: () => Promise<{ ok: boolean; data: { id?: string; error?: string; code?: string; unmet?: UnmetRequirement[] } }>, goToNew: boolean) {
     setBusy(true);
     setError(undefined);
     const { ok, data } = await action();
@@ -29,6 +33,8 @@ export function VenueBookingActions({ booking }: { booking: VenueBookingDetailVi
       if (goToNew && data.id) router.push(`/venue-bookings/${data.id}`);
       else router.refresh();
       setConfirming(false);
+    } else if (data.code === "UNSUITABLE_VENUE" && data.unmet) {
+      setUnsuitable(data.unmet);
     } else {
       setError(data.error ?? "We couldn't complete that. Please try again.");
     }
@@ -55,7 +61,19 @@ export function VenueBookingActions({ booking }: { booking: VenueBookingDetailVi
         </div>
       )}
 
-      {allowed.acceptSuggestion && booking.suggestion && (
+      {unsuitable && (
+        <UnsuitableConfirm
+          unmet={unsuitable}
+          busy={busy}
+          onCancel={() => setUnsuitable(undefined)}
+          onConfirm={(reason) => {
+            setUnsuitable(undefined);
+            return run(() => acceptVenueSuggestion(booking.id, reason), true);
+          }}
+        />
+      )}
+
+      {allowed.acceptSuggestion && booking.suggestion && !unsuitable && (
         <p>
           <button className="btn" type="button" disabled={busy} onClick={() => run(() => acceptVenueSuggestion(booking.id), true)}>
             {busy ? "Accepting…" : "Accept suggested alternative"}

@@ -1,5 +1,5 @@
 @startuml component-venue-service
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include <C4/C4_Component>
 
 title ConnectSphere — Component Diagram: Venue Service (C4 Level 3)
 ' Built so far: the read-only venue catalogue (SCRUM-29) and the venue booking request stories
@@ -15,12 +15,12 @@ System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
 ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "venue_bookings (overlap exclusion constraint, one active replacement per rejected request, one suggestion acceptance), venues, room_layouts, facilities, events, users")
 
 Container_Boundary(venueSvc, "Venue Service") {
-  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin (GET, POST); injectable clock and data ports; mounts routes; error handler")
+  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin (GET, POST, PUT); injectable clock and data ports; mounts routes; error handler")
   Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
   Component(errors, "Error Handler", "middlewares/errors.ts, domain/errors.ts", "BookingError -> 409/403/404/422 with only a code and message; anything unexpected -> generic 500, so a refusal never exposes another event")
   Component(catalogue, "Venue Catalogue Routes", "routes/venues.ts", "SCRUM-29: coordinators + venue staff only, others 403. GET /venues, GET /venues/:id (layouts, facilities)")
   Component(bookingRoutes, "Booking Routes", "routes/venueBookings.ts", "POST /venue-bookings, GET /venue-bookings (+ /:id), withdraw / amend / accept-suggestion, GET /events/:id/venue-booking-form, GET /events/:id/venue-bookings (SCRUM-98), PATCH /venue-bookings/:id and POST /venue-bookings/:id/cancel (SCRUM-102)")
-  Component(bookingSvc, "Booking Service", "services/bookingService.ts", "Submit, amend and accept-suggestion through one path; withdraw (SCRUM-32/35/60/59). SCRUM-98: several venue bookings per event, DUPLICATE_VENUE for the same venue overlapping, each booking's own attendance and requirements, capacity warning. SCRUM-102: change one (back to PENDING, NO_CHANGES, NOT_ACTIVE) or cancel it with a reason, only by the event's current coordinator")
+  Component(bookingSvc, "Booking Service", "services/bookingService.ts", "Submit, amend and accept-suggestion through one path; withdraw (SCRUM-32/35/60/59). SCRUM-98: several venue bookings per event, DUPLICATE_VENUE for the same venue overlapping, each booking's own attendance and requirements, capacity warning. SCRUM-102: change one (back to PENDING, NO_CHANGES, NOT_ACTIVE) or cancel it with a reason, only by the event's current coordinator. SCRUM-110: submit and change run the shared suitability check on the booking's own attendance and requirements after the slot check; an unsuitable venue needs a reason (409 UNSUITABLE_VENUE otherwise) and the result is stored with the booking")
   Component(trackingSvc, "Tracking Service", "services/trackingService.ts", "SCRUM-33: the coordinator's requests, detail, rejection reason, suggestion, amendment chain. SCRUM-98: every venue booking of one event")
   Component(queueRoutes, "Booking Queue Routes", "routes/bookingQueue.ts", "SCRUM-37: GET /booking-queue and /booking-queue/:id, Venue Staff only (others 403), never cached")
   Component(queueSvc, "Queue Service", "services/queueService.ts", "SCRUM-37: pending requests oldest first (created_at, then id) with the snapshotted event details and requester name; detail shows who decided, when and why")
@@ -34,6 +34,11 @@ Container_Boundary(venueSvc, "Venue Service") {
   Component(decisionSvc, "Decision Service", "services/decisionService.ts", "SCRUM-38/39: Venue Staff approve or reject a pending request (409 NOT_PENDING once decided, SLOT_IN_PAST, reason 1-500 chars); the event's approved venue for its Coordinator. SCRUM-40 adds the suggestion later")
   Component(searchRoutes, "Venue Search Routes", "routes/venues.ts", "SCRUM-65: GET /venues/search (date, start, end, plus attendance, location, layout, accessibility, facilities) and GET /venues/search-options; coordinators and venue staff only; validation shared with the web form")
   Component(searchSvc, "Venue Search Service", "services/venueSearchService.ts, readers/venueSearchReader.ts", "SCRUM-65: venues free for the period (available_venues) that meet every criterion given: capacity >= attendance (the layout's own capacity when a layout is chosen), location, accessibility, layout, all facilities")
+  Component(suitabilityRoutes, "Suitability Routes", "routes/suitability.ts", "SCRUM-109: GET /venue-suitability?venueId&eventId (optional date, times, attendance); coordinators and venue staff only, others 403")
+  Component(suitabilitySvc, "Suitability Service", "services/suitabilityService.ts, services/availabilityLookup.ts, readers/venueDetailsReader.ts", "SCRUM-109: reads the venue and event as the caller and runs the shared checkSuitability (capacity, layout, accessibility, facilities, operating hours, availability); availability goes through one lookup seam")
+  Component(timing, "Venue Timing", "routes/venues.ts, readers/venueTimingWriter.ts", "SCRUM-101: PUT /venues/:id/timing (Venue Staff only, 403 first, then shared validation) saves the venue's setup and turnaround minutes through set_venue_timing; GET /venues/:id returns them with can_edit_timing")
+  Component(flags, "Buffer Conflict Flags", "readers/venueTimingWriter.ts, repositories/supabaseBookingRepository.ts (flagsFor), services/decisionService.ts, services/trackingService.ts, services/queueService.ts, domain/dto.ts", "SCRUM-104: saving new times flags the existing bookings that now clash (a venue_booking_flags row on each, in the same transaction) and PUT /venues/:id/timing answers with the pairs. Every booking DTO carries its open flags: a coordinator gets the other booking's period only (RLS-filtered), Venue Staff also the other event's name. A flagged Pending request is refused on approve (409 BOOKING_FLAGGED, also enforced by the database trigger, CS104); reject still works. Flags never change a booking's or event's status")
+  Component(padded, "Padded Occupancy", "services/slotConflictRule.ts, routes/venues.ts, packages/shared venueOccupancy.ts", "SCRUM-103: a booking occupies its venue from its setup to the end of its turnaround; the conflict check names the occupied period (findConflict), GET /venues/:id/availability?date= shows each booking as Setup, Event and Turnaround; applies to submit, amend, accept-suggestion and change")
   Component(availability, "Availability Calendar", "Planned", "Bookings, tentative holds, maintenance blocks, shown as a calendar")
 }
 
@@ -72,5 +77,21 @@ Rel(app, searchRoutes, "Routes venue search requests")
 Rel(searchRoutes, searchSvc, "Searches")
 Rel(searchSvc, db, "available_venues() (security definer, migration 13) for free venues; venues with layouts and facilities for the filters", "PostgREST RPC")
 Rel(searchRoutes, shared, "parseVenueSearchInput")
+Rel(app, suitabilityRoutes, "Routes suitability checks")
+Rel(suitabilityRoutes, suitabilitySvc, "Checks a venue against an event")
+Rel(bookingSvc, suitabilitySvc, "Reads the venue with layouts and hours; runs checkSuitability (SCRUM-110)")
+Rel(suitabilitySvc, repo, "Is the venue held for the period? (venue_slot_is_held)")
+Rel(suitabilitySvc, shared, "checkSuitability, isOpenDuring")
+Rel(suitabilitySvc, db, "Reads the event and the venue with layouts and hours as the caller", "PostgREST")
+Rel(app, timing, "Routes venue timing edits")
+Rel(timing, db, "set_venue_timing() (security definer, migration 26) is the only writer of venues.setup_minutes / turnaround_minutes", "PostgREST RPC")
+Rel(timing, shared, "parseVenueTimingInput, canEditVenueTiming")
+Rel(timing, db, "SCRUM-104: set_venue_timing() (migration 36, now returns the clashing pairs) calls refresh_buffer_flags() in the same transaction, locking the venue's bookings before the venue row", "PostgREST RPC")
+Rel(trackingSvc, flags, "Attaches the caller's flags to each booking")
+Rel(queueSvc, flags, "Attaches flags with the other event's name (staff only)")
+Rel(decisionSvc, flags, "Refuses to approve a flagged request (BOOKING_FLAGGED)")
+Rel(flags, db, "Reads venue_booking_flags as the caller (RLS: venue staff, or the booking's assigned coordinator); a trigger resolves flags when a booking closes or moves and refuses a flagged approve", "PostgREST")
+Rel(app, padded, "Routes availability requests; the slot rule runs inside the booking service")
+Rel(padded, db, "venue_slot_conflicts() / venue_occupied_periods() (security definer, migration 27); the padded-overlap trigger replaces venue_bookings_no_overlap and is the atomic guarantee", "PostgREST RPC")
 Rel(app, availability, "Planned")
 @enduml

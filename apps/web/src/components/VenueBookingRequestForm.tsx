@@ -2,8 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { exceedsCapacity, parseVenueBookingInput, VENUE_REQUIREMENTS_MAX_LENGTH } from "@spm-t5/shared";
+import { exceedsCapacity, parseVenueBookingInput, VENUE_REQUIREMENTS_MAX_LENGTH, type UnmetRequirement } from "@spm-t5/shared";
 import { Field } from "./Field";
+import { SuitabilityCheck } from "./SuitabilityCheck";
+import { UnsuitableConfirm } from "./UnsuitableConfirm";
 import {
   submitVenueBooking,
   type VenueBookingFormData,
@@ -38,6 +40,8 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
+  // SCRUM-110: set when venue-service says the venue does not suit the booking; the request is not created until confirmed
+  const [unsuitable, setUnsuitable] = useState<{ unmet: UnmetRequirement[]; input: Slot }>();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -62,14 +66,23 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
     if (parsed.data.expectedAttendance !== undefined) input.expectedAttendance = parsed.data.expectedAttendance;
     if (parsed.data.venueRequirements !== undefined) input.venueRequirements = parsed.data.venueRequirements;
 
+    await send(input);
+  }
+
+  async function send(input: Slot) {
     setSaving(true);
     const { ok, data } = await (submit ?? ((slot) => submitVenueBooking({ eventId: form.eventId, ...slot })))(input);
     if (ok) {
       router.push(`/venue-bookings/${data.id}`);
       return;
     }
-    if (data.fieldErrors) setFieldErrors(data.fieldErrors);
-    setError(data.error ?? "We couldn't submit the request. Please try again.");
+    if (data.code === "UNSUITABLE_VENUE" && data.unmet) {
+      // 110-S2: ask before creating anything; 110-S5: a SLOT_CONFLICT never gets here, it is shown as an error below
+      setUnsuitable({ unmet: data.unmet, input });
+    } else {
+      if (data.fieldErrors) setFieldErrors(data.fieldErrors);
+      setError(data.error ?? "We couldn't submit the request. Please try again.");
+    }
     setSaving(false);
   }
 
@@ -128,7 +141,21 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
           hint={`Leave blank to use the event's: ${form.venueRequirements || "none specified"}`}
           onChange={(e) => setOwnRequirements(e.target.value)} />
 
-        <button className="btn" type="submit" disabled={saving}>{saving ? "Submitting…" : (submitLabel ?? "Submit request")}</button>
+        {/* SCRUM-109: information before requesting; it does not stop the request. */}
+        <SuitabilityCheck eventId={form.eventId} venueId={venueId} date={date} startTime={startTime} endTime={endTime}
+          attendance={ownAttendance.trim() !== "" && Number.isInteger(typed) && typed >= 1 ? typed : undefined}
+          venueRequirements={ownRequirements.trim() || undefined} />
+
+        {unsuitable ? (
+          <UnsuitableConfirm
+            unmet={unsuitable.unmet}
+            busy={saving}
+            onCancel={() => setUnsuitable(undefined)}
+            onConfirm={(overrideReason) => send({ ...unsuitable.input, overrideReason })}
+          />
+        ) : (
+          <button className="btn" type="submit" disabled={saving}>{saving ? "Submitting…" : (submitLabel ?? "Submit request")}</button>
+        )}
       </form>
     </section>
   );

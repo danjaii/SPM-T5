@@ -1,5 +1,5 @@
 @startuml component-equipment-service
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include <C4/C4_Component>
 
 title ConnectSphere — Component Diagram: Equipment Service (C4 Level 3)
 ' Built so far: the equipment availability check (docs/specs/equipment-availability.md, SCRUM-18) and reserving
