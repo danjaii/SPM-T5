@@ -224,21 +224,27 @@ export function eventDetailsRoutes(deps: SupabaseDeps, now: () => Date) {
 
     // SCRUM-112/AC1 to AC5: an important change that affects arrangements is shown to the coordinator first, and saved
     // only when they send it again with confirmImpact: true; AC6: one that affects nothing is saved straight away
-    if (important && req.body?.confirmImpact !== true) {
-      const affected = await affectedBy(user.token, event, changes);
-      if (!affected) return res.status(500).json({ error: "We couldn't check the event's arrangements. Please try again." });
-      if (affected.length > 0) {
-        return res.status(409).json({
-          code: "CONFIRM_IMPACT",
-          error: "This change may affect existing arrangements. Check them before saving.",
-          affected,
-        });
-      }
+    const affected = important ? await affectedBy(user.token, event, changes) : [];
+    if (!affected) return res.status(500).json({ error: "We couldn't check the event's arrangements. Please try again." });
+    if (affected.length > 0 && req.body?.confirmImpact !== true) {
+      return res.status(409).json({
+        code: "CONFIRM_IMPACT",
+        error: "This change may affect existing arrangements. Check them before saving.",
+        affected,
+      });
     }
 
+    // SCRUM-113: the same arrangements are sent back for review in the same step (migration 40); it works out
+    // "important" itself
+    const sendBack = affected.length > 0 && {
+      p_send_back: {
+        venue_bookings: affected.filter((a) => a.kind === "venue_booking").map((a) => a.id),
+        equipment_requests: affected.filter((a) => a.kind === "equipment_request").map((a) => a.id),
+      },
+    };
     const { error } = await deps
       .forUser(user.token)
-      .rpc("update_event_details", { p_event_id: event.id, p_changes: changes }); // it works out "important" itself
+      .rpc("update_event_details", { p_event_id: event.id, p_changes: changes, ...sendBack });
     if (error) return saveFailed(res, error);
 
     return res.json({ changes, important, message: "Event details saved." });

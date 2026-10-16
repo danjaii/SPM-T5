@@ -1,7 +1,7 @@
 // Browser-safe types and the calls for requesting equipment (SCRUM-86) and reviewing requests (SCRUM-87). The
 // server-side fetches live in ./equipmentRequestsServer.
 
-import type { EquipmentReadiness, EquipmentRequestReviewStatus, EquipmentRequestStatus } from "@spm-t5/shared";
+import type { EquipmentReadiness, EquipmentRequestReviewStatus, EquipmentRequestStatus, SentBackNote } from "@spm-t5/shared";
 import { EQUIPMENT_URL, type ApiResult } from "./api";
 
 /** GET /events/:id/equipment-request-form: what the request form offers. Venue dates and times are Singapore time. */
@@ -26,6 +26,8 @@ export interface EquipmentRequestView {
   reason: string | null;
   /** SCRUM-102/AC7: for a Released one, why its venue booking was cancelled. */
   releasedReason: string | null;
+  /** SCRUM-113/AC2: sent back to Submitted for review after an important event change. */
+  sentBackForReview?: boolean;
 }
 
 /** GET /events/:id/equipment-requests: the event's requests, and whether the viewer may add one (AC6, AC7). */
@@ -77,6 +79,8 @@ export interface EquipmentQueueItemView {
   quantity: number;
   status: EquipmentRequestStatus;
   statusLabel: string;
+  /** SCRUM-113/AC3: what changed on the event when it was sent back for review; null (or missing) otherwise. */
+  sentBack?: SentBackNote | null;
 }
 
 /** SCRUM-87/AC3: GET /equipment-requests/:id, one request in full. Times are Singapore time. */

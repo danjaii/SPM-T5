@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SentBackNotice } from "./SentBackNotice";
 import { formatSgt, suitabilityLabel, type QueueDetailView } from "@/lib/bookingQueue";
 import { bookingStatusLabel } from "@/lib/venueBookings";
 
@@ -10,6 +11,7 @@ export function BookingQueueDetail({ booking }: { booking: QueueDetailView }) {
       <p className="event__status">
         Status <span className="status-badge">{bookingStatusLabel(booking.status)}</span>
       </p>
+      <SentBackNotice note={booking.sentBack} />
 
       {/* SCRUM-104/AC4: why Approve is missing, and the booking it clashes with */}
       {booking.flags.length > 0 && (

@@ -25,6 +25,8 @@ export function EquipmentQueueList({ requests }: { requests: EquipmentQueueItemV
             <tr key={r.id}>
               <td>
                 <Link href={`/equipment-requests/${r.id}`}>{r.eventName}</Link>
+                {/* SCRUM-113/AC3: the event changed since it was arranged; its page says what changed */}
+                {r.sentBack && <span className="status-badge status-badge--sent-back">Sent back for review</span>}
               </td>
               <td>{r.eventDate}</td>
               <td>{r.venueName ?? "No venue"}</td>

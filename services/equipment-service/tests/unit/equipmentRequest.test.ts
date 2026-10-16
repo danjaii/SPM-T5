@@ -83,6 +83,7 @@ describe("SCRUM-86/AC1 create a request", () => {
       statusLabel: "Submitted",
       reason: null,
       releasedReason: null, // SCRUM-102: only a Released one has a reason
+      sentBackForReview: false, // SCRUM-113: new requests were never sent back
     });
     expect(writer.saved).toEqual([
       {
@@ -172,6 +173,7 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
         statusLabel: "Submitted",
         reason: null,
         releasedReason: null, // SCRUM-102: only a Released one has a reason
+        sentBackForReview: false, // SCRUM-113: not sent back for review
       },
     ]);
   });

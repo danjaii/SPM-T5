@@ -3,7 +3,10 @@ import type { RoleReader } from "../../src/readers/roleReader";
 import type { VenueInfo, VenueReader } from "../../src/readers/venueReader";
 
 export class FakeVenueReader implements VenueReader {
-  constructor(readonly venues: VenueInfo[] = []) {}
+  constructor(
+    readonly venues: VenueInfo[] = [],
+    private readonly layouts: Record<string, string> = {},
+  ) {}
 
   async getById(venueId: string) {
     return this.venues.find((v) => v.id === venueId) ?? null;
@@ -11,6 +14,10 @@ export class FakeVenueReader implements VenueReader {
 
   async getByIds(venueIds: string[]) {
     return this.venues.filter((v) => venueIds.includes(v.id));
+  }
+
+  async layoutNames(layoutIds: string[]) {
+    return new Map(layoutIds.flatMap((id) => (this.layouts[id] ? [[id, this.layouts[id]] as [string, string]] : [])));
   }
 }
 

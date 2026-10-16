@@ -56,6 +56,8 @@ export interface EquipmentRequestView {
   reason: string | null;
   /** SCRUM-102 (102-S31): for a Released one, why its venue booking was cancelled; null otherwise. */
   releasedReason: string | null;
+  /** SCRUM-113/AC2: sent back to Submitted for review after an important event change, and not reviewed since. */
+  sentBackForReview: boolean;
 }
 
 /** GET /events/:id/equipment-requests: the event's requests, and whether the caller may add one. */
@@ -150,6 +152,7 @@ export class EquipmentRequestService {
       statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS.SUBMITTED,
       reason: null,
       releasedReason: null,
+      sentBackForReview: false,
     };
   }
 
@@ -182,6 +185,7 @@ export class EquipmentRequestService {
         reason: status === "CANNOT_FULFIL" ? r.reviewReason : null,
         // only a cancelled venue booking has a reason, and cancelling it released all its equipment (migration 30)
         releasedReason: r.venueBookingCancellationReason,
+        sentBackForReview: r.sentBackAt !== null,
       });
     }
     const readiness = equipmentReadiness(requests.map((r) => r.status));

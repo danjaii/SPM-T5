@@ -105,6 +105,7 @@ export class TrackingService {
         rejectionReason: rejectionReasonOf(b),
         cancellationReason: b.cancellationReason, // only a cancelled one has a reason
         exceedsCapacity: exceedsCapacity(b.snapshot.expectedAttendance, venue?.maxCapacity),
+        sentBackForReview: b.sentBackAt !== null,
       };
     });
   }

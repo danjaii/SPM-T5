@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { EquipmentRequestDetailView } from "@/lib/equipmentRequests";
+import { SentBackNotice } from "./SentBackNotice";
 
 // SCRUM-87/AC3: one request in full, whatever its status. AC5: a Cannot Fulfil request shows its reason.
 export function EquipmentRequestDetail({ request }: { request: EquipmentRequestDetailView }) {
@@ -9,6 +10,7 @@ export function EquipmentRequestDetail({ request }: { request: EquipmentRequestD
       <p className="event__status">
         Status <span className="status-badge">{request.statusLabel}</span>
       </p>
+      <SentBackNotice note={request.sentBack} />
 
       <dl className="vb__facts">
         <dt>Event</dt>

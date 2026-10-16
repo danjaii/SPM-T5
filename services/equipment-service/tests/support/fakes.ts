@@ -207,6 +207,8 @@ export const anEquipmentRequest = (overrides: Partial<EquipmentRequestInfo> = {}
   reviewReason: null,
   venueBookingCancellationReason: null,
   createdAt: new Date("2026-10-01T01:00:00Z"),
+  sentBackChanges: null,
+  sentBackAt: null,
   ...overrides,
 });
 

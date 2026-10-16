@@ -30,6 +30,8 @@ export function BookingQueueList({ requests }: { requests: QueueItemView[] }) {
                 {r.amendsRequestId && <span className="status-badge">Amends an earlier request</span>}
                 {/* SCRUM-104/AC4: text, not colour alone */}
                 {r.flags.length > 0 && <span className="status-badge status-badge--flag">Flagged: {r.flags.map((f) => f.label).join(", ")}</span>}
+                {/* SCRUM-113/AC3: the event changed since it was approved; its page says what changed */}
+                {r.sentBack && <span className="status-badge status-badge--sent-back">Sent back for review</span>}
               </td>
               <td>{r.venueName}</td>
               <td>{r.date}</td>

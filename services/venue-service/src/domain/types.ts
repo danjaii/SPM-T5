@@ -49,6 +49,9 @@ export interface BookingRecord {
   suitability: "suitable" | "not_suitable" | null;
   suitabilityUnmet: UnmetRequirement[] | null;
   suitabilityOverrideReason: string | null;
+  /** SCRUM-113: the event's changes that sent it back for review ({ field: { from, to } }), and when; null otherwise. */
+  sentBackChanges: unknown;
+  sentBackAt: Date | null;
 }
 
 /** SCRUM-102/AC1: a venue booking's new period and its own numbers. Its venue never changes. */

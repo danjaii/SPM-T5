@@ -612,6 +612,13 @@ tr:last-child td { border-bottom: 0; }
 .avail__segment--unavailable { flex: 1; background: repeating-linear-gradient(135deg, var(--danger-bg), var(--danger-bg) 8px, #fff 8px, #fff 16px); color: var(--danger); border-color: var(--danger); font-weight: 600; }
 @media (max-width: 800px) { .avail__bar { flex-direction: column; } .avail__segment { min-width: 0; } }
 
+/* SCRUM-113: an arrangement sent back for review after an important event change, and what changed */
+.sent-back { margin: 12px 0 20px; padding: 12px 16px; background: var(--warn-bg); border-left: 3px solid var(--warn); }
+.sent-back h2 { margin: 0 0 4px; font-size: 16px; color: var(--warn); }
+.sent-back p { margin: 4px 0; }
+.sent-back__changes { margin: 6px 0 0; padding-left: 18px; }
+.status-badge--sent-back { margin-left: 6px; background: var(--warn-bg); color: var(--warn); }
+
 /* SCRUM-46: the notification list; an unread row is highlighted, and also carries the word "Unread" */
 .notifications { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: #fff; }
 .notification { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }

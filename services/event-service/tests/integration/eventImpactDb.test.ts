@@ -151,7 +151,7 @@ describe.skipIf(!hasDb)("SCRUM-112 important change impact (database)", () => {
     ]);
   });
 
-  it("112-S14: confirming saves the change as important and leaves the venue booking and equipment request as they were", async () => {
+  it("112-S14, 113-S1, 113-S11: confirming saves the change and sends Orchid Hall back to Pending; the projectors stay", async () => {
     const { eventId, bookingId, equipmentRequestId } = await newEventWithArrangements();
 
     const res = await edit(eventId, { expectedAttendance: 600, confirmImpact: true });
@@ -160,9 +160,9 @@ describe.skipIf(!hasDb)("SCRUM-112 important change impact (database)", () => {
     expect((await eventRow(eventId)).expected_attendance).toBe(600);
     const history = (await admin.from("event_change_history").select("is_important").eq("event_id", eventId)).data;
     expect(history).toEqual([{ is_important: true }]);
-    const booking = (await admin.from("venue_bookings").select("status").eq("id", bookingId).single()).data;
-    const equipment = (await admin.from("equipment_reservations").select("status").eq("id", equipmentRequestId).single()).data;
-    expect(booking).toEqual({ status: "approved" });
-    expect(equipment).toEqual({ status: "requested" });
-  });
-});
+    // SCRUM-113: the listed venue booking goes back for review with what changed; an attendance change lists no equipment
+    const booking = (await admin.from("venue_bookings").select("status, sent_back_changes").eq("id", bookingId).single()).data;
+    const equipment = (await admin.from("equipment_reservations").select("status, sent_back_changes").eq("id", equipmentRequestId).single()).data;
+    expect(booking).toEqual({ status: "requested", sent_back_changes: { expected_attendance: { from: 480, to: 600 } } });
+    expect(equipment).toEqual({ status: "requested", sent_back_changes: null });
+  });});
