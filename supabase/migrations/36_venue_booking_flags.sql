@@ -129,10 +129,10 @@ begin
   perform v.id from public.venues v where v.id = p_venue_id for no key update;
 
   insert into public.venue_booking_flags (booking_id, kind, other_booking_id, other_start, other_end)
-  select p.a, 'buffer_conflict', p.b, y.event_start_datetime, y.event_end_datetime
+  select p.a, 'buffer_conflict'::public.venue_booking_flag_kind, p.b, y.event_start_datetime, y.event_end_datetime
   from public.venue_buffer_pairs(p_venue_id) p join public.venue_bookings y on y.id = p.b
   union all
-  select p.b, 'buffer_conflict', p.a, x.event_start_datetime, x.event_end_datetime
+  select p.b, 'buffer_conflict'::public.venue_booking_flag_kind, p.a, x.event_start_datetime, x.event_end_datetime
   from public.venue_buffer_pairs(p_venue_id) p join public.venue_bookings x on x.id = p.a
   on conflict (booking_id, other_booking_id) where resolved_at is null and other_booking_id is not null do nothing;
 

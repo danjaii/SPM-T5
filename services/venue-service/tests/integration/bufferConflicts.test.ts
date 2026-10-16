@@ -126,12 +126,13 @@ describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-104 buffer conflict fla
     const { venue, a, b } = await orchidWithSummits();
     await setTiming(venue, 30, 45);
 
-    const rachel = await who.rachel.client.from("venue_booking_flags").select("booking_id, other_start, other_end, kind");
+    // scoped to this test's two bookings: earlier tests leave flags on the same seeded coordinators' other bookings
+    const rachel = await who.rachel.client.from("venue_booking_flags").select("booking_id, other_start, other_end, kind").in("booking_id", [a.id, b.id]);
     expect(rachel.error).toBeNull();
     expect(rachel.data).toEqual([expect.objectContaining({ booking_id: b.id, kind: "buffer_conflict" })]);
-    expect((await who.marcus.client.from("venue_booking_flags").select("booking_id")).data).toEqual([{ booking_id: a.id }]);
+    expect((await who.marcus.client.from("venue_booking_flags").select("booking_id").in("booking_id", [a.id, b.id])).data).toEqual([{ booking_id: a.id }]);
     expect((await who.staff.client.from("venue_booking_flags").select("booking_id").in("booking_id", [a.id, b.id])).data).toHaveLength(2);
-    expect((await who.organiser.client.from("venue_booking_flags").select("booking_id")).data).toEqual([]);
+    expect((await who.organiser.client.from("venue_booking_flags").select("booking_id").in("booking_id", [a.id, b.id])).data).toEqual([]);
 
     // through the repository, which is what the DTOs use
     expect(await who.rachel.repo.flagsFor([a.id, b.id])).toMatchObject([{ bookingId: b.id, otherBookingId: a.id }]);
