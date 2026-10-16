@@ -606,3 +606,10 @@ tr:last-child td { border-bottom: 0; }
 .avail__segment--event { background: var(--steel-dark); color: #fff; }
 .avail__segment--setup, .avail__segment--turnaround { background: var(--selected); color: var(--ink); border-style: dashed; }
 @media (max-width: 800px) { .avail__bar { flex-direction: column; } .avail__segment { min-width: 0; } }
+
+/* SCRUM-113: an arrangement sent back for review after an important event change, and what changed */
+.sent-back { margin: 12px 0 20px; padding: 12px 16px; background: var(--warn-bg); border-left: 3px solid var(--warn); }
+.sent-back h2 { margin: 0 0 4px; font-size: 16px; color: var(--warn); }
+.sent-back p { margin: 4px 0; }
+.sent-back__changes { margin: 6px 0 0; padding-left: 18px; }
+.status-badge--sent-back { margin-left: 6px; background: var(--warn-bg); color: var(--warn); }

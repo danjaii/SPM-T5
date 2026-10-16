@@ -28,6 +28,8 @@ export function BookingQueueList({ requests }: { requests: QueueItemView[] }) {
               <td>
                 <Link href={`/booking-queue/${r.id}`}>{r.eventName}</Link>
                 {r.amendsRequestId && <span className="status-badge">Amends an earlier request</span>}
+                {/* SCRUM-113/AC3: the event changed since it was approved; its page says what changed */}
+                {r.sentBack && <span className="status-badge status-badge--sent-back">Sent back for review</span>}
               </td>
               <td>{r.venueName}</td>
               <td>{r.date}</td>

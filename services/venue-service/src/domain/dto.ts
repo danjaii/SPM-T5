@@ -128,6 +128,8 @@ export interface EventBookingItem extends ChainItem {
   expectedAttendance: number | null;
   venueRequirements: string | null;
   exceedsCapacity: boolean;
+  /** SCRUM-113/AC1: sent back to Pending for review after an important event change, and not decided since. */
+  sentBackForReview: boolean;
 }
 
 export interface BookingDetail extends BookingListItem {

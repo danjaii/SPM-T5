@@ -59,6 +59,8 @@ export class FakeBookingRepository implements BookingRepository {
       suitability: null,
       suitabilityUnmet: null,
       suitabilityOverrideReason: null,
+      sentBackChanges: null,
+      sentBackAt: null,
       ...partial,
     };
     this.rows.push(row);

@@ -260,7 +260,13 @@ the edit and a row in `event_change_history` together, which the event's coordin
 requests it may affect, and why (SCRUM-112; spec in `docs/specs/important-change-impact.md`, `affectedArrangements()` in
 `packages/shared/src/eventImpact.ts`): `PATCH /events/:id` answers 409 `CONFIRM_IMPACT` with the list, and saves only when sent
 again with `confirmImpact: true` (Save anyway). A raised attendance lists every active venue booking, all treated alike, and
-nothing changes the arrangements. Sending the affected ones back for review is SCRUM-113. `auth-service` also serves a user's own profile
+Save anyway sends the listed ones back for review (SCRUM-113; spec in
+`docs/specs/send-back-affected-arrangements.md`, migration 39): `update_event_details()` gains `p_send_back` and, in the same
+step, returns those venue bookings to Pending (still holding their venue) and equipment requests to Submitted (units
+released), stores what changed on each (`sent_back_changes`, `sent_back_at`, shown by `sentBackNote()` in
+`packages/shared/src/sentBack.ts` on the Venue Staff queue and the Technical Support Staff review page), and returns a
+Confirmed event to Planning when anything was sent back. A trigger clears the note on the next status change that is not
+a send-back, so approving, rejecting, reviewing, changing or cancelling needs no change of its own. `auth-service` also serves a user's own profile
 (SCRUM-68: `GET` and `PATCH /profile`; spec in `docs/specs/user-profile.md`): the profile email is a contact email,
 separate from the Supabase Auth login email, and only name, contact email, phone and communication preferences
 can be changed. Staff (internal users) also see their department and responsibilities

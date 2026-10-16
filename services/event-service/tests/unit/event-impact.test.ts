@@ -198,6 +198,8 @@ describe("SCRUM-112/AC5 confirming the change saves it", () => {
     expect(rpc).toHaveBeenCalledWith("update_event_details", {
       p_event_id: "evt-1",
       p_changes: { expected_attendance: { from: 480, to: 600 } },
+      // SCRUM-113: what the warning listed is sent back for review in the same step
+      p_send_back: { venue_bookings: ["vb-orchid"], equipment_requests: [] },
     });
     expect(res.body.important).toBe(true);
   });
@@ -272,5 +274,58 @@ describe("SCRUM-112/AC7 and the SCRUM-111 checks come before any warning", () =>
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("EVENT_LOCKED");
     expect(reads).toEqual([]);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// SCRUM-113: Save anyway sends what the warning listed back for review (docs/specs/send-back-affected-arrangements.md).
+// The database does the sending back (update_event_details(), migration 39; tests/integration/sendBackDb.test.ts); these
+// cover which ids the route passes it.
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-113/AC1, AC2, AC5 Save anyway passes the listed arrangements to update_event_details", () => {
+  it("113-S1, 113-S3: moving the event a day sends back Orchid Hall and the projectors", async () => {
+    const { edit, rpc } = makeApp();
+
+    const res = await edit({ ...nextDay, confirmImpact: true });
+
+    expect(res.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith("update_event_details", {
+      p_event_id: "evt-1",
+      p_changes: expect.any(Object),
+      p_send_back: { venue_bookings: ["vb-orchid"], equipment_requests: ["eq-projectors"] },
+    });
+  });
+
+  it("113-S11: an important change that affects nothing (attendance lowered) sends nothing back", async () => {
+    const { edit, rpc } = makeApp();
+
+    await edit({ expectedAttendance: 300 });
+
+    expect(rpc).toHaveBeenCalledWith("update_event_details", {
+      p_event_id: "evt-1",
+      p_changes: { expected_attendance: { from: 480, to: 300 } },
+    });
+  });
+
+  it("113-S11: an ordinary change sends nothing back, even with confirmImpact: true", async () => {
+    const { edit, rpc, reads } = makeApp();
+
+    await edit({ name: "Tech Summit 2026", confirmImpact: true });
+
+    expect(rpc).toHaveBeenCalledWith("update_event_details", {
+      p_event_id: "evt-1",
+      p_changes: { name: { from: "Tech Summit", to: "Tech Summit 2026" } },
+    });
+    expect(reads).toEqual([]);
+  });
+
+  it("113-S1: if the arrangements can't be read on Save anyway, nothing is saved", async () => {
+    const { edit, rpc } = makeApp({ equipmentRequests: { data: null, error: { message: "boom" } } });
+
+    const res = await edit({ ...nextDay, confirmImpact: true });
+
+    expect(res.status).toBe(500);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

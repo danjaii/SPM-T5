@@ -37,6 +37,14 @@ describe("SupabaseVenueReader", () => {
     const failing = new SupabaseVenueReader(stubDb({ data: null, error: { message: "down" } }));
     await expect(failing.getById("x")).rejects.toThrow(/Reading venue failed/);
   });
+
+  it("SCRUM-113: reads room layout names by id, asks nothing for no ids, and throws on errors", async () => {
+    const reader = new SupabaseVenueReader(stubDb({ data: [{ id: "l1", name: "Theatre" }], error: null }));
+    expect(await reader.layoutNames(["l1"])).toEqual(new Map([["l1", "Theatre"]]));
+    expect(await new SupabaseVenueReader(stubDb({ data: null, error: { message: "down" } })).layoutNames([])).toEqual(new Map());
+    const failing = new SupabaseVenueReader(stubDb({ data: null, error: { message: "down" } }));
+    await expect(failing.layoutNames(["l1"])).rejects.toThrow(/Reading room layouts failed/);
+  });
 });
 
 describe("SupabaseVenueDetailsReader (SCRUM-109)", () => {

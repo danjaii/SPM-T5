@@ -42,8 +42,11 @@ What the customer documents say:
   the status change is recorded in the event's status history. **[DECIDED]**
 - **Where it shows.** Venue Staff: the queue marks a sent-back venue booking, and its page lists what changed. Technical
   Support Staff: the equipment request's review page lists what changed. The coordinator's event page marks venue bookings and
-  equipment requests waiting for review again. Each change shows its label, old and new value (category and room layout by
-  name). **[DECIDED]**
+  equipment requests waiting for review again. Each change shows its label, old and new value; only the important fields
+  are shown (an ordinary change saved at the same time, such as the name, does not affect an arrangement), and a room
+  layout by its name (`sentBackNote()` in `packages/shared/src/sentBack.ts`). An equipment request shows only the changes
+  that matter for equipment (start, end, expected attendance, equipment requirements), not the room layout or the venue
+  and accessibility requirements, which are Venue Staff's to judge. **[DECIDED]**
 - **Not in this story:** notifications to staff (SCRUM-46 and later), suggesting alternative venues (SCRUM-40).
 
 ---

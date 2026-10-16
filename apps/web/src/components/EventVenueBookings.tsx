@@ -51,6 +51,8 @@ export function EventVenueBookings({
                     <span className="status-badge">{bookingStatusLabel(b.status)}</span>
                     {b.rejectionReason && <span className="vb__note">{b.rejectionReason}</span>}
                     {b.cancellationReason && <span className="vb__note">{b.cancellationReason}</span>}
+                    {/* SCRUM-113/AC1: back to Pending after an important change; venue staff decide again */}
+                    {b.sentBackForReview && <span className="vb__note">Waiting for review again after an event change</span>}
                   </td>
                   {canChange && (
                     <td className="vb__row-actions">

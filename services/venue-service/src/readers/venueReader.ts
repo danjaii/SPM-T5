@@ -16,6 +16,8 @@ export interface VenueReader {
   getById(venueId: string): Promise<VenueInfo | null>;
   /** The venues with these ids (missing ones are simply absent), for showing names on lists. */
   getByIds(venueIds: string[]): Promise<VenueInfo[]>;
+  /** SCRUM-113: room layout names by id, for showing what changed on a venue booking sent back for review. */
+  layoutNames(layoutIds: string[]): Promise<Map<string, string>>;
 }
 
 const COLUMNS = "id, name, max_capacity, is_active, setup_minutes, turnaround_minutes";
@@ -45,5 +47,12 @@ export class SupabaseVenueReader implements VenueReader {
     const { data, error } = await this.db.from("venues").select(COLUMNS).in("id", venueIds);
     if (error) throw new Error(`Reading venues failed: ${error.message}`, { cause: error });
     return (data as unknown as Row[]).map(toVenue);
+  }
+
+  async layoutNames(layoutIds: string[]): Promise<Map<string, string>> {
+    if (layoutIds.length === 0) return new Map();
+    const { data, error } = await this.db.from("room_layouts").select("id, name").in("id", layoutIds);
+    if (error) throw new Error(`Reading room layouts failed: ${error.message}`, { cause: error });
+    return new Map((data as { id: string; name: string }[]).map((l) => [l.id, l.name]));
   }
 }

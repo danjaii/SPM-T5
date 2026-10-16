@@ -8,6 +8,7 @@ export * from "./eventStatus";
 export * from "./profile";
 export * from "./registration";
 export * from "./roles";
+export * from "./sentBack";
 export * from "./supabaseClient";
 export * from "./venueBooking";
 export * from "./venueSearch";

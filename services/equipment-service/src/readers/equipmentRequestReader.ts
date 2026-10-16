@@ -26,6 +26,9 @@ export interface EquipmentRequestInfo {
   /** SCRUM-102 (102-S31): why its venue booking was cancelled, which released this equipment; null otherwise. */
   venueBookingCancellationReason: string | null;
   createdAt: Date;
+  /** SCRUM-113: the event's changes that sent it back for review ({ field: { from, to } }), and when; null otherwise. */
+  sentBackChanges: unknown;
+  sentBackAt: Date | null;
 }
 
 export interface EquipmentRequestReader {
@@ -41,6 +44,7 @@ type Row = Record<string, unknown>;
 
 const COLUMNS =
   "id, event_id, venue_booking_id, quantity_requested, notes, status, start_datetime, end_datetime, review_reason, created_at, " +
+  "sent_back_changes, sent_back_at, " +
   "event:events(name, status, preferred_start_datetime), equipment:equipment(name, type), " +
   "booking:venue_bookings(cancellation_reason, venue:venues!venue_bookings_venue_id_fkey(name))";
 
@@ -67,6 +71,8 @@ const toRequest = (r: Row): EquipmentRequestInfo => {
     reviewReason: (r.review_reason as string | null) ?? null,
     venueBookingCancellationReason: (booking?.cancellation_reason as string | null | undefined) ?? null,
     createdAt: new Date(r.created_at as string),
+    sentBackChanges: r.sent_back_changes ?? null,
+    sentBackAt: r.sent_back_at ? new Date(r.sent_back_at as string) : null,
   };
 };
 

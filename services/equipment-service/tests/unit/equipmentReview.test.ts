@@ -72,6 +72,7 @@ describe("SCRUM-87/AC1 see the list of requests", () => {
         quantity: 2,
         status: "SUBMITTED",
         statusLabel: "Submitted",
+        sentBack: null, // SCRUM-113: not sent back for review
       },
     ]);
   });
@@ -139,6 +140,7 @@ describe("SCRUM-87/AC3 see request details", () => {
       notes: "Two on stage",
       reason: null,
       canReview: true,
+      sentBack: null, // SCRUM-113: not sent back for review
     });
   });
 

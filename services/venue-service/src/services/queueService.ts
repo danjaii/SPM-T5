@@ -1,3 +1,4 @@
+import { layoutIdsIn } from "@spm-t5/shared";
 import { forbidden, notFound } from "../domain/errors";
 import { toQueueDetail, toQueueItem, type QueueDetail, type QueueItem } from "../domain/queueDto";
 import type { BookingRecord } from "../domain/types";
@@ -25,14 +26,20 @@ export class QueueService {
     return new Map(venues.map((v) => [v.id, v.name]));
   }
 
+  /** SCRUM-113: the names of the room layouts that sent-back notes mention. */
+  private layoutNames(bookings: BookingRecord[]): Promise<Map<string, string>> {
+    return this.deps.venues.layoutNames([...new Set(bookings.flatMap((b) => layoutIdsIn(b.sentBackChanges)))]);
+  }
+
   /** 37-S1 to S5: every PENDING request for every venue (DR14), earliest submission first. */
   async list(caller: Caller): Promise<QueueItem[]> {
     this.requireVenueStaff(caller);
     const pending = await this.deps.bookings.listPending();
     const venues = await this.venueNames(pending);
     const people = await this.deps.users.namesOf([...new Set(pending.flatMap((b) => (b.requestedBy ? [b.requestedBy] : [])))]);
+    const layouts = await this.layoutNames(pending);
     return pending.map((b) =>
-      toQueueItem(b, venues.get(b.venueId) ?? "Unknown venue", (b.requestedBy && people.get(b.requestedBy)) || null),
+      toQueueItem(b, venues.get(b.venueId) ?? "Unknown venue", (b.requestedBy && people.get(b.requestedBy)) || null, layouts),
     );
   }
 
@@ -44,6 +51,6 @@ export class QueueService {
     const venues = await this.venueNames([booking]);
     const ids = [booking.requestedBy, booking.reviewedBy].filter((x): x is string => Boolean(x));
     const people = await this.deps.users.namesOf(ids);
-    return toQueueDetail(booking, venues.get(booking.venueId) ?? "Unknown venue", people);
+    return toQueueDetail(booking, venues.get(booking.venueId) ?? "Unknown venue", people, await this.layoutNames([booking]));
   }
 }

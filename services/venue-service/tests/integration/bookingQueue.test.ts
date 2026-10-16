@@ -98,4 +98,26 @@ describe.skipIf(!hasDb)("SCRUM-37 pending request queue against Postgres", () =>
     });
     await expect(queue.detail(caller(), "00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({ httpStatus: 404 });
   });
+
+  // SCRUM-113: the note migration 39 stores on a venue booking sent back for review, read as Venue Staff
+  it("113-S7 a venue booking sent back for review shows what changed, its room layout by name", async () => {
+    const { data: layout } = await admin.from("room_layouts").select("id, name").limit(1).single();
+    const id = await arrange(19, {
+      sent_back_changes: {
+        expected_attendance: { from: 480, to: 600 },
+        preferred_room_layout_id: { from: null, to: layout!.id },
+      },
+      sent_back_at: "2030-01-02T03:00:00Z",
+    });
+
+    const detail = await queue.detail(caller(), id);
+
+    expect(detail.sentBack).toEqual({
+      sentBackAt: "2030-01-02T03:00:00.000Z",
+      changes: [
+        { field: "expected_attendance", label: "Expected attendance", from: 480, to: 600 },
+        { field: "preferred_room_layout_id", label: "Room layout", from: null, to: layout!.name },
+      ],
+    });
+  });
 });
