@@ -5,9 +5,9 @@ User story for **Identify Existing Bookings That Conflict Under New Times** (Con
 - Scenario numbers are the test IDs: `104-S3` means SCRUM-104, Scenario 3. Jira does not number the ACs, so
   **Scenario n is AC n** in test names and commit titles **[PROPOSED]** (confirm with the PO).
 - Markers: **[DECIDED]** the team chose it (the Wave 2 plan of 2026-10-15). **[PROPOSED]** a default, confirm or change.
-- **Not built yet.** This spec was written before the code, while Wave 1 (SCRUM-101, 103, 109, 110) is still in review. Where
-  it names a Wave 1 file or function (`venue_padded_period`, migration 26 and 27, `SlotConflictRule`), that is read from the
-  Wave 1 branches, not from `main`.
+- **Built on `main` after Wave 1** (SCRUM-101, 103, 109, 110 are merged; migration 33 is SCRUM-110's, 34 is SCRUM-111's). This
+  story is migration **36**; 35 is reserved for SCRUM-46 (notifications). Corrections found while building are marked
+  **[CORRECTED]**.
 
 | Key | Title | Depends on |
 | --- | --- | --- |
@@ -33,9 +33,10 @@ These override the text below where they conflict.
   `resolved_at is null`. Partial unique indexes on open flags: `(booking_id, other_booking_id)` and
   `(booking_id, unavailability_id)`, so a refresh never raises the same flag twice. The table stores **no event names**
   (36-S5); a name is joined at read time and only in the Venue Staff DTOs. **[DECIDED]**
-- **`resolved_reason`** is one of `padding_changed` (the conflict went away when the times changed, 104-S5), `booking_closed`
-  (a booking stopped holding), `booking_moved` (a booking's venue or period changed, SCRUM-102) or `replaced` (SCRUM-107).
-  The list is a check constraint. **[PROPOSED]**
+- **`resolved_reason`** is one of `no_longer_conflicts` (the conflict went away: the times changed, 104-S5, or a booking
+  moved, SCRUM-102), `booking_closed` (a booking stopped holding) or `replaced` (SCRUM-107). A check constraint holds the list,
+  and `resolved_at` and `resolved_reason` are set together. **[CORRECTED]** (the first draft had `padding_changed` and
+  `booking_moved`; one reason, `no_longer_conflicts`, covers both because the trigger tests the overlap, not the cause.)
 - **Who may read.** Row-level security allows SELECT for venue staff and for the coordinator assigned to the flagged booking's
   event, through a `security definer` helper `can_read_venue_booking(booking_id)` (new in migration 36; the existing
   `is_assigned_coordinator(event_id)` and `current_user_role()` from migration 07 do the work). Nobody gets INSERT, UPDATE or
@@ -49,24 +50,30 @@ These override the text below where they conflict.
   using the venue's current times. The detection compares the periods inside the database directly. It does **not** call the
   role-gated `venue_slot_conflicts` or `venue_occupied_periods`, which only answer a signed-in coordinator or venue staff user, so they cannot run inside a definer function called by the service role. **[DECIDED]**
 - **Detection is a reconcile.** `refresh_buffer_flags(venue_id)` (security definer, internal, not executable by clients)
-  locks the venue row `FOR NO KEY UPDATE` (the same lock as SCRUM-103's overlap trigger), finds every conflicting pair, inserts
-  the flags that are missing and resolves the open ones whose pair no longer overlaps (`padding_changed`). Saving 15 and 15
-  therefore clears the flags raised by 30 and 45 (104-S5), and the same call with nothing to find flags nothing (104-S6). **[DECIDED]**
+  locks the venue row `FOR NO KEY UPDATE` (the same lock as SCRUM-103's overlap trigger), finds every conflicting pair
+  (`venue_buffer_pairs()`), inserts the flags that are missing, keeps the copied periods current and resolves the open ones
+  whose pair no longer overlaps (`no_longer_conflicts`). Saving 15 and 15 therefore clears the flags raised by 30 and 45
+  (104-S5), and the same call with nothing to find flags nothing (104-S6). **[DECIDED]**
 - **`set_venue_timing` is re-created.** Migration 26 made it `returns void`; Postgres will not change a return type with
   `create or replace`, so migration 36 drops it and creates it again with the same arguments and grants, now returning the
-  affected pairs. It updates the venue, calls `refresh_buffer_flags` in the **same transaction**, and writes the same
-  `activity_log` row (DR13) plus the number of pairs. The role check (`venue_staff` only, 42501) is unchanged. **[DECIDED]**
-- **Bookings change the flags too.** A trigger on `venue_bookings` (after update of `status`, `venue_id`,
+  affected pairs (`booking_id`, `event_name`, `event_start`, `event_end`, `occupied_until`, `other_booking_id`,
+  `other_event_name`, `other_event_start`, `other_event_end`, `other_occupied_from`; the earlier booking first). It updates
+  the venue, calls `refresh_buffer_flags` in the **same transaction**, and writes the same `activity_log` row (DR13), with
+  the number of pairs added when there are any. The role check (`venue_staff` only, 42501) is unchanged. **[DECIDED]**
+- **Bookings change the flags too.** An AFTER UPDATE trigger on `venue_bookings` (of `status`, `venue_id`,
   `event_start_datetime`, `event_end_datetime`) resolves every open flag that involves the booking when it stops holding
-  (`booking_closed`: rejected, withdrawn, cancelled) or moves (`booking_moved`). It only ever resolves; a move cannot create a
-  buffer conflict, because SCRUM-103's trigger refuses a change into a padded clash. Deciding an Approved booking or changing
-  its numbers leaves flags as they are. **[DECIDED]**
+  (`booking_closed`: rejected, withdrawn, cancelled; `replaced` for SCRUM-107's status) and, when a holding booking moves,
+  the buffer flags whose pair no longer overlaps padded (`no_longer_conflicts`). It compares `new.status` as text, so it works
+  before the enum has `replaced`. It only ever resolves and never inserts: a move cannot create a buffer conflict, because
+  SCRUM-103's trigger refuses a change into a padded clash. Deciding an Approved booking or changing its numbers leaves
+  flags as they are. **[DECIDED]**
 - **A flagged Pending request cannot be approved (104-S4).** Enforced twice. The service refuses with `409 BOOKING_FLAGGED`
   before `decide()`; a `BEFORE UPDATE` trigger on `venue_bookings` raises SQLSTATE `CS104` when a booking with an open flag
   goes from `requested` to `approved`, which closes the gap if two staff act at once or the service is bypassed. Rejecting is
   always allowed. `BOOKING_FLAGGED` is new in `VENUE_BOOKING_ERROR_CODES` with the message "This request is flagged and cannot
-  be approved. You can reject it." **[PROPOSED]** (the wording; the behaviour is the Jira scenario). The guard covers **both
-  flag kinds**, so SCRUM-106 needs no second guard.
+  be approved until the conflict is resolved. You can still reject it." **[PROPOSED]** (the wording; the behaviour is the Jira
+  scenario). The guard covers **both flag kinds**, so SCRUM-106 needs no second guard. A flag raised at the same moment as an
+  approval is fine either way: the booking ends up flagged, approved or not.
 - **Fix a latent bug on the way.** In `supabaseBookingRepository.ts` `transitionFromPending` throws a plain `Error` on any
   database error, so a trigger refusal (`CS104`) would come back as a 500. It now passes the error through `translate()` like
   `change` and `cancel` already do; `translate()` maps `CS104` to `BOOKING_FLAGGED`. **[DECIDED]**
@@ -96,8 +103,12 @@ These override the text below where they conflict.
   ("Buffer conflict", "Venue unavailable – alternative needed", with an en dash), `FlagDto`, `NO_BOOKINGS_AFFECTED_MESSAGE` and
   `bufferConflictSummary`, which words 104-S1 in Singapore time and adds a date to any time that falls on another day than its
   own booking's. It is written before Wave 1 merges because it needs only `utcToSgt`. **[DECIDED]**
-- **Race.** `set_venue_timing` and `change_venue_booking` (SCRUM-102) both take the venue row lock first, so they run one after
-  the other; the deadlock retry in the repository (`40P01`) is reused. A test runs 20 rounds of both at once. **[DECIDED]**
+- **Race.** **[CORRECTED]** The first draft said both functions take the venue row lock first. They do not:
+  `change_venue_booking` locks the booking row (`FOR UPDATE`, migration 30) and only then the venue row (through 27's
+  trigger), while `set_venue_timing` updates the venue row and then needs a key-share lock on each booking to insert its flags.
+  That is a lock cycle. `set_venue_timing` now locks the venue's holding bookings (`FOR NO KEY UPDATE`, in id order) **before**
+  the venue row, the same order as `change_venue_booking`, so they queue instead of deadlocking. The `40P01` retry is also
+  added to the timing writer, as a second line of defence. A test runs 20 rounds of both at once. **[DECIDED]**
 
 ---
 
@@ -147,7 +158,7 @@ open questions).
   at the event.
 - **SCRUM-105 / 106.** Add the second kind (`venue_unavailable`, `unavailability_id`) to the same table; 106 extends
   `refresh_buffer_flags` into `refresh_venue_booking_flags`. The approve guard and the DTO need no further change.
-- **SCRUM-110.** `change_venue_booking()` is re-created by SCRUM-110's suitability migration (file 33 today; the plan proposes renumbering it to 35 because SCRUM-88 also has a 33). Migration 36
+- **SCRUM-110.** `change_venue_booking()` is re-created by SCRUM-110's suitability migration (33, on `main`). Migration 36
   does not touch it.
 
 ### Tests
