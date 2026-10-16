@@ -54,7 +54,9 @@ export default async function EventPage({
       ])
     : [null, null, null, null, null];
 
-  const changeRequests = "event" in result && result.event.isOrganiser ? await getChangeRequests(id) : [];
+  // SCRUM-66: the organiser's own requests; SCRUM-67: the assigned coordinator reviews them
+  const seesChangeRequests = "event" in result && (result.event.isOrganiser || result.event.canChangeStatus);
+  const changeRequests = seesChangeRequests ? await getChangeRequests(id) : [];
 
   return (
     <>
@@ -99,7 +101,9 @@ export default async function EventPage({
               {/* SCRUM-20: assign, change and cancel on-site technical support; the technician is notified each time */}
               <EventTechnicalAssignments eventId={result.event.id} data={technicalAssignments} />
               {/* SCRUM-66: organisers see their change requests (AC7) and, while the status allows it, can make one (AC1-AC3) */}
-              {result.event.isOrganiser && <EventChangeRequestList requests={changeRequests} />}
+              {(result.event.isOrganiser || result.event.canChangeStatus) && (
+                <EventChangeRequestList requests={changeRequests} reviewable={result.event.canChangeStatus} />
+              )}
               {result.event.canRequestChange && <EventChangeRequestForm event={result.event} />}
               {/* SCRUM-83/AC15: the registration information page (only this page's viewers, organisers and
                   coordinators, can open it; RLS decides whose registrations they see) */}

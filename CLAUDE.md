@@ -257,7 +257,12 @@ assignment acknowledged until its venue booking or times change again. The
 equipment catalogue, request notes (SCRUM-87/AC8) and editing requests (SCRUM-88) are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
 `docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
-approving or rejecting a request, and applying it to the event, is not built yet. The assigned coordinator edits an event's details
+the event's assigned coordinator reviews it (SCRUM-67; spec in `docs/specs/review-change-request.md`,
+`routes/changeRequestReview.ts`, migration 42): `GET /change-requests/:id` shows each requested change with the current value
+(`readChangeRequest()` in `packages/shared/src/changeRequestReview.ts`), and `review_change_request()` either rejects it with a
+required reason or approves it through `update_event_details()` in the same transaction, so an approval is recorded in the
+change history and sends the affected arrangements back for review (SCRUM-112/113). A request the event has moved on from, or
+one with a field the system cannot apply, can only be rejected. The assigned coordinator edits an event's details
 (SCRUM-111; spec in `docs/specs/edit-event-details.md`, `routes/eventDetails.ts`, migration 34): ordinary fields (name, description,
 purpose, category) and important ones (dates and times, attendance, layout, accessibility, venue and equipment requirements; the
 lists are in `packages/shared/src/eventDetails.ts`), not for a completed, cancelled or rejected event. `update_event_details()` saves
