@@ -43,7 +43,7 @@ backed by one Supabase Postgres.
 | `event-service` | 4002 | Event requests, drafts, review/approval, status state machine, coordinator assignment, change requests |
 | `venue-service` | 4003 | Venue catalogue, availability calendar, search, suitability checks, bookings and conflict detection |
 | `equipment-service` | 4004 | Equipment catalogue, availability checks, reservations, technical support (formerly `coordinator-service`) |
-| `notification-service` | 4005 | In-app/email notifications, triggered by event-service status changes |
+| `notification-service` | 4005 | In-app notifications (list, mark read); email/SMS later |
 
 Attendee registration (SCRUM-83) is owned by `event-service`.
 
@@ -121,6 +121,10 @@ SUPABASE_URL=                # local: http://127.0.0.1:54321
 SUPABASE_PUBLISHABLE_KEY=    # sb_publishable_...
 SUPABASE_SECRET_KEY=         # sb_secret_... — bypasses RLS, server-side only
 SUPABASE_JWKS_URL=
+
+# apps/web reaches each service at http://localhost:<port> by default (ports in the services table above); set
+# NEXT_PUBLIC_NOTIFICATION_SERVICE_URL (browser) or NOTIFICATION_SERVICE_URL (Next.js server, e.g. in docker compose)
+# to override notification-service's address (default http://localhost:4005), like the other services.
 
 # Origin the services allow for CORS — the web app must run here (optional, this is the default)
 WEB_ORIGIN=http://localhost:3000
@@ -326,17 +330,19 @@ isn't recorded, so the next push re-runs it (and fails) or skips another file. T
 | `06_venue_booking_requests.sql` | Venue booking request schema; slot-exclusion and one-active-request-per-event constraints |
 | `07_venue_bookings_rls.sql` | Per-role/own-row RLS for `venue_bookings` |
 | `11_event_registrations.sql` | One active registration per attendee per event (history kept); `list_public_events()` counts Confirmed only; per-role/own-row RLS for `event_registrations` |
+| `35_notifications_own_rows.sql` | Own-rows RLS for `notifications` (select/update only the caller's, `is_read` only), `read_at` trigger, typed `venue_booking_id` link (SCRUM-46) |
 | `14_events_rls.sql` | Per-role RLS for `events`, its history tables, sessions, documents and change requests; narrows `events` UPDATE to `status` and `assigned_coordinator_id`; trigger so only the assigned coordinator changes status (SCRUM-91) |
 
 ## Current status
 
 This is the release-1 build. `auth-service`, `event-service` and `venue-service` are built out;
 the Venue Staff approval routes (SCRUM-37 to 40) are not. `equipment-service` is built out for the
-availability check (SCRUM-18) and equipment reservation (SCRUM-19). `notification-service` only serves `GET /health` so far: it
-listens on its port, but sends no notifications yet.
+availability check (SCRUM-18) and equipment reservation (SCRUM-19). `notification-service` serves a user's own in-app
+notifications (list, unread count, mark read; SCRUM-46) on port 4005 and sends no email or SMS yet.
 
 RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`),
-the event review tables (`08`), `event_registrations` (`11_event_registrations.sql`) and `events` with its history
+the event review tables (`08`), `event_registrations` (`11_event_registrations.sql`), `notifications`
+(`35_notifications_own_rows.sql`) and `events` with its history
 tables (`14_events_rls.sql`): on the rest, any authenticated user can access every row. Per-role/own-row policies
 for those are pending (SCRUM-92, SCRUM-93).
 

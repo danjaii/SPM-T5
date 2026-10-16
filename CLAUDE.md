@@ -222,8 +222,8 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-Parts of the repo are still scaffolding — `notification-service` listens on its port but only serves
-`GET /health` (no notifications are sent yet), and the `healthCheck()` exports in
+Parts of the repo are still scaffolding — `notification-service` is the read side of in-app notifications only (SCRUM-46,
+below); no email or SMS is sent yet, and the `healthCheck()` exports in
 `services/*/src/index.ts` are leftovers from the original scaffold. `venue-service` is built out for the venue catalogue (SCRUM-29) and venue booking requests
 (SCRUM-36, 32, 33, 35, 60, 59; spec in `docs/specs/venue-booking-request.md`, diagram in
 `component-venue-service.puml`), and for the Venue Staff queue, approve and reject (SCRUM-37 to 39;
@@ -282,6 +282,11 @@ sign-in option yet. Organisers and coordinators see the registrations of the eve
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
 event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
 
+Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
+`notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
+`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and every dashboard links to it; producers (SCRUM-47,
+SCRUM-106) are not built and will write rows in the same transaction as their change.
+
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
   authenticated user full access to every row. `03_users_role_privilege.sql` closed the `role`
@@ -289,7 +294,8 @@ Known gaps to fix rather than work around:
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
   new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
-  `11_event_registrations.sql` for `event_registrations`; the other tables are still blanket
+  `11_event_registrations.sql` for `event_registrations` and `35_notifications_own_rows.sql` for `notifications`; the
+  other tables are still blanket
   (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
 
 
