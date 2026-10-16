@@ -1,10 +1,10 @@
 -- Mark a venue temporarily unavailable (SCRUM-105, docs/specs/venue-unavailability.md).
 -- Touches venue-service (marking, the booking checks, venue search) and the web venue pages. Append-only: nothing earlier is
--- edited; the functions below are redefined with create or replace from their latest bodies. Needs 37 (equipment_failure).
+-- edited; the functions below are redefined with create or replace from their latest bodies. Needs 38 (equipment_failure).
 --
 -- Function history, so the next story copies the right body:
---   venue_bookings_check_padded_overlap  27 (padded booking overlap)  ->  38 (adds the block rule, SQLSTATE CS105)
---   available_venues                     18 (unpadded)  ->  27 (padded bookings, unpadded blocks)  ->  38 (padded request vs block)
+--   venue_bookings_check_padded_overlap  27 (padded booking overlap)  ->  39 (adds the block rule, SQLSTATE CS105)
+--   available_venues                     18 (unpadded)  ->  27 (padded bookings, unpadded blocks)  ->  39 (padded request vs block)
 --
 -- A block is compared as it is: [start, end), no setup or turnaround of its own. A BOOKING is compared with its padded period
 -- (venue_padded_period, 27), so its setup and turnaround count against the block (105-S5). Half-open, so touching is allowed.

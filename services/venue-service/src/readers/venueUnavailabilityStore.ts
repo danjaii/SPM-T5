@@ -36,7 +36,7 @@ const toRow = (r: Row): UnavailabilityBlockRow => ({
 });
 
 /**
- * Talks to Postgres as the caller. Reads are the table (row policy: venue staff and coordinators, migration 38). The one write is
+ * Talks to Postgres as the caller. Reads are the table (row policy: venue staff and coordinators, migration 39). The one write is
  * mark_venue_unavailable(), which checks the role itself and is the only writer; the route's role check is just the friendly 403.
  */
 export class SupabaseVenueUnavailabilityStore implements VenueUnavailabilityStore {

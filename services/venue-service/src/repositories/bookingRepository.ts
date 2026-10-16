@@ -20,7 +20,7 @@ export interface BookingRepository {
 
   /**
    * SCRUM-105: the unavailability blocks whose period overlaps the PADDED request (setup before, turnaround after), earliest
-   * first. The block itself is not padded. Nothing about who made it (venue_unavailability_conflicts, migration 38).
+   * first. The block itself is not padded. Nothing about who made it (venue_unavailability_conflicts, migration 39).
    */
   unavailabilityConflicts(venueId: string, start: Date, end: Date): Promise<UnavailabilityConflict[]>;
 

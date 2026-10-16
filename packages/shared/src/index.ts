@@ -17,3 +17,4 @@ export * from "./venueSuitability";
 export * from "./venueTiming";
 export * from "./venueOccupancy";
 export * from "./venueUnavailability";
+export * from "./safetyCheck";

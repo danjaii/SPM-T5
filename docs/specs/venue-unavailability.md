@@ -6,8 +6,9 @@ User story for **Mark a Venue Temporarily Unavailable** (ConnectSphere, IS212), 
   **Scenario n is AC n** in test names and commit titles **[PROPOSED]** (confirm with the PO).
 - Markers: **[DECIDED]** the team chose it (the Wave 2 plan of 2026-10-15). **[PROPOSED]** a default, confirm or change.
 - **Built on main after Wave 1.** Wave 1 (SCRUM-101, 103, 109, 110: migrations 26, 27 and 33) is merged; this spec was
-  re-read against that code on 2026-10-16. Migrations 37 and 38 are the next free pair (31, 32 are PR #75's, 35 is SCRUM-46's,
-  36 is SCRUM-104's).
+  re-read against that code on 2026-10-16. Migrations 38 and 39 are the next free pair (31, 32 are PR #75's, 35 is SCRUM-46's,
+  36 is SCRUM-104's, 37 is SCRUM-99's `37_safety_checks.sql`). They were first numbered 37 and 38 and moved up when
+  SCRUM-99 merged.
 
 | Key | Title | Depends on |
 | --- | --- | --- |
@@ -25,11 +26,11 @@ These override the text below where they conflict.
   and one `internal_activity`). Nothing writes to it today except the seed, and its only row policy is the blanket
   `venue_unavailability_authenticated_all` (02). **[DECIDED]**
 - **Reasons.** The enum has `maintenance`, `renovation`, `safety`, `internal_activity`, `other`; the Jira reason "Equipment
-  failure" is missing. Migration `37_venue_unavailability_reason_equipment_failure.sql` adds `equipment_failure`
+  failure" is missing. Migration `38_venue_unavailability_reason_equipment_failure.sql` adds `equipment_failure`
   (`alter type ... add value`, in a file of its own, because a new enum value cannot be used in the transaction that adds it).
   Selectable: Maintenance, Equipment failure, Renovation, Safety concern (the enum value `safety`), Other. `internal_activity`
   stays in the enum and in the seed, and is shown, but cannot be chosen for a new block. **[DECIDED]**
-- **Only a function may write.** Migration `38_venue_unavailability_marking.sql` replaces the blanket policy: SELECT for
+- **Only a function may write.** Migration `39_venue_unavailability_marking.sql` replaces the blanket policy: SELECT for
   `venue_staff` and `event_coordinator` (through `current_user_role()`, migration 07); INSERT, UPDATE and DELETE are revoked
   from `authenticated` and `anon`. The one writer is `mark_venue_unavailable(p_venue_id, p_start, p_end, p_reason, p_notes)`,
   `security definer`, which returns the new row's id and:
@@ -48,7 +49,7 @@ These override the text below where they conflict.
   20:00 occupies from 18:00, only touches the block and is accepted (105-S5). A booking ending at 08:00 with a 30 minute
   turnaround is refused by a block starting 08:00 for the same reason. **[DECIDED]**
 - **Where the check lives.** Three places, all agreeing:
-  1. `venue_bookings_check_padded_overlap()` (migration 27) is re-created in migration 38 with the full body copied and one more
+  1. `venue_bookings_check_padded_overlap()` (migration 27) is re-created in migration 39 with the full body copied and one more
      rule: a padded booking period that overlaps a block raises SQLSTATE **`CS105`**, after the booking overlap check. The
      trigger's skip rule is unchanged, so a request that keeps its venue and period (a decision, a withdrawal, new numbers)
      is not re-checked: **a Pending request that was already inside a block when the block was made can still be approved**
@@ -101,7 +102,7 @@ These override the text below where they conflict.
 - `availabilityLookup` on main is still the unpadded `hasHold` stub (it was not switched to `SlotConflictRule`), so this story
   extends it in place: a held slot is reported as before, and only when nothing holds the slot is the earliest block returned.
 - `venue_bookings_check_padded_overlap`, `available_venues`, `venue_slot_conflicts` and `venue_occupied_periods` are still the
-  migration 27 bodies (28, 30, 33 and 34 do not redefine them), so migration 38 copies 27's trigger and `available_venues`.
+  migration 27 bodies (28, 30, 33 and 34 do not redefine them), so migration 39 copies 27's trigger and `available_venues`.
 - The padding trigger fires only when the venue or period changes, so an existing PENDING request inside a new block is not
   re-checked. **Known risk:** until SCRUM-106 (flags the booking) and SCRUM-104's approve guard are merged, such a request can still
   be approved. Merge 106 straight after 105.
@@ -148,7 +149,7 @@ compared against it. Existing bookings are handled in SCRUM-106 (C2-2).
 
 ### Interaction with other stories
 
-- **SCRUM-103.** The padded overlap trigger (27) and `available_venues` (18, 27) are re-created in migration 38 from their latest
+- **SCRUM-103.** The padded overlap trigger (27) and `available_venues` (18, 27) are re-created in migration 39 from their latest
   bodies; the header comment lists their history. SCRUM-103's database tests stay green on this branch.
 - **SCRUM-102.** `change_venue_booking()` updates the period in place, so the trigger fires: a change into a block is `CS105`.
   Moving a flagged booking out of a block is allowed (the target is outside it) and resolves its flag (SCRUM-106).

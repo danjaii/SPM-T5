@@ -126,7 +126,7 @@ export class FakeBookingRepository implements BookingRepository {
 
   private readonly blocks: { venueId: string; start: Date; end: Date; reason: string }[] = [];
 
-  /** SCRUM-105: an unavailability block on a venue. The padded-overlap trigger (migration 38) refuses bookings that touch it. */
+  /** SCRUM-105: an unavailability block on a venue. The padded-overlap trigger (migration 39) refuses bookings that touch it. */
   setUnavailable(venueId: string, start: Date, end: Date, reason = "maintenance"): void {
     this.blocks.push({ venueId, start, end, reason });
   }
@@ -249,7 +249,7 @@ export class FakeBookingRepository implements BookingRepository {
     if (this.conflictsWith(row.venueId, change, id).length > 0) {
       throw bookingError("SLOT_CONFLICT");
     }
-    if (this.blocksFor(row.venueId, change).length > 0) throw bookingError("VENUE_UNAVAILABLE"); // migration 38
+    if (this.blocksFor(row.venueId, change).length > 0) throw bookingError("VENUE_UNAVAILABLE"); // migration 39
     const moved = change.start.getTime() !== row.start.getTime() || change.end.getTime() !== row.end.getTime();
     Object.assign(row, {
       start: change.start,
@@ -303,7 +303,7 @@ export class FakeBookingRepository implements BookingRepository {
     if (this.conflictsWith(input.venueId, input).length > 0) {
       throw bookingError("SLOT_CONFLICT");
     }
-    if (this.blocksFor(input.venueId, input).length > 0) throw bookingError("VENUE_UNAVAILABLE"); // migration 38
+    if (this.blocksFor(input.venueId, input).length > 0) throw bookingError("VENUE_UNAVAILABLE"); // migration 39
     return this.seed({
       eventId: input.eventId,
       venueId: input.venueId,

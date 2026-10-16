@@ -88,7 +88,7 @@ function translate(error: PgError): Error {
   // SCRUM-102: change_venue_booking() and cancel_venue_booking() (migration 30) refuse with these
   if (error.code === "42501") return forbidden();
   if (error.code === "CS102") return bookingError("EVENT_NOT_ELIGIBLE");
-  // SCRUM-105: the padded-overlap trigger (migration 38) found the period inside an unavailability block
+  // SCRUM-105: the padded-overlap trigger (migration 39) found the period inside an unavailability block
   if (error.code === "CS105") return bookingError("VENUE_UNAVAILABLE");
   // SCRUM-104: the approve guard (migration 36) refuses a request that still carries an open flag
   if (error.code === "CS104") return bookingError("BOOKING_FLAGGED");
@@ -131,7 +131,7 @@ export class SupabaseBookingRepository implements BookingRepository {
     return ((data ?? []) as Row[]).map(toSlotConflict);
   }
 
-  /** SCRUM-105: the blocks in the way, from venue_unavailability_conflicts (migration 38): security definer, role-gated, period and reason only. */
+  /** SCRUM-105: the blocks in the way, from venue_unavailability_conflicts (migration 39): security definer, role-gated, period and reason only. */
   async unavailabilityConflicts(venueId: string, start: Date, end: Date): Promise<UnavailabilityConflict[]> {
     const { data, error } = await this.db.rpc("venue_unavailability_conflicts", {
       p_venue_id: venueId,

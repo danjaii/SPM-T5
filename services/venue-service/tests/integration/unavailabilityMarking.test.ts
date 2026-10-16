@@ -6,7 +6,7 @@ import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookin
 import { adminClient, Fixtures, hasDb, signInAs } from "./support/db";
 
 /**
- * SCRUM-105: marking a venue unavailable (migrations 37 and 38) against Postgres. Everyone signs in as a seeded user, so the
+ * SCRUM-105: marking a venue unavailable (migrations 38 and 39) against Postgres. Everyone signs in as a seeded user, so the
  * grants, the row policies and the role checks inside the functions are exercised for real; the secret key (service role)
  * only arranges fixtures and checks results. Fixtures are throwaway ("IT-") and dated 2030. The block in the examples is the
  * story's: 14 Nov 08:00 to 16 Nov 18:00, Orchid Hall with setup 30.
@@ -27,7 +27,7 @@ const BLOCK = { start: at("2030-11-14", "08:00"), end: at("2030-11-16", "18:00")
 
 type Actor = { client: SupabaseClient; userId: string; repo: SupabaseBookingRepository };
 
-describe.skipIf(!hasDb)("SCRUM-105 venue unavailability (migrations 37 and 38)", () => {
+describe.skipIf(!hasDb)("SCRUM-105 venue unavailability (migrations 38 and 39)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(admin);
   const who = {} as Record<keyof typeof EMAILS, Actor>;
@@ -78,7 +78,7 @@ describe.skipIf(!hasDb)("SCRUM-105 venue unavailability (migrations 37 and 38)",
       expect(log).toEqual([{ actor_id: who.venueStaff.userId, action_type: "venue_unavailability_marked", entity_type: "venue" }]);
     });
 
-    it("105-S1: the new reason Equipment failure (migration 37) saves, and so do the other selectable ones", async () => {
+    it("105-S1: the new reason Equipment failure (migration 38) saves, and so do the other selectable ones", async () => {
       const venue = await orchid();
       for (const reason of ["equipment_failure", "renovation", "safety"]) {
         const { error } = await mark(venue, { start: at("2030-12-01", "08:00"), end: at("2030-12-02", "08:00") }, reason);

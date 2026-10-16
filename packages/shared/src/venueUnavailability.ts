@@ -7,7 +7,7 @@ import { sgtToUtc, utcToSgt } from "./venueBooking";
 
 // ---------------------------------------------------------------------------
 // Reasons. The database enum `venue_unavailability_reason` has maintenance, renovation, safety, internal_activity and
-// other (migration 01); migration 37 adds equipment_failure.
+// other (migration 01); migration 38 adds equipment_failure.
 // ---------------------------------------------------------------------------
 
 /** The reasons Venue Staff can choose, in the order the Jira story lists them (105-S2). */

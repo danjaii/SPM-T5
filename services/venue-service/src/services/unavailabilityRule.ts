@@ -11,7 +11,7 @@ export function unavailableError(block: UnavailabilityConflict): BookingError {
 /**
  * SCRUM-105: a venue marked unavailable cannot be requested for a period that touches the block, and a request occupies its
  * venue from its setup before it starts to its turnaround after it ends (SCRUM-103), so those count against the block.
- * Like SlotConflictRule this is the friendly pre-check; the padded-overlap trigger (migration 38, CS105) is the guarantee.
+ * Like SlotConflictRule this is the friendly pre-check; the padded-overlap trigger (migration 39, CS105) is the guarantee.
  */
 export class UnavailabilityRule {
   constructor(private readonly bookings: BookingRepository) {}
