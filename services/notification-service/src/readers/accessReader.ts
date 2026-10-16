@@ -50,7 +50,7 @@ export class SupabaseAccessReader implements AccessReader {
     if (bookingIds.length) {
       const { data, error } = await this.db
         .from("venue_bookings")
-        .select("id, venues(name), events(name)")
+        .select("id, venues:venues!venue_bookings_venue_id_fkey(name), events(name)")
         .in("id", bookingIds);
       if (error) throw new Error(error.message);
       for (const b of (data ?? []) as unknown as BookingRow[]) {
