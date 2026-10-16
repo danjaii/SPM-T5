@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dbStatusToApi } from "@spm-t5/shared";
 import { bookingError, forbidden } from "../domain/errors";
-import type { BookingChange, BookingRecord, Decision, NewBooking, SlotConflict } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
@@ -88,6 +88,8 @@ function translate(error: PgError): Error {
   // SCRUM-102: change_venue_booking() and cancel_venue_booking() (migration 30) refuse with these
   if (error.code === "42501") return forbidden();
   if (error.code === "CS102") return bookingError("EVENT_NOT_ELIGIBLE");
+  // SCRUM-105: the padded-overlap trigger (migration 38) found the period inside an unavailability block
+  if (error.code === "CS105") return bookingError("VENUE_UNAVAILABLE");
   if (error.code === "23505") {
     // 98-S20 (migration 28): the rejected venue booking already has an active replacement
     if (message.includes("venue_bookings_one_active_replacement")) return bookingError("ACTIVE_REQUEST_EXISTS");
@@ -125,6 +127,22 @@ export class SupabaseBookingRepository implements BookingRepository {
     });
     if (error) throw new Error("Could not check the venue's availability.");
     return ((data ?? []) as Row[]).map(toSlotConflict);
+  }
+
+  /** SCRUM-105: the blocks in the way, from venue_unavailability_conflicts (migration 38): security definer, role-gated, period and reason only. */
+  async unavailabilityConflicts(venueId: string, start: Date, end: Date): Promise<UnavailabilityConflict[]> {
+    const { data, error } = await this.db.rpc("venue_unavailability_conflicts", {
+      p_venue_id: venueId,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+    });
+    if (error) throw new Error("Could not check the venue's availability.");
+    return ((data ?? []) as Row[]).map((r) => ({
+      start: new Date(r.start_datetime as string),
+      end: new Date(r.end_datetime as string),
+      reason: r.reason as string,
+      venueName: r.venue_name as string,
+    }));
   }
 
   /** What occupies the venue in a window, from venue_occupied_periods (migration 27). */
