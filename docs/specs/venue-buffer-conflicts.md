@@ -83,7 +83,7 @@ These override the text below where they conflict.
   | --- | --- |
   | `setup_minutes`, `turnaround_minutes` | unchanged from SCRUM-101 |
   | `affected` | every open buffer-conflict pair at the venue after the save, `[]` when none. Each item: `summary` (the sentence in 104-S1), `first` and `second` (`bookingId`, `eventName`, `date`, `startTime`, `endTime`, `occupiedFrom`, `occupiedUntil`), `first` being the earlier booking |
-  | `message` | "No existing bookings are affected." when `affected` is empty, otherwise "n bookings are flagged." |
+  | `message` | "No existing bookings are affected." when `affected` is empty, otherwise "1 pair of bookings is flagged." or "n pairs of bookings are flagged." (`bookingsAffectedMessage` in shared) |
 
   Status codes are SCRUM-101's (403 before validation, 404, 422). SCRUM-101's integration test asserts the old body with
   `toEqual`; it changes to `toMatchObject`. **[DECIDED]**
@@ -174,8 +174,9 @@ open questions).
 | 104-S7 | A booking that already ended is not flagged; touching padded periods (12:15 and 12:15) are not flagged; a rejected, withdrawn or cancelled booking is not flagged and not a partner (AC1, AC5). |
 | 104-S8 | Cancelling or moving a flagged booking (SCRUM-102) resolves its flag and the partner's (AC5). |
 | 104-S9 | `set_venue_timing` still refuses a coordinator (42501), a bad range, and logs the change; `transitionFromPending` turns a trigger refusal into `BOOKING_FLAGGED`, not a 500. |
-| Race | 20 rounds of `set_venue_timing` against `change_venue_booking` on one venue end with a consistent flag set and no deadlock failure. |
-| E2E | Kenneth sets Orchid Hall to 30 and 45, sees the Summit A and B sentence; Rachel's `/venue-bookings` shows "Buffer conflict"; Approve is missing in the queue; 15 and 15 clears the flags (AC1, AC3, AC4, AC5). |
+| 104-S10 | RLS on `venue_booking_flags`: venue staff read every flag, the assigned coordinator only the flags on their own bookings, an organiser none; nobody inserts, updates or deletes through the API; `refresh_buffer_flags` is not callable by a signed-in user; the check constraint ties each kind to its one target. |
+| Race | 20 rounds of `set_venue_timing` against `change_venue_booking` on one venue end with a consistent flag set and no deadlock failure (`tests/integration/bufferConflicts.test.ts`, 104-S10 block). |
+| E2E | `apps/web/tests/e2e/venue-buffer-conflicts.spec.ts` (opt in with `E2E_FULL_STACK=1`): Kenneth sets Orchid Hall to 30 and 45, sees the Summit A and B sentence; Rachel opens My venue bookings from her dashboard and sees "Buffer conflict" with Summit A's period and not its name; Approve is missing for the flagged Pending request and Reject is there; 15 and 15 clears the flags, says no bookings are affected, and Approve returns (AC1 to AC6). |
 
 ### Out of scope
 
