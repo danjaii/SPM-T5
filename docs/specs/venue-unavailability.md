@@ -5,8 +5,9 @@ User story for **Mark a Venue Temporarily Unavailable** (ConnectSphere, IS212), 
 - Scenario numbers are the test IDs: `105-S4` means SCRUM-105, Scenario 4. Jira does not number the ACs, so
   **Scenario n is AC n** in test names and commit titles **[PROPOSED]** (confirm with the PO).
 - Markers: **[DECIDED]** the team chose it (the Wave 2 plan of 2026-10-15). **[PROPOSED]** a default, confirm or change.
-- **Not built yet.** Written before the code, while Wave 1 (SCRUM-101, 103, 109, 110) is in review. What it says about
-  `venue_padded_period`, `SlotConflictRule`, `persist()` and migrations 26, 27 and 33 is read from the Wave 1 branches.
+- **Built on main after Wave 1.** Wave 1 (SCRUM-101, 103, 109, 110: migrations 26, 27 and 33) is merged; this spec was
+  re-read against that code on 2026-10-16. Migrations 37 and 38 are the next free pair (31, 32 are PR #75's, 35 is SCRUM-46's,
+  36 is SCRUM-104's).
 
 | Key | Title | Depends on |
 | --- | --- | --- |
@@ -24,11 +25,11 @@ These override the text below where they conflict.
   and one `internal_activity`). Nothing writes to it today except the seed, and its only row policy is the blanket
   `venue_unavailability_authenticated_all` (02). **[DECIDED]**
 - **Reasons.** The enum has `maintenance`, `renovation`, `safety`, `internal_activity`, `other`; the Jira reason "Equipment
-  failure" is missing. Migration `37_venue_unavailability_equipment_failure.sql` adds `equipment_failure`
+  failure" is missing. Migration `37_venue_unavailability_reason_equipment_failure.sql` adds `equipment_failure`
   (`alter type ... add value`, in a file of its own, because a new enum value cannot be used in the transaction that adds it).
   Selectable: Maintenance, Equipment failure, Renovation, Safety concern (the enum value `safety`), Other. `internal_activity`
   stays in the enum and in the seed, and is shown, but cannot be chosen for a new block. **[DECIDED]**
-- **Only a function may write.** Migration `38_venue_unavailability.sql` replaces the blanket policy: SELECT for
+- **Only a function may write.** Migration `38_venue_unavailability_marking.sql` replaces the blanket policy: SELECT for
   `venue_staff` and `event_coordinator` (through `current_user_role()`, migration 07); INSERT, UPDATE and DELETE are revoked
   from `authenticated` and `anon`. The one writer is `mark_venue_unavailable(p_venue_id, p_start, p_end, p_reason, p_notes)`,
   `security definer`, which returns the new row's id and:
@@ -83,17 +84,32 @@ These override the text below where they conflict.
   A block as returned: `id`, `startDate`, `startTime`, `endDate`, `endTime` (Singapore), `reason`, `reasonLabel`, `notes`,
   `recordedBy` (the member of staff's name) and `recordedAt`. Coordinators see the same period and reason label but not
   `notes` or `recordedBy` (the service leaves them out) **[PROPOSED]**. Unknown ids and malformed dates answer as the rest of `/venues` does. **[DECIDED]**
-- **Shared code (no dependency on Wave 1).** `packages/shared/src/venueUnavailability.ts` holds the reasons and labels,
+- **Shared code.** `packages/shared/src/venueUnavailability.ts` holds the reasons and labels,
   `parseUnavailabilityInput` (zod; date and time fields in Singapore time, reason required, end after start, notes optional up
   to 500 characters), `formatShortSgt` ("14 Nov 08:00") and `unavailableMessage`. The parser reports every field at once.
   A period that starts in the past is allowed (a venue can break today) **[PROPOSED]**. Notes are required when the reason is
-  Other **[PROPOSED]** (open question). **[DECIDED]** for the file itself, written before Wave 1 merges because it needs only
+  Other **[PROPOSED]** (open question). **[DECIDED]** for the file itself, it needs only
   `sgtToUtc` and `utcToSgt`.
 - **Web.** `VenueDetail` lists the upcoming blocks ("14 Nov 08:00 to 16 Nov 18:00, Maintenance"). Venue staff also see a
   `VenueUnavailabilityForm` (start and end date and time, a reason select, notes, "Mark unavailable"); coordinators see the
   list and no form (105-S6). `VenueAvailabilityDay` (SCRUM-103) draws an "Unavailable" segment next to Setup, Event and
   Turnaround, labelled in text as well as colour. The coordinator's request form shows the refusal message inline. **[DECIDED]**
 - **Unreadable by organisers.** Event Organisers, Attendees and Technical Support have no `/venues` access and no SELECT on the table. **[DECIDED]**
+
+## Corrections found against the merged code (2026-10-16)
+
+- `availabilityLookup` on main is still the unpadded `hasHold` stub (it was not switched to `SlotConflictRule`), so this story
+  extends it in place: a held slot is reported as before, and only when nothing holds the slot is the earliest block returned.
+- `venue_bookings_check_padded_overlap`, `available_venues`, `venue_slot_conflicts` and `venue_occupied_periods` are still the
+  migration 27 bodies (28, 30, 33 and 34 do not redefine them), so migration 38 copies 27's trigger and `available_venues`.
+- The padding trigger fires only when the venue or period changes, so an existing PENDING request inside a new block is not
+  re-checked. **Known risk:** until SCRUM-106 (flags the booking) and SCRUM-104's approve guard are merged, such a request can still
+  be approved. Merge 106 straight after 105.
+- Order in `submit()`/`change()`: the held-slot check runs first and the block check second, matching the trigger (booking
+  overlap, then block). A request that is both held and blocked reports the held slot.
+- The `activity_log` row is `entity_type = 'venue'`, `entity_id` = the venue (as `set_venue_timing`), `action_type =
+  'venue_unavailability_marked'`.
+- The seeded blocks (October 2026) predate any real use; the Playwright spec creates its own block through the app.
 
 ---
 
