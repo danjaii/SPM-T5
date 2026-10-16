@@ -24,7 +24,8 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
 
   // CORS: the web app (localhost:3000) calls this service straight from the browser, with its login cookie.
   // Only that address gets permission to read the replies; any other website gets none, so the browser blocks
-  // it. Same approach as venue-service's app.ts; SCRUM-18 only reads (GET); SCRUM-19 reserves with a POST.
+  // it. Same approach as venue-service's app.ts; SCRUM-18 only reads (GET); SCRUM-19 reserves with a POST;
+  // SCRUM-87 changes a request's status with a PATCH.
   app.use((req, res, next) => {
     const allowed = process.env.WEB_ORIGIN ?? "http://localhost:3000";
     if (req.headers.origin === allowed) {
@@ -32,7 +33,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
         "Access-Control-Allow-Origin": allowed,
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
         Vary: "Origin",
       });
     }

@@ -1,7 +1,12 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SERVER_EQUIPMENT_URL, SESSION_COOKIE } from "./api";
-import type { EquipmentRequestFormData, EventEquipmentRequestsView } from "./equipmentRequests";
+import type {
+  EquipmentQueueItemView,
+  EquipmentRequestDetailView,
+  EquipmentRequestFormData,
+  EventEquipmentRequestsView,
+} from "./equipmentRequests";
 
 // Server-only: reads equipment-service with the login cookie via next/headers. Client components must not
 // import this file; the browser-safe types and the submit call live in ./equipmentRequests.
@@ -41,4 +46,40 @@ export async function getEventEquipmentRequests(eventId: string): Promise<EventE
   } catch {
     return null;
   }
+}
+
+/** Asks equipment-service for `path` as the signed-in user; anyone not signed in goes to the sign-in page. */
+async function fromEquipmentService(path: string): Promise<Response | undefined> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) redirect("/login");
+
+  let res: Response;
+  try {
+    res = await fetch(`${SERVER_EQUIPMENT_URL}${path}`, {
+      headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+      cache: "no-store",
+    });
+  } catch {
+    return undefined;
+  }
+  if (res.status === 401) redirect("/login");
+  return res;
+}
+
+const UNREACHABLE = "We couldn't reach the server. Please try again.";
+
+/** SCRUM-87/AC1, AC2: the requests waiting for action. AC7: anyone but Technical Support Staff gets the 403 message. */
+export async function getEquipmentQueue(): Promise<{ requests: EquipmentQueueItemView[] } | { error: string }> {
+  const res = await fromEquipmentService("/equipment-requests");
+  if (!res) return { error: UNREACHABLE };
+  const data = await res.json();
+  return res.ok ? { requests: data } : { error: data.error ?? "We couldn't load the equipment requests." };
+}
+
+/** SCRUM-87/AC3: one request in full. */
+export async function getEquipmentRequest(id: string): Promise<{ request: EquipmentRequestDetailView } | { error: string }> {
+  const res = await fromEquipmentService(`/equipment-requests/${encodeURIComponent(id)}`);
+  if (!res) return { error: UNREACHABLE };
+  const data = await res.json();
+  return res.ok ? { request: data } : { error: data.error ?? "We couldn't load this equipment request." };
 }

@@ -205,9 +205,9 @@ describe("SCRUM-102/AC1, AC2 changing and cancelling from the event's list (102-
   // the cancel confirmation lists only this venue booking's equipment that is not already released (AC7)
   it("102-S29 the cancel confirmation for a venue booking lists only its own equipment that is still needed", () => {
     const equipment = [
-      { id: "e-1", equipment: "AV: Projector Unit", quantity: 2, venueName: "Orchid Hall", venueBookingId: "b-pending", notes: null, status: "ARRANGED" as const, statusLabel: "Arranged", releasedReason: null },
-      { id: "e-2", equipment: "Audio: Microphone", quantity: 1, venueName: "Lotus Room", venueBookingId: "b-approved", notes: null, status: "SUBMITTED" as const, statusLabel: "Submitted", releasedReason: null },
-      { id: "e-3", equipment: "Cable", quantity: 5, venueName: "Orchid Hall", venueBookingId: "b-pending", notes: null, status: "RELEASED" as const, statusLabel: "Released", releasedReason: "x" },
+      { id: "e-1", equipment: "AV: Projector Unit", quantity: 2, venueName: "Orchid Hall", venueBookingId: "b-pending", notes: null, status: "ARRANGED" as const, statusLabel: "Arranged", releasedReason: null, reason: null },
+      { id: "e-2", equipment: "Audio: Microphone", quantity: 1, venueName: "Lotus Room", venueBookingId: "b-approved", notes: null, status: "SUBMITTED" as const, statusLabel: "Submitted", releasedReason: null, reason: null },
+      { id: "e-3", equipment: "Cable", quantity: 5, venueName: "Orchid Hall", venueBookingId: "b-pending", notes: null, status: "RELEASED" as const, statusLabel: "Released", releasedReason: "x", reason: null },
     ];
     render(<EventVenueBookings bookings={five} canChange equipment={equipment} />);
 
