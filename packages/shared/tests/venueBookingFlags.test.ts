@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { sgtToUtc } from "../src/venueBooking";
+import { VENUE_BOOKING_ERROR_CODES, VENUE_BOOKING_MESSAGES, sgtToUtc } from "../src/venueBooking";
 import {
   NO_BOOKINGS_AFFECTED_MESSAGE,
   VENUE_BOOKING_FLAG_KINDS,
   VENUE_BOOKING_FLAG_LABELS,
+  bookingsAffectedMessage,
   bufferConflictSummary,
+  describeFlag,
   flagLabel,
   isVenueBookingFlagKind,
 } from "../src/venueBookingFlags";
@@ -77,5 +79,37 @@ describe("SCRUM-104/AC1 bufferConflictSummary (104-S1)", () => {
 describe("SCRUM-104/AC6 no bookings affected (104-S6)", () => {
   it("104-S6: the exact message", () => {
     expect(NO_BOOKINGS_AFFECTED_MESSAGE).toBe("No existing bookings are affected.");
+  });
+
+  it("104-S1/S6: the message after a save counts the flagged pairs, and is the exact none-message at 0", () => {
+    expect(bookingsAffectedMessage(0)).toBe("No existing bookings are affected.");
+    expect(bookingsAffectedMessage(1)).toBe("1 pair of bookings is flagged.");
+    expect(bookingsAffectedMessage(3)).toBe("3 pairs of bookings are flagged.");
+  });
+});
+
+describe("SCRUM-104/AC4 BOOKING_FLAGGED (104-S4)", () => {
+  it("104-S4: the refusal has a code and a standard message that says reject is still possible", () => {
+    expect(VENUE_BOOKING_ERROR_CODES).toContain("BOOKING_FLAGGED");
+    expect(VENUE_BOOKING_MESSAGES.BOOKING_FLAGGED).toBe(
+      "This request is flagged and cannot be approved until the conflict is resolved. You can still reject it.",
+    );
+  });
+});
+
+describe("SCRUM-104/AC3 describeFlag (104-S3)", () => {
+  it("104-S3: a buffer conflict names the other booking's time and day, never an event", () => {
+    const text = describeFlag({
+      kind: "buffer_conflict",
+      label: "Buffer conflict",
+      otherPeriod: { date: "2026-11-14", startTime: "12:30", endTime: "14:00" },
+    });
+    expect(text).toBe("Buffer conflict: another booking at this venue, 12:30 to 14:00 on 14 Nov");
+  });
+
+  it("104-S3: with no period (a flag that is not about another booking) it is just the label", () => {
+    expect(describeFlag({ kind: "venue_unavailable", label: "Venue unavailable – alternative needed", otherPeriod: null })).toBe(
+      "Venue unavailable – alternative needed",
+    );
   });
 });

@@ -50,6 +50,16 @@ export interface FlagDto {
   otherEventName?: string | null;
 }
 
+/**
+ * 104-S3: the line a coordinator sees for a flag, e.g. "Buffer conflict: another booking at this venue, 12:30 to 14:00 on
+ * 14 Nov". It names a time, never an event (36-S5). A flag with no period is just its label.
+ */
+export function describeFlag(flag: Pick<FlagDto, "kind" | "label" | "otherPeriod">): string {
+  const p = flag.otherPeriod;
+  if (!p) return flag.label;
+  return `${flag.label}: another booking at this venue, ${p.startTime} to ${p.endTime} on ${shortDate(p.date)}`;
+}
+
 // ---------------------------------------------------------------------------
 // 104-S1: "Summit A (occupies until 12:45) now conflicts with Summit B (occupies from 12:00)".
 // ---------------------------------------------------------------------------
@@ -97,3 +107,29 @@ export function bufferConflictSummary(
 
 /** 104-S6: what Venue Staff are told after a save that flags nothing. */
 export const NO_BOOKINGS_AFFECTED_MESSAGE = "No existing bookings are affected.";
+
+/** What Venue Staff are told after a save that flags `pairs` pairs of bookings (104-S1). */
+export function bookingsAffectedMessage(pairs: number): string {
+  if (pairs === 0) return NO_BOOKINGS_AFFECTED_MESSAGE;
+  return pairs === 1 ? "1 pair of bookings is flagged." : `${pairs} pairs of bookings are flagged.`;
+}
+
+/** One side of an affected pair in the response of PUT /venues/:id/timing. Singapore date and times. */
+export interface AffectedBookingDto {
+  bookingId: string;
+  eventName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /** Padded edge, an ISO instant: `occupiedUntil` on the first booking, `occupiedFrom` on the second. */
+  occupiedFrom?: string;
+  occupiedUntil?: string;
+}
+
+/** Two bookings that now clash once padded, the earlier first (104-S1). */
+export interface AffectedPairDto {
+  /** The sentence of 104-S1. */
+  summary: string;
+  first: AffectedBookingDto;
+  second: AffectedBookingDto;
+}
