@@ -84,6 +84,17 @@ export interface NewBooking {
   suitability?: BookingSuitability;
 }
 
+/**
+ * SCRUM-105: an unavailability block in the way of a requested slot. Its own period (no setup or turnaround), the reason and the
+ * venue's name, nothing about who recorded it. The refusal message uses the period only; the reason is not given away (105-S4).
+ */
+export interface UnavailabilityConflict {
+  start: Date;
+  end: Date;
+  reason: string;
+  venueName: string;
+}
+
 /** A holding booking that blocks a requested slot (SCRUM-103): its occupied period, plus what a refusal needs to describe it. */
 export interface SlotConflict extends OccupiedPeriod {
   venueName: string;

@@ -21,6 +21,7 @@ function segmentsOf(period: AvailabilityPeriod, day: string): Segment[] {
 // SCRUM-103/AC5 (103-S5): one day at a venue. Each booking is shown as the whole time it occupies the venue, with the event
 // told apart from the setup before it and the turnaround after it. Every part is named in text, not only in colour.
 export function VenueAvailabilityDay({ data }: { data: VenueAvailabilityData }) {
+  const unavailable = data.unavailable ?? [];
   return (
     <section className="venue avail">
       <h1>Availability: {data.venue.name}</h1>
@@ -37,8 +38,23 @@ export function VenueAvailabilityDay({ data }: { data: VenueAvailabilityData }) 
         <button className="btn" type="submit">Show day</button>
       </form>
 
+      {/* SCRUM-105: a block has no setup or turnaround of its own, so it is one labelled "Unavailable" segment */}
+      {unavailable.length > 0 && (
+        <ul className="avail__list" aria-label="Unavailable">
+          {unavailable.map((b) => (
+            <li key={b.id} className="avail__item">
+              <div className="avail__bar">
+                <span className="avail__segment avail__segment--unavailable">
+                  {`Unavailable ${clock(b.start, data.date)} to ${clock(b.end, data.date)} (${b.reasonLabel})`}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {data.periods.length === 0 ? (
-        <p className="empty">No bookings on {data.date}: the venue is free all day.</p>
+        unavailable.length === 0 && <p className="empty">No bookings on {data.date}: the venue is free all day.</p>
       ) : (
         <ul className="avail__list">
           {data.periods.map((period) => (

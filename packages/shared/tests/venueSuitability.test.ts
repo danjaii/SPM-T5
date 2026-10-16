@@ -240,3 +240,14 @@ describe("SCRUM-110/AC2 the confirmation reason (110-S2b)", () => {
     expect(tooLong).toEqual({ ok: false, fieldErrors: { overrideReason: "The reason must be 500 characters or fewer." } });
   });
 });
+
+describe("SCRUM-105/AC4 availability reports an unavailability block (105-S4)", () => {
+  it("105-S4: a conflict of kind unavailable says the venue is unavailable for that period", () => {
+    const conflict = { start: sgtToUtc("2026-11-14", "08:00"), end: sgtToUtc("2026-11-16", "18:00"), exact: true, kind: "unavailable" as const };
+
+    const availability = byKey(checkSuitability(orchid, techConf(), { conflict }), "availability");
+
+    expect(availability.status).toBe("not_met");
+    expect(availability.message).toBe("Unavailable from 14 Nov 08:00 to 16 Nov 18:00");
+  });
+});

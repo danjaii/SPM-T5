@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>(); // login token -> user id
-  const tables: Record<string, Row[]> = { users: [], venues: [] };
+  const tables: Record<string, Row[]> = { users: [], venues: [], venue_unavailability: [] };
 
   const query = (table: string) => {
     const filters: [string, unknown][] = [];

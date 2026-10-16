@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { formatShortSgt, type UnavailabilityBlockView } from "@spm-t5/shared";
 import { VenueTimingForm } from "./VenueTimingForm";
+import { VenueUnavailabilityForm } from "./VenueUnavailabilityForm";
 
 export interface VenueDetails {
   id: string;
@@ -18,6 +20,10 @@ export interface VenueDetails {
   turnaround_minutes: number;
   /** SCRUM-101: true for Venue Staff only (101-S4). */
   can_edit_timing: boolean;
+  /** SCRUM-105: true for Venue Staff only (105-S6). Absent from an older service. */
+  can_mark_unavailable?: boolean;
+  /** SCRUM-105: the blocks that have not ended, earliest first. Notes and recordedBy are Venue Staff only. */
+  unavailability?: UnavailabilityBlockView[];
 }
 
 // SCRUM-29 AC2: all of a venue's characteristics, as used later for suitability checks
@@ -25,6 +31,7 @@ export interface VenueDetails {
 const minutes = (n: number) => `${n} ${n === 1 ? "minute" : "minutes"}`;
 
 export function VenueDetail({ venue }: { venue: VenueDetails }) {
+  const blocks = venue.unavailability ?? [];
   const hours =
     venue.operating_hours_start && venue.operating_hours_end
       ? `${venue.operating_hours_start.slice(0, 5)} – ${venue.operating_hours_end.slice(0, 5)}`
@@ -61,6 +68,24 @@ export function VenueDetail({ venue }: { venue: VenueDetails }) {
       {venue.can_edit_timing && (
         <VenueTimingForm venueId={venue.id} setupMinutes={venue.setup_minutes} turnaroundMinutes={venue.turnaround_minutes} />
       )}
+
+      {/* SCRUM-105: periods when the venue cannot be requested; new requests that touch one are refused (105-S4) */}
+      <h2>Unavailable periods</h2>
+      {blocks.length === 0 ? (
+        <p className="empty">No upcoming unavailable periods.</p>
+      ) : (
+        <ul className="venue__list">
+          {blocks.map((b) => (
+            <li key={b.id}>
+              {`${formatShortSgt(new Date(b.start))} to ${formatShortSgt(new Date(b.end))}, ${b.reasonLabel}`}
+              {b.notes && <span className="venue__note">{b.notes}</span>}
+              {b.recordedBy && <span className="venue__note">{`Recorded by ${b.recordedBy} on ${formatShortSgt(new Date(b.recordedAt))}`}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {venue.can_mark_unavailable && <VenueUnavailabilityForm venueId={venue.id} />}
 
       <h2>Supported layouts</h2>
       {venue.layouts.length === 0 ? (
