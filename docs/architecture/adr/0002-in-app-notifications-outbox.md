@@ -25,7 +25,7 @@ or rewrite anyone's notifications.
   transactional outbox pattern: the `notifications` table is the outbox. If the change rolls back, so does the row.
 - **`notification-service` is the read and mark-read side only.** It lists a user's notifications, counts the unread ones
   and marks one read, always as the caller (publishable key and their token), never with the service-role key.
-- **Row level security makes it safe.** Migration 34 lets a signed-in user select and update only their own rows, and only
+- **Row level security makes it safe.** Migration 35 lets a signed-in user select and update only their own rows, and only
   the `is_read` column, only to true. Nobody but producers can insert. So a bug in the service cannot expose another
   user's notification.
 - **A notification links to a typed target** (`event_id`, `venue_booking_id`), not a URL. At read time the service checks,

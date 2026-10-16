@@ -14,7 +14,7 @@ export interface NotificationRow {
 
 /**
  * Where notifications are read and marked read. The Supabase implementation queries as the caller, so row level
- * security (migration 34) already limits every call to their own rows; the `userId` is a second, explicit filter.
+ * security (migration 35) already limits every call to their own rows; the `userId` is a second, explicit filter.
  */
 export interface NotificationRepository {
   /** The user's newest notifications first. */

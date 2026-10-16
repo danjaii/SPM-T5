@@ -6,7 +6,7 @@ import { listNotifications, markNotificationRead } from "../../src/services/noti
 import { adminClient, DB_ENV, Fixtures, hasDb, signInAs } from "./support/db";
 
 /**
- * Own-rows RLS on notifications (migration 34). Every check signs in as a seeded user, so it goes through the same
+ * Own-rows RLS on notifications (migration 35). Every check signs in as a seeded user, so it goes through the same
  * JWT + publishable-key path the service uses. Fixtures are made with the service-role key and prefixed "IT-".
  */
 const EMAILS = {
@@ -21,7 +21,7 @@ type Actor = { client: SupabaseClient; userId: string };
 /** Postgres "insufficient_privilege": an RLS WITH CHECK failure or a missing grant. */
 const DENIED = "42501";
 
-describe.skipIf(!hasDb)("SCRUM-46 notifications row level security (migration 34)", () => {
+describe.skipIf(!hasDb)("SCRUM-46 notifications row level security (migration 35)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(admin);
   const who = {} as Record<keyof typeof EMAILS, Actor>;

@@ -25,7 +25,7 @@ These override the text below where they conflict.
   | `GET /notifications/unread-count` | 200 `{ unreadCount }` |
   | `POST /notifications/:id/read` | 200 `NotificationItem` (read). Idempotent: reading a read row changes nothing. 422 for an id that is not a uuid, 404 when the row is not the caller's or does not exist |
 
-- **Own rows only is enforced by the database, not the service.** Migration `34_notifications_own_rows.sql` drops the
+- **Own rows only is enforced by the database, not the service.** Migration `35_notifications_own_rows.sql` drops the
   blanket policy `notifications_authenticated_all` (02_rls.sql) and replaces it with SELECT and UPDATE policies on
   `user_id = auth.uid()`. The service queries as the caller (publishable key + their token), so a bug in it still cannot
   show someone else's row. **[DECIDED]**

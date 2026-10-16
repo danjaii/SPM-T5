@@ -330,7 +330,7 @@ isn't recorded, so the next push re-runs it (and fails) or skips another file. T
 | `06_venue_booking_requests.sql` | Venue booking request schema; slot-exclusion and one-active-request-per-event constraints |
 | `07_venue_bookings_rls.sql` | Per-role/own-row RLS for `venue_bookings` |
 | `11_event_registrations.sql` | One active registration per attendee per event (history kept); `list_public_events()` counts Confirmed only; per-role/own-row RLS for `event_registrations` |
-| `34_notifications_own_rows.sql` | Own-rows RLS for `notifications` (select/update only the caller's, `is_read` only), `read_at` trigger, typed `venue_booking_id` link (SCRUM-46) |
+| `35_notifications_own_rows.sql` | Own-rows RLS for `notifications` (select/update only the caller's, `is_read` only), `read_at` trigger, typed `venue_booking_id` link (SCRUM-46) |
 | `14_events_rls.sql` | Per-role RLS for `events`, its history tables, sessions, documents and change requests; narrows `events` UPDATE to `status` and `assigned_coordinator_id`; trigger so only the assigned coordinator changes status (SCRUM-91) |
 
 ## Current status
@@ -342,7 +342,7 @@ notifications (list, unread count, mark read; SCRUM-46) on port 4005 and sends n
 
 RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`),
 the event review tables (`08`), `event_registrations` (`11_event_registrations.sql`), `notifications`
-(`34_notifications_own_rows.sql`) and `events` with its history
+(`35_notifications_own_rows.sql`) and `events` with its history
 tables (`14_events_rls.sql`): on the rest, any authenticated user can access every row. Per-role/own-row policies
 for those are pending (SCRUM-92, SCRUM-93).
 

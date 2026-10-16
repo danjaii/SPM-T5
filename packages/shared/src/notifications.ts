@@ -14,7 +14,7 @@ export const NOTIFICATION_TYPES = [
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
-/** What a notification points at: an event, or a venue booking request (migration 34). */
+/** What a notification points at: an event, or a venue booking request (migration 35). */
 export type NotificationTargetKind = "event" | "venue_booking";
 
 /** AC7: shown instead of a name when the caller can no longer see what the notification points at. */

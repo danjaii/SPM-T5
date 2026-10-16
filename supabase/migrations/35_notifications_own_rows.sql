@@ -1,5 +1,5 @@
 -- ConnectSphere: own-rows Row Level Security for notifications (SCRUM-46)
--- Follows 30_change_cancel_venue_booking.sql
+-- Follows 34_edit_event_details.sql
 --
 -- 02_rls.sql gave notifications one blanket policy (any authenticated user, full access), so any signed-in
 -- user could read, rewrite or delete anyone's notifications. This replaces it, in the style of

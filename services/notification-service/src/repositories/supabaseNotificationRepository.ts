@@ -40,7 +40,7 @@ export class SupabaseNotificationRepository implements NotificationRepository {
   }
 
   async markRead(userId: string, id: string): Promise<NotificationRow | null> {
-    // Only is_read may be written (column grant, migration 34); the trigger sets read_at.
+    // Only is_read may be written (column grant, migration 35); the trigger sets read_at.
     const { data, error } = await this.db
       .from("notifications")
       .update({ is_read: true })

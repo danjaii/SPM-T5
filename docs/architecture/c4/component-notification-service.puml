@@ -8,7 +8,7 @@ title ConnectSphere — Component Diagram: Notification Service (C4 Level 3)
 Container(web, "Web App", "Next.js, React", "Notifications page (/notifications) and the Notifications (n unread) link on every dashboard")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
 System_Ext(emailProvider, "Email/SMS Provider")
-ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "notifications (own rows only: migration 34), events, venue_bookings, users")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "notifications (own rows only: migration 35), events, venue_bookings, users")
 
 Container_Boundary(notificationSvc, "Notification Service") {
   Component(app, "App", "Express (app.ts, server.ts)", "CORS for the web app's origin (GET, POST, credentials); injectable repository and access reader; /health; mounts /notifications behind the session check; error handler")
@@ -33,7 +33,7 @@ Rel(routes, shared, "Parses the limit")
 Rel(svc, shared, "Maps a target to its page")
 Rel(svc, repo, "Own notifications")
 Rel(svc, access, "What the caller can still see")
-Rel(repo, db, "Selects and updates notifications (migration 34 policies and grants)", "PostgREST")
+Rel(repo, db, "Selects and updates notifications (migration 35 policies and grants)", "PostgREST")
 Rel(access, db, "Reads users, events, venue_bookings (their RLS applies)", "PostgREST")
 
 Rel(app, dispatch, "Planned")
