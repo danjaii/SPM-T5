@@ -6,7 +6,7 @@ import { asyncHandler } from "../middlewares/errors";
 import type { SessionUser } from "../middlewares/session";
 import type { AccessReader } from "../readers/accessReader";
 import type { NotificationRepository } from "../repositories/notificationRepository";
-import { listNotifications, markNotificationRead, unreadCount } from "../services/notificationService";
+import { acknowledgeNotification, listNotifications, markNotificationRead, unreadCount } from "../services/notificationService";
 
 const idSchema = z.string().uuid();
 
@@ -44,6 +44,17 @@ export function notificationRoutes(
       const parsed = idSchema.safeParse(req.params.id);
       if (!parsed.success) throw validationFailed("The notification id is not valid.");
       res.json(await markNotificationRead(depsFor(token), id, parsed.data));
+    }),
+  );
+
+  // SCRUM-20/AC4, AC5: acknowledge an on-site assignment notification
+  router.post(
+    "/:id/acknowledge",
+    asyncHandler(async (req, res) => {
+      const { id, token } = res.locals.user as SessionUser;
+      const parsed = idSchema.safeParse(req.params.id);
+      if (!parsed.success) throw validationFailed("The notification id is not valid.");
+      res.json(await acknowledgeNotification(depsFor(token), id, parsed.data));
     }),
   );
 
