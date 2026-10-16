@@ -608,7 +608,7 @@ export function eventRoutes(deps: SupabaseDeps) {
 
     // SCRUM-8 AC1 + AC5: change the status and record it in event_status_history together, all-or-nothing
     // (see supabase/migrations/04_change_event_status.sql). The reason is optional.
-    const { data: event } = await deps
+    const { data: event, error } = await deps
       .forUser(token)
       .rpc("change_event_status", {
         p_event_id: req.params.id,
@@ -616,6 +616,10 @@ export function eventRoutes(deps: SupabaseDeps) {
         p_reason: typeof req.body.reason === "string" ? req.body.reason : null,
       })
       .maybeSingle();
+    // SCRUM-99/AC7: the events_safety_gate trigger (migration 35) refuses preparation before a Safety Approved check
+    if (error?.code === "SC001") {
+      return res.status(409).json({ error: "This event can't move to preparation until it is Safety Approved." });
+    }
 
     // SCRUM-8 AC2: confirm the change by sending back the updated event
     res.json(event);
