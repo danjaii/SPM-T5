@@ -1,4 +1,4 @@
-import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
 
 /**
  * Storage for venue booking requests. The real implementation is Postgres (venue_bookings); the
@@ -17,6 +17,12 @@ export interface BookingRepository {
 
   /** SCRUM-103: the holding requests whose padded period overlaps the window, earliest first (the availability view). */
   occupiedPeriods(venueId: string, from: Date, to: Date): Promise<SlotConflict[]>;
+
+  /**
+   * SCRUM-105: the unavailability blocks whose period overlaps the PADDED request (setup before, turnaround after), earliest
+   * first. The block itself is not padded. Nothing about who made it (venue_unavailability_conflicts, migration 39).
+   */
+  unavailabilityConflicts(venueId: string, start: Date, end: Date): Promise<UnavailabilityConflict[]>;
 
   /** PENDING requests, oldest first: the Venue Staff queue (seam for SCRUM-37). */
   listPending(): Promise<BookingRecord[]>;

@@ -1,10 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getEvent, getEventOutcome } = vi.hoisted(() => ({ getEvent: vi.fn(), getEventOutcome: vi.fn() }));
 const { getEventVenueBookings } = vi.hoisted(() => ({ getEventVenueBookings: vi.fn() }));
 const { getEventChangeHistory } = vi.hoisted(() => ({ getEventChangeHistory: vi.fn(async () => null as unknown) }));
-vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome, getEventChangeHistory }));
+// SCRUM-67: the assigned coordinator's page now loads the change requests too
+const { getChangeRequests } = vi.hoisted(() => ({ getChangeRequests: vi.fn(async () => [] as unknown[]) }));
+// SCRUM-100/AC7: and the Safety Officer's requested changes
+const { getEventSafetyDecisions } = vi.hoisted(() => ({ getEventSafetyDecisions: vi.fn(async () => null as unknown) }));
+vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome, getEventChangeHistory, getChangeRequests, getEventSafetyDecisions }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getEventVenueBookings }));
 const { getEventEquipmentRequests } = vi.hoisted(() => ({ getEventEquipmentRequests: vi.fn() }));
 vi.mock("@/lib/equipmentRequestsServer", () => ({ getEventEquipmentRequests }));
@@ -114,7 +118,8 @@ describe("Event status page route (/events/[id])", () => {
     await screen.findByRole("heading", { name: "Comments" }); // SCRUM-25: loads from the browser
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(["Request details", "Coordinator", "Assignment history", "Comments", "Registrations", "Change status"]);
+    // SCRUM-67: the assigned coordinator also sees the event's change requests, to review them
+    expect(headings).toEqual(["Request details", "Coordinator", "Assignment history", "Comments", "Change requests", "Registrations", "Change status"]);
   });
 
   it("SCRUM-23/AC1, AC2: shows the full request details alongside the status", async () => {
@@ -324,3 +329,49 @@ describe("SCRUM-111 the event page's Edit button, saved message and change histo
 });
 // end of SCRUM-111
 
+// SCRUM-67/AC1 (docs/specs/review-change-request.md)
+describe("SCRUM-67/AC1 the event page tells the assigned coordinator a change request awaits review (67-S1)", () => {
+  it("67-S1: the assigned coordinator sees the notice and a Review link; another coordinator sees no list", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: true } });
+    getChangeRequests.mockResolvedValue([
+      { id: "cr-1", change_description: "Changed: expected attendance", proposed_changes: null, status: "pending", requested_at: "2099-10-01T00:00:00Z", review_notes: null },
+    ]);
+
+    await open("evt-1");
+
+    expect(getChangeRequests).toHaveBeenCalledWith("evt-1");
+    expect(screen.getAllByRole("status").some((el) => el.textContent === "A change request is awaiting your review.")).toBe(true);
+    expect(screen.getByRole("link", { name: "Review" }).getAttribute("href")).toBe("/change-requests/cr-1");
+
+    getChangeRequests.mockClear();
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: false } });
+    cleanup();
+    await open("evt-1");
+    expect(getChangeRequests).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Change requests" })).toBeNull();
+  });
+});
+
+
+describe("SCRUM-100/AC7 the event page shows the Safety Officer's requested changes", () => {
+  beforeEach(() => {
+    getEventVenueBookings.mockReset().mockResolvedValue(null);
+    getEventOutcome.mockReset().mockResolvedValue(null);
+    getEventEquipmentRequests.mockReset().mockResolvedValue(null);
+    stubEventService();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("SCRUM-100/AC7 shows the requested changes it loads for this event", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: true } });
+    getEventSafetyDecisions.mockResolvedValue([
+      { decision: "changes_requested", reason: "Move the stage clear of fire exit B", officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z" },
+    ]);
+
+    await open("evt-1");
+
+    expect(getEventSafetyDecisions).toHaveBeenCalledWith("evt-1");
+    expect(screen.getByRole("heading", { name: "Safety check" })).toBeTruthy();
+    expect(screen.getByText("Move the stage clear of fire exit B")).toBeTruthy();
+  });
+});

@@ -2,7 +2,7 @@
 // them (SCRUM-88). The
 // server-side fetches live in ./equipmentRequestsServer.
 
-import type { EquipmentReadiness, EquipmentRequestReviewStatus, EquipmentRequestStatus } from "@spm-t5/shared";
+import type { EquipmentReadiness, EquipmentRequestReviewStatus, EquipmentRequestStatus, SentBackNote } from "@spm-t5/shared";
 import { EQUIPMENT_URL, type ApiResult } from "./api";
 
 /** GET /events/:id/equipment-request-form: what the request form offers. Venue dates and times are Singapore time. */
@@ -29,6 +29,8 @@ export interface EquipmentRequestView {
   reason: string | null;
   /** SCRUM-102/AC7: for a Released one, why its venue booking was cancelled. */
   releasedReason: string | null;
+  /** SCRUM-113/AC2: sent back to Submitted for review after an important event change. */
+  sentBackForReview?: boolean;
   /** SCRUM-88/AC1, AC4, AC6: whether the viewer may change it. */
   canEdit: boolean;
   /** SCRUM-88/AC8: who last changed it, and when (Singapore time, "2026-10-15 17:40"); null if never changed. */
@@ -125,6 +127,8 @@ export interface EquipmentQueueItemView {
   statusLabel: string;
   /** SCRUM-88/AC2: the coordinator changed it since Technical Support Staff last acted on it. */
   updated: boolean;
+  /** SCRUM-113/AC3: what changed on the event when it was sent back for review; null (or missing) otherwise. */
+  sentBack?: SentBackNote | null;
 }
 
 /** SCRUM-87/AC3: GET /equipment-requests/:id, one request in full. Times are Singapore time. */

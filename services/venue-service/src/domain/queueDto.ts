@@ -1,4 +1,12 @@
-import { dbStatusToApi, utcToSgt, type FlagDto, type UnmetRequirement, type VenueBookingStatus } from "@spm-t5/shared";
+import {
+  dbStatusToApi,
+  sentBackNote,
+  utcToSgt,
+  type FlagDto,
+  type SentBackNote,
+  type UnmetRequirement,
+  type VenueBookingStatus,
+} from "@spm-t5/shared";
 import { rejectionReasonOf } from "./dto";
 import type { BookingRecord } from "./types";
 
@@ -28,6 +36,8 @@ export interface QueueItem {
   suitabilityOverrideReason: string | null;
   /** SCRUM-104: the open flags, with the other booking's event name (Venue Staff only). A flagged request cannot be approved. */
   flags: FlagDto[];
+  /** SCRUM-113/AC3: what changed on the event when it was sent back for review; null otherwise. */
+  sentBack: SentBackNote | null;
 }
 
 /** One request opened from the queue or by its address: a queue item plus its status and outcome (37-S6). */
@@ -40,7 +50,13 @@ export interface QueueDetail extends QueueItem {
   suggestion: null;
 }
 
-export function toQueueItem(b: BookingRecord, venueName: string, requestedByName: string | null, flags: FlagDto[] = []): QueueItem {
+export function toQueueItem(
+  b: BookingRecord,
+  venueName: string,
+  requestedByName: string | null,
+  flags: FlagDto[] = [],
+  layoutNames: ReadonlyMap<string, string> = new Map(),
+): QueueItem {
   return {
     id: b.id,
     eventId: b.eventId,
@@ -60,14 +76,21 @@ export function toQueueItem(b: BookingRecord, venueName: string, requestedByName
     suitabilityUnmet: b.suitabilityUnmet ?? [],
     suitabilityOverrideReason: b.suitabilityOverrideReason,
     flags,
+    sentBack: sentBackNote(b.sentBackChanges, b.sentBackAt?.toISOString() ?? null, layoutNames),
   };
 }
 
-export function toQueueDetail(b: BookingRecord, venueName: string, names: Map<string, string>, flags: FlagDto[] = []): QueueDetail {
+export function toQueueDetail(
+  b: BookingRecord,
+  venueName: string,
+  names: Map<string, string>,
+  flags: FlagDto[] = [],
+  layoutNames: ReadonlyMap<string, string> = new Map(),
+): QueueDetail {
   const status = dbStatusToApi(b.status);
   const decided = status === "APPROVED" || status === "REJECTED";
   return {
-    ...toQueueItem(b, venueName, (b.requestedBy && names.get(b.requestedBy)) || null, flags),
+    ...toQueueItem(b, venueName, (b.requestedBy && names.get(b.requestedBy)) || null, flags, layoutNames),
     status,
     decidedByName: decided && b.reviewedBy ? (names.get(b.reviewedBy) ?? null) : null,
     decidedAt: decided && b.reviewedAt ? b.reviewedAt.toISOString() : null,

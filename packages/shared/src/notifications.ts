@@ -10,6 +10,10 @@ export const NOTIFICATION_TYPES = [
   "event_confirmed",
   "registration_opened",
   "venue_booking_flagged",
+  // SCRUM-20: on-site technical support assignments (migration 41)
+  "technical_assignment_assigned",
+  "technical_assignment_changed",
+  "technical_assignment_cancelled",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -41,6 +45,18 @@ export interface NotificationItem {
   /** ISO timestamp of when it was first read; null while unread. */
   readAt: string | null;
   related: NotificationRelated | null;
+  /**
+   * SCRUM-20/AC4: only on an on-site assignment notification that can be acknowledged ("assigned" or "changed"):
+   * whether it can still be acknowledged, and when it was. Absent on every other notification.
+   */
+  acknowledgement?: NotificationAcknowledgement;
+}
+
+/** SCRUM-20: an assignment notification can be acknowledged only while it is about the assignment's current details. */
+export interface NotificationAcknowledgement {
+  canAcknowledge: boolean;
+  /** ISO timestamp of when the technician acknowledged these details; null while not acknowledged. */
+  acknowledgedAt: string | null;
 }
 
 /**

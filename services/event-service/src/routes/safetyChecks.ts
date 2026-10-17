@@ -66,3 +66,26 @@ export function safetyCheckRoutes(deps: SupabaseDeps) {
 
   return router;
 }
+
+/**
+ * SCRUM-100/AC7: the Safety Officer's requested changes, for the event's coordinator and organiser. event_safety_decisions()
+ * (migration 43) decides who may see them.
+ */
+export function safetyDecisionRoutes(deps: SupabaseDeps) {
+  const router = Router();
+
+  router.get("/:id/safety-decisions", requireSession(deps), async (req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const { data, error } = await deps.forUser(token).rpc("event_safety_decisions", { p_event_id: req.params.id });
+    if (error?.code === "42501") {
+      return res.status(403).json({ error: "You are not allowed to view this event's safety decisions." });
+    }
+    if (error) {
+      console.error("event_safety_decisions failed:", error.message);
+      return res.status(500).json({ error: "We couldn't load the safety decisions. Please try again." });
+    }
+    return res.json(data);
+  });
+
+  return router;
+}

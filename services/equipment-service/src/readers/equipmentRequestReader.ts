@@ -31,6 +31,9 @@ export interface EquipmentRequestInfo {
   lastChangedBy: string | null;
   lastChangedAt: Date | null;
   createdAt: Date;
+  /** SCRUM-113: the event's changes that sent it back for review ({ field: { from, to } }), and when; null otherwise. */
+  sentBackChanges: unknown;
+  sentBackAt: Date | null;
 }
 
 export interface EquipmentRequestReader {
@@ -47,6 +50,7 @@ type Row = Record<string, unknown>;
 const COLUMNS =
   "id, event_id, equipment_id, venue_booking_id, quantity_requested, notes, status, start_datetime, end_datetime, " +
   "review_reason, last_edited_at, created_at, editor:users!equipment_reservations_last_edited_by_fkey(full_name), " +
+  "sent_back_changes, sent_back_at, " +
   "event:events(name, status, preferred_start_datetime), equipment:equipment(name, type), " +
   "booking:venue_bookings(cancellation_reason, venue:venues!venue_bookings_venue_id_fkey(name))";
 
@@ -77,6 +81,8 @@ const toRequest = (r: Row): EquipmentRequestInfo => {
     lastChangedBy: r.last_edited_at ? ((editor?.full_name as string | undefined) ?? "Unknown user") : null,
     lastChangedAt: r.last_edited_at ? new Date(r.last_edited_at as string) : null,
     createdAt: new Date(r.created_at as string),
+    sentBackChanges: r.sent_back_changes ?? null,
+    sentBackAt: r.sent_back_at ? new Date(r.sent_back_at as string) : null,
   };
 };
 

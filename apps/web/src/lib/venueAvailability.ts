@@ -1,4 +1,4 @@
-import { utcToSgt } from "@spm-t5/shared";
+import { utcToSgt, type UnavailabilityBlockView } from "@spm-t5/shared";
 
 // Browser-safe types and helpers for the venue availability view (SCRUM-103). The server-side fetch is in
 // ./venueAvailabilityServer.
@@ -21,6 +21,8 @@ export interface VenueAvailabilityData {
   setup_minutes: number;
   turnaround_minutes: number;
   periods: AvailabilityPeriod[];
+  /** SCRUM-105: the unavailability blocks touching the day (absent from an older service). */
+  unavailable?: UnavailabilityBlockView[];
 }
 
 /** "HH:MM" Singapore time, with the date in front when it is not on `day`. */

@@ -55,6 +55,8 @@ export interface SafetyDecisionRecord {
   reason: string | null;
   officer_name: string;
   decided_at: string;
+  /** SCRUM-100/AC9: when an important change made this decision stop applying; null or absent while it applies */
+  revoked_at?: string | null;
 }
 
 /** SCRUM-99/AC3: an event's safety information, as event-service returns it. */

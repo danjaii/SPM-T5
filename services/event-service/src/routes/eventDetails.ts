@@ -4,26 +4,23 @@ import {
   EVENT_IMPORTANT_FIELDS,
   EVENT_IMPORTANT_FORM_FIELDS,
   EVENT_ORDINARY_FIELDS,
-  affectedArrangements,
   eventDetailsFormValues,
   isClosedEventStatus,
   parseEventDetailsInput,
   type CurrentEventDetails,
-  type EventDetailsChanges,
-  type ImpactEquipmentRequest,
-  type ImpactVenueBooking,
 } from "@spm-t5/shared";
 import { requireSession, type SessionUser } from "../middlewares/session";
+import { readAffectedArrangements, sendBackOf } from "../services/arrangementImpact";
 import type { SupabaseDeps } from "../supabase";
 import { lookUpRole } from "./events";
 
 /** The columns the edit works on, plus who coordinates the event and its status. */
-const EDITABLE_COLUMNS =
+export const EDITABLE_COLUMNS =
   "id, status, assigned_coordinator_id, name, description, purpose, event_category_id, preferred_start_datetime, " +
   "preferred_end_datetime, expected_attendance, preferred_room_layout_id, accessibility_requirements, venue_requirements, " +
   "equipment_requirements_notes";
 
-type EditableEventRow = CurrentEventDetails & { id: string; status: string; assigned_coordinator_id: string | null };
+export type EditableEventRow = CurrentEventDetails & { id: string; status: string; assigned_coordinator_id: string | null };
 
 type HistoryRow = {
   id: string;
@@ -34,24 +31,6 @@ type HistoryRow = {
 };
 
 const HISTORY_NOT_ALLOWED = { error: "You are not allowed to view this event's history." };
-
-type VenueBookingRow = {
-  id: string;
-  status: string;
-  event_start_datetime: string;
-  event_end_datetime: string;
-  snapshot_expected_attendance: number | null;
-  venue: { name: string; max_capacity: number } | null;
-};
-
-type EquipmentRequestRow = {
-  id: string;
-  status: string;
-  quantity_requested: number;
-  start_datetime: string;
-  end_datetime: string;
-  equipment: { name: string } | null;
-};
 
 const LOCKED = { code: "EVENT_LOCKED", error: "A completed, cancelled or rejected event can't be edited." };
 const NOT_ALLOWED = { error: "You are not allowed to edit this event." };
@@ -81,45 +60,6 @@ function saveFailed(res: Response, error: { code?: string; message: string }) {
  */
 export function eventDetailsRoutes(deps: SupabaseDeps, now: () => Date) {
   const router = Router();
-
-  /**
-   * SCRUM-112: the event's venue bookings and equipment requests that an important change affects, read as the coordinator.
-   * Null if they could not be read, so the change is not saved without the coordinator having seen them.
-   */
-  async function affectedBy(token: string, event: EditableEventRow, changes: EventDetailsChanges) {
-    const db = deps.forUser(token);
-    // "!venue_id": venue_bookings also links to venues through suggested_venue_id (SCRUM-40), so name the booked one
-    const bookings = await db
-      .from("venue_bookings")
-      .select("id, status, event_start_datetime, event_end_datetime, snapshot_expected_attendance, venue:venues!venue_id(name, max_capacity)")
-      .eq("event_id", event.id);
-    const requests = await db
-      .from("equipment_reservations")
-      .select("id, status, quantity_requested, start_datetime, end_datetime, equipment:equipment(name)")
-      .eq("event_id", event.id);
-    if (bookings.error || requests.error) {
-      console.error("reading the event's arrangements failed:", (bookings.error ?? requests.error)!.message);
-      return null;
-    }
-    const venueBookings: ImpactVenueBooking[] = ((bookings.data ?? []) as unknown as VenueBookingRow[]).map((b) => ({
-      id: b.id,
-      venueName: b.venue?.name ?? "Venue",
-      venueCapacity: b.venue?.max_capacity ?? 0,
-      status: b.status,
-      start: b.event_start_datetime,
-      end: b.event_end_datetime,
-      expectedAttendance: b.snapshot_expected_attendance,
-    }));
-    const equipmentRequests: ImpactEquipmentRequest[] = ((requests.data ?? []) as unknown as EquipmentRequestRow[]).map((r) => ({
-      id: r.id,
-      equipmentName: r.equipment?.name ?? "Equipment",
-      quantity: r.quantity_requested,
-      status: r.status,
-      start: r.start_datetime,
-      end: r.end_datetime,
-    }));
-    return affectedArrangements(changes, event, venueBookings, equipmentRequests);
-  }
 
   /** The categories or room layouts to choose from, by name. */
   async function choices(token: string, table: "event_categories" | "room_layouts") {
@@ -224,21 +164,22 @@ export function eventDetailsRoutes(deps: SupabaseDeps, now: () => Date) {
 
     // SCRUM-112/AC1 to AC5: an important change that affects arrangements is shown to the coordinator first, and saved
     // only when they send it again with confirmImpact: true; AC6: one that affects nothing is saved straight away
-    if (important && req.body?.confirmImpact !== true) {
-      const affected = await affectedBy(user.token, event, changes);
-      if (!affected) return res.status(500).json({ error: "We couldn't check the event's arrangements. Please try again." });
-      if (affected.length > 0) {
-        return res.status(409).json({
-          code: "CONFIRM_IMPACT",
-          error: "This change may affect existing arrangements. Check them before saving.",
-          affected,
-        });
-      }
+    const affected = important ? await readAffectedArrangements(deps, user.token, event, changes) : [];
+    if (!affected) return res.status(500).json({ error: "We couldn't check the event's arrangements. Please try again." });
+    if (affected.length > 0 && req.body?.confirmImpact !== true) {
+      return res.status(409).json({
+        code: "CONFIRM_IMPACT",
+        error: "This change may affect existing arrangements. Check them before saving.",
+        affected,
+      });
     }
 
+    // SCRUM-113: the same arrangements are sent back for review in the same step (migration 40); it works out
+    // "important" itself
+    const sendBack = affected.length > 0 && { p_send_back: sendBackOf(affected) };
     const { error } = await deps
       .forUser(user.token)
-      .rpc("update_event_details", { p_event_id: event.id, p_changes: changes }); // it works out "important" itself
+      .rpc("update_event_details", { p_event_id: event.id, p_changes: changes, ...sendBack });
     if (error) return saveFailed(res, error);
 
     return res.json({ changes, important, message: "Event details saved." });

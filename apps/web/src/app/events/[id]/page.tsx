@@ -7,14 +7,17 @@ import { EventChangeRequestForm } from "@/components/EventChangeRequestForm";
 import { EventChangeRequestList } from "@/components/EventChangeRequestList";
 import { EventComments } from "@/components/EventComments";
 import { EventEquipmentRequests } from "@/components/EventEquipmentRequests";
+import { EventTechnicalAssignments } from "@/components/EventTechnicalAssignments";
 import { EventRequestDetails } from "@/components/EventRequestDetails";
 import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBookings } from "@/components/EventVenueBookings";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
+import { EventSafetyDecisions } from "@/components/EventSafetyDecisions";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
-import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome } from "@/lib/getEvent";
+import { getEventTechnicalAssignments } from "@/lib/technicalAssignmentsServer";
+import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
 import { getEventVenueBookings } from "@/lib/venueBookingsServer";
 
 // Rendered per request: what's shown depends on who is signed in.
@@ -41,11 +44,22 @@ export default async function EventPage({
   // SCRUM-44: the coordinator's decision, when there is one and the viewer may see it (else null).
   // SCRUM-86: the equipment requests, when the viewer may see them (else null).
   // SCRUM-111/AC4: the change history, when the viewer may see it (else null).
-  const [venueBookings, outcome, equipmentRequests, changeHistory] = "event" in result
-    ? await Promise.all([getEventVenueBookings(id), getEventOutcome(id), getEventEquipmentRequests(id), getEventChangeHistory(id)])
-    : [null, null, null, null];
+  // SCRUM-20: the on-site technical support assignments, for the event's coordinator (else null).
+  // SCRUM-100/AC7: the Safety Officer's requested changes, for the event's coordinator and organiser (else null).
+  const [venueBookings, outcome, equipmentRequests, changeHistory, technicalAssignments, safetyDecisions] = "event" in result
+    ? await Promise.all([
+        getEventVenueBookings(id),
+        getEventOutcome(id),
+        getEventEquipmentRequests(id),
+        getEventChangeHistory(id),
+        getEventTechnicalAssignments(id),
+        getEventSafetyDecisions(id),
+      ])
+    : [null, null, null, null, null, null];
 
-  const changeRequests = "event" in result && result.event.isOrganiser ? await getChangeRequests(id) : [];
+  // SCRUM-66: the organiser's own requests; SCRUM-67: the assigned coordinator reviews them
+  const seesChangeRequests = "event" in result && (result.event.isOrganiser || result.event.canChangeStatus);
+  const changeRequests = seesChangeRequests ? await getChangeRequests(id) : [];
 
   return (
     <>
@@ -74,6 +88,7 @@ export default async function EventPage({
                 </div>
               )}
               <EventChangeHistory entries={changeHistory} />
+              <EventSafetyDecisions decisions={safetyDecisions} />
               <CoordinatorAssignment
                 eventId={result.event.id}
                 coordinatorName={result.event.point_of_contact_name}
@@ -87,8 +102,12 @@ export default async function EventPage({
               />
               {/* SCRUM-86/AC2, AC3: the event's equipment requests; AC6, AC7: Request equipment only when allowed */}
               <EventEquipmentRequests eventId={result.event.id} data={equipmentRequests} />
+              {/* SCRUM-20: assign, change and cancel on-site technical support; the technician is notified each time */}
+              <EventTechnicalAssignments eventId={result.event.id} data={technicalAssignments} />
               {/* SCRUM-66: organisers see their change requests (AC7) and, while the status allows it, can make one (AC1-AC3) */}
-              {result.event.isOrganiser && <EventChangeRequestList requests={changeRequests} />}
+              {(result.event.isOrganiser || result.event.canChangeStatus) && (
+                <EventChangeRequestList requests={changeRequests} reviewable={result.event.canChangeStatus} />
+              )}
               {result.event.canRequestChange && <EventChangeRequestForm event={result.event} />}
               {/* SCRUM-83/AC15: the registration information page (only this page's viewers, organisers and
                   coordinators, can open it; RLS decides whose registrations they see) */}

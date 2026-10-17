@@ -87,6 +87,7 @@ describe("SCRUM-86/AC1 create a request", () => {
       canEdit: true, // SCRUM-88
       lastChangedBy: null,
       lastChangedAt: null,
+      sentBackForReview: false, // SCRUM-113: new requests were never sent back
     });
     expect(writer.saved).toEqual([
       {
@@ -180,6 +181,7 @@ describe("SCRUM-86/AC2 see the request on the event", () => {
         canEdit: true, // SCRUM-88
         lastChangedBy: null,
         lastChangedAt: null,
+        sentBackForReview: false, // SCRUM-113: not sent back for review
       },
     ]);
   });

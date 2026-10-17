@@ -144,6 +144,8 @@ export interface EventVenueBookingItem extends VenueBookingChainItem {
   venueRequirements: string | null;
   /** More people expected than the venue holds: a warning, never a refusal. */
   exceedsCapacity: boolean;
+  /** SCRUM-113/AC1: sent back to Pending for review after an important event change. */
+  sentBackForReview?: boolean;
 }
 
 /**

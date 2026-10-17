@@ -82,6 +82,8 @@ export interface EquipmentRequestView {
   /** SCRUM-88/AC8: who last changed it, and when (Singapore time, "2026-10-15 17:40"); null if never changed. */
   lastChangedBy: string | null;
   lastChangedAt: string | null;
+  /** SCRUM-113/AC2: sent back to Submitted for review after an important event change, and not reviewed since. */
+  sentBackForReview: boolean;
 }
 
 /** GET /events/:id/equipment-requests: the event's requests, and whether the caller may add one. */
@@ -200,6 +202,7 @@ export class EquipmentRequestService {
       canEdit: true,
       lastChangedBy: null,
       lastChangedAt: null,
+      sentBackForReview: false,
     };
   }
 
@@ -305,6 +308,7 @@ export class EquipmentRequestService {
       canEdit: mayChange && isEditableEquipmentRequest(status),
       lastChangedBy: r.lastChangedBy,
       lastChangedAt: sgtMoment(r.lastChangedAt),
+      sentBackForReview: r.sentBackAt !== null,
     };
   }
 }

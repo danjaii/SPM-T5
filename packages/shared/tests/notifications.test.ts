@@ -26,6 +26,10 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
       "event_confirmed",
       "registration_opened",
       "venue_booking_flagged",
+      // SCRUM-20: on-site technical support assignments
+      "technical_assignment_assigned",
+      "technical_assignment_changed",
+      "technical_assignment_cancelled",
     ]);
   });
 });

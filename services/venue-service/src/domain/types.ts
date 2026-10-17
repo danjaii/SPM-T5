@@ -49,6 +49,9 @@ export interface BookingRecord {
   suitability: "suitable" | "not_suitable" | null;
   suitabilityUnmet: UnmetRequirement[] | null;
   suitabilityOverrideReason: string | null;
+  /** SCRUM-113: the event's changes that sent it back for review ({ field: { from, to } }), and when; null otherwise. */
+  sentBackChanges: unknown;
+  sentBackAt: Date | null;
 }
 
 /** SCRUM-102/AC1: a venue booking's new period and its own numbers. Its venue never changes. */
@@ -82,6 +85,17 @@ export interface NewBooking {
   fromSuggestion?: boolean;
   /** SCRUM-110. submit() always sets it. */
   suitability?: BookingSuitability;
+}
+
+/**
+ * SCRUM-105: an unavailability block in the way of a requested slot. Its own period (no setup or turnaround), the reason and the
+ * venue's name, nothing about who recorded it. The refusal message uses the period only; the reason is not given away (105-S4).
+ */
+export interface UnavailabilityConflict {
+  start: Date;
+  end: Date;
+  reason: string;
+  venueName: string;
 }
 
 /** A holding booking that blocks a requested slot (SCRUM-103): its occupied period, plus what a refusal needs to describe it. */

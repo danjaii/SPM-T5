@@ -6,7 +6,9 @@ export type ServiceErrorCode =
   | "NOT_FOUND"
   | "EVENT_LOCKED"
   | "NOT_WAITING"
-  | "NOT_EDITABLE";
+  | "NOT_EDITABLE"
+  | "ALREADY_ASSIGNED"
+  | "ASSIGNMENT_CANCELLED";
 
 export class ServiceError extends Error {
   constructor(
@@ -67,3 +69,11 @@ export const tooFewToArrange = (available: number, needed: number) =>
     undefined,
     available,
   );
+
+/** 409, SCRUM-20/S3: that technician is already on that venue booking. */
+export const alreadyAssigned = () =>
+  new ServiceError("ALREADY_ASSIGNED", 409, "This technician is already assigned to that venue booking.");
+
+/** 409, SCRUM-20/S7: a cancelled assignment cannot be changed or cancelled again. */
+export const assignmentCancelled = () =>
+  new ServiceError("ASSIGNMENT_CANCELLED", 409, "This assignment has been cancelled, so it can no longer be changed.");

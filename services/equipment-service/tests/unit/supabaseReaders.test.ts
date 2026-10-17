@@ -274,6 +274,9 @@ describe("SCRUM-86 Supabase readers and writer", () => {
           last_edited_at: "2026-10-15T09:40:00+00:00",
           editor: { full_name: "Rachel Tan" },
           created_at: "2026-10-01T01:00:00+00:00",
+          // SCRUM-113: sent back for review after the event's attendance changed
+          sent_back_changes: { expected_attendance: { from: 480, to: 600 } },
+          sent_back_at: "2026-10-02T03:00:00+00:00",
           event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: "2026-10-15T01:00:00+00:00" },
           equipment: { name: "Wireless Microphone Set", type: "Audio" },
           booking: { cancellation_reason: null, venue: { name: "Grand Hall" } },
@@ -287,11 +290,11 @@ describe("SCRUM-86 Supabase readers and writer", () => {
     });
 
     expect(await new SupabaseEquipmentRequestReader(db).forEvent("evt-1")).toEqual([
-      { id: "req-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentId: "eq-mic", equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", venueBookingId: "vb-1", notes: "On stage", status: "requested", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: null, lastChangedBy: "Rachel Tan", lastChangedAt: new Date("2026-10-15T09:40:00Z"), createdAt: new Date("2026-10-01T01:00:00Z") },
-      { id: "rel-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentId: "eq-cable", equipmentName: "Cable", equipmentType: null, quantity: 3, venueName: "Orchid Hall", venueBookingId: "vb-2", notes: null, status: "cancelled", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: "Moved to a bigger room", lastChangedBy: null, lastChangedAt: null, createdAt: new Date("2026-10-02T01:00:00Z") },
+      { id: "req-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentId: "eq-mic", equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", venueBookingId: "vb-1", notes: "On stage", status: "requested", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: null, lastChangedBy: "Rachel Tan", lastChangedAt: new Date("2026-10-15T09:40:00Z"), createdAt: new Date("2026-10-01T01:00:00Z"), sentBackChanges: { expected_attendance: { from: 480, to: 600 } }, sentBackAt: new Date("2026-10-02T03:00:00Z") },
+      { id: "rel-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentId: "eq-cable", equipmentName: "Cable", equipmentType: null, quantity: 3, venueName: "Orchid Hall", venueBookingId: "vb-2", notes: null, status: "cancelled", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: "Moved to a bigger room", lastChangedBy: null, lastChangedAt: null, createdAt: new Date("2026-10-02T01:00:00Z"), sentBackChanges: null, sentBackAt: null },
       // SCRUM-87/AC5: a Cannot Fulfil row carries its reason; an event with no date has no eventStart.
       // SCRUM-88/AC8: a change by someone whose name cannot be read still says it was changed.
-      { id: "res-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: null, equipmentId: "eq-cable", equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, venueBookingId: null, notes: null, status: "rejected", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: "All out on loan", venueBookingCancellationReason: null, lastChangedBy: "Unknown user", lastChangedAt: new Date("2026-10-14T01:00:00Z"), createdAt: new Date("2026-09-01T01:00:00Z") },
+      { id: "res-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: null, equipmentId: "eq-cable", equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, venueBookingId: null, notes: null, status: "rejected", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: "All out on loan", venueBookingCancellationReason: null, lastChangedBy: "Unknown user", lastChangedAt: new Date("2026-10-14T01:00:00Z"), createdAt: new Date("2026-09-01T01:00:00Z"), sentBackChanges: null, sentBackAt: null },
     ]);
     expect(calls).toContainEqual(["from", "equipment_reservations"]);
     expect(calls).toContainEqual(["eq", "event_id", "evt-1"]);

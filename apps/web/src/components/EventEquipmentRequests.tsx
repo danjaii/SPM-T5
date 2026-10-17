@@ -46,6 +46,8 @@ export function EventEquipmentRequests({ eventId, data }: { eventId: string; dat
                     {r.lastChangedBy && (
                       <span className="field__hint"><br />Last changed by {r.lastChangedBy}, {r.lastChangedAt}</span>
                     )}
+                    {/* SCRUM-113/AC2: back to Submitted after an important change; technical support review it again */}
+                    {r.sentBackForReview && <span className="vb__note">Waiting for review again after an event change</span>}
                   </td>
                   {data.requests.some((x) => x.canEdit) && (
                     <td>

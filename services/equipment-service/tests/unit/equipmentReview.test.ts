@@ -73,6 +73,7 @@ describe("SCRUM-87/AC1 see the list of requests", () => {
         status: "SUBMITTED",
         statusLabel: "Submitted",
         updated: false, // SCRUM-88/AC2
+        sentBack: null, // SCRUM-113: not sent back for review
       },
     ]);
   });
@@ -143,6 +144,7 @@ describe("SCRUM-87/AC3 see request details", () => {
       canReview: true,
       lastChangedBy: null, // SCRUM-88/AC8
       lastChangedAt: null,
+      sentBack: null, // SCRUM-113: not sent back for review
     });
   });
 

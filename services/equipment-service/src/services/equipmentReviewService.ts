@@ -8,8 +8,10 @@ import {
   isUpdatedEquipmentRequest,
   isWaitingEquipmentRequest,
   parseEquipmentRequestReviewInput,
+  sentBackNote,
   utcToSgt,
   type EquipmentRequestStatus,
+  type SentBackNote,
 } from "@spm-t5/shared";
 import { eventLocked, forbidden, notFound, notWaiting, tooFewToArrange, validationFailed } from "../domain/errors";
 import type { Ports } from "../ports";
@@ -31,6 +33,8 @@ export interface EquipmentQueueItem {
   statusLabel: string;
   /** SCRUM-88/AC2: the coordinator changed it since Technical Support Staff last acted on it. */
   updated: boolean;
+  /** SCRUM-113/AC3: what changed on the event when it was sent back for review; null otherwise. */
+  sentBack: SentBackNote | null;
 }
 
 /** SCRUM-87/AC3: one request in full. Dates and times are Singapore time. */
@@ -53,6 +57,14 @@ function shownStatus(r: EquipmentRequestInfo): EquipmentRequestStatus | undefine
   return equipmentRequestStatusOf(r.status);
 }
 
+/** SCRUM-113: the changes that matter for equipment; the room layout and venue requirements are Venue Staff's. */
+const EQUIPMENT_NOTE_FIELDS = ["preferred_start_datetime", "preferred_end_datetime", "expected_attendance", "equipment_requirements_notes"];
+
+function equipmentSentBack(r: EquipmentRequestInfo): SentBackNote | null {
+  const note = sentBackNote(r.sentBackChanges, r.sentBackAt?.toISOString() ?? null);
+  return note && { ...note, changes: note.changes.filter((c) => EQUIPMENT_NOTE_FIELDS.includes(c.field)) };
+}
+
 function toQueueItem(r: EquipmentRequestInfo, status: EquipmentRequestStatus): EquipmentQueueItem {
   return {
     id: r.id,
@@ -65,6 +77,7 @@ function toQueueItem(r: EquipmentRequestInfo, status: EquipmentRequestStatus): E
     status,
     statusLabel: EQUIPMENT_REQUEST_STATUS_LABELS[status],
     updated: isUpdatedEquipmentRequest(status, r.lastChangedAt),
+    sentBack: equipmentSentBack(r),
   };
 }
 

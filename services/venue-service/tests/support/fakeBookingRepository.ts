@@ -1,6 +1,6 @@
 import { dbStatusToApi, isHoldingDbStatus, paddedPeriod, periodsOverlap, type Period, type VenueTiming } from "@spm-t5/shared";
 import { bookingError } from "../../src/domain/errors";
-import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict } from "../../src/domain/types";
+import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../../src/domain/types";
 import type { AffectedPair, VenueTimingWriter } from "../../src/readers/venueTimingWriter";
 import type { BookingRepository } from "../../src/repositories/bookingRepository";
 
@@ -124,6 +124,27 @@ export class FakeBookingRepository implements BookingRepository {
     this.venues.set(venueId, { name: venue.name ?? venueId, setupMinutes: venue.setupMinutes ?? 0, turnaroundMinutes: venue.turnaroundMinutes ?? 0 });
   }
 
+  private readonly blocks: { venueId: string; start: Date; end: Date; reason: string }[] = [];
+
+  /** SCRUM-105: an unavailability block on a venue. The padded-overlap trigger (migration 39) refuses bookings that touch it. */
+  setUnavailable(venueId: string, start: Date, end: Date, reason = "maintenance"): void {
+    this.blocks.push({ venueId, start, end, reason });
+  }
+
+  /** The blocks that overlap the padded `p` (half-open; the block itself is not padded), earliest first. */
+  private blocksFor(venueId: string, p: Period) {
+    const venue = this.venueOf(venueId);
+    const wanted = paddedPeriod(p, venue);
+    return this.blocks
+      .filter((b) => b.venueId === venueId && periodsOverlap(b, wanted))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }
+
+  async unavailabilityConflicts(venueId: string, start: Date, end: Date): Promise<UnavailabilityConflict[]> {
+    const venue = this.venueOf(venueId);
+    return this.blocksFor(venueId, { start, end }).map((b) => ({ start: b.start, end: b.end, reason: b.reason, venueName: venue.name }));
+  }
+
   private venueOf(venueId: string) {
     return this.venues.get(venueId) ?? { name: venueId, setupMinutes: 0, turnaroundMinutes: 0 };
   }
@@ -159,6 +180,8 @@ export class FakeBookingRepository implements BookingRepository {
       suitability: null,
       suitabilityUnmet: null,
       suitabilityOverrideReason: null,
+      sentBackChanges: null,
+      sentBackAt: null,
       ...partial,
     };
     this.rows.push(row);
@@ -228,6 +251,7 @@ export class FakeBookingRepository implements BookingRepository {
     if (this.conflictsWith(row.venueId, change, id).length > 0) {
       throw bookingError("SLOT_CONFLICT");
     }
+    if (this.blocksFor(row.venueId, change).length > 0) throw bookingError("VENUE_UNAVAILABLE"); // migration 39
     const moved = change.start.getTime() !== row.start.getTime() || change.end.getTime() !== row.end.getTime();
     Object.assign(row, {
       start: change.start,
@@ -281,6 +305,7 @@ export class FakeBookingRepository implements BookingRepository {
     if (this.conflictsWith(input.venueId, input).length > 0) {
       throw bookingError("SLOT_CONFLICT");
     }
+    if (this.blocksFor(input.venueId, input).length > 0) throw bookingError("VENUE_UNAVAILABLE"); // migration 39
     return this.seed({
       eventId: input.eventId,
       venueId: input.venueId,

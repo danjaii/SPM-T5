@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>();
-  const tables: Record<string, Row[]> = { users: [], venues: [] };
+  const tables: Record<string, Row[]> = { users: [], venues: [], venue_unavailability: [] };
   const query = (table: string) => {
     const filters: [string, unknown][] = [];
     const run = () => tables[table].filter((r) => filters.every(([col, val]) => r[col] === val)).map((r) => ({ ...r }));
@@ -72,6 +72,7 @@ describe("SCRUM-103/AC5 availability shows the padded period (103-S5)", () => {
           occupied_end: at("12:45").toISOString(),
         },
       ],
+      unavailable: [], // SCRUM-105
     });
   });
 

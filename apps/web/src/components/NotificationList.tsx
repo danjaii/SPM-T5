@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { NotificationItem } from "@spm-t5/shared";
-import { markNotificationRead } from "@/lib/notifications";
+import { formatSgt } from "@/lib/bookingQueue";
+import { acknowledgeNotification, markNotificationRead } from "@/lib/notifications";
 
 const formatWhen = (iso: string) =>
   new Date(iso).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" });
@@ -27,6 +28,18 @@ export function NotificationList({ items: initial }: { items: NotificationItem[]
     setItems((current) => current.map((i) => (i.id === item.id ? { ...i, isRead: true, readAt: data.readAt ?? i.readAt } : i)));
     router.refresh();
     return true;
+  }
+
+  // SCRUM-20/AC4, AC5: acknowledging an assignment notification marks it read and the assignment acknowledged
+  async function acknowledge(item: NotificationItem) {
+    const { ok, data } = await acknowledgeNotification(item.id);
+    if (!ok) {
+      setError(data.error ?? "We couldn't acknowledge that notification. Please try again.");
+      return;
+    }
+    setError(undefined);
+    setItems((current) => current.map((i) => (i.id === item.id ? data : i)));
+    router.refresh();
   }
 
   async function open(item: NotificationItem) {
@@ -64,7 +77,15 @@ export function NotificationList({ items: initial }: { items: NotificationItem[]
                 </span>
               )}
               <span className="notification__time">{formatWhen(item.createdAt)}</span>
+              {item.acknowledgement?.acknowledgedAt && (
+                <span className="notification__related">Acknowledged on {formatSgt(item.acknowledgement.acknowledgedAt)}</span>
+              )}
             </button>
+            {item.acknowledgement?.canAcknowledge && (
+              <button type="button" className="btn" onClick={() => acknowledge(item)}>
+                Acknowledge
+              </button>
+            )}
             {!item.isRead && (
               <button type="button" className="btn btn--secondary" onClick={() => markRead(item)}>
                 Mark as read
