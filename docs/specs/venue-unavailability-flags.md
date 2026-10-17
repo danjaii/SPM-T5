@@ -25,12 +25,14 @@ These override the text below where they conflict.
   **still in the future** (`event_end_datetime > now()`), and whose **padded period** (`venue_padded_period`, SCRUM-103)
   overlaps the block `[start, end)`, half-open. Setup and turnaround both count (106-S4). A Pending request is flagged like
   an Approved booking (106-S3). **[DECIDED]**
-- **Same transaction as the block.** Migration `39_venue_unavailability_flags.sql`:
-  1. extends SCRUM-104's `refresh_buffer_flags(venue)` into `refresh_venue_booking_flags(venue)`, which reconciles both kinds
-     (`buffer_conflict` and `venue_unavailable`) and keeps the same venue row lock;
+- **Same transaction as the block.** Migration `43_venue_unavailability_flags.sql` (39 was taken by SCRUM-105 while this was written):
+  1. adds `refresh_venue_booking_flags(venue, block default null)`, which runs SCRUM-104's `refresh_buffer_flags(venue)` (same
+     venue row lock) and then flags the bookings a block overlaps. With a block id it considers that block only (the trigger
+     passes the new one); without, every block that has not ended. It only raises flags: resolving stays with SCRUM-104's
+     trigger on `venue_bookings`;
   2. adds an `AFTER INSERT` trigger on `venue_unavailability` that calls it, so the flags are written inside
      `mark_venue_unavailable` (SCRUM-105) and a block can never exist without its flags;
-  3. re-creates `mark_venue_unavailable` to return `(id, flagged_count)` (a return type cannot change with `create or
+  3. re-creates `mark_venue_unavailable` to return `(block_id, flagged_count)` (a return type cannot change with `create or
      replace`, so it is dropped and created again with the same grants, like `set_venue_timing` in SCRUM-104);
   4. adds the notification trigger below. **[DECIDED]**
 - **A `venue_unavailable` flag** has `unavailability_id` set (not `other_booking_id`), and `other_start`/`other_end` holding
@@ -61,6 +63,8 @@ These override the text below where they conflict.
   trigger (`CS104`) already cover **both kinds**, and reject stays available. This story adds only tests that use the new kind.
   A Pending request that was already inside the block is therefore protected from the moment the block is saved, which closes
   the window SCRUM-105 leaves open. **Merge 106 straight after 105.** **[DECIDED]**
+- **Read path.** `flagsFor()` reads the block's reason through the flag's `venue_unavailability` link. Both Venue Staff and
+  coordinators may read `venue_unavailability` (migration 39), so the join works under each caller's RLS. **[DECIDED]**
 - **DTO.** `FlagDto` (shared, SCRUM-104) gains an optional `unavailability` object for this kind:
   `{ startDate, startTime, endDate, endTime, reason, reasonLabel }` in Singapore time, because a block can span days and
   `otherPeriod` is a single day. For this kind `otherPeriod` is null. The coordinator sees the period and the reason label;

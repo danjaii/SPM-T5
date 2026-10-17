@@ -114,5 +114,8 @@ export interface FlagRecord {
   otherBookingId: string | null;
   otherStart: Date | null;
   otherEnd: Date | null;
+  /** SCRUM-106: the block that raised a `venue_unavailable` flag, and its reason; null for a buffer conflict. */
+  unavailabilityId?: string | null;
+  unavailabilityReason?: string | null;
   createdAt: Date;
 }

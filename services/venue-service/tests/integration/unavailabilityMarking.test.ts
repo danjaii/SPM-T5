@@ -44,7 +44,10 @@ describe.skipIf(!hasDb)("SCRUM-105 venue unavailability (migrations 38 and 39)",
 
   const orchid = (setup = 30, turnaround = 0) => fixtures.venue("IT-orchid", { setup_minutes: setup, turnaround_minutes: turnaround });
   const mark = (venueId: string, p: { start: Date; end: Date } = BLOCK, reason = "maintenance", notes: string | null = null, actor: Actor = who.venueStaff) =>
-    actor.client.rpc("mark_venue_unavailable", { p_venue_id: venueId, p_start: iso(p.start), p_end: iso(p.end), p_reason: reason, p_notes: notes });
+    actor.client
+      .rpc("mark_venue_unavailable", { p_venue_id: venueId, p_start: iso(p.start), p_end: iso(p.end), p_reason: reason, p_notes: notes })
+      // migration 43 returns (block_id, flagged_count); these 105 tests only need the block's id
+      .then(({ data, error }) => ({ data: (data as { block_id: string }[] | null)?.[0]?.block_id ?? null, error }));
 
   /** A request made as the coordinator for one of their own events, through RLS, like the app does. */
   async function request(venueId: string, p: { start: Date; end: Date }, side: "coordinator" | "otherCoordinator" = "coordinator") {

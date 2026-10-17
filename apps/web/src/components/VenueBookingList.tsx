@@ -33,7 +33,7 @@ export function VenueBookingList({ bookings }: { bookings: VenueBookingListItem[
                 <span className="status-badge">{bookingStatusLabel(b.status)}</span>
                 {/* SCRUM-104/AC3: the flag and the other booking's time, as text */}
                 {b.flags.map((f) => (
-                  <span className="vb__note vb__flag" key={f.id}>{describeFlag(f)}</span>
+                  <span className="vb__note vb__flag" key={f.id}>{describeFlag(f, b.venueName)}</span>
                 ))}
               </td>
               <td>

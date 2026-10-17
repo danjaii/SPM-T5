@@ -12,8 +12,11 @@ export interface MarkUnavailable {
 
 /** SCRUM-105: reads and writes a venue's unavailability blocks. */
 export interface VenueUnavailabilityStore {
-  /** Saves a block and returns it as stored (who made it, when). */
-  mark(venueId: string, input: MarkUnavailable): Promise<UnavailabilityBlockRow>;
+  /**
+   * Saves a block and returns it as stored (who made it, when), with how many bookings it flagged (SCRUM-106; the flags and
+   * the coordinators' notifications are written by the database in the same transaction).
+   */
+  mark(venueId: string, input: MarkUnavailable): Promise<{ block: UnavailabilityBlockRow; affectedBookings: number }>;
   /**
    * Every block of the venue, earliest first (the caller keeps the ones it needs). `withRecorder` also reads the name of the
    * member of staff who made each block; coordinators do not get it.
@@ -42,7 +45,7 @@ const toRow = (r: Row): UnavailabilityBlockRow => ({
 export class SupabaseVenueUnavailabilityStore implements VenueUnavailabilityStore {
   constructor(private readonly db: SupabaseClient) {}
 
-  async mark(venueId: string, input: MarkUnavailable): Promise<UnavailabilityBlockRow> {
+  async mark(venueId: string, input: MarkUnavailable): Promise<{ block: UnavailabilityBlockRow; affectedBookings: number }> {
     const { data, error } = await this.db.rpc("mark_venue_unavailable", {
       p_venue_id: venueId,
       p_start: input.start.toISOString(),
@@ -56,13 +59,18 @@ export class SupabaseVenueUnavailabilityStore implements VenueUnavailabilityStor
       if (error.code === "22023") throw validationFailed({ form: error.message });
       throw new Error("Could not save the unavailability.", { cause: error });
     }
+    // mark_venue_unavailable returns one row: the new block's id and the number of bookings it flagged (migration 43)
+    const result = (data as { block_id: string; flagged_count: number }[] | null)?.[0];
+    if (!result) throw new Error("Could not save the unavailability.");
+    const blockId = result.block_id;
+    const affectedBookings = Number(result.flagged_count);
     const { data: row, error: readError } = await this.db
       .from("venue_unavailability")
       .select(`${COLUMNS}, recorder:users!created_by(full_name)`)
-      .eq("id", data as string)
+      .eq("id", blockId)
       .maybeSingle();
     if (readError || !row) throw new Error("Could not read back the unavailability.", { cause: readError });
-    return toRow(row as unknown as Row);
+    return { block: toRow(row as unknown as Row), affectedBookings };
   }
 
   async list(venueId: string, withRecorder: boolean): Promise<UnavailabilityBlockRow[]> {

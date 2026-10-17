@@ -1,4 +1,12 @@
-import { dbStatusToApi, flagLabel, utcToSgt, type FlagDto, type VenueBookingStatus } from "@spm-t5/shared";
+import {
+  dbStatusToApi,
+  flagLabel,
+  notificationReasonLabel,
+  utcToSgt,
+  type FlagDto,
+  type FlagUnavailabilityDto,
+  type VenueBookingStatus,
+} from "@spm-t5/shared";
 import type { BookingRecord, FlagRecord } from "./types";
 
 /**
@@ -6,17 +14,27 @@ import type { BookingRecord, FlagRecord } from "./types";
  * name (36-S5); Venue Staff pass `otherEventName` to get it too (the name is joined at read time, never stored).
  */
 export function toFlagDto(f: FlagRecord, staff?: { otherEventName: string | null }): FlagDto {
+  // SCRUM-106: a block can span days, so its period is `unavailability` (dates included) and `otherPeriod`, a single day, is null
+  const unavailability = f.kind === "venue_unavailable" && f.otherStart && f.otherEnd ? toUnavailabilityDto(f) : undefined;
   return {
     id: f.id,
     kind: f.kind,
     label: flagLabel(f.kind) ?? f.kind,
     createdAt: f.createdAt.toISOString(),
     otherPeriod:
-      f.otherStart && f.otherEnd
+      !unavailability && f.otherStart && f.otherEnd
         ? { date: utcToSgt(f.otherStart).date, startTime: utcToSgt(f.otherStart).time, endTime: utcToSgt(f.otherEnd).time }
         : null,
+    ...(unavailability ? { unavailability } : {}),
     ...(staff ? { otherEventName: staff.otherEventName, otherBookingId: f.otherBookingId } : {}),
   };
+}
+
+function toUnavailabilityDto(f: FlagRecord): FlagUnavailabilityDto {
+  const start = utcToSgt(f.otherStart as Date);
+  const end = utcToSgt(f.otherEnd as Date);
+  const reason = f.unavailabilityReason ?? "other";
+  return { startDate: start.date, startTime: start.time, endDate: end.date, endTime: end.time, reason, reasonLabel: notificationReasonLabel(reason) };
 }
 
 /** A venue booking request as the API shows it: Singapore date and times, API status (DR3, DR4). */

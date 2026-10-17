@@ -1,4 +1,5 @@
 import { utcToSgt } from "./venueBooking";
+import { unavailabilityFlagText, type FlagUnavailabilityDto } from "./venueUnavailability";
 
 // SCRUM-104 (docs/specs/venue-buffer-conflicts.md): the flags a venue booking can carry, and the sentence that tells Venue
 // Staff which two bookings now clash. Pure and dependency free, so venue-service and apps/web word them identically.
@@ -46,6 +47,8 @@ export interface FlagDto {
   createdAt: string;
   /** The conflicting booking's event period; null for a flag that is not about another booking. */
   otherPeriod: FlagPeriodDto | null;
+  /** SCRUM-106: the block that raised a `venue_unavailable` flag, in Singapore time (it can span days); absent otherwise. */
+  unavailability?: FlagUnavailabilityDto;
   /** Staff DTOs only. */
   otherEventName?: string | null;
   /** Staff DTOs only: the other booking, so the queue can link to it. A coordinator is never given it. */
@@ -56,7 +59,9 @@ export interface FlagDto {
  * 104-S3: the line a coordinator sees for a flag, e.g. "Buffer conflict: another booking at this venue, 12:30 to 14:00 on
  * 14 Nov". It names a time, never an event (36-S5). A flag with no period is just its label.
  */
-export function describeFlag(flag: Pick<FlagDto, "kind" | "label" | "otherPeriod">): string {
+export function describeFlag(flag: Pick<FlagDto, "kind" | "label" | "otherPeriod" | "unavailability">, venueName?: string): string {
+  // SCRUM-106/AC1: "Venue unavailable – alternative needed: Orchid Hall is unavailable from 14 Nov 08:00 to 16 Nov 18:00 (Maintenance)"
+  if (flag.unavailability) return `${flag.label}: ${unavailabilityFlagText(flag.unavailability, venueName)}`;
   const p = flag.otherPeriod;
   if (!p) return flag.label;
   return `${flag.label}: another booking at this venue, ${p.startTime} to ${p.endTime} on ${shortDate(p.date)}`;
