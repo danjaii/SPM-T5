@@ -250,7 +250,7 @@ export function equipmentReadiness(all: readonly EquipmentRequestStatus[]): Equi
 
 /**
  * AC1, AC2 (decision): every request can be changed except a Released one, whose venue booking was cancelled
- * (SCRUM-102). update_equipment_request() in migration 44 refuses the same one (cancelled).
+ * (SCRUM-102). update_equipment_request() in migration 45 refuses the same one (cancelled).
  */
 export const EQUIPMENT_REQUEST_EDITABLE_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "ARRANGED", "CANNOT_FULFIL"] as const satisfies readonly EquipmentRequestStatus[];
 
