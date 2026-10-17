@@ -148,13 +148,14 @@ For a local Supabase, `supabase status -o env` prints the URL and keys to copy i
 3. `supabase status -o env` — prints the URL and keys for the next step.
 4. Fill in `.env` (see above) with those values.
 5. From the **repo root** (not `apps/web`): `pnpm dev`. This runs web on 3000, auth-service on 4001,
-   event-service on 4002, venue-service on 4003 and equipment-service on 4004. Inside `apps/web`,
-   `pnpm dev` starts only the web app. To run one service on its own, use
+   event-service on 4002, venue-service on 4003, equipment-service on 4004 and notification-service on 4005.
+   Inside `apps/web`, `pnpm dev` starts only the web app. To run one service on its own, use
    `pnpm --filter @spm-t5/<service> run dev`.
 
 Stop any older dev server first: the web app must be on port 3000, the origin the services allow. If
 the sign-in page shows "We couldn't reach the server", auth-service isn't running (login needs it on
-4001, and the event page needs event-service on 4002 and venue-service on 4003).
+4001, and the event page needs event-service on 4002 and venue-service on 4003). The notification bell in the page
+header has no number and can't load its list when notification-service isn't running on 4005.
 
 Alternatively, `docker compose up -d` starts the five services and web (it does not include Supabase).
 Each Dockerfile sets `PORT=4000`, which the compose port mappings (`4001:4000` and so on) rely on.
