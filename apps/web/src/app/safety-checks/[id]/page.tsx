@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { awaitsSafetyDecision, type SafetyDecision } from "@spm-t5/shared";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
 import { SafetyCheckActions } from "@/components/SafetyCheckActions";
@@ -29,12 +30,14 @@ export default async function SafetyCheckReviewPage({ params }: { params: Promis
           <>
             <h1>Safety check: {result.details.name}</h1>
             <SafetyCheckInfo details={result.details} />
-            {/* AC8: once decided, the record is shown instead of the choices (event-service would refuse a second one) */}
-            {result.details.decisions.length > 0 ? (
-              <SafetyDecisionHistory decisions={result.details.decisions} />
-            ) : (
-              <SafetyCheckActions eventId={id} role="safety_officer" />
-            )}
+            {/* AC8: the decisions recorded so far (newest first) */}
+            {result.details.decisions.length > 0 && <SafetyDecisionHistory decisions={result.details.decisions} />}
+            {/* AC4: the choices, only while a decision can be saved (SCRUM-100/AC6: again after changes were requested) */}
+            {awaitsSafetyDecision(
+              result.details.status,
+              // SCRUM-100/AC9: the newest decision that still applies, as latest_safety_decision() counts them
+              (result.details.decisions.find((d) => !d.revoked_at)?.decision as SafetyDecision | undefined) ?? null,
+            ) && <SafetyCheckActions eventId={id} role="safety_officer" />}
           </>
         ) : (
           <>

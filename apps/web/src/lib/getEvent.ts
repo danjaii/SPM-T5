@@ -1,7 +1,14 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SERVER_EVENT_URL, SESSION_COOKIE } from "./api";
-import type { ChangeRequestView, EventChangeHistoryEntry, EventDetailView, EventEditForm, ReviewDecision } from "./events";
+import type {
+  ChangeRequestView,
+  EventChangeHistoryEntry,
+  EventDetailView,
+  EventEditForm,
+  ReviewDecision,
+} from "./events";
+import type { SafetyDecisionRecord } from "./safetyCheckServer";
 
 /**
  * Loads an event and its request details (SCRUM-23) from event-service, as the signed-in user. event-service
@@ -88,6 +95,23 @@ export async function getEventChangeHistory(id: string): Promise<EventChangeHist
       cache: "no-store",
     });
     return res.ok ? ((await res.json()) as EventChangeHistoryEntry[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * SCRUM-100/AC7: the Safety Officer's requested changes, for the event's coordinator and organiser. Null when this viewer
+ * may not see them or they can't be loaded, so the page simply leaves the section out.
+ */
+export async function getEventSafetyDecisions(id: string): Promise<SafetyDecisionRecord[] | null> {
+  try {
+    const token = (await cookies()).get(SESSION_COOKIE)?.value;
+    const res = await fetch(`${SERVER_EVENT_URL}/events/${encodeURIComponent(id)}/safety-decisions`, {
+      headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token ?? "")}` },
+      cache: "no-store",
+    });
+    return res.ok ? ((await res.json()) as SafetyDecisionRecord[]) : null;
   } catch {
     return null;
   }
