@@ -69,7 +69,7 @@ export function EventReviewActions({ eventId, status, canReview, onDecided }: Pr
 
         {step === "approve" && (
           <div role="alertdialog" aria-label="Confirm approval">
-            <p>Approve this request? The organiser will see that it has been approved.</p>
+            <p>Approve this request?</p>
             <div className="event-buttons">
               <button className="btn" type="button" disabled={busy} onClick={() => run(() => approveEvent(eventId))}>
                 {busy ? "Approving…" : "Yes, approve"}
@@ -103,7 +103,7 @@ export function EventReviewActions({ eventId, status, canReview, onDecided }: Pr
 
         {step === "reject" && (
           <div role="alertdialog" aria-label="Confirm rejection">
-            <p>Reject this request? The organiser will see this reason:</p>
+            <p>Reject this request?</p>
             <blockquote className="event-quote">{trimmed}</blockquote>
             <div className="event-buttons">
               <button className="btn" type="button" disabled={busy} onClick={() => run(() => rejectEvent(eventId, trimmed))}>

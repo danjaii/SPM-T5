@@ -311,6 +311,25 @@ describe("SCRUM-8 — Edit event status", () => {
   });
   // end of AC5
 
+  // SCRUM-47/AC10 (and SCRUM-24/AC2): a rejection needs a reason here too, as on the Reject button; refused, it is not
+  // recorded, so the organiser is not told
+  it("SCRUM-47/AC10 refuses a rejection with no reason, and records nothing", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "planning", assigned_coordinator_id: coordinator.id };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "rejected", reason: "   " });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "A reason is required to reject an event." });
+    expect(event.status).toBe("planning");
+    expect(fake.tables.event_status_history).toEqual([]);
+  });
+
   // Edge case (not an AC): changing the status of an event that doesn't exist
   it("returns 404 and records nothing when the event doesn't exist", async () => {
     const fake = createFake();

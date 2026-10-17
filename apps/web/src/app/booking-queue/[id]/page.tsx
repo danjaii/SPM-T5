@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { BookingQueueDetail } from "@/components/BookingQueueDetail";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { VenueStaffDecision } from "@/components/VenueStaffDecision";
 import { SuitabilityReport } from "@/components/SuitabilityReport";
 import { getQueuedBooking } from "@/lib/bookingQueueServer";
@@ -33,10 +32,7 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/booking-queue">← Back to pending booking requests</Link>
         {"booking" in result ? (

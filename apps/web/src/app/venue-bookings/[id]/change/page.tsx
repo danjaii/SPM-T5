@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
+import { AppHeader } from "@/components/AppHeader";
 import { VenueBookingChangeForm } from "@/components/VenueBookingChangeForm";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { equipmentFor, isChangeableVenueBooking } from "@/lib/venueBookings";
@@ -19,10 +18,7 @@ export default async function ChangeVenueBookingPage({ params }: { params: Promi
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         {"error" in result ? (
           <div className="alert alert--error" role="alert">{result.error}</div>

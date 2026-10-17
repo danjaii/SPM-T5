@@ -49,8 +49,9 @@ These override the text below where they conflict.
   cannot be seen, `href` is `null` and `label` is "You no longer have access to this item", and no name leaks. **[DECIDED]**
 - **Web.** Page `/notifications` lists the rows. An unread row has a visible "Unread" text label and a highlighted style
   (colour alone is not enough). Clicking a row marks it read, then goes to its `href`; a "Mark as read" button marks it
-  without leaving. A row with no `href` shows the no-access text and does not navigate. Every role's dashboard shows a
-  "Notifications (n unread)" link; if notification-service is down the link shows without a count. **[DECIDED]**
+  without leaving. A row with no `href` shows the no-access text and does not navigate. Every role's dashboard showed a
+  "Notifications (n unread)" link; SCRUM-47 replaced it with the notification bell in every signed-in page's header (see
+  [receive-notifications.md](receive-notifications.md)). **[DECIDED]**
 - **Not built here [PROPOSED]:** "mark all as read", deleting, paging beyond the newest 100, real-time push.
 
 ---
@@ -88,7 +89,7 @@ event or request, when I attempt to open it, then I am prevented from accessing 
 
 | ID | Scenario |
 | --- | --- |
-| 46-S1 | The list returns the caller's notifications, newest first, with `unreadCount`; `limit` defaults to 50 and is capped at 100; the page and the dashboard link are reachable by every role; 401 without a session (AC1). |
+| 46-S1 | The list returns the caller's notifications, newest first, with `unreadCount`; `limit` defaults to 50 and is capped at 100; the page is reachable by every role (from the header bell, SCRUM-47); 401 without a session (AC1). |
 | 46-S2 | Each item carries title, message, `createdAt`, `isRead`, `readAt`, the related item's label and the type (AC2). |
 | 46-S3 | An unread row has the unread style and the visible "Unread" label; a read row has neither (AC3). |
 | 46-S4 | `POST /notifications/:id/read` marks it read and sets `read_at` (the database trigger); a second call changes nothing; clicking a row or "Mark as read" calls it; 422 for a bad id; the unread count drops; the database refuses an un-read (AC4). |

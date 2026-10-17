@@ -69,6 +69,7 @@ export function NotificationList({ items: initial }: { items: NotificationItem[]
             <button type="button" className="notification__open" onClick={() => open(item)}>
               <span className="notification__title">
                 {!item.isRead && <span className="status-badge status-badge--pending">Unread</span>} {item.title}
+                {item.actionRequired && <span className="status-badge status-badge--flag">Action needed</span>}
               </span>
               <span className="notification__message">{item.message}</span>
               {item.related && (

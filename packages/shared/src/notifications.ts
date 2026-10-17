@@ -14,6 +14,16 @@ export const NOTIFICATION_TYPES = [
   "technical_assignment_assigned",
   "technical_assignment_changed",
   "technical_assignment_cancelled",
+  // SCRUM-47: event request decisions, comments and safety decisions (migration 44)
+  "event_approved",
+  "event_rejected",
+  "comment_mention",
+  "comment_reply",
+  "safety_approved",
+  "safety_rejected",
+  "safety_changes_requested",
+  "clarification_requested",
+  "clarification_answered",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -45,6 +55,8 @@ export interface NotificationItem {
   /** ISO timestamp of when it was first read; null while unread. */
   readAt: string | null;
   related: NotificationRelated | null;
+  /** SCRUM-47/AC11: whether the reader needs to do something (notificationRequiresAction). */
+  actionRequired: boolean;
   /**
    * SCRUM-20/AC4: only on an on-site assignment notification that can be acknowledged ("assigned" or "changed"):
    * whether it can still be acknowledged, and when it was. Absent on every other notification.
@@ -66,6 +78,20 @@ export interface NotificationAcknowledgement {
 export function notificationHref(kind: NotificationTargetKind, id: string, role?: string): string {
   if (kind === "event") return `/events/${id}`;
   return role === "venue_staff" ? `/booking-queue/${id}` : `/venue-bookings/${id}`;
+}
+
+/** SCRUM-47/AC11: the types that ask the reader to do something; every other type, known or not, is for information. */
+const ACTION_REQUIRED_TYPES: ReadonlySet<string> = new Set([
+  "coordinator_assigned",
+  "comment_mention",
+  "safety_changes_requested", // AC12
+  "clarification_requested", // AC2: the organiser answers
+  "clarification_answered", // AC3: the coordinator reads the answer
+]);
+
+/** SCRUM-47/AC11: whether a notification needs the reader to act, shown as "Action needed". */
+export function notificationRequiresAction(type: string): boolean {
+  return ACTION_REQUIRED_TYPES.has(type);
 }
 
 export const NOTIFICATION_DEFAULT_LIMIT = 50;

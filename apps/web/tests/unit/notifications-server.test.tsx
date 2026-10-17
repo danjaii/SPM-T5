@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { cookieValue, redirect } = vi.hoisted(() => ({
@@ -9,12 +9,11 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => (cookieValue.current ? { value: cookieValue.current } : undefined) }),
 }));
 vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+// SCRUM-47/AC11: the real header bell, so the page's header can be checked for it (tests/setup.ts stubs it elsewhere)
+vi.unmock("@/components/NotificationBell");
 
 import NotificationsPage from "@/app/notifications/page";
-import { DashboardView, type DashboardData } from "@/components/DashboardView";
-import { getDashboard } from "@/lib/dashboard";
-import { notificationsLinkLabel } from "@/lib/notifications";
-import { getNotifications, getUnreadCount } from "@/lib/notificationsServer";
+import { getNotifications } from "@/lib/notificationsServer";
 
 function mockFetch(handler: (url: string) => { status: number; body: unknown } | Error) {
   const fetchMock = vi.fn(async (url: string) => {
@@ -78,59 +77,12 @@ describe("SCRUM-46/AC1 loading the notifications (46-S1)", () => {
   });
 });
 
-describe("SCRUM-46 the unread count for the dashboard", () => {
-  it("returns the count from notification-service", async () => {
-    mockFetch(() => ({ status: 200, body: { unreadCount: 4 } }));
-    await expect(getUnreadCount()).resolves.toBe(4);
-  });
+describe("SCRUM-47/AC11 every signed-in page has the notification bell in its header", () => {
+  it("the Notifications page's header has the bell", async () => {
+    mockFetch(() => ({ status: 200, body: { items: [], unreadCount: 0 } }));
 
-  it("returns null when there is no session, a failure, a strange answer or no connection", async () => {
-    cookieValue.current = undefined;
-    await expect(getUnreadCount()).resolves.toBeNull();
-    cookieValue.current = "token-123";
-    mockFetch(() => ({ status: 500, body: {} }));
-    await expect(getUnreadCount()).resolves.toBeNull();
-    mockFetch(() => ({ status: 200, body: { unreadCount: "many" } }));
-    await expect(getUnreadCount()).resolves.toBeNull();
-    mockFetch(() => new Error("down"));
-    await expect(getUnreadCount()).resolves.toBeNull();
-  });
+    const { container } = render(await NotificationsPage());
 
-  it("getDashboard fetches the dashboard and the count together; a down service does not break it", async () => {
-    const dashboard = { user: { fullName: "Rachel Tan", email: "r@x.com", role: "event_coordinator" }, sections: [] };
-    mockFetch((url) =>
-      url.endsWith("/dashboard") ? { status: 200, body: dashboard } : { status: 200, body: { unreadCount: 2 } },
-    );
-    await expect(getDashboard("event_coordinator")).resolves.toEqual({ ...dashboard, notifications: { unread: 2 } });
-
-    mockFetch((url) => (url.endsWith("/dashboard") ? { status: 200, body: dashboard } : new Error("down")));
-    await expect(getDashboard("event_coordinator")).resolves.toEqual({ ...dashboard, notifications: { unread: null } });
-  });
-});
-
-describe("SCRUM-46/AC1 every role's dashboard links to notifications (46-S1)", () => {
-  const base = (role: string, notifications?: DashboardData["notifications"]): DashboardData => ({
-    user: { fullName: "Test User", email: "t@x.com", role },
-    sections: [],
-    notifications,
-  });
-
-  it.each(["event_organiser", "event_coordinator", "venue_staff", "technical_support_staff", "attendee", "event_coordinator_lead", "safety_officer"])(
-    "46-S1: %s sees Notifications (n unread)",
-    (role) => {
-      render(<DashboardView data={base(role, { unread: 3 })} />);
-      expect(screen.getByRole("link", { name: "Notifications (3 unread)" }).getAttribute("href")).toBe("/notifications");
-    },
-  );
-
-  it("46-S1: with no count (service down) the link shows without one", () => {
-    render(<DashboardView data={base("attendee", { unread: null })} />);
-    expect(screen.getByRole("link", { name: "Notifications" })).toBeTruthy();
-  });
-
-  it("46-S1: notificationsLinkLabel", () => {
-    expect(notificationsLinkLabel(0)).toBe("Notifications (0 unread)");
-    expect(notificationsLinkLabel(null)).toBe("Notifications");
-    expect(notificationsLinkLabel(undefined)).toBe("Notifications");
+    expect(await within(container.querySelector("header")!).findByRole("button", { name: "Notifications" })).toBeTruthy();
   });
 });
