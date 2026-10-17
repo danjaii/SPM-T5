@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
+import { AppHeader } from "@/components/AppHeader";
 import { VenueAvailabilityDay } from "@/components/VenueAvailabilityDay";
 import { todaySgt } from "@/lib/venueAvailability";
 import { getVenueAvailability } from "@/lib/venueAvailabilityServer";
@@ -25,10 +24,7 @@ export default async function VenueAvailabilityPage({
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href={`/venues/${id}`}>← Back to venue details</Link>
         {"data" in result ? (

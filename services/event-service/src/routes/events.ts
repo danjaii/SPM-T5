@@ -388,7 +388,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     const { data: comments } = await deps
       .forUser(token)
       .from("event_comments")
-      .select("id, comment_text, created_at, parent_comment_id, author:author_id(full_name)")
+      .select("id, comment_text, created_at, parent_comment_id, is_clarification_request, author:author_id(full_name)")
       .eq("event_id", req.params.id)
       .order("created_at", { ascending: true });
 
@@ -438,13 +438,24 @@ export function eventRoutes(deps: SupabaseDeps) {
     }
 
     const can_comment = canReviewEvents(role) || role === "event_organiser";
+    // SCRUM-47/AC2: only the event's assigned coordinator may ask its organiser for clarification
+    const { data: event } = await deps
+      .forUser(token)
+      .from("events")
+      .select("assigned_coordinator_id")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    const can_request_clarification = event?.assigned_coordinator_id === (res.locals.user as SessionUser).id;
     return res.json({
       can_comment,
+      can_request_clarification,
       comments: (comments ?? []).map((c) => ({
         id: c.id,
         body: c.comment_text,
         created_at: c.created_at,
         parent_comment_id: (c.parent_comment_id as string | null) ?? null,
+        // SCRUM-47/AC2: the comment asks the organiser for clarification; their reply to it is the answer (AC3)
+        is_clarification_request: c.is_clarification_request === true,
         author_name: embeddedName(c.author),
         mentions: mentionsByComment.get(c.id as string) ?? [],
         attachments: attachmentsByComment.get(c.id as string) ?? [],
@@ -455,7 +466,7 @@ export function eventRoutes(deps: SupabaseDeps) {
   // SCRUM-25/AC1: an authorised user adds a comment to an event
   // SCRUM-27/AC2: @[userId] markers in the body are extracted and persisted as mention records
   router.post("/:id/comments", requireSession(deps), async (req, res) => {
-    const { id: authorId, token } = res.locals.user as SessionUser;
+    const { token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
     if (role === undefined || (!canReviewEvents(role) && role !== "event_organiser")) {
       return res.status(403).json({ error: "You are not allowed to comment on this event." });
@@ -465,17 +476,20 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(400).json({ error: "Comment text is required." });
     }
     const parentCommentId = typeof req.body.parent_comment_id === "string" ? req.body.parent_comment_id : null;
-    const commentId = crypto.randomUUID();
-    await deps.forUser(token).from("event_comments").insert({
-      id: commentId,
-      event_id: req.params.id,
-      author_id: authorId,
-      comment_text: body,
-      ...(parentCommentId !== null && { parent_comment_id: parentCommentId }),
-    });
     const mentionedIds = [...body.matchAll(/@\[([^\]]+)\]/g)].map((m) => m[1]);
-    for (const userId of mentionedIds) {
-      await deps.forUser(token).from("event_comment_mentions").insert({ comment_id: commentId, user_id: userId });
+    // SCRUM-47/AC9: the comment and its mentions are saved in one transaction (migration 44), so its notifications are
+    // written once, at the end, with each person told once
+    const { data: commentId, error } = await deps.forUser(token).rpc("post_event_comment", {
+      p_event_id: req.params.id,
+      p_body: body,
+      p_parent_comment_id: parentCommentId,
+      p_mentions: mentionedIds,
+      // SCRUM-47/AC2: the database lets only the event's coordinator ask for clarification
+      p_clarification_request: req.body.clarification_request === true,
+    });
+    // SCRUM-47/AC10: nothing was saved (and nobody notified), so say so rather than reporting success
+    if (error) {
+      return res.status(403).json({ error: "You can't post this comment. Check that everyone you mentioned can see this event." });
     }
     const attachments = Array.isArray(req.body.attachments) ? req.body.attachments : [];
     for (const att of attachments) {
@@ -594,6 +608,13 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(400).json({ error: "Invalid status." });
     }
 
+    // SCRUM-47/AC10 (and SCRUM-24/AC2): rejecting needs a reason here too, as on POST /:id/reject; refused, nothing is
+    // recorded, so the organiser is not told
+    const reason = typeof req.body.reason === "string" ? req.body.reason.trim() : "";
+    if (status === "rejected" && !reason) {
+      return res.status(400).json({ error: "A reason is required to reject an event." });
+    }
+
     // SCRUM-8 AC6: only the coordinator assigned to this event may change its status
     const { data: target } = await deps
       .forUser(token)
@@ -613,7 +634,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       .rpc("change_event_status", {
         p_event_id: req.params.id,
         p_new_status: status,
-        p_reason: typeof req.body.reason === "string" ? req.body.reason : null,
+        p_reason: reason || null,
       })
       .maybeSingle();
     // SCRUM-99/AC7: the events_safety_gate trigger (migration 37) refuses preparation before a Safety Approved check

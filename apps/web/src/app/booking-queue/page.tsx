@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { BookingQueueList } from "@/components/BookingQueueList";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { getBookingQueue } from "@/lib/bookingQueueServer";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +14,7 @@ export default async function BookingQueuePage() {
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/dashboard">← Back to dashboard</Link>
         <h1>Pending booking requests</h1>

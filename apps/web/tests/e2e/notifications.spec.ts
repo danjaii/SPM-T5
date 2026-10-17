@@ -106,15 +106,22 @@ async function signInAsCoordinator(page: Page) {
 }
 
 test.describe("SCRUM-46 view and manage notifications", () => {
-  test("46-S1 + 46-S3: the dashboard shows the unread count and the list marks unread rows", async ({ page }) => {
+  test("46-S1 + 46-S3: the header bell shows the unread count and the list marks unread rows", async ({ page }) => {
     await signInAsCoordinator(page);
 
-    const link = page.getByRole("link", { name: /^Notifications \(\d+ unread\)$/ });
-    await expect(link).toBeVisible();
-    expect(Number((await link.textContent())!.match(/\((\d+) unread\)/)![1])).toBeGreaterThanOrEqual(2);
+    // SCRUM-47/AC11: the count is on the header bell, which links on to the full list
+    const bell = page.getByRole("button", { name: /^Notifications, \d+ unread$/ });
+    await expect(bell).toBeVisible();
+    expect(Number((await bell.getAttribute("aria-label"))!.match(/(\d+) unread/)![1])).toBeGreaterThanOrEqual(2);
+    await page.waitForFunction(() => {
+      const el = document.querySelector("button.bell");
+      return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps$"));
+    });
+    await bell.click();
+    await expect(page.getByRole("list", { name: "Notifications" })).toBeVisible();
     await page.screenshot({ path: `${SHOTS}\\01-dashboard-unread-count.png`, fullPage: true });
 
-    await link.click();
+    await page.getByRole("link", { name: "View all notifications" }).click();
     await expect(page).toHaveURL(/\/notifications$/);
     await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
 

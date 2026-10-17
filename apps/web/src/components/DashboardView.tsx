@@ -1,11 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { canMakeSafetyDecision, canViewVenueCatalogue, isLead, isRole } from "@spm-t5/shared";
-import { notificationsLinkLabel } from "@/lib/notifications";
 import { roleLabel } from "@/lib/roles";
+import { AppHeader } from "./AppHeader";
 import { BfcacheGuard } from "./BfcacheGuard";
-import { LogoutButton } from "./LogoutButton";
-import { Logo } from "./Logo";
 
 export interface DashboardData {
   user: { fullName: string; email: string; role: string };
@@ -15,8 +13,6 @@ export interface DashboardData {
     columns: { key: string; label: string; linkKey?: string }[];
     rows: Record<string, string | number>[];
   }[];
-  /** SCRUM-46: how many notifications are unread; null when notification-service could not be reached. */
-  notifications?: { unread: number | null };
 }
 
 /** children: extra sections a role's page adds below the tables (e.g. the attendee's List of events, SCRUM-71). */
@@ -25,23 +21,14 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
   return (
     <>
       <BfcacheGuard />
-      <header className="dash__bar">
-        <Logo />
-        <div className="dash__who">
-          <span>
-            {user.fullName} <span className="dash__role">{roleLabel(user.role)}</span>
-          </span>
-          <LogoutButton />
-        </div>
-      </header>
+      {/* SCRUM-47/AC11: the notification bell sits beside the role, in place of the old Notifications link */}
+      <AppHeader user={user} />
       <main className="dash__main">
         <h1>{roleLabel(user.role)} dashboard</h1>
         <p className="dash__lede">Signed in as {user.fullName}</p>
         {/* SCRUM-68: every signed-in user has a profile to view and update, whatever their role */}
         <nav className="dash__links">
           <Link href="/profile">My profile</Link>
-          {/* SCRUM-46: every role has notifications; the count is left off if the service could not be reached */}
-          <Link href="/notifications">{notificationsLinkLabel(data.notifications?.unread)}</Link>
         </nav>
         {/* SCRUM-74/AC2: organisers and coordinators both see the registrations of the events they manage */}
         {(user.role === "event_organiser" || user.role === "event_coordinator") && (
