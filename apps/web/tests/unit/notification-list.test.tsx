@@ -28,6 +28,7 @@ const unread: NotificationItem = {
   createdAt: "2026-10-01T01:00:00Z",
   readAt: null,
   related: { kind: "event", id: "e-1", label: "Tech Summit", href: "/events/e-1" },
+  actionRequired: false,
 };
 const read: NotificationItem = { ...unread, id: "n-2", title: "Registration is open", isRead: true, readAt: "2026-10-02T01:00:00Z" };
 const restricted: NotificationItem = {
@@ -62,6 +63,16 @@ describe("SCRUM-46/AC3 unread notifications look different (46-S3)", () => {
     expect(rows[1].classList.contains("notification--unread")).toBe(false);
     expect(rows[1].textContent).not.toContain("Unread");
     expect(screen.getAllByRole("button", { name: "Mark as read" })).toHaveLength(1);
+  });
+});
+
+describe("SCRUM-47/AC11 a notification that needs action says so (47-S11)", () => {
+  it("47-S11: a row that needs action shows the words Action needed; one that does not, does not", () => {
+    const assigned: NotificationItem = { ...unread, id: "n-4", type: "coordinator_assigned", actionRequired: true };
+    const { container } = render(<NotificationList items={[assigned, unread]} />);
+    const rows = container.querySelectorAll("li.notification");
+    expect(rows[0].textContent).toContain("Action needed");
+    expect(rows[1].textContent).not.toContain("Action needed");
   });
 });
 

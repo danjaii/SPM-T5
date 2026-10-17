@@ -842,3 +842,48 @@ describe("SCRUM-28/AC3 — Access attachments", () => {
     expect(open).not.toHaveBeenCalled();
   });
 });
+
+describe("SCRUM-47/AC2 — Ask the organiser for clarification", () => {
+  const asCoordinator = (comments: unknown[] = []): Reply => ({
+    status: 200,
+    body: { can_comment: true, can_request_clarification: true, comments },
+  });
+
+  it("47-S2: ticking the box posts the comment as a clarification request", async () => {
+    const fetchMock = mockEventService([asCoordinator([FIRST])], { status: 201, body: {} });
+    setup();
+    await screen.findByText(FIRST.body);
+
+    type("How many guests use wheelchairs?");
+    fireEvent.click(screen.getByLabelText("Ask the organiser for clarification"));
+    fireEvent.click(postButton());
+
+    await vi.waitFor(() => expect(posts(fetchMock)).toHaveLength(1));
+    expect(JSON.parse(posts(fetchMock)[0][1]!.body as string)).toMatchObject({
+      body: "How many guests use wheelchairs?",
+      clarification_request: true,
+    });
+  });
+
+  it("47-S2: a viewer who is not the event's coordinator is not offered the box", async () => {
+    mockEventService([{ status: 200, body: { can_comment: true, can_request_clarification: false, comments: [FIRST] } }]);
+    setup();
+    await screen.findByText(FIRST.body);
+
+    expect(screen.queryByLabelText("Ask the organiser for clarification")).toBeNull();
+  });
+});
+
+describe("SCRUM-47/AC3 — Answer a clarification request", () => {
+  it("47-S3: a clarification request is labelled, so the organiser knows which comment to answer", async () => {
+    const request = { ...FIRST, is_clarification_request: true };
+    const ordinary = { ...SECOND, is_clarification_request: false };
+    mockEventService([thread([request, ordinary])]);
+    const { container } = setup();
+    await screen.findByText(FIRST.body);
+
+    const threads = container.querySelectorAll("ol.comments > li.comment");
+    expect(threads[0].textContent).toContain("Clarification requested");
+    expect(threads[1].textContent).not.toContain("Clarification requested");
+  });
+});

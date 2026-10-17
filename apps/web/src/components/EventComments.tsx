@@ -116,6 +116,7 @@ function CommentView({ eventId, comment }: { eventId: string; comment: EventComm
       <p className="comment__meta">
         <span className="comment__author">{comment.author_name ?? "Unknown user"}</span>
         <time dateTime={comment.created_at}>{formatDateTime(comment.created_at)}</time>
+        {comment.is_clarification_request && <span className="status-badge status-badge--flag">Clarification requested</span>}
       </p>
       <CommentBody comment={comment} />
       {comment.attachments.length > 0 && <Attachments eventId={eventId} files={comment.attachments} />}
@@ -132,16 +133,22 @@ interface FormProps {
   label: string;
   submitLabel: string;
   required: string;
-  /** Posts the trimmed text and the uploaded files; resolves to an error message, or undefined once it is saved. */
-  onPost: (text: string, attachments: Attachment[]) => Promise<string | undefined>;
+  /**
+   * Posts the trimmed text, the uploaded files and whether it asks for clarification; resolves to an error message, or
+   * undefined once it is saved.
+   */
+  onPost: (text: string, attachments: Attachment[], clarificationRequest: boolean) => Promise<string | undefined>;
   onCancel?: () => void;
+  /** SCRUM-47/AC2: offer the "ask the organiser for clarification" box (the event's coordinator, new comments only). */
+  offerClarification?: boolean;
 }
 
 // SCRUM-25/AC1, AC4, SCRUM-26/AC1, AC4: a comment or reply box that won't post empty text.
 // SCRUM-27/AC1, AC2: typing "@" and a name offers the people who can see the event; picking one mentions them.
 // SCRUM-28/AC1, AC4-AC6: files are checked as they're chosen, staged, and uploaded when the comment is posted.
-function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCancel }: FormProps) {
+function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCancel, offerClarification }: FormProps) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const [clarification, setClarification] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [text, setText] = useState("");
@@ -235,10 +242,11 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
     setBusy(true);
     const uploaded = await upload();
     const failure =
-      typeof uploaded === "string" ? uploaded : await onPost(encodeMentions(text.trim(), picked), uploaded);
+      typeof uploaded === "string" ? uploaded : await onPost(encodeMentions(text.trim(), picked), uploaded, clarification);
     if (failure) setError(failure);
     else {
       setText("");
+      setClarification(false);
       setPicked([]);
       setFiles([]);
       setFileErrors([]);
@@ -297,6 +305,14 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
         )}
         {textError && <p id={`${id}-error`} className="field__error" role="alert">{textError}</p>}
       </div>
+      {offerClarification && (
+        <div className="field">
+          <label>
+            <input type="checkbox" checked={clarification} onChange={(e) => setClarification(e.target.checked)} />
+            Ask the organiser for clarification
+          </label>
+        </div>
+      )}
       <div className="field">
         <label htmlFor={`${id}-files`}>Attach files</label>
         <input
@@ -357,8 +373,8 @@ export function EventComments({ eventId }: { eventId: string }) {
     };
   }, [eventId, reload]);
 
-  const post = (parentId?: string) => async (text: string, attachments: Attachment[]) => {
-    const { ok, data } = await addEventComment(eventId, text, parentId, attachments);
+  const post = (parentId?: string) => async (text: string, attachments: Attachment[], clarificationRequest: boolean) => {
+    const { ok, data } = await addEventComment(eventId, text, parentId, attachments, clarificationRequest);
     if (!ok) return data.error ?? `We couldn't post your ${parentId ? "reply" : "comment"}. Please try again.`;
     setReplyingTo(undefined);
     setReload((n) => n + 1);
@@ -425,6 +441,7 @@ export function EventComments({ eventId }: { eventId: string }) {
                 submitLabel="Post comment"
                 required={COMMENT_REQUIRED}
                 onPost={post()}
+                offerClarification={data.can_request_clarification}
               />
             </div>
           )}

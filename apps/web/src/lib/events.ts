@@ -189,6 +189,8 @@ export interface EventComment {
   body: string;
   created_at: string;
   parent_comment_id: string | null;
+  /** SCRUM-47/AC2: the coordinator asked the organiser for clarification; a reply to it is the answer (AC3). */
+  is_clarification_request?: boolean;
   author_name: string | null;
   /** SCRUM-27/AC3: who the body's @[userId] markers refer to. */
   mentions: Array<{ user_id: string; full_name: string | null }>;
@@ -205,6 +207,8 @@ export interface Attachment {
 /** SCRUM-25/AC5: can_comment says whether the viewer may add to the conversation. */
 export interface EventComments {
   can_comment: boolean;
+  /** SCRUM-47/AC2: the viewer is the event's assigned coordinator, so may ask its organiser for clarification. */
+  can_request_clarification: boolean;
   comments: EventComment[];
 }
 
@@ -232,13 +236,21 @@ async function postToEventService<T>(path: string, payload: object): Promise<Api
 
 /**
  * SCRUM-25/AC1: add a comment to the event. SCRUM-26/AC1: or, with parentCommentId, a reply to one of its
- * comments. SCRUM-28/AC1: with the files already uploaded for it.
+ * comments. SCRUM-28/AC1: with the files already uploaded for it. SCRUM-47/AC2: or a request for clarification from
+ * the organiser.
  */
-export const addEventComment = (id: string, body: string, parentCommentId?: string, attachments: Attachment[] = []) =>
+export const addEventComment = (
+  id: string,
+  body: string,
+  parentCommentId?: string,
+  attachments: Attachment[] = [],
+  clarificationRequest = false,
+) =>
   postToEventService<Record<string, never>>(`${encodeURIComponent(id)}/comments`, {
     body,
     ...(parentCommentId && { parent_comment_id: parentCommentId }),
     ...(attachments.length > 0 && { attachments }),
+    ...(clarificationRequest && { clarification_request: true }),
   });
 
 /** SCRUM-28/AC1: a one-time URL to upload one file to, and where it will be stored. */
