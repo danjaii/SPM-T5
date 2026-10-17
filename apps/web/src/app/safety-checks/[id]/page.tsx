@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { awaitsSafetyDecision, type SafetyDecision } from "@spm-t5/shared";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
+import { AppHeader } from "@/components/AppHeader";
 import { SafetyCheckActions } from "@/components/SafetyCheckActions";
 import { SafetyCheckInfo } from "@/components/SafetyCheckInfo";
 import { SafetyDecisionHistory } from "@/components/SafetyDecisionHistory";
@@ -20,10 +19,7 @@ export default async function SafetyCheckReviewPage({ params }: { params: Promis
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/safety-checks">← Back to events waiting for a safety check</Link>
         {"details" in result ? (

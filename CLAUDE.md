@@ -310,7 +310,7 @@ event's registrations newest first, with a summary in which only Confirmed regis
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
-`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and every dashboard links to it. SCRUM-47 (spec in
+`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell in every signed-in page's header (`AppHeader`, `NotificationBell`) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
 `docs/specs/receive-notifications.md`, migration 44) adds the producers, triggers that write each row in the same transaction as
 its change: a coordinator's assignment, an event request's approval or rejection, a comment mention or reply (one per person,
 never the author; comments are saved through `post_event_comment()`), a clarification request and the organiser's answer (a

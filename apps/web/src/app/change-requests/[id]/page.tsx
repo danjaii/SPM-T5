@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { ChangeRequestReview } from "@/components/ChangeRequestReview";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { getChangeRequestReview } from "@/lib/changeRequestReviewServer";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +15,7 @@ export default async function ChangeRequestPage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         {"review" in result ? (
           <>

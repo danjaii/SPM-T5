@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
+import { AppHeader } from "@/components/AppHeader";
 import { VenueDetail } from "@/components/VenueDetail";
 import { getVenue } from "@/lib/getVenues";
 
@@ -17,10 +16,7 @@ export default async function VenuePage({ params }: { params: Promise<{ id: stri
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/venues">← Back to venue catalogue</Link>
         {"venue" in result ? (

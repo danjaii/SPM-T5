@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { EquipmentRequestForm } from "@/components/EquipmentRequestForm";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { getEquipmentRequestForm } from "@/lib/equipmentRequestsServer";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +16,7 @@ export default async function EquipmentRequestPage({ params }: { params: Promise
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href={`/events/${id}`}>← Back to event</Link>
         {"form" in result ? (

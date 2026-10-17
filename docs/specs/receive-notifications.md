@@ -41,6 +41,14 @@ These override the text below where they conflict.
   `clarification_answered`, false for every other type, known or not.
   notification-service returns it as `actionRequired` on every item, and `/notifications` shows an "Action needed" badge.
   No schema change. **[PROPOSED]**
+- **The notification bell (AC11).** Every signed-in page's header (`AppHeader`, which replaced the header each page
+  copied) has a bell beside the user's role (on dashboards) and Log out. It shows the unread count (`99+` above 99, none
+  when 0 or the service is down) and, when clicked, a dropdown of the notifications, newest first: title, "Unread",
+  "Action needed", the related event or the no-access wording, and the time; the list scrolls after about 8 rows.
+  Choosing one marks it read, then opens its page; "View all notifications" opens `/notifications`, which keeps Mark as
+  read and Acknowledge. Closes on Escape or a click elsewhere. The bell reads notification-service from the browser
+  (`fetchUnreadCount`, `fetchNotifications`), so no page loads notifications on the server; this replaced the dashboard's
+  "Notifications (n unread)" link and the server-side `getUnreadCount()`. **[DECIDED]**
 - **AC12 safety decision** (proposed AC below, to be added to SCRUM-47 in Jira). `trg_notify_safety_decision`, after
   insert on `safety_checks` (written by `record_safety_decision()`): the event's coordinator and organiser each get
   `safety_approved`, `safety_rejected` or `safety_changes_requested`, with the reason or the requested changes. Request
@@ -121,5 +129,5 @@ Database tests are in `services/event-service/tests/integration/receiveNotificat
 | 47-S8 | Replying to your own comment, or mentioning yourself, notifies nobody (AC8). |
 | 47-S9 | A reply that also mentions the parent comment's author gives them one `comment_mention`, not two; a clarification request that also mentions the organiser gives one `clarification_requested`; the route posts a comment and its mentions with one `post_event_comment` call (AC9). |
 | 47-S10 | Approving an already approved event notifies nobody; a comment the database refuses is answered 403 with no attachment saved (AC10). |
-| 47-S11 | A rejection's message names the event and gives the reason; `notificationRequiresAction` by type; the service returns `actionRequired`; the page shows "Action needed" only where it is true (AC11). |
+| 47-S11 | A rejection's message names the event and gives the reason; `notificationRequiresAction` by type; the service returns `actionRequired`; the page shows "Action needed" only where it is true; the header bell shows the unread count, opens the list, marks a chosen one read and opens it, says when the list is empty or can't load, links to the full page and closes on Escape or an outside click; the dashboard and every page header have it (AC11). |
 | 47-S12 | A Safety Approved decision notifies the coordinator and the organiser; Changes Requested carries the requested changes and needs action (AC12). |

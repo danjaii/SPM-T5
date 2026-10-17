@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { EventPicker } from "@/components/EventPicker";
 import { EventRegistrationList } from "@/components/EventRegistrationList";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { RegistrationSummary } from "@/components/RegistrationSummary";
 import { getEventRegistrations, getManagedEvents } from "@/lib/eventRegistrationServer";
 
@@ -23,10 +22,7 @@ export default async function RegistrationsOverviewPage({ searchParams }: { sear
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/dashboard">← Back to dashboard</Link>
         <h1>Event registrations</h1>

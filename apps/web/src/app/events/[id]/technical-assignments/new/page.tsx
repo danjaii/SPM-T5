@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
+import { AppHeader } from "@/components/AppHeader";
 import { TechnicalAssignmentForm } from "@/components/TechnicalAssignmentForm";
 import { getTechnicalAssignmentForm } from "@/lib/technicalAssignmentsServer";
 
@@ -16,10 +15,7 @@ export default async function NewTechnicalAssignmentPage({ params }: { params: P
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href={`/events/${id}`}>← Back to event</Link>
         {"data" in result ? (
