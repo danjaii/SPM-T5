@@ -645,8 +645,9 @@ tr:last-child td { border-bottom: 0; }
 .bell-menu__list { list-style: none; margin: 0; padding: 0; max-height: min(calc(8 * 84px), 70vh); overflow-y: auto; }
 .bell-menu__item { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
 .bell-menu__item--unread { background: var(--warn-bg); border-left: 3px solid var(--warn); }
+/* the whole row, Mark as read included, turns blue on hover (after --unread, so it wins over the unread colour) */
+.bell-menu__item:hover { background: var(--selected); }
 .bell-menu__open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
-.bell-menu__open:hover { background: var(--selected); }
 .bell-menu__open:focus-visible { outline: 2px solid var(--steel); outline-offset: -2px; }
 /* the title wraps with its badges, which are smaller here than on the full page so they fit the dropdown */
 .bell-menu__title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 14px; font-weight: 600; }

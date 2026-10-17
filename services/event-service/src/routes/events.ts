@@ -608,6 +608,13 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(400).json({ error: "Invalid status." });
     }
 
+    // SCRUM-47/AC10 (and SCRUM-24/AC2): rejecting needs a reason here too, as on POST /:id/reject; refused, nothing is
+    // recorded, so the organiser is not told
+    const reason = typeof req.body.reason === "string" ? req.body.reason.trim() : "";
+    if (status === "rejected" && !reason) {
+      return res.status(400).json({ error: "A reason is required to reject an event." });
+    }
+
     // SCRUM-8 AC6: only the coordinator assigned to this event may change its status
     const { data: target } = await deps
       .forUser(token)
@@ -627,7 +634,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       .rpc("change_event_status", {
         p_event_id: req.params.id,
         p_new_status: status,
-        p_reason: typeof req.body.reason === "string" ? req.body.reason : null,
+        p_reason: reason || null,
       })
       .maybeSingle();
     // SCRUM-99/AC7: the events_safety_gate trigger (migration 37) refuses preparation before a Safety Approved check

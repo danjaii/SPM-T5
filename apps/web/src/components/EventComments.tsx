@@ -380,6 +380,28 @@ export function EventComments({ eventId }: { eventId: string }) {
     setReload((n) => n + 1);
   };
 
+  // SCRUM-26/AC1: a Reply under every comment, replies included. SCRUM-47/AC7: replying to a reply answers that reply
+  // (it is still shown in the same thread), so its author is the one notified.
+  const replyTo = (c: EventComment) =>
+    data?.can_comment &&
+    (replyingTo === c.id ? (
+      <div className="comments--replies">
+        <CommentForm
+          id={`reply-${c.id}`}
+          eventId={eventId}
+          label={`Reply to ${c.author_name ?? "this comment"}`}
+          submitLabel="Post reply"
+          required={REPLY_REQUIRED}
+          onPost={post(c.id)}
+          onCancel={() => setReplyingTo(undefined)}
+        />
+      </div>
+    ) : (
+      <button className="comment__reply" type="button" onClick={() => setReplyingTo(c.id)}>
+        Reply
+      </button>
+    ));
+
   // Someone the service won't show the comments to: leave the section out.
   if (data === null) return null;
 
@@ -398,34 +420,18 @@ export function EventComments({ eventId }: { eventId: string }) {
               {toThreads(data.comments).map(({ comment, replies }) => (
                 <li key={comment.id} className="comment">
                   <CommentView eventId={eventId} comment={comment} />
+                  {replyTo(comment)}
 
                   {replies.length > 0 && (
                     <ol className="comments comments--replies" aria-label={`Replies to ${comment.author_name ?? "this comment"}`}>
                       {replies.map((r) => (
                         <li key={r.id} className="comment">
                           <CommentView eventId={eventId} comment={r} />
+                          {replyTo(r)}
                         </li>
                       ))}
                     </ol>
                   )}
-
-                  {data.can_comment && (replyingTo === comment.id ? (
-                    <div className="comments--replies">
-                      <CommentForm
-                        id={`reply-${comment.id}`}
-                        eventId={eventId}
-                        label={`Reply to ${comment.author_name ?? "this comment"}`}
-                        submitLabel="Post reply"
-                        required={REPLY_REQUIRED}
-                        onPost={post(comment.id)}
-                        onCancel={() => setReplyingTo(undefined)}
-                      />
-                    </div>
-                  ) : (
-                    <button className="comment__reply" type="button" onClick={() => setReplyingTo(comment.id)}>
-                      Reply
-                    </button>
-                  ))}
                 </li>
               ))}
             </ol>

@@ -286,6 +286,21 @@ describe("SCRUM-26/AC1 — Reply to a comment", () => {
   });
 });
 
+describe("SCRUM-47/AC7 — Reply to a reply", () => {
+  it("47-S7: Reply on a reply answers that reply, so its author is the one told", async () => {
+    const fetchMock = mockEventService([thread([FIRST, REPLY_1])], { status: 201, body: {} });
+    setup();
+    const replies = within(await screen.findByRole("list", { name: "Replies to Rachel Tan" }));
+
+    fireEvent.click(replies.getByRole("button", { name: "Reply" }));
+    fireEvent.change(screen.getByLabelText("Reply to Olivia Org"), { target: { value: "Great, thanks." } });
+    fireEvent.click(screen.getByRole("button", { name: "Post reply" }));
+
+    await vi.waitFor(() => expect(posts(fetchMock)).toHaveLength(1));
+    expect(JSON.parse(posts(fetchMock)[0][1]!.body as string)).toEqual({ body: "Great, thanks.", parent_comment_id: "r1" });
+  });
+});
+
 describe("SCRUM-26/AC2 — Display reply details and visual hierarchy", () => {
   it("nests each reply, with its author, date and time, and text, under its parent comment", async () => {
     mockEventService([thread([FIRST, SECOND, REPLY_1])]);
