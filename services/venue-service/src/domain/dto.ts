@@ -4,10 +4,12 @@ import {
   notificationReasonLabel,
   utcToSgt,
   type FlagDto,
+  type FlagHistoryDto,
   type FlagUnavailabilityDto,
+  type ReplacementRefDto,
   type VenueBookingStatus,
 } from "@spm-t5/shared";
-import type { BookingRecord, FlagRecord } from "./types";
+import type { BookingRecord, FlagHistoryRecord, FlagRecord } from "./types";
 
 /**
  * SCRUM-104: an open flag as the API shows it. The coordinator's version carries the other booking's period and no event
@@ -27,6 +29,33 @@ export function toFlagDto(f: FlagRecord, staff?: { otherEventName: string | null
         : null,
     ...(unavailability ? { unavailability } : {}),
     ...(staff ? { otherEventName: staff.otherEventName, otherBookingId: f.otherBookingId } : {}),
+  };
+}
+
+/** SCRUM-107 (107-S3): a flag with its outcome, so the original booking keeps showing why it was flagged and how it ended. */
+export function toFlagHistoryDto(f: FlagHistoryRecord): FlagHistoryDto {
+  const dto = toFlagDto(f);
+  return {
+    id: dto.id,
+    kind: dto.kind,
+    label: dto.label,
+    createdAt: dto.createdAt,
+    resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
+    resolvedReason: f.resolvedReason,
+    ...(dto.unavailability ? { unavailability: dto.unavailability } : {}),
+  };
+}
+
+/** SCRUM-107: the booking at the other end of a replacement link. */
+export function toReplacementRef(b: BookingRecord, venueName: string): ReplacementRefDto {
+  const start = utcToSgt(b.start);
+  return {
+    id: b.id,
+    venueName,
+    date: start.date,
+    startTime: start.time,
+    endTime: utcToSgt(b.end).time,
+    status: dbStatusToApi(b.status) ?? b.status,
   };
 }
 
@@ -169,6 +198,9 @@ export interface EventBookingItem extends ChainItem {
   exceedsCapacity: boolean;
   /** SCRUM-113/AC1: sent back to Pending for review after an important event change, and not decided since. */
   sentBackForReview: boolean;
+  /** SCRUM-107: the booking that replaces this one (pending or approved), and the one this replaces; null when there is none. */
+  replacedBy: ReplacementRefDto | null;
+  replaces: ReplacementRefDto | null;
 }
 
 export interface BookingDetail extends BookingListItem {
@@ -181,6 +213,11 @@ export interface BookingDetail extends BookingListItem {
   amendsRequestId: string | null;
   /** The amendment chain in order, root first, including this request. */
   chain: ChainItem[];
+  /** SCRUM-107: the replacement waiting for a decision or approved, and the original this one replaces. */
+  replacedBy: ReplacementRefDto | null;
+  replaces: ReplacementRefDto | null;
+  /** SCRUM-107 (107-S3): every flag this booking ever had and how each ended. */
+  flagHistory: FlagHistoryDto[];
 }
 
 export const rejectionReasonOf = (b: BookingRecord) => (b.status === "rejected" ? b.reviewNotes : null);

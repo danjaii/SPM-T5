@@ -53,6 +53,18 @@ export function EventVenueBookings({
                     {b.flags.map((f) => (
                       <span className="vb__note vb__flag" key={f.id}>{describeFlag(f, b.venueName)}</span>
                     ))}
+                    {/* SCRUM-107/AC3: the original keeps its place, with where it went; the replacement says what it replaced */}
+                    {b.replacedBy && (
+                      <span className="vb__note">
+                        {b.status === "REPLACED" ? "Replaced by " : "Replacement waiting: "}
+                        <Link href={`/venue-bookings/${b.replacedBy.id}`}>{b.replacedBy.venueName}</Link>
+                      </span>
+                    )}
+                    {b.replaces && (
+                      <span className="vb__note">
+                        Replaces <Link href={`/venue-bookings/${b.replaces.id}`}>{b.replaces.venueName}</Link>
+                      </span>
+                    )}
                     {b.rejectionReason && <span className="vb__note">{b.rejectionReason}</span>}
                     {b.cancellationReason && <span className="vb__note">{b.cancellationReason}</span>}
                     {/* SCRUM-113/AC1: back to Pending after an important change; venue staff decide again */}

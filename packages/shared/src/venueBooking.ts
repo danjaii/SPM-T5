@@ -8,7 +8,8 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 
 // SCRUM-102 adds CANCELLED: a pending or approved venue booking the coordinator cancelled, with a reason.
-export const VENUE_BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN", "CANCELLED"] as const;
+// SCRUM-107 adds REPLACED: an affected booking whose replacement at another venue was approved (migration 44).
+export const VENUE_BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN", "CANCELLED", "REPLACED"] as const;
 export type VenueBookingStatus = (typeof VENUE_BOOKING_STATUSES)[number];
 
 const DB_TO_API: Record<string, VenueBookingStatus> = {
@@ -19,6 +20,7 @@ const DB_TO_API: Record<string, VenueBookingStatus> = {
   rejected: "REJECTED",
   withdrawn: "WITHDRAWN",
   cancelled: "CANCELLED", // SCRUM-102 (older seed rows read the same way, with no reason)
+  replaced: "REPLACED", // SCRUM-107
 };
 
 /** Maps a DB status to the API status. Undefined for a value this feature does not know. */
@@ -54,6 +56,9 @@ export const VENUE_BOOKING_ERROR_CODES = [
   "UNSUITABLE_VENUE",
   "VENUE_UNAVAILABLE",
   "BOOKING_FLAGGED",
+  "NOT_FLAGGED",
+  "REPLACEMENT_PENDING",
+  "REPLACEMENT_REJECTED",
 ] as const;
 export type VenueBookingErrorCode = (typeof VENUE_BOOKING_ERROR_CODES)[number];
 
@@ -79,6 +84,10 @@ export const VENUE_BOOKING_MESSAGES = {
   VENUE_UNAVAILABLE: "This venue is unavailable for part of that period.",
   // SCRUM-104/AC4 (104-S4): a request with an open flag (buffer conflict, SCRUM-106 unavailable) cannot be approved; rejecting is allowed
   BOOKING_FLAGGED: "This request is flagged and cannot be approved until the conflict is resolved. You can still reject it.",
+  // SCRUM-107: a replacement is only for a booking flagged as unavailable, one at a time (107-S5, 107-S6)
+  NOT_FLAGGED: "Only a booking flagged as unavailable can be replaced.",
+  REPLACEMENT_PENDING: "This booking already has a replacement request waiting for a decision.",
+  REPLACEMENT_REJECTED: "A rejected replacement cannot be amended. Choose Find replacement on the original booking.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -87,6 +96,14 @@ export const VENUE_BOOKING_MESSAGES = {
 // ---------------------------------------------------------------------------
 
 export const VENUE_REQUEST_ELIGIBLE_EVENT_STATUSES = ["approved", "planning", "awaiting_arrangements"] as const;
+
+/**
+ * SCRUM-107 (decision 3): a replacement for a flagged booking is allowed on any event that is not finished, even a Confirmed one
+ * (canRequestVenue refuses it). Completed, cancelled and rejected stay out, the same set as equipment_request_event_open (25).
+ */
+export function canRequestReplacement(eventStatus: string): boolean {
+  return !["completed", "cancelled", "rejected"].includes(eventStatus);
+}
 
 export function canRequestVenue(eventStatus: string): boolean {
   return (VENUE_REQUEST_ELIGIBLE_EVENT_STATUSES as readonly string[]).includes(eventStatus);
