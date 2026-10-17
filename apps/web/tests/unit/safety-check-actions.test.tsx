@@ -28,6 +28,23 @@ describe("SCRUM-116/AC2 — Other roles cannot make safety decisions", () => {
 // ---------------------------------------------------------------------------
 // SCRUM-99 — the Safety Officer records the safety check decision
 // ---------------------------------------------------------------------------
+describe("SCRUM-99/AC4 the chosen outcome stands out", () => {
+  /** Which outcome buttons are filled (the primary style); the others are outlined (btn--secondary). */
+  const filled = () =>
+    ["Approve", "Reject", "Request changes"].filter(
+      (name) => !screen.getByRole("button", { name }).classList.contains("btn--secondary"),
+    );
+
+  it("SCRUM-99/AC4 fills only the outcome the Safety Officer has chosen", () => {
+    render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
+    expect(filled()).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+
+    expect(filled()).toEqual(["Reject"]);
+  });
+});
+
 function mockServer(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => body });
   vi.stubGlobal("fetch", fetchMock);

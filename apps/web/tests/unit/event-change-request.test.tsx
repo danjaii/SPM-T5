@@ -9,7 +9,13 @@ const { getEvent, getChangeRequests, getEventOutcome, refresh } = vi.hoisted(() 
   refresh: vi.fn(),
 }));
 const { getEventVenueBookings } = vi.hoisted(() => ({ getEventVenueBookings: vi.fn() }));
-vi.mock("@/lib/getEvent", () => ({ getEvent, getChangeRequests, getEventOutcome, getEventChangeHistory: async () => null }));
+vi.mock("@/lib/getEvent", () => ({
+  getEvent,
+  getChangeRequests,
+  getEventOutcome,
+  getEventChangeHistory: async () => null,
+  getEventSafetyDecisions: async () => null, // SCRUM-100/AC7
+}));
 vi.mock("@/lib/venueBookingsServer", () => ({ getEventVenueBookings }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh }) }));
 

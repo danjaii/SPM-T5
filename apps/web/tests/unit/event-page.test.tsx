@@ -6,7 +6,9 @@ const { getEventVenueBookings } = vi.hoisted(() => ({ getEventVenueBookings: vi.
 const { getEventChangeHistory } = vi.hoisted(() => ({ getEventChangeHistory: vi.fn(async () => null as unknown) }));
 // SCRUM-67: the assigned coordinator's page now loads the change requests too
 const { getChangeRequests } = vi.hoisted(() => ({ getChangeRequests: vi.fn(async () => [] as unknown[]) }));
-vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome, getEventChangeHistory, getChangeRequests }));
+// SCRUM-100/AC7: and the Safety Officer's requested changes
+const { getEventSafetyDecisions } = vi.hoisted(() => ({ getEventSafetyDecisions: vi.fn(async () => null as unknown) }));
+vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome, getEventChangeHistory, getChangeRequests, getEventSafetyDecisions }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getEventVenueBookings }));
 const { getEventEquipmentRequests } = vi.hoisted(() => ({ getEventEquipmentRequests: vi.fn() }));
 vi.mock("@/lib/equipmentRequestsServer", () => ({ getEventEquipmentRequests }));
@@ -350,3 +352,26 @@ describe("SCRUM-67/AC1 the event page tells the assigned coordinator a change re
   });
 });
 
+
+describe("SCRUM-100/AC7 the event page shows the Safety Officer's requested changes", () => {
+  beforeEach(() => {
+    getEventVenueBookings.mockReset().mockResolvedValue(null);
+    getEventOutcome.mockReset().mockResolvedValue(null);
+    getEventEquipmentRequests.mockReset().mockResolvedValue(null);
+    stubEventService();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("SCRUM-100/AC7 shows the requested changes it loads for this event", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: true } });
+    getEventSafetyDecisions.mockResolvedValue([
+      { decision: "changes_requested", reason: "Move the stage clear of fire exit B", officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z" },
+    ]);
+
+    await open("evt-1");
+
+    expect(getEventSafetyDecisions).toHaveBeenCalledWith("evt-1");
+    expect(screen.getByRole("heading", { name: "Safety check" })).toBeTruthy();
+    expect(screen.getByText("Move the stage clear of fire exit B")).toBeTruthy();
+  });
+});

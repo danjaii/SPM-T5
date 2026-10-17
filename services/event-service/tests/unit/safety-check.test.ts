@@ -186,6 +186,55 @@ describe("SCRUM-99/AC6 reject an event", () => {
   });
 });
 
+describe("SCRUM-100/AC1 request changes", () => {
+  it("SCRUM-100/AC1 refuses a Request Changes that doesn't say what to change with 400 and saves nothing", async () => {
+    const { app, rpc } = makeApp({ data: saved({ decision: "changes_requested" }), error: null });
+
+    const res = await request(app)
+      .post("/safety-checks/evt-1/decision")
+      .set("Cookie", "cs_session=token-safety")
+      .send({ decision: "changes_requested", reason: "  " });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Say what needs to change." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("SCRUM-100/AC7 view requested changes (GET /events/:id/safety-decisions)", () => {
+  it("SCRUM-100/AC7 gives the event's coordinator the Safety Officer's requested changes", async () => {
+    const changes = [
+      { decision: "changes_requested", reason: "Move the stage clear of fire exit B", officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z" },
+    ];
+    const { app, rpc } = makeApp({ data: changes, error: null });
+
+    const res = await request(app).get("/events/evt-1/safety-decisions").set("Cookie", "cs_session=token-coordinator");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(changes);
+    expect(rpc).toHaveBeenCalledWith("event_safety_decisions", { p_event_id: "evt-1" });
+  });
+
+  it("SCRUM-100/AC7 answers 403 when the database says the caller isn't the event's coordinator or organiser", async () => {
+    const { app } = makeApp({ data: null, error: { code: "42501", message: "refused" } });
+
+    const res = await request(app).get("/events/evt-1/safety-decisions").set("Cookie", "cs_session=token-organiser");
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "You are not allowed to view this event's safety decisions." });
+  });
+
+  it("SCRUM-100/AC7 answers 500, not an empty list, when the database fails", async () => {
+    const { app } = makeApp({ data: null, error: { code: "XX000", message: "boom" } });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await request(app).get("/events/evt-1/safety-decisions").set("Cookie", "cs_session=token-coordinator");
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't load the safety decisions. Please try again." });
+  });
+});
+
 describe("SCRUM-99/AC8 record the decision", () => {
   it("SCRUM-99/AC8 records the reason and returns the officer, decision, date and time, and reason", async () => {
     const rejected = saved({ decision: "rejected", reason: "Fire exit blocked by the stage" });
