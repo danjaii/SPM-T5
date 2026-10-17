@@ -6,7 +6,7 @@ import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookin
 import { DB_ENV, adminClient, Fixtures, hasDb, signInAs } from "./support/db";
 
 /**
- * SCRUM-106 against Postgres (migration 43, docs/specs/venue-unavailability-flags.md): marking a block flags the holding, future
+ * SCRUM-106 against Postgres (migration 44, docs/specs/venue-unavailability-flags.md): marking a block flags the holding, future
  * bookings it overlaps (setup and turnaround included), writes one notification for each event's assigned coordinator in the
  * same transaction, and leaves the booking and its event untouched. Everyone signs in as a seeded user, so the grants, row
  * policies and role checks are the real ones; the secret key only arranges fixtures and reads results. Fixtures are throwaway
@@ -27,7 +27,7 @@ const DENIED = "42501";
 type Who = keyof typeof EMAILS;
 type Actor = { client: SupabaseClient; userId: string; repo: SupabaseBookingRepository };
 
-describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-106 flag bookings affected by venue unavailability (migration 43)", () => {
+describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-106 flag bookings affected by venue unavailability (migration 44)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(admin);
   const who = {} as Record<Who, Actor>;
@@ -229,12 +229,12 @@ describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-106 flag bookings affec
       const booking = await hold(venue, { start: at("2030-11-14", "09:00"), end: at("2030-11-14", "17:00") }, "rachel");
       const elsewhere = await hold(await orchid(), { start: at("2030-11-14", "09:00"), end: at("2030-11-14", "17:00") }, "marcus");
       const outside = await hold(venue, { start: at("2030-11-20", "09:00"), end: at("2030-11-20", "17:00") }, "marcus");
-      const { count: before } = await admin.from("notifications").select("id", { count: "exact", head: true });
 
       await mark(venue);
 
-      const { count: after } = await admin.from("notifications").select("id", { count: "exact", head: true });
-      expect((after ?? 0) - (before ?? 0)).toBe(1);
+      // exactly one row for the three bookings of this test (a table-wide count would also see other test files' rows)
+      const { data: rows } = await admin.from("notifications").select("id").in("venue_booking_id", [booking.id, elsewhere.id, outside.id]);
+      expect(rows).toHaveLength(1);
       expect((await notificationsFor(booking.id)).map((n) => n.user_id)).toEqual([who.rachel.userId]);
       expect(await openFlags(elsewhere.id)).toEqual([]);
       expect(await openFlags(outside.id)).toEqual([]);
@@ -270,14 +270,12 @@ describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-106 flag bookings affec
     it("106-S6: a block that overlaps nothing returns 0 and writes no flag and no notification", async () => {
       const venue = await orchid();
       const far = await hold(venue, { start: at("2030-12-20", "09:00"), end: at("2030-12-20", "17:00") });
-      const { count: before } = await admin.from("notifications").select("id", { count: "exact", head: true });
 
       const result = await mark(venue);
 
       expect(result.flagged_count).toBe(0);
       expect(await openFlags(far.id)).toEqual([]);
-      const { count: after } = await admin.from("notifications").select("id", { count: "exact", head: true });
-      expect(after).toBe(before);
+      expect(await notificationsFor(far.id)).toEqual([]);
     });
 
     it.each(["rejected", "withdrawn", "cancelled"])("106-S6: a %s booking inside the block is not flagged", async (status) => {

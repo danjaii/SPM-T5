@@ -12,7 +12,7 @@ export interface ReplacementDeps extends BookingServiceDeps {
 /**
  * SCRUM-107 (docs/specs/replacement-venue.md): finding and requesting a replacement for a booking that a venue block made
  * unavailable. The replacement is a NEW PENDING booking linked to the original (amends_booking_id) through submit(), so every
- * normal rule applies; the original is only written when Venue Staff approve the replacement (migration 45's trigger).
+ * normal rule applies; the original is only written when Venue Staff approve the replacement (migration 46's trigger).
  */
 export class ReplacementService {
   private readonly bookingService: BookingService;

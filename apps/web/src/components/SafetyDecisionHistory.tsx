@@ -16,6 +16,8 @@ export function SafetyDecisionHistory({ decisions }: { decisions: SafetyDecision
                 {`${SAFETY_DECISION_LABELS[d.decision as SafetyDecision] ?? d.decision} by ${d.officer_name} on ${formatSgt(d.decided_at)}`}
               </p>
               {d.reason && <p>{d.reason}</p>}
+              {/* SCRUM-100/AC9 */}
+              {d.revoked_at && <p>{`No longer applies: an important change was made on ${formatSgt(d.revoked_at)}.`}</p>}
             </li>
           ))}
         </ul>

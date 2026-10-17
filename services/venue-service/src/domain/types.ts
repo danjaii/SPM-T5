@@ -52,7 +52,7 @@ export interface BookingRecord {
   /** SCRUM-113: the event's changes that sent it back for review ({ field: { from, to } }), and when; null otherwise. */
   sentBackChanges: unknown;
   sentBackAt: Date | null;
-  /** SCRUM-107: the approved replacement that took over a `replaced` booking, and when (migration 45); null otherwise. */
+  /** SCRUM-107: the approved replacement that took over a `replaced` booking, and when (migration 46); null otherwise. */
   replacedByBookingId: string | null;
   replacedAt: Date | null;
 }

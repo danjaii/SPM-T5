@@ -61,10 +61,11 @@ export function SafetyCheckActions({ eventId, role }: Props) {
       {error && <div className="alert alert--error" role="alert">{error}</div>}
       <div className="event-detail-card">
         <div className="event-buttons">
-          {OUTCOMES.map((o, i) => (
+          {OUTCOMES.map((o) => (
             <button
               key={o.decision}
-              className={i === 0 ? "btn" : "btn btn--secondary"}
+              // only the chosen outcome is filled; the others stay outlined
+              className={decision === o.decision ? "btn" : "btn btn--secondary"}
               type="button"
               aria-pressed={decision === o.decision}
               onClick={() => setDecision(o.decision)}

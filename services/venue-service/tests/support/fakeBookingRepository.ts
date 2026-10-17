@@ -271,7 +271,7 @@ export class FakeBookingRepository implements BookingRepository {
     return row;
   }
 
-  /** migration 45's venue_booking_take_over(): an approved replacement of a holding, flagged-unavailable original replaces it. */
+  /** migration 46's venue_booking_take_over(): an approved replacement of a holding, flagged-unavailable original replaces it. */
   private takeOver(replacement: BookingRecord, at: Date): void {
     const original = this.rows.find((r) => r.id === replacement.amendsBookingId);
     if (!original || !isHoldingDbStatus(original.status)) return;

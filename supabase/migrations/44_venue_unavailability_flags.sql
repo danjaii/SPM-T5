@@ -1,5 +1,5 @@
 -- Flag bookings affected by a venue block, and tell their coordinator (SCRUM-106, docs/specs/venue-unavailability-flags.md).
--- Follows 42_review_change_request.sql. Needs 35 (notifications.venue_booking_id), 36 (flags), 39 (mark_venue_unavailable).
+-- Follows 43_safety_request_changes.sql. Needs 35 (notifications.venue_booking_id), 36 (flags), 39 (mark_venue_unavailable).
 -- Touches venue-service (the flag DTOs, POST /venues/:id/unavailability) and apps/web; writes notifications, which
 -- notification-service reads (SCRUM-46).
 --
@@ -15,7 +15,7 @@
 --   mark_venue_unavailable()  venue_staff only (42501 otherwise), unchanged from 39; now returns (block_id, flagged_count).
 --
 -- Function history, so the next story copies the right body:
---   mark_venue_unavailable  39 (returns uuid)  ->  43 (returns the new block's id and how many bookings it flagged)
+--   mark_venue_unavailable  39 (returns uuid)  ->  44 (returns the new block's id and how many bookings it flagged)
 -- Postgres cannot change a return type with create or replace, so it is dropped and created again, grants repeated (as 36 did for
 -- set_venue_timing).
 --

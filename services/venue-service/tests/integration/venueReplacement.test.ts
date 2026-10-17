@@ -6,7 +6,7 @@ import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookin
 import { DB_ENV, adminClient, Fixtures, hasDb, signInAs } from "./support/db";
 
 /**
- * SCRUM-107 against Postgres (migrations 44 and 45, docs/specs/replacement-venue.md): the trigger that lets an approved replacement
+ * SCRUM-107 against Postgres (migrations 45 and 46, docs/specs/replacement-venue.md): the trigger that lets an approved replacement
  * take over a flagged booking. Everyone signs in as a seeded user so grants and policies are the real ones; the secret key only
  * arranges fixtures and reads results. Fixtures are throwaway ("IT-") and dated 2030.
  */
@@ -22,7 +22,7 @@ const BLOCK = { start: at("2030-11-14", "08:00"), end: at("2030-11-16", "18:00")
 type Who = keyof typeof EMAILS;
 type Actor = { client: SupabaseClient; userId: string; repo: SupabaseBookingRepository };
 
-describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-107 replacement venue (migrations 44 and 45)", () => {
+describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-107 replacement venue (migrations 45 and 46)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(admin);
   const who = {} as Record<Who, Actor>;
