@@ -31,3 +31,12 @@ export function safetyDecisionProblem({ decision, reason }: { decision: unknown;
 export function canProceedToPreparation(latestDecision: SafetyDecision | null): boolean {
   return latestDecision === "approved";
 }
+
+/**
+ * SCRUM-100/AC6: whether a Safety Officer may record a decision now: the event is awaiting arrangements and has not been
+ * decided, or its latest decision asked for changes and the coordinator has returned it. Mirrors the decision part of
+ * is_ready_for_safety_check() (migration 43), which also checks the arrangements and has the final say.
+ */
+export function awaitsSafetyDecision(status: string, latestDecision: SafetyDecision | null): boolean {
+  return status === "awaiting_arrangements" && (latestDecision === null || latestDecision === "changes_requested");
+}

@@ -14,9 +14,10 @@ import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBookings } from "@/components/EventVenueBookings";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
+import { EventSafetyDecisions } from "@/components/EventSafetyDecisions";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { getEventTechnicalAssignments } from "@/lib/technicalAssignmentsServer";
-import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome } from "@/lib/getEvent";
+import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
 import { getEventVenueBookings } from "@/lib/venueBookingsServer";
 
 // Rendered per request: what's shown depends on who is signed in.
@@ -44,15 +45,17 @@ export default async function EventPage({
   // SCRUM-86: the equipment requests, when the viewer may see them (else null).
   // SCRUM-111/AC4: the change history, when the viewer may see it (else null).
   // SCRUM-20: the on-site technical support assignments, for the event's coordinator (else null).
-  const [venueBookings, outcome, equipmentRequests, changeHistory, technicalAssignments] = "event" in result
+  // SCRUM-100/AC7: the Safety Officer's requested changes, for the event's coordinator and organiser (else null).
+  const [venueBookings, outcome, equipmentRequests, changeHistory, technicalAssignments, safetyDecisions] = "event" in result
     ? await Promise.all([
         getEventVenueBookings(id),
         getEventOutcome(id),
         getEventEquipmentRequests(id),
         getEventChangeHistory(id),
         getEventTechnicalAssignments(id),
+        getEventSafetyDecisions(id),
       ])
-    : [null, null, null, null, null];
+    : [null, null, null, null, null, null];
 
   // SCRUM-66: the organiser's own requests; SCRUM-67: the assigned coordinator reviews them
   const seesChangeRequests = "event" in result && (result.event.isOrganiser || result.event.canChangeStatus);
@@ -85,6 +88,7 @@ export default async function EventPage({
                 </div>
               )}
               <EventChangeHistory entries={changeHistory} />
+              <EventSafetyDecisions decisions={safetyDecisions} />
               <CoordinatorAssignment
                 eventId={result.event.id}
                 coordinatorName={result.event.point_of_contact_name}

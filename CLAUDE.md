@@ -299,7 +299,12 @@ refuse. A Safety Officer runs the Operational Safety Check (SCRUM-99; spec in `d
 active venue booking approved, every equipment request arranged, no decision yet), `/safety-checks/[id]` shows the safety
 information (migration 37 adds `venues.emergency_access` and `venues.restrictions`) and records Approve, Reject (reason
 required) or Request Changes (comment required) in `safety_checks`. The `events_safety_gate` trigger stops anyone, the
-service role included, moving an event to confirmed until its latest decision is approved. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+service role included, moving an event to confirmed until its latest decision is approved. Request Changes (SCRUM-100,
+migration 43) moves the event back to planning; once the coordinator returns it to awaiting arrangements with its
+arrangements complete, it is back in the queue for another check. The event's coordinator and organiser see every
+safety decision on the event page (`GET /events/:id/safety-decisions`, `event_safety_decisions()`). An important change to an
+approved event revokes the approval (`safety_checks.revoked_at`, migration 43's trigger), so it needs another check; a
+confirmed event goes back to awaiting arrangements. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
 event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
 
