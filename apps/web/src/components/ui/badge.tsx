@@ -14,9 +14,15 @@ const badgeVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
         outline:
-          "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
+          "border-border-strong text-foreground [a]:hover:bg-accent [a]:hover:text-accent-foreground",
         ghost:
-          "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
+          "hover:bg-accent hover:text-accent-foreground",
+        // SCRUM-120: the five status tones, always tinted and never the primary colour (see StatusBadge).
+        neutral: "bg-status-neutral text-status-neutral-fg",
+        info: "bg-status-info text-status-info-fg",
+        warning: "bg-status-warning text-status-warning-fg",
+        success: "bg-status-success text-status-success-fg",
+        danger: "bg-status-danger text-status-danger-fg",
         link: "text-primary underline-offset-4 hover:underline",
       },
     },

@@ -15,9 +15,7 @@
   --line: #b4b8bd;
   --subtle: #555b63;
   --field: #e6e6e6;
-  --border: oklch(0.922 0 0);
   --ink: #1b1f24;
-  --muted: oklch(0.97 0 0);
   --selected: #e8f1fc;
   --danger: #a12a2a;
   --danger-bg: #fbeaea;
@@ -25,36 +23,59 @@
   --ok-bg: #e6f4ea;
   --warn: #8a5a00;
   --warn-bg: #fdf3dc;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* SCRUM-120: theme tokens from the Figma variables (ConnectSphere UI Mock-Ups, "Components v2").
+     This block is the only place colours are written; components use the Tailwind names mapped in @theme inline. */
+  --background: #f4f7f7;
+  --foreground: #0b2e33;
+  --card: #ffffff;
+  --card-foreground: #0b2e33;
+  --popover: #ffffff;
+  --popover-foreground: #0b2e33;
+  --primary: #4f7c82;
+  --primary-hover: #3f6b71;
+  --primary-foreground: #ffffff;
+  --secondary: #e6f2f4;
+  --secondary-foreground: #0b2e33;
+  --muted: #e6f2f4;
+  --muted-foreground: #3f666b;
+  /* Neutral hover/focus surface for menus, ghost and outline buttons. Never a brand colour. */
+  --accent: #edf1f2;
+  --accent-foreground: #0b2e33;
+  --destructive: #c53030;
+  --destructive-hover: #a82727;
+  --border: #cfdcde;
+  --border-strong: #93b1b5;
+  /* Form-control border: darker than --border-strong so it stays at 3:1 on white and on the canvas. */
+  --input: #6b8a8f;
+  --ring: #2f6269;
+  /* Selected navigation item background. */
+  --highlight: #b8e3e9;
+  --fg-primary: #2f6269;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0b2e33;
+  --sidebar-primary: #4f7c82;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edf1f2;
+  --sidebar-accent-foreground: #0b2e33;
+  --sidebar-border: #cfdcde;
+  --sidebar-ring: #2f6269;
+  /* Status tones: a tinted background with a darker text/icon colour. Never the primary colour. */
+  --status-neutral: #edf1f2;
+  --status-neutral-fg: #3f4f52;
+  --status-info: #dcf0f3;
+  --status-info-fg: #1f5a63;
+  --status-warning: #ffe8a3;
+  --status-warning-fg: #8a5a00;
+  --status-success: #dcfce7;
+  --status-success-fg: #166534;
+  --status-danger: #ffe4e2;
+  --status-danger-fg: #b42318;
 }
 
 /* Legacy hand-written styles sit in the components layer so Tailwind utilities (and shadcn) win over them. */
@@ -485,6 +506,21 @@ tr:last-child td { border-bottom: 0; }
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
+  --color-border-strong: var(--border-strong);
+  --color-primary-hover: var(--primary-hover);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-highlight: var(--highlight);
+  --color-fg-primary: var(--fg-primary);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-fg: var(--status-neutral-fg);
+  --color-status-info: var(--status-info);
+  --color-status-info-fg: var(--status-info-fg);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-fg: var(--status-warning-fg);
+  --color-status-success: var(--status-success);
+  --color-status-success-fg: var(--status-success-fg);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-fg: var(--status-danger-fg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
