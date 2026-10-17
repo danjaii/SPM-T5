@@ -129,9 +129,19 @@ language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
+declare
+  v_message text := new.comment_text;
+  v_mention record;
 begin
+  -- AC6: the comment stores a mention as "@[userId]"; the notification shows "@Full Name", as the comments section does
+  for v_mention in
+    select m.user_id, u.full_name from event_comment_mentions m join users u on u.id = m.user_id where m.comment_id = new.id
+  loop
+    v_message := replace(v_message, '@[' || v_mention.user_id || ']', '@' || coalesce(v_mention.full_name, 'Unknown user'));
+  end loop;
+
   insert into notifications (user_id, event_id, type, title, message)
-  select best.user_id, new.event_id, k.type, k.title, new.comment_text
+  select best.user_id, new.event_id, k.type, k.title, v_message
   from (
     select r.user_id, max(r.rank) as rank
     from (

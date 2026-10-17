@@ -207,6 +207,15 @@ describe.skipIf(!hasDb)("SCRUM-47 Receive relevant notifications (migration 44)"
     expect(error).toBeNull();
     expect(await notificationsOf(who.organiser, eventId)).toEqual([{ type: "comment_mention", event_id: eventId }]);
   });
+
+  it("SCRUM-47/AC6 the mention notification shows the mentioned person's name, not their id", async () => {
+    const eventId = await newEvent({ assigned_coordinator_id: who.coordA.userId });
+
+    await postComment(who.coordA, eventId, `@[${who.organiser.userId}] can you confirm the headcount?`, [who.organiser.userId]);
+
+    const { data } = await who.organiser.client.from("notifications").select("message").eq("event_id", eventId).single();
+    expect(data?.message).toBe("@Jason Chua can you confirm the headcount?");
+  });
   // end of AC6
 
   // AC7: the author of a comment is told when someone replies to it

@@ -364,6 +364,10 @@ tr:last-child td { border-bottom: 0; }
 .comment__reply:hover { text-decoration: underline; }
 .comment__reply:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
 .comment-form > .alert { margin: 0 0 12px; }
+/* SCRUM-47/AC2: the clarification checkbox sits inline with its label (same fix as .venue-search below: `.field input`
+   would stretch it across the row and push the text onto the next line). */
+.comment-form .field label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.comment-form .field input[type="checkbox"] { width: 16px; height: 16px; padding: 0; flex: none; accent-color: var(--steel-dark); }
 /* SCRUM-27: @mentions, set apart in posted comments (AC3) and offered as you type (AC1) */
 .mention { padding: 0 3px; background: var(--selected); color: var(--steel-dark); font-weight: 600; }
 .mention-field { position: relative; }
