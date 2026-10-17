@@ -6,7 +6,7 @@ import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookin
 import { DB_ENV, adminClient, Fixtures, hasDb, signInAs } from "./support/db";
 
 /**
- * SCRUM-106 against Postgres (migration 43, docs/specs/venue-unavailability-flags.md): marking a block flags the holding, future
+ * SCRUM-106 against Postgres (migration 44, docs/specs/venue-unavailability-flags.md): marking a block flags the holding, future
  * bookings it overlaps (setup and turnaround included), writes one notification for each event's assigned coordinator in the
  * same transaction, and leaves the booking and its event untouched. Everyone signs in as a seeded user, so the grants, row
  * policies and role checks are the real ones; the secret key only arranges fixtures and reads results. Fixtures are throwaway
@@ -27,7 +27,7 @@ const DENIED = "42501";
 type Who = keyof typeof EMAILS;
 type Actor = { client: SupabaseClient; userId: string; repo: SupabaseBookingRepository };
 
-describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-106 flag bookings affected by venue unavailability (migration 43)", () => {
+describe.skipIf(!hasDb || !DB_ENV.publishableKey)("SCRUM-106 flag bookings affected by venue unavailability (migration 44)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(admin);
   const who = {} as Record<Who, Actor>;

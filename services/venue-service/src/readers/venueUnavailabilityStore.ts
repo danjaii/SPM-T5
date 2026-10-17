@@ -59,7 +59,7 @@ export class SupabaseVenueUnavailabilityStore implements VenueUnavailabilityStor
       if (error.code === "22023") throw validationFailed({ form: error.message });
       throw new Error("Could not save the unavailability.", { cause: error });
     }
-    // mark_venue_unavailable returns one row: the new block's id and the number of bookings it flagged (migration 43)
+    // mark_venue_unavailable returns one row: the new block's id and the number of bookings it flagged (migration 44)
     const result = (data as { block_id: string; flagged_count: number }[] | null)?.[0];
     if (!result) throw new Error("Could not save the unavailability.");
     const blockId = result.block_id;

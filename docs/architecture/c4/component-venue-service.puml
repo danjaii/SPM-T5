@@ -96,7 +96,7 @@ Rel(app, padded, "Routes availability requests; the slot rule runs inside the bo
 Rel(padded, db, "venue_slot_conflicts() / venue_occupied_periods() (security definer, migration 27); the padded-overlap trigger replaces venue_bookings_no_overlap and is the atomic guarantee", "PostgREST RPC")
 Rel(app, unavailability, "Routes unavailability requests; the block rule runs inside the booking service")
 Rel(bookingSvc, unavailability, "Checks the padded request against blocks after the slot check (SCRUM-105)")
-Rel(unavailability, db, "mark_venue_unavailable() is the only writer of venue_unavailability; venue_unavailability_conflicts() (security definer, migration 39) for the pre-check; the padded-overlap trigger raises CS105 and is the atomic guarantee; migration 43: a trigger on venue_unavailability flags the holding future bookings it overlaps (venue_booking_flags) and a trigger on the flag writes one notification for the event's assigned coordinator in the same transaction", "PostgREST RPC")
+Rel(unavailability, db, "mark_venue_unavailable() is the only writer of venue_unavailability; venue_unavailability_conflicts() (security definer, migration 39) for the pre-check; the padded-overlap trigger raises CS105 and is the atomic guarantee; migration 44: a trigger on venue_unavailability flags the holding future bookings it overlaps (venue_booking_flags) and a trigger on the flag writes one notification for the event's assigned coordinator in the same transaction", "PostgREST RPC")
 Rel(unavailability, shared, "parseUnavailabilityInput, unavailableMessage, canMarkVenueUnavailable")
 Rel(app, availability, "Planned")
 @enduml

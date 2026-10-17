@@ -25,7 +25,7 @@ These override the text below where they conflict.
   **still in the future** (`event_end_datetime > now()`), and whose **padded period** (`venue_padded_period`, SCRUM-103)
   overlaps the block `[start, end)`, half-open. Setup and turnaround both count (106-S4). A Pending request is flagged like
   an Approved booking (106-S3). **[DECIDED]**
-- **Same transaction as the block.** Migration `43_venue_unavailability_flags.sql` (39 was taken by SCRUM-105 while this was written):
+- **Same transaction as the block.** Migration `44_venue_unavailability_flags.sql` (39 was taken by SCRUM-105 while this was written):
   1. adds `refresh_venue_booking_flags(venue, block default null)`, which runs SCRUM-104's `refresh_buffer_flags(venue)` (same
      venue row lock) and then flags the bookings a block overlaps. With a block id it considers that block only (the trigger
      passes the new one); without, every block that has not ended. It only raises flags: resolving stays with SCRUM-104's
