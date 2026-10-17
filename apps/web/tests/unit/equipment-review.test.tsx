@@ -32,6 +32,7 @@ const aQueueItem = (over: Partial<EquipmentQueueItemView> = {}): EquipmentQueueI
   quantity: 2,
   status: "SUBMITTED",
   statusLabel: "Submitted",
+  updated: false,
   ...over,
 });
 
@@ -42,6 +43,8 @@ const aDetail = (over: Partial<EquipmentRequestDetailView> = {}): EquipmentReque
   notes: "Two on stage",
   reason: null,
   canReview: true,
+  lastChangedBy: null,
+  lastChangedAt: null,
   ...over,
 });
 
@@ -229,6 +232,10 @@ describe("SCRUM-87/AC5 give a reason for Cannot Fulfil", () => {
       reason: "All out on loan",
       venueBookingId: "vb-1",
       releasedReason: null,
+      equipmentId: "eq-projector",
+      canEdit: false,
+      lastChangedBy: null,
+      lastChangedAt: null,
     };
     render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [request], canCreate: false, readiness: "INCOMPLETE", readinessLabel: "Incomplete" }} />);
     const statusCell = within(screen.getAllByRole("row")[1]).getAllByRole("cell")[4];

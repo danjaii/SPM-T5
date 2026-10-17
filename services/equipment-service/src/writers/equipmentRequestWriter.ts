@@ -14,9 +14,25 @@ export interface NewEquipmentRequest {
   requestedBy: string;
 }
 
-/** Saves a request. */
+/** SCRUM-88/AC1: the new details for a request, as the service hands them over. */
+export interface EquipmentRequestChange {
+  requestId: string;
+  equipmentId: string;
+  quantity: number;
+  venueBookingId: string | null;
+  notes: string | null;
+  /** The period it is needed for (UTC), copied from the venue booking. */
+  start: Date;
+  end: Date;
+}
+
+/** What update_equipment_request() (migration 44) answered. */
+export type ChangeOutcome = "updated" | "not_found" | "not_editable" | "event_locked" | "venue_invalid";
+
+/** Saves a request, and (SCRUM-88) a coordinator's change to one. */
 export interface EquipmentRequestWriter {
   create(request: NewEquipmentRequest): Promise<{ id: string }>;
+  update(change: EquipmentRequestChange): Promise<ChangeOutcome>;
 }
 
 /**
@@ -44,6 +60,24 @@ export class SupabaseEquipmentRequestWriter implements EquipmentRequestWriter {
       .single();
     if (error) throw new Error(`Saving the equipment request failed: ${error.message}`, { cause: error });
     return { id: (data as { id: string }).id };
+  }
+
+  /**
+   * SCRUM-88: calls update_equipment_request() (migration 44) as the caller. It refuses anyone but the event's
+   * assigned coordinator, and saves the change and sends the request back to Submitted in one step.
+   */
+  async update(change: EquipmentRequestChange): Promise<ChangeOutcome> {
+    const { data, error } = await this.db.rpc("update_equipment_request", {
+      p_request_id: change.requestId,
+      p_equipment_id: change.equipmentId,
+      p_quantity: change.quantity,
+      p_venue_booking_id: change.venueBookingId,
+      p_notes: change.notes,
+      p_start: change.start.toISOString(),
+      p_end: change.end.toISOString(),
+    });
+    if (error) throw new Error(`Changing the equipment request failed: ${error.message}`, { cause: error });
+    return data as ChangeOutcome;
   }
 }
 

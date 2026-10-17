@@ -247,14 +247,17 @@ request is a `requested` row in `equipment_reservations`, for a catalogue item a
 bookings (`venue_booking_id`, migration 25), and migration 25's restrictive insert policy lets only the assigned
 coordinator of an open event add one. The spec's open-question rules live in `packages/shared/src/equipmentRequest.ts`.
 Technical Support Staff review requests (SCRUM-87; same spec): a queue at `/equipment-requests`, and a status change
-through `review_equipment_request()` (migration 32), which refuses Arranged when too few units are free. The event's coordinator assigns Technical Support Staff on-site (SCRUM-20; spec in
+through `review_equipment_request()` (migration 32), which refuses Arranged when too few units are free. The
+assigned Event Coordinator can change a request (SCRUM-88; same spec): `update_equipment_request()` (migration 44) saves
+the change and sends it back to Submitted, where Technical Support Staff see it marked Updated; AC7 (a new safety check)
+when equipment changes after approval) can now build on SCRUM-99 and follows in its own change, and AC9 is not built. The event's coordinator assigns Technical Support Staff on-site (SCRUM-20; spec in
 `docs/specs/technical-assignment-notifications.md`, migration 41): `technical_staff_assignments` rows for one of the event's
 approved venue bookings, written only by `assign_technical_staff()`, `change_technical_assignment()` and
 `cancel_technical_assignment()` (equipment-service `routes/technicalAssignments.ts`); a trigger writes the technician's
 "assigned", "changed" and "cancelled" notifications in the same transaction (ADR 0002), and the technician acknowledges one
 through notification-service (`POST /notifications/:id/acknowledge`, `acknowledge_technical_assignment()`), which marks the
 assignment acknowledged until its venue booking or times change again. The
-equipment catalogue, request notes (SCRUM-87/AC8) and editing requests (SCRUM-88) are not built yet.
+equipment catalogue and request notes (SCRUM-87/AC8) are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
 `docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
 the event's assigned coordinator reviews it (SCRUM-67; spec in `docs/specs/review-change-request.md`,
