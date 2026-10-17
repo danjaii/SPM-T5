@@ -248,7 +248,7 @@ bookings (`venue_booking_id`, migration 25), and migration 25's restrictive inse
 coordinator of an open event add one. The spec's open-question rules live in `packages/shared/src/equipmentRequest.ts`.
 Technical Support Staff review requests (SCRUM-87; same spec): a queue at `/equipment-requests`, and a status change
 through `review_equipment_request()` (migration 32), which refuses Arranged when too few units are free. The
-assigned Event Coordinator can change a request (SCRUM-88; same spec): `update_equipment_request()` (migration 44) saves
+assigned Event Coordinator can change a request (SCRUM-88; same spec): `update_equipment_request()` (migration 45) saves
 the change and sends it back to Submitted, where Technical Support Staff see it marked Updated; AC7 (a new safety check)
 when equipment changes after approval) can now build on SCRUM-99 and follows in its own change, and AC9 is not built. The event's coordinator assigns Technical Support Staff on-site (SCRUM-20; spec in
 `docs/specs/technical-assignment-notifications.md`, migration 41): `technical_staff_assignments` rows for one of the event's
