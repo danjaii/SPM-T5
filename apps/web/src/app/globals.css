@@ -76,6 +76,13 @@
   --status-success-fg: #166534;
   --status-danger: #ffe4e2;
   --status-danger-fg: #b42318;
+  /* SCRUM-121: the dark app-shell sidebar (Figma nav/* variables). */
+  --nav-sidebar: #0b2e33;
+  --nav-chip: #17434a;
+  --nav-border: #24505a;
+  --nav-muted: #b5cfd2;
+  --nav-text: #f4f7f7;
+  --nav-active: #4f7c82;
 }
 
 /* Legacy hand-written styles sit in the components layer so Tailwind utilities (and shadcn) win over them. */
@@ -511,6 +518,12 @@ tr:last-child td { border-bottom: 0; }
   --color-destructive-hover: var(--destructive-hover);
   --color-highlight: var(--highlight);
   --color-fg-primary: var(--fg-primary);
+  --color-nav-sidebar: var(--nav-sidebar);
+  --color-nav-chip: var(--nav-chip);
+  --color-nav-border: var(--nav-border);
+  --color-nav-muted: var(--nav-muted);
+  --color-nav-text: var(--nav-text);
+  --color-nav-active: var(--nav-active);
   --color-status-neutral: var(--status-neutral);
   --color-status-neutral-fg: var(--status-neutral-fg);
   --color-status-info: var(--status-info);
@@ -694,3 +707,13 @@ tr:last-child td { border-bottom: 0; }
 .bell-menu__related, .bell-menu__time { font-size: 12px; color: var(--subtle); }
 .bell-menu__empty { margin: 0; padding: 14px; font-size: 14px; color: var(--subtle); }
 .bell-menu__all { display: block; padding: 10px 14px; font-size: 14px; color: var(--steel-dark); }
+
+/* SCRUM-121: inside the shell the sidebar replaces each page's own top bar, and the notification menu opens beside it. */
+@layer components {
+  .app-shell .dash__bar { display: none; }
+  .shell-bell .bell { color: var(--nav-text); }
+  .shell-bell .bell-menu { top: 0; right: auto; left: calc(100% + 8px); }
+  @media (max-width: 767px) {
+    .shell-bell .bell-menu { position: fixed; top: 64px; left: 16px; right: 16px; width: auto; }
+  }
+}
