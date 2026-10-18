@@ -15,7 +15,7 @@ export function VenueBookingDetail({ booking }: { booking: VenueBookingDetailVie
       {booking.flags.length > 0 && (
         <div className="alert alert--warning" aria-label="Flags">
           {booking.flags.map((f) => (
-            <p key={f.id}>{describeFlag(f)}</p>
+            <p key={f.id}>{describeFlag(f, booking.venueName)}</p>
           ))}
           <p>Change or cancel this booking to resolve it.</p>
         </div>

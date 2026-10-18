@@ -51,7 +51,7 @@ export function EventVenueBookings({
                   <td>
                     <span className="status-badge">{bookingStatusLabel(b.status)}</span>
                     {b.flags.map((f) => (
-                      <span className="vb__note vb__flag" key={f.id}>{describeFlag(f)}</span>
+                      <span className="vb__note vb__flag" key={f.id}>{describeFlag(f, b.venueName)}</span>
                     ))}
                     {b.rejectionReason && <span className="vb__note">{b.rejectionReason}</span>}
                     {b.cancellationReason && <span className="vb__note">{b.cancellationReason}</span>}

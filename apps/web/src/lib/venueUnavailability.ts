@@ -12,7 +12,7 @@ export interface UnavailabilityBody {
 }
 
 /** SCRUM-105: marks a venue unavailable (Venue Staff only; venue-service checks again, and so does the database). */
-export async function postVenueUnavailability(venueId: string, body: UnavailabilityBody): Promise<ApiResult<{ block: UnavailabilityBlockView }>> {
+export async function postVenueUnavailability(venueId: string, body: UnavailabilityBody): Promise<ApiResult<{ block: UnavailabilityBlockView; affectedBookings?: number; message?: string }>> {
   try {
     const res = await fetch(`${VENUE_URL}/venues/${encodeURIComponent(venueId)}/unavailability`, {
       method: "POST",

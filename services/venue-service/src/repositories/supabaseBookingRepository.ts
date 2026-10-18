@@ -255,7 +255,7 @@ export class SupabaseBookingRepository implements BookingRepository {
     if (bookingIds.length === 0) return [];
     const { data, error } = await this.db
       .from("venue_booking_flags")
-      .select("id, booking_id, kind, other_booking_id, other_start, other_end, created_at")
+      .select("id, booking_id, kind, other_booking_id, other_start, other_end, created_at, unavailability_id, unavailability:venue_unavailability(reason)")
       .in("booking_id", bookingIds)
       .is("resolved_at", null)
       .order("created_at", { ascending: true })
@@ -268,6 +268,8 @@ export class SupabaseBookingRepository implements BookingRepository {
       otherBookingId: (row.other_booking_id as string | null) ?? null,
       otherStart: date(row.other_start),
       otherEnd: date(row.other_end),
+      unavailabilityId: (row.unavailability_id as string | null) ?? null,
+      unavailabilityReason: ((row.unavailability as { reason?: string } | null)?.reason as string | undefined) ?? null,
       createdAt: new Date(row.created_at as string),
     }));
   }
