@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { EventRegistrationForm } from "@/components/EventRegistrationForm";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { getRegistrationForm } from "@/lib/eventRegistrationServer";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +15,7 @@ export default async function RegisterPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/dashboard/attendee">← Back to events</Link>
         {"data" in result ? (

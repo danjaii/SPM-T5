@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { canDecideEvent, canRequestVenue } from "@spm-t5/shared";
+import { AppHeader } from "@/components/AppHeader";
 import { CoordinatorAssignment } from "@/components/CoordinatorAssignment";
 import { EventChangeHistory } from "@/components/EventChangeHistory";
 import { EventChangeRequestForm } from "@/components/EventChangeRequestForm";
@@ -12,8 +13,6 @@ import { EventRequestDetails } from "@/components/EventRequestDetails";
 import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBookings } from "@/components/EventVenueBookings";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { EventSafetyDecisions } from "@/components/EventSafetyDecisions";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { getEventTechnicalAssignments } from "@/lib/technicalAssignmentsServer";
@@ -63,10 +62,7 @@ export default async function EventPage({
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <div className="event-page">
           <Link className="back-link" href="/dashboard">← Back to dashboard</Link>

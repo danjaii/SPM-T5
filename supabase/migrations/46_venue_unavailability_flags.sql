@@ -15,7 +15,7 @@
 --   mark_venue_unavailable()  venue_staff only (42501 otherwise), unchanged from 39; now returns (block_id, flagged_count).
 --
 -- Function history, so the next story copies the right body:
---   mark_venue_unavailable  39 (returns uuid)  ->  44 (returns the new block's id and how many bookings it flagged)
+--   mark_venue_unavailable  39 (returns uuid)  ->  46 (returns the new block's id and how many bookings it flagged)
 -- Postgres cannot change a return type with create or replace, so it is dropped and created again, grants repeated (as 36 did for
 -- set_venue_timing).
 --

@@ -24,23 +24,3 @@ export async function getNotifications(): Promise<{ items: NotificationItem[]; u
   if (!res.ok) return { error: "We couldn't load your notifications. Please try again." };
   return (await res.json()) as { items: NotificationItem[]; unreadCount: number };
 }
-
-/**
- * SCRUM-46: how many notifications are unread, for the dashboard link. Null on any failure, so a service that is down
- * never breaks the dashboard: the link just shows without a count.
- */
-export async function getUnreadCount(): Promise<number | null> {
-  try {
-    const token = (await cookies()).get(SESSION_COOKIE)?.value;
-    if (!token) return null;
-    const res = await fetch(`${SERVER_NOTIFICATION_URL}/notifications/unread-count`, {
-      headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { unreadCount?: unknown };
-    return typeof body.unreadCount === "number" ? body.unreadCount : null;
-  } catch {
-    return null;
-  }
-}

@@ -43,11 +43,13 @@ const queueDetail = (over: Partial<QueueDetailView> = {}): QueueDetailView => ({
 
 const equipmentItem = (over: Partial<EquipmentQueueItemView> = {}): EquipmentQueueItemView => ({
   id: "req-1", eventId: "evt-1", eventName: "Tech Summit", eventDate: "2026-12-12", venueName: "Orchid Hall",
-  equipment: "AV: Projector Unit", quantity: 2, status: "SUBMITTED", statusLabel: "Submitted", sentBack: null, ...over,
+  equipment: "AV: Projector Unit", quantity: 2, status: "SUBMITTED", statusLabel: "Submitted", sentBack: null,
+  updated: false, ...over,
 });
 
 const equipmentDetail = (over: Partial<EquipmentRequestDetailView> = {}): EquipmentRequestDetailView => ({
-  ...equipmentItem(), startTime: "10:00", endTime: "12:00", notes: null, reason: null, canReview: true, ...over,
+  ...equipmentItem(), startTime: "10:00", endTime: "12:00", notes: null, reason: null, canReview: true, lastChangedBy: null, lastChangedAt: null,
+  ...over,
 });
 
 const venueBooking = (over: Partial<EventVenueBookingItem> = {}): EventVenueBookingItem => ({
@@ -58,8 +60,9 @@ const venueBooking = (over: Partial<EventVenueBookingItem> = {}): EventVenueBook
 });
 
 const equipmentRequest = (over: Partial<EquipmentRequestView> = {}): EquipmentRequestView => ({
-  id: "req-1", equipment: "AV: Projector Unit", quantity: 2, venueName: "Orchid Hall", venueBookingId: "b-1", notes: null,
-  status: "SUBMITTED", statusLabel: "Submitted", reason: null, releasedReason: null, sentBackForReview: false, ...over,
+  id: "req-1", equipmentId: "eq-1", equipment: "AV: Projector Unit", quantity: 2, venueName: "Orchid Hall", venueBookingId: "b-1", notes: null,
+  status: "SUBMITTED", statusLabel: "Submitted", reason: null, releasedReason: null, sentBackForReview: false,
+  canEdit: false, lastChangedBy: null, lastChangedAt: null, ...over,
 });
 
 const SENT_BACK = "Sent back for review";

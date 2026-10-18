@@ -96,6 +96,7 @@ describe("SCRUM-46/AC2 notification details (46-S2)", () => {
         label: "Orchid Hall for Tech Summit",
         href: "/venue-bookings/" + BOOKING,
       },
+      actionRequired: false,
     });
     const read = body.items.find((i: { id: string }) => i.id === A);
     expect(read.isRead).toBe(true);
@@ -190,5 +191,25 @@ describe("SCRUM-46/AC4 mark a notification read (46-S4)", () => {
     const res = await post("/notifications/not-a-uuid/read");
     expect(res.status).toBe(422);
     expect((await res.json()).code).toBe("VALIDATION_FAILED");
+  });
+});
+
+describe("SCRUM-47/AC11 a notification says whether the reader needs to act (47-S11)", () => {
+  it("47-S11: an assignment needs action; an approval does not", async () => {
+    const ASSIGNED = "00000000-0000-4000-8000-0000000000e1";
+    const APPROVED = "00000000-0000-4000-8000-0000000000e2";
+    const own = await serve(
+      new FakeRepo([row({ id: ASSIGNED, type: "coordinator_assigned" }), row({ id: APPROVED, type: "event_approved" })]),
+      access,
+    );
+    try {
+      const body = await (await fetch(`${own.baseUrl}/notifications`, { headers: { cookie: COOKIE } })).json();
+      const actionRequired = Object.fromEntries(
+        body.items.map((i: { id: string; actionRequired: unknown }) => [i.id, i.actionRequired]),
+      );
+      expect(actionRequired).toEqual({ [ASSIGNED]: true, [APPROVED]: false });
+    } finally {
+      await own.stop();
+    }
   });
 });

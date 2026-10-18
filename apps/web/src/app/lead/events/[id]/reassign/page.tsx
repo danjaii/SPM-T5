@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { isClosedEventStatus } from "@spm-t5/shared";
+import { AppHeader } from "@/components/AppHeader";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadEventSummary } from "@/components/LeadEventSummary";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { getLeadReassignment } from "@/lib/leadServer";
 
 export const dynamic = "force-dynamic";
@@ -21,10 +20,7 @@ export default async function LeadReassignPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href={back}>← Back</Link>
         {"reassignment" in result ? (

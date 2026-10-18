@@ -217,7 +217,7 @@ export function parseUnavailabilityInput(body: unknown): ParsedUnavailabilityInp
 
 // ---------------------------------------------------------------------------
 // SCRUM-106 (docs/specs/venue-unavailability-flags.md): the bookings a new block affects, and what their coordinator is told.
-// The notification text is built in SQL (migration 44, venue_booking_flags_notify) so it is written in the same transaction as
+// The notification text is built in SQL (migration 46, venue_booking_flags_notify) so it is written in the same transaction as
 // the flag; `flaggedBookingMessage` is its twin, and a parity test runs the two against each other.
 // ---------------------------------------------------------------------------
 

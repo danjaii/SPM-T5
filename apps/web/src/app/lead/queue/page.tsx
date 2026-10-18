@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { LeadQueueList } from "@/components/LeadQueueList";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { getLeadQueue } from "@/lib/leadServer";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +14,7 @@ export default async function LeadQueuePage() {
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/dashboard/event_coordinator_lead">← Back to dashboard</Link>
         <h1>Unassigned event requests</h1>

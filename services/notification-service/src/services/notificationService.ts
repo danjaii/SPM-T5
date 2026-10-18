@@ -2,6 +2,7 @@ import {
   ACKNOWLEDGEABLE_NOTIFICATION_TYPES,
   NO_ACCESS_LABEL,
   notificationHref,
+  notificationRequiresAction,
   type NotificationAcknowledgement,
   type NotificationItem,
   type NotificationRelated,
@@ -72,6 +73,7 @@ function toItem(
     createdAt: row.created_at,
     readAt: row.read_at,
     related,
+    actionRequired: notificationRequiresAction(row.type),
     ...(assignment ? { acknowledgement: acknowledgementOf(row, states.get(assignment)) } : {}),
   };
 }

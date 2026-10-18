@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { LeadCoordinatorEvents } from "@/components/LeadCoordinatorEvents";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { getCoordinatorEvents, getLeadCoordinators } from "@/lib/leadServer";
 
 // SCRUM-81/AC5: loaded per request, so opening or refreshing shows the current assignments
@@ -18,10 +17,7 @@ export default async function CoordinatorEventsPage({ params }: { params: Promis
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/lead/coordinators">← Back to coordinator overview</Link>
         <h1>{coordinator ? `${coordinator.full_name}'s active events` : "Coordinator's active events"}</h1>

@@ -247,14 +247,17 @@ request is a `requested` row in `equipment_reservations`, for a catalogue item a
 bookings (`venue_booking_id`, migration 25), and migration 25's restrictive insert policy lets only the assigned
 coordinator of an open event add one. The spec's open-question rules live in `packages/shared/src/equipmentRequest.ts`.
 Technical Support Staff review requests (SCRUM-87; same spec): a queue at `/equipment-requests`, and a status change
-through `review_equipment_request()` (migration 32), which refuses Arranged when too few units are free. The event's coordinator assigns Technical Support Staff on-site (SCRUM-20; spec in
+through `review_equipment_request()` (migration 32), which refuses Arranged when too few units are free. The
+assigned Event Coordinator can change a request (SCRUM-88; same spec): `update_equipment_request()` (migration 45) saves
+the change and sends it back to Submitted, where Technical Support Staff see it marked Updated; AC7 (a new safety check)
+when equipment changes after approval) can now build on SCRUM-99 and follows in its own change, and AC9 is not built. The event's coordinator assigns Technical Support Staff on-site (SCRUM-20; spec in
 `docs/specs/technical-assignment-notifications.md`, migration 41): `technical_staff_assignments` rows for one of the event's
 approved venue bookings, written only by `assign_technical_staff()`, `change_technical_assignment()` and
 `cancel_technical_assignment()` (equipment-service `routes/technicalAssignments.ts`); a trigger writes the technician's
 "assigned", "changed" and "cancelled" notifications in the same transaction (ADR 0002), and the technician acknowledges one
 through notification-service (`POST /notifications/:id/acknowledge`, `acknowledge_technical_assignment()`), which marks the
 assignment acknowledged until its venue booking or times change again. The
-equipment catalogue, request notes (SCRUM-87/AC8) and editing requests (SCRUM-88) are not built yet.
+equipment catalogue and request notes (SCRUM-87/AC8) are not built yet.
 `event-service` also lets an organiser submit an event change request (SCRUM-66; spec in
 `docs/specs/event-change-request.md`, `routes/changeRequests.ts`, migration `15_event_change_requests_insert.sql`);
 the event's assigned coordinator reviews it (SCRUM-67; spec in `docs/specs/review-change-request.md`,
@@ -310,8 +313,12 @@ event's registrations newest first, with a summary in which only Confirmed regis
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
-`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and every dashboard links to it; producers (SCRUM-47,
-SCRUM-106) are not built and will write rows in the same transaction as their change.
+`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell in every signed-in page's header (`AppHeader`, `NotificationBell`) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
+`docs/specs/receive-notifications.md`, migration 44) adds the producers, triggers that write each row in the same transaction as
+its change: a coordinator's assignment, an event request's approval or rejection, a comment mention or reply (one per person,
+never the author; comments are saved through `post_event_comment()`), a clarification request and the organiser's answer (a
+comment the assigned coordinator flags, `event_comments.is_clarification_request`), and a safety decision. Each item carries
+`actionRequired` (`notificationRequiresAction()` in `packages/shared`). SCRUM-106 is not built.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
