@@ -9,18 +9,26 @@ interface Props extends React.ComponentProps<"a"> {
   /** Count slot: a queue count, shown in a pill. Omit to hide it. */
   count?: number | string;
   selected?: boolean;
+  /** SCRUM-121: the dark sidebar variant (nav/* tokens). */
+  onDark?: boolean;
 }
 
 // SCRUM-120: Figma App/Nav Item. The selected item has a pale aqua fill and bold primary text; the count is a pill that
 // turns solid primary when selected. Hover is the neutral accent token. SCRUM-121 puts these in the shared sidebar.
-export function NavItem({ label, icon, count, selected = false, className, ...props }: Props) {
+export function NavItem({ label, icon, count, selected = false, onDark = false, className, ...props }: Props) {
   return (
     <a
       data-slot="nav-item"
       aria-current={selected ? "page" : undefined}
       className={cn(
         "flex h-10 items-center gap-2.5 rounded-lg py-2 pr-2.5 pl-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        selected ? "bg-highlight font-bold text-fg-primary" : "font-medium text-foreground hover:bg-accent",
+        onDark
+          ? selected
+            ? "bg-nav-active font-bold text-primary-foreground"
+            : "font-medium text-nav-text hover:bg-nav-chip"
+          : selected
+            ? "bg-highlight font-bold text-fg-primary"
+            : "font-medium text-foreground hover:bg-accent",
         className,
       )}
       {...props}
@@ -35,7 +43,13 @@ export function NavItem({ label, icon, count, selected = false, className, ...pr
         <span
           className={cn(
             "rounded-full px-2 py-px text-xs font-bold",
-            selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+            onDark
+              ? selected
+                ? "bg-nav-sidebar text-nav-text"
+                : "bg-nav-chip text-nav-text"
+              : selected
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-foreground",
           )}
         >
           {count}

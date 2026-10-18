@@ -4,6 +4,7 @@ import { canMakeSafetyDecision, canViewVenueCatalogue, isLead, isRole } from "@s
 import { roleLabel } from "@/lib/roles";
 import { AppHeader } from "./AppHeader";
 import { BfcacheGuard } from "./BfcacheGuard";
+import { NeedsAction } from "./shell/NeedsAction";
 
 export interface DashboardData {
   user: { fullName: string; email: string; role: string };
@@ -26,6 +27,8 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
       <main className="dash__main">
         <h1>{roleLabel(user.role)} dashboard</h1>
         <p className="dash__lede">Signed in as {user.fullName}</p>
+        {/* SCRUM-121: queue roles see what is waiting for them, from the same counts as the sidebar */}
+        <NeedsAction />
         {/* SCRUM-68: every signed-in user has a profile to view and update, whatever their role */}
         <nav className="dash__links">
           <Link href="/profile">My profile</Link>
