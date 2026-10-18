@@ -8,7 +8,7 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 
 // SCRUM-102 adds CANCELLED: a pending or approved venue booking the coordinator cancelled, with a reason.
-// SCRUM-107 adds REPLACED: an affected booking whose replacement at another venue was approved (migration 45).
+// SCRUM-107 adds REPLACED: an affected booking whose replacement at another venue was approved (migration 47).
 export const VENUE_BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN", "CANCELLED", "REPLACED"] as const;
 export type VenueBookingStatus = (typeof VENUE_BOOKING_STATUSES)[number];
 

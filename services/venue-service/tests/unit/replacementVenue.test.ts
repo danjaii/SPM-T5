@@ -11,7 +11,7 @@ import { FakeVenueDetailsReader, aVenueWithDetails } from "../support/fakeVenueD
 import { FakeRoleReader, FakeVenueReader, aVenue } from "../support/fakeVenueAndRoles";
 
 // SCRUM-107 (docs/specs/replacement-venue.md): finding and requesting a replacement for a booking flagged as unavailable. An
-// in-memory repository stands in for the database, including migration 46's take-over trigger.
+// in-memory repository stands in for the database, including migration 48's take-over trigger.
 const NOW = new Date("2026-10-01T00:00:00.000Z");
 const START = sgtToUtc("2030-11-14", "09:00");
 const END = sgtToUtc("2030-11-14", "17:00");

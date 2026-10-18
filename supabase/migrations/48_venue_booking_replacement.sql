@@ -1,5 +1,5 @@
--- Replacing a venue booking affected by unavailability (SCRUM-107, docs/specs/replacement-venue.md). Needs 36 (flags), 44
--- (SCRUM-106's venue_unavailable flag; renumbered to 44) and 45 (the 'replaced' status). Append-only: nothing earlier is edited.
+-- Replacing a venue booking affected by unavailability (SCRUM-107, docs/specs/replacement-venue.md). Needs 36 (flags), 46
+-- (SCRUM-106's venue_unavailable flag) and 47 (the 'replaced' status). Append-only: nothing earlier is edited.
 -- Touches venue-service (replacement candidates, POST /venue-bookings/:id/replacement, the booking DTOs) and equipment-service,
 -- whose equipment_reservations rows move to the replacement.
 --

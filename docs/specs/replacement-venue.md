@@ -5,7 +5,7 @@ User story for **Request a Replacement Venue for an Affected Booking** (ConnectS
 - Scenario numbers are the test IDs: `107-S3` means SCRUM-107, Scenario 3. Jira does not number the ACs, so
   **Scenario n is AC n** in test names and commit titles **[PROPOSED]** (confirm with the PO).
 - Markers: **[DECIDED]** the team chose it (the Wave 2 plan of 2026-10-15). **[PROPOSED]** a default, confirm or change.
-- **Built (2026-10-17).** The spec was written before the code; the decisions below match what shipped, with the migration numbers 45 and 46 (40 and 41 were taken while it waited, then 43 and 44). It stacks on SCRUM-106 (`docs/specs/venue-unavailability-flags.md`) and needs
+- **Built (2026-10-17).** The spec was written before the code; the decisions below match what shipped, with the migration numbers 47 and 48 (40 and 41 were taken while it waited, then 43 and 44, then 45 and 46). It stacks on SCRUM-106 (`docs/specs/venue-unavailability-flags.md`) and needs
   SCRUM-110 merged, because a replacement request goes through `submit()`, which runs the suitability check
   (`docs/specs/venue-request-suitability.md`). Facts about Wave 1 are read from its branches.
 
@@ -34,8 +34,8 @@ These override the text below where they conflict.
   ("Submitted") with no quantity reserved and no reviewer, exactly as `change_venue_booking()` does for a new period
   (SCRUM-102/AC8). Cancelled rows stay where they are. The statuses it names are only `requested` and `cancelled`, so it is
   unaffected by PR #75's `under_review`. **[DECIDED]**
-- **Migrations 45 and 46.** `45_venue_booking_replaced_status.sql`: `alter type venue_booking_status add value 'replaced'`
-  (alone in its file; a new enum value cannot be used in the transaction that adds it). `46_venue_booking_replacement.sql`:
+- **Migrations 47 and 48.** `47_venue_booking_replaced_status.sql`: `alter type venue_booking_status add value 'replaced'`
+  (alone in its file; a new enum value cannot be used in the transaction that adds it). `48_venue_booking_replacement.sql`:
   - `replaced_by_booking_id uuid references venue_bookings(id)` and `replaced_at timestamptz`, with a unique index on
     `replaced_by_booking_id` and a check that a `replaced` booking has both. They are not in the UPDATE grant of migration 07,
     so only the trigger below writes them.
@@ -170,7 +170,7 @@ decision on record (Customer Briefing 8f). For a multi-venue event (SCRUM-98), o
 | 107-S5 | With a replacement PENDING, `replacement-candidates` and `POST replacement` are `409 REPLACEMENT_PENDING` and the page shows no button; 20 simultaneous `POST`s create exactly one booking and the rest are `REPLACEMENT_PENDING`; changing or cancelling the original is `REPLACEMENT_PENDING` [PROPOSED]; withdrawing the replacement frees the button (AC5). |
 | 107-S6 | An Approved booking with no flag, or with only a buffer-conflict flag, is `409 NOT_FLAGGED` (and `Find replacement` is absent); another coordinator, a lead, an organiser and venue staff are `403`; an unknown booking is `404`; 401 without a session (AC6). |
 | 107-S7 | An ordinary amendment (a rejected original, SCRUM-60) approved later does **not** change anything on the old booking; approving a replacement whose original's flag was resolved meanwhile is an ordinary approval. |
-| DB | The take-over trigger: replaces only a holding original with an open unavailable flag; sets `replaced_*`, resolves flags (`replaced`), moves non-cancelled equipment and resets it; is atomic with the approval (a failure rolls the approval back); a signed-in user cannot write `replaced_*`; the unique index allows one replacement per original; migration 45 is a file of its own. |
+| DB | The take-over trigger: replaces only a holding original with an open unavailable flag; sets `replaced_*`, resolves flags (`replaced`), moves non-cancelled equipment and resets it; is atomic with the approval (a failure rolls the approval back); a signed-in user cannot write `replaced_*`; the unique index allows one replacement per original; migration 47 is a file of its own. |
 | UI | "Find replacement" shows for the assigned coordinator on a flagged holding booking only; the candidates page lists the venues and the confirm step handles an unsuitable one; `EventVenueBookings` shows REPLACED with the link; `bookingActions` unit tests. |
 | E2E | On a Confirmed event, Rachel finds a replacement for a flagged booking (fixture venue large enough), a second attempt is refused, Kenneth rejects, she requests again, he approves; the original shows REPLACED with its flag reason, the event shows the new venue, and the equipment is Submitted on the new booking (AC1 to AC5). |
 
