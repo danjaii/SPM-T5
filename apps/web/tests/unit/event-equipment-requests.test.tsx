@@ -19,6 +19,7 @@ import { getEquipmentRequestForm, getEventEquipmentRequests } from "@/lib/equipm
 
 const aRequest = (over: Partial<EquipmentRequestView> = {}): EquipmentRequestView => ({
   id: "r1",
+  equipmentId: "eq-mic",
   equipment: "Audio: Wireless Microphone Set",
   quantity: 4,
   venueName: "Grand Hall",
@@ -28,6 +29,9 @@ const aRequest = (over: Partial<EquipmentRequestView> = {}): EquipmentRequestVie
   statusLabel: "Submitted",
   reason: null,
   releasedReason: null,
+  canEdit: false,
+  lastChangedBy: null,
+  lastChangedAt: null,
   ...over,
 });
 

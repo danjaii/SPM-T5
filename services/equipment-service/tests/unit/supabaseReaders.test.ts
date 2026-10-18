@@ -262,6 +262,7 @@ describe("SCRUM-86 Supabase readers and writer", () => {
         {
           id: "req-1",
           event_id: "evt-1",
+          equipment_id: "eq-mic",
           venue_booking_id: "vb-1",
           quantity_requested: 2,
           notes: "On stage",
@@ -269,6 +270,9 @@ describe("SCRUM-86 Supabase readers and writer", () => {
           start_datetime: "2026-10-15T01:00:00+00:00",
           end_datetime: "2026-10-15T09:00:00+00:00",
           review_reason: null,
+          // SCRUM-88/AC8: changed by the coordinator
+          last_edited_at: "2026-10-15T09:40:00+00:00",
+          editor: { full_name: "Rachel Tan" },
           created_at: "2026-10-01T01:00:00+00:00",
           // SCRUM-113: sent back for review after the event's attendance changed
           sent_back_changes: { expected_attendance: { from: 480, to: 600 } },
@@ -278,18 +282,19 @@ describe("SCRUM-86 Supabase readers and writer", () => {
           booking: { cancellation_reason: null, venue: { name: "Grand Hall" } },
         },
         // SCRUM-102 (102-S31): equipment released with its venue booking, which says why it was cancelled
-        { id: "rel-1", event_id: "evt-1", venue_booking_id: "vb-2", quantity_requested: 3, notes: null, status: "cancelled", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: null, created_at: "2026-10-02T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: "2026-10-15T01:00:00+00:00" }, equipment: { name: "Cable", type: null }, booking: { cancellation_reason: "Moved to a bigger room", venue: { name: "Orchid Hall" } } },
+        { id: "rel-1", event_id: "evt-1", equipment_id: "eq-cable", venue_booking_id: "vb-2", quantity_requested: 3, notes: null, status: "cancelled", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: null, created_at: "2026-10-02T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: "2026-10-15T01:00:00+00:00" }, equipment: { name: "Cable", type: null }, booking: { cancellation_reason: "Moved to a bigger room", venue: { name: "Orchid Hall" } } },
         // A row from before requests named a venue, for an item with no type.
-        { id: "res-1", event_id: "evt-1", venue_booking_id: null, quantity_requested: 1, notes: null, status: "rejected", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: "All out on loan", created_at: "2026-09-01T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: null }, equipment: { name: "Cable", type: null }, booking: null },
+        { id: "res-1", event_id: "evt-1", equipment_id: "eq-cable", venue_booking_id: null, quantity_requested: 1, notes: null, status: "rejected", start_datetime: "2026-10-15T01:00:00+00:00", end_datetime: "2026-10-15T09:00:00+00:00", review_reason: "All out on loan", last_edited_at: "2026-10-14T01:00:00+00:00", editor: null, created_at: "2026-09-01T01:00:00+00:00", event: { name: "DevOps Summit", status: "approved", preferred_start_datetime: null }, equipment: { name: "Cable", type: null }, booking: null },
       ],
       error: null,
     });
 
     expect(await new SupabaseEquipmentRequestReader(db).forEvent("evt-1")).toEqual([
-      { id: "req-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", venueBookingId: "vb-1", notes: "On stage", status: "requested", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: null, createdAt: new Date("2026-10-01T01:00:00Z"), sentBackChanges: { expected_attendance: { from: 480, to: 600 } }, sentBackAt: new Date("2026-10-02T03:00:00Z") },
-      { id: "rel-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentName: "Cable", equipmentType: null, quantity: 3, venueName: "Orchid Hall", venueBookingId: "vb-2", notes: null, status: "cancelled", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: "Moved to a bigger room", createdAt: new Date("2026-10-02T01:00:00Z"), sentBackChanges: null, sentBackAt: null },
+      { id: "req-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentId: "eq-mic", equipmentName: "Wireless Microphone Set", equipmentType: "Audio", quantity: 2, venueName: "Grand Hall", venueBookingId: "vb-1", notes: "On stage", status: "requested", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: null, lastChangedBy: "Rachel Tan", lastChangedAt: new Date("2026-10-15T09:40:00Z"), createdAt: new Date("2026-10-01T01:00:00Z"), sentBackChanges: { expected_attendance: { from: 480, to: 600 } }, sentBackAt: new Date("2026-10-02T03:00:00Z") },
+      { id: "rel-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: new Date("2026-10-15T01:00:00Z"), equipmentId: "eq-cable", equipmentName: "Cable", equipmentType: null, quantity: 3, venueName: "Orchid Hall", venueBookingId: "vb-2", notes: null, status: "cancelled", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: null, venueBookingCancellationReason: "Moved to a bigger room", lastChangedBy: null, lastChangedAt: null, createdAt: new Date("2026-10-02T01:00:00Z"), sentBackChanges: null, sentBackAt: null },
       // SCRUM-87/AC5: a Cannot Fulfil row carries its reason; an event with no date has no eventStart.
-      { id: "res-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: null, equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, venueBookingId: null, notes: null, status: "rejected", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: "All out on loan", venueBookingCancellationReason: null, createdAt: new Date("2026-09-01T01:00:00Z"), sentBackChanges: null, sentBackAt: null },
+      // SCRUM-88/AC8: a change by someone whose name cannot be read still says it was changed.
+      { id: "res-1", eventId: "evt-1", eventName: "DevOps Summit", eventStatus: "approved", eventStart: null, equipmentId: "eq-cable", equipmentName: "Cable", equipmentType: null, quantity: 1, venueName: null, venueBookingId: null, notes: null, status: "rejected", start: new Date("2026-10-15T01:00:00Z"), end: new Date("2026-10-15T09:00:00Z"), reviewReason: "All out on loan", venueBookingCancellationReason: null, lastChangedBy: "Unknown user", lastChangedAt: new Date("2026-10-14T01:00:00Z"), createdAt: new Date("2026-09-01T01:00:00Z"), sentBackChanges: null, sentBackAt: null },
     ]);
     expect(calls).toContainEqual(["from", "equipment_reservations"]);
     expect(calls).toContainEqual(["eq", "event_id", "evt-1"]);
@@ -438,6 +443,40 @@ describe("SCRUM-87 Supabase reader and reviewer", () => {
   it("SupabaseEquipmentRequestReviewer throws when the database refuses (e.g. not Technical Support Staff)", async () => {
     const { db } = rpcDb({ data: null, error: { message: "Only Technical Support Staff can review equipment requests" } });
     await expect(new SupabaseEquipmentRequestReviewer(db).review(review)).rejects.toThrow(/Reviewing the equipment request failed/);
+  });
+
+  const change = {
+    requestId: "req-1",
+    equipmentId: "eq-mic",
+    quantity: 6,
+    venueBookingId: "vb-annex",
+    notes: "Two more on stage",
+    start: new Date("2026-10-16T01:00:00Z"),
+    end: new Date("2026-10-16T05:00:00Z"),
+  };
+
+  it("SCRUM-88/AC1, AC2 SupabaseEquipmentRequestWriter.update calls update_equipment_request() with the new details", async () => {
+    const { db, calls } = rpcDb({ data: "updated", error: null });
+    expect(await new SupabaseEquipmentRequestWriter(db).update(change)).toBe("updated");
+    expect(calls).toEqual([
+      [
+        "update_equipment_request",
+        {
+          p_request_id: "req-1",
+          p_equipment_id: "eq-mic",
+          p_quantity: 6,
+          p_venue_booking_id: "vb-annex",
+          p_notes: "Two more on stage",
+          p_start: "2026-10-16T01:00:00.000Z",
+          p_end: "2026-10-16T05:00:00.000Z",
+        },
+      ],
+    ]);
+  });
+
+  it("SCRUM-88/AC6 SupabaseEquipmentRequestWriter.update throws when the database refuses (not the assigned coordinator)", async () => {
+    const { db } = rpcDb({ data: null, error: { message: "Only the event's assigned coordinator can change its equipment requests" } });
+    await expect(new SupabaseEquipmentRequestWriter(db).update(change)).rejects.toThrow(/Changing the equipment request failed/);
   });
 });
 // end of SCRUM-87 Supabase reader and reviewer

@@ -28,6 +28,16 @@ SCRUM-87 decisions (2026-10-14):
 - **Queue order.** Soonest event first (the event's date, or the request's own date when the event has none), then the oldest request.
 - **AC7.** Only Technical Support Staff see the queue and change a status: equipment-service refuses everyone else (403), and migration 32 adds a restrictive update policy so a direct database update by anyone else changes nothing. Technical Support Staff can now read the venue bookings that requests name, so the venue shows.
 
+SCRUM-88 decisions (2026-10-15):
+
+- **Scope.** AC1 to AC6 and AC8 are built. AC7 (a new safety check when equipment changes after the Safety Officer approved) is not: the Operational Safety Check (SCRUM-99) was merged while this story was in review, so AC7 follows in its own change. AC9 (old details next to new) is not built.
+- **How a change is saved.** Migration 32 lets only Technical Support Staff update a request directly, so the coordinator's change goes through one database function, `update_equipment_request()` (migration 45). It checks the caller is the event's assigned coordinator (which follows a Lead's reassignment, AC5), the event is not finished (AC4), the request is not Released, and the venue is one of the event's approved bookings, then saves.
+- **Back to Submitted (AC2, open question 6).** Any change, the notes alone included, sends the request back to Submitted. Its last review is cleared (who reviewed it, when, the Cannot Fulfil reason), and an Arranged request stops holding its units.
+- **Updated.** Technical Support Staff see a request marked Updated when the coordinator changed it and it is still Submitted, so the mark goes once they change its status.
+- **Which requests can be changed.** Submitted, Under Review, Arranged and Cannot Fulfil. Released ones (SCRUM-102) cannot, because their venue booking was cancelled.
+- **Who changed it (AC8).** `last_edited_by` and `last_edited_at` record the coordinator's changes only, not status changes by staff. The coordinator (on the event) and Technical Support Staff (on the request) see the name and the Singapore date and time.
+- **An item or venue no longer offered.** If the request's item was retired, or its venue booking is no longer approved, the change form starts with that field unchosen, so the coordinator picks again.
+
 ---
 
 ## Shared rules (apply to all three stories)

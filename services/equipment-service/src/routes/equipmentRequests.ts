@@ -46,6 +46,26 @@ export function equipmentRequestRoutes(portsFor: PortsFactory) {
     }),
   );
 
+  // SCRUM-88/AC1: the form to change a request, starting on its current details.
+  router.get(
+    "/events/:id/equipment-requests/:requestId/edit-form",
+    asyncHandler(async (req, res) => {
+      const { caller, requests } = await context(res.locals.user as SessionUser);
+      res
+        .set("Cache-Control", "no-store")
+        .json(await requests.editForm(caller, String(req.params.id), String(req.params.requestId)));
+    }),
+  );
+
+  // SCRUM-88/AC1, AC2: save the change; the request goes back to Submitted. Answers with the request as now shown.
+  router.patch(
+    "/events/:id/equipment-requests/:requestId",
+    asyncHandler(async (req, res) => {
+      const { caller, requests } = await context(res.locals.user as SessionUser);
+      res.json(await requests.update(caller, String(req.params.id), String(req.params.requestId), req.body ?? {}));
+    }),
+  );
+
   // SCRUM-87/AC1, AC2: the requests waiting for action, soonest event first. AC7: Technical Support Staff only.
   router.get(
     "/equipment-requests",

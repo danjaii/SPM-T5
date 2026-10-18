@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { EquipmentQueueList } from "@/components/EquipmentQueueList";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
 import { getEquipmentQueue } from "@/lib/equipmentRequestsServer";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +15,7 @@ export default async function EquipmentQueuePage() {
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/dashboard">← Back to dashboard</Link>
         <h1>Equipment requests</h1>

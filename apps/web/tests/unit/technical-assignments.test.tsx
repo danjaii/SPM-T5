@@ -278,6 +278,7 @@ describe("SCRUM-20/AC4, AC5 acknowledging on the notification page (20-S8, 20-S1
     createdAt: "2099-10-01T01:00:00.000Z",
     readAt: null,
     related: null,
+    actionRequired: false,
     acknowledgement: { canAcknowledge: true, acknowledgedAt: null },
     ...over,
   });
@@ -365,6 +366,7 @@ describe("SCRUM-20 fallbacks: missing names, other days, and unexplained refusal
       createdAt: "2099-10-01T01:00:00.000Z",
       readAt: null,
       related: null,
+      actionRequired: false,
       acknowledgement: { canAcknowledge: true, acknowledgedAt: null },
     };
     mockServer([500, {}]);

@@ -6,6 +6,8 @@ import type { EquipmentRequestInfo, EquipmentRequestReader } from "../../src/rea
 import type { RoleReader } from "../../src/readers/roleReader";
 import type { VenueBookingInfo, VenueBookingReader } from "../../src/readers/venueBookingReader";
 import type {
+  ChangeOutcome,
+  EquipmentRequestChange,
   EquipmentRequestReview,
   EquipmentRequestReviewer,
   EquipmentRequestWriter,
@@ -195,6 +197,7 @@ export const anEquipmentRequest = (overrides: Partial<EquipmentRequestInfo> = {}
   eventName: "DevOps Summit",
   eventStatus: "approved",
   eventStart: new Date("2026-10-15T01:00:00Z"),
+  equipmentId: "eq-projector",
   equipmentName: "Projector Unit",
   equipmentType: "AV",
   quantity: 2,
@@ -206,6 +209,8 @@ export const anEquipmentRequest = (overrides: Partial<EquipmentRequestInfo> = {}
   end: new Date("2026-10-15T09:00:00Z"),
   reviewReason: null,
   venueBookingCancellationReason: null,
+  lastChangedBy: null,
+  lastChangedAt: null,
   createdAt: new Date("2026-10-01T01:00:00Z"),
   sentBackChanges: null,
   sentBackAt: null,
@@ -228,13 +233,43 @@ export class FakeEquipmentRequestReader implements EquipmentRequestReader {
   }
 }
 
-/** Records every request it is asked to save, and answers with ids "req-new-1", "req-new-2", ... */
+/**
+ * Records every request it is asked to save, and answers with ids "req-new-1", "req-new-2", ... SCRUM-88: records
+ * every change too and answers with a set outcome; on "updated" it changes the row in `stored` (shared with a
+ * FakeEquipmentRequestReader) as update_equipment_request() does: back to Submitted, marked as changed by Rachel.
+ */
 export class FakeEquipmentRequestWriter implements EquipmentRequestWriter {
   readonly saved: NewEquipmentRequest[] = [];
+  readonly changed: EquipmentRequestChange[] = [];
+
+  constructor(
+    private readonly changeOutcome: ChangeOutcome = "updated",
+    private readonly stored: EquipmentRequestInfo[] = [],
+  ) {}
 
   async create(request: NewEquipmentRequest) {
     this.saved.push(request);
     return { id: `req-new-${this.saved.length}` };
+  }
+
+  async update(change: EquipmentRequestChange) {
+    this.changed.push(change);
+    const row = this.stored.find((r) => r.id === change.requestId);
+    if (this.changeOutcome === "updated" && row) {
+      Object.assign(row, {
+        equipmentId: change.equipmentId,
+        quantity: change.quantity,
+        venueBookingId: change.venueBookingId,
+        notes: change.notes,
+        start: change.start,
+        end: change.end,
+        status: "requested",
+        reviewReason: null,
+        lastChangedBy: "Rachel Tan",
+        lastChangedAt: new Date("2026-10-15T09:40:00Z"),
+      });
+    }
+    return this.changeOutcome;
   }
 }
 

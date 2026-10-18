@@ -243,3 +243,33 @@ export function equipmentReadiness(all: readonly EquipmentRequestStatus[]): Equi
   const ready = EQUIPMENT_READY_STATUSES as readonly string[];
   return statuses.every((s) => ready.includes(s)) ? "COMPLETE" : "INCOMPLETE";
 }
+
+// ---------------------------------------------------------------------------
+// SCRUM-88: the assigned coordinator changes a request.
+// ---------------------------------------------------------------------------
+
+/**
+ * AC1, AC2 (decision): every request can be changed except a Released one, whose venue booking was cancelled
+ * (SCRUM-102). update_equipment_request() in migration 45 refuses the same one (cancelled).
+ */
+export const EQUIPMENT_REQUEST_EDITABLE_STATUSES = ["SUBMITTED", "UNDER_REVIEW", "ARRANGED", "CANNOT_FULFIL"] as const satisfies readonly EquipmentRequestStatus[];
+
+export function isEditableEquipmentRequest(status: EquipmentRequestStatus): boolean {
+  return (EQUIPMENT_REQUEST_EDITABLE_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * AC2: an edited request is marked Updated for Technical Support Staff until they next change its status. Open
+ * question 6 (decision): any change, the notes alone included, sends it back to Submitted, so "edited and still
+ * Submitted" is exactly "changed since Technical Support last acted on it".
+ */
+export function isUpdatedEquipmentRequest(status: EquipmentRequestStatus, lastChangedAt: Date | null): boolean {
+  return status === "SUBMITTED" && lastChangedAt !== null;
+}
+
+export const EQUIPMENT_REQUEST_EDIT_MESSAGES = {
+  /** AC4 */
+  eventLocked: "Equipment requests for a completed, cancelled or rejected event can't be changed.",
+  /** Decision: Released equipment belongs to a cancelled venue booking. */
+  notEditable: "Released equipment can't be changed. Request it again for another venue booking.",
+} as const;

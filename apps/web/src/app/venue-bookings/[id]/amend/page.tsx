@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
+import { AppHeader } from "@/components/AppHeader";
 import { VenueBookingAmendForm } from "@/components/VenueBookingAmendForm";
 import { getVenueBooking, getVenueBookingForm } from "@/lib/venueBookingsServer";
 
@@ -17,10 +16,7 @@ export default async function AmendVenueBookingPage({ params }: { params: Promis
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href={`/venue-bookings/${id}`}>← Back to the request</Link>
         {"error" in booking ? (

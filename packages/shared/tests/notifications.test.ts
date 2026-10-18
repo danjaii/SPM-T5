@@ -3,6 +3,7 @@ import {
   NOTIFICATION_TYPES,
   NO_ACCESS_LABEL,
   notificationHref,
+  notificationRequiresAction,
   parseNotificationLimit,
 } from "../src/notifications";
 
@@ -30,6 +31,16 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
       "technical_assignment_assigned",
       "technical_assignment_changed",
       "technical_assignment_cancelled",
+      // SCRUM-47: written by migration 44
+      "event_approved",
+      "event_rejected",
+      "comment_mention",
+      "comment_reply",
+      "safety_approved",
+      "safety_rejected",
+      "safety_changes_requested",
+      "clarification_requested",
+      "clarification_answered",
     ]);
   });
 });
@@ -37,6 +48,23 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
 describe("SCRUM-46/AC7 the restricted label (46-S7)", () => {
   it("46-S7: is the agreed wording", () => {
     expect(NO_ACCESS_LABEL).toBe("You no longer have access to this item");
+  });
+});
+
+describe("SCRUM-47/AC11 whether a notification needs the reader to act (47-S11)", () => {
+  it.each([
+    ["coordinator_assigned", true],
+    ["comment_mention", true],
+    ["event_approved", false],
+    ["event_rejected", false],
+    ["comment_reply", false],
+    ["something_new", false],
+    ["safety_changes_requested", true], // 47-S12
+    ["safety_rejected", false],
+    ["clarification_requested", true], // 47-S2
+    ["clarification_answered", true], // 47-S3
+  ])("47-S11: %s → %s", (type, expected) => {
+    expect(notificationRequiresAction(type)).toBe(expected);
   });
 });
 

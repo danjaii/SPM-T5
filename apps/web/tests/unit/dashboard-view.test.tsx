@@ -1,6 +1,15 @@
 import { ROLES } from "@spm-t5/shared";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// the real notification bell (tests/setup.ts stubs it for page tests), answering with 2 unread
+vi.unmock("@/components/NotificationBell");
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ unreadCount: 2 }) }));
+});
+afterEach(() => vi.unstubAllGlobals());
+
 import { DashboardView, type DashboardData } from "@/components/DashboardView";
 
 const data: DashboardData = {
@@ -172,5 +181,15 @@ describe("SCRUM-99/AC2 Waiting for safety check link", () => {
     render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
 
     expect(screen.queryByRole("link", { name: "Waiting for safety check" })).toBeNull();
+  });
+});
+
+describe("SCRUM-47/AC11 the dashboard's notification bell", () => {
+  it("is in the header beside the role, in place of the old Notifications link", async () => {
+    const { container } = render(<DashboardView data={data} />);
+
+    const header = container.querySelector("header")!;
+    expect(await within(header).findByRole("button", { name: "Notifications, 2 unread" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /^Notifications/ })).toBeNull();
   });
 });
