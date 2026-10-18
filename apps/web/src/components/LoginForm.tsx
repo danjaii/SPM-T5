@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertCircle, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
-import Link from "next/link";
+import { Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { isRole, type Role } from "@spm-t5/shared";
+import { AuthAlert, AuthHeader, AuthLink } from "@/components/auth/AuthParts";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,17 +49,9 @@ export function LoginForm({ next }: Props = {}) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Sign in</h1>
-        <p className="text-sm text-muted-foreground">Use your ConnectSphere or organisation account.</p>
-      </div>
+      <AuthHeader title="Sign in" lede="Use your ConnectSphere or organisation account." />
 
-      {error && (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive bg-status-danger p-3 text-sm font-medium text-status-danger-fg">
-          <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          {error}
-        </div>
-      )}
+      {error && <AuthAlert tone="error">{error}</AuthAlert>}
 
       <div className="relative">
         <Mail aria-hidden="true" className="pointer-events-none absolute bottom-3 left-3 size-4 text-muted-foreground" />
@@ -91,8 +83,8 @@ export function LoginForm({ next }: Props = {}) {
       </Button>
 
       <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
-        <Link href="/forgot-password" className="font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring">Forgot password?</Link>
-        <Link href="/register" className="font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring">Create an attendee account</Link>
+        <AuthLink href="/forgot-password">Forgot password?</AuthLink>
+        <AuthLink href="/register">Create an attendee account</AuthLink>
       </div>
 
       <div className="flex items-start gap-2 rounded-lg bg-muted p-3 text-xs text-muted-foreground">

@@ -1,9 +1,11 @@
 "use client";
 
-import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { AuthAlert, AuthHeader, AuthLink } from "@/components/auth/AuthParts";
+import { Button } from "@/components/ui/button";
+import { InputField } from "@/components/ui/input-field";
 import { postJson } from "@/lib/api";
-import { Field } from "./Field";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -22,18 +24,19 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate>
-      <h1>Reset password</h1>
-      <p className="auth__lede">We will email you a link to choose a new password.</p>
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+      <AuthHeader title="Reset password" lede="We will email you a link to choose a new password." />
 
-      {message && <div className="alert alert--ok" role="status">{message}</div>}
+      {message && <AuthAlert tone="ok">{message}</AuthAlert>}
 
-      <Field id="email" label="Work email" type="email" autoComplete="username" placeholder="name@company.com"
+      <InputField id="email" name="email" label="Work email" type="email" autoComplete="username" placeholder="name@company.com"
         value={email} onChange={(e) => setEmail(e.target.value)} error={error} required />
 
-      <button className="btn" type="submit" disabled={submitting}>{submitting ? "Sending…" : "Send reset link"}</button>
+      <Button type="submit" size="lg" disabled={submitting} className="w-full">
+        {submitting ? (<><Loader2 aria-hidden="true" className="animate-spin" />Sending…</>) : "Send reset link"}
+      </Button>
 
-      <div className="auth__links"><Link href="/login">Back to sign in</Link></div>
+      <AuthLink href="/login" className="text-sm">Back to sign in</AuthLink>
     </form>
   );
 }
