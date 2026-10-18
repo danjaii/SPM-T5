@@ -1,34 +1,16 @@
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { EVENT_STATUS_DISPLAY, unknownStatusDisplay } from "@/lib/status";
+import { isEventStatus } from "@spm-t5/shared";
 
-const LABELS: Record<string, string> = {
-  approved: "Approved",
-  rejected: "Rejected",
-  submitted: "Submitted",
-  under_review: "Under Review",
-  returned: "Returned",
-  planning: "Planning",
-  awaiting_arrangements: "Awaiting Arrangements",
-  confirmed: "Confirmed",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  draft: "Draft",
-};
+const displayOf = (status: string) => (isEventStatus(status) ? EVENT_STATUS_DISPLAY[status] : unknownStatusDisplay(status));
 
-export const statusLabel = (status: string) => LABELS[status] ?? status;
-
-const VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  submitted: "secondary",
-  under_review: "secondary",
-  approved: "default",
-  confirmed: "default",
-  rejected: "destructive",
-  cancelled: "destructive",
-};
+export const statusLabel = (status: string) => displayOf(status).label;
 
 interface Props {
   status: string;
 }
 
+// SCRUM-120/AC2: renders through StatusBadge, so an event status keeps its tone, icon and label.
 export default function EventStatusBadge({ status }: Props) {
-  return <Badge variant={VARIANTS[status] ?? "outline"}>{statusLabel(status)}</Badge>;
+  return <StatusBadge {...displayOf(status)} />;
 }
