@@ -78,6 +78,8 @@ describe("SCRUM-104/AC3 flagsFor reads the open flags as the caller (104-S3)", (
         otherBookingId: "b2",
         otherStart: new Date("2030-11-14T02:00:00.000Z"),
         otherEnd: new Date("2030-11-14T04:00:00.000Z"),
+        unavailabilityId: null,
+        unavailabilityReason: null,
         createdAt: new Date("2030-10-01T00:00:00.000Z"),
       },
     ]);
@@ -90,6 +92,28 @@ describe("SCRUM-104/AC3 flagsFor reads the open flags as the caller (104-S3)", (
     await expect(new SupabaseBookingRepository(flagsDb({ error: { message: "secret" } }).db).flagsFor(["b1"])).rejects.toThrow(
       "Could not read the venue booking flags.",
     );
+  });
+
+  it("106-S1: a venue_unavailable flag carries the block's id, period and reason (read through the block)", async () => {
+    const { db } = flagsDb({
+      data: [
+        {
+          id: "f3",
+          booking_id: "b1",
+          kind: "venue_unavailable",
+          other_booking_id: null,
+          other_start: "2030-11-14T00:00:00.000Z",
+          other_end: "2030-11-16T10:00:00.000Z",
+          unavailability_id: "u1",
+          unavailability: { reason: "maintenance" },
+          created_at: "2030-10-01T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+    expect(await new SupabaseBookingRepository(db).flagsFor(["b1"])).toMatchObject([
+      { kind: "venue_unavailable", otherBookingId: null, unavailabilityId: "u1", unavailabilityReason: "maintenance", otherStart: new Date("2030-11-14T00:00:00.000Z") },
+    ]);
   });
 
   it("104-S3: a flag about a maintenance block (SCRUM-106) has no other booking and no period", async () => {

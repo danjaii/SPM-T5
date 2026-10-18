@@ -54,6 +54,7 @@ export const BOOKING_STATUS_DISPLAY: Record<BookingStatusKey, StatusDisplay> = {
   REJECTED: display("danger", "Rejected"),
   WITHDRAWN: display("neutral", "Withdrawn"),
   CANCELLED: display("neutral", "Cancelled"),
+  REPLACED: display("neutral", "Replaced"),
   HOLD: display("info", "Hold", "pause"),
   EXPIRED: display("danger", "Expired", "timer-off"),
 };

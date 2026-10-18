@@ -1,4 +1,5 @@
 import {
+  canRequestReplacement,
   canRequestVenue,
   checkSuitability,
   exceedsCapacity,
@@ -39,6 +40,11 @@ export interface SubmitOptions {
   /** Set by SCRUM-60 / SCRUM-59 when the request replaces a rejected one. */
   amendsBookingId?: string;
   fromSuggestion?: boolean;
+  /**
+   * SCRUM-107 (decision 3): the request replaces this flagged booking, so the event may be in any status but completed,
+   * cancelled or rejected (even Confirmed). The caller has already checked the flag. Also sets amendsBookingId.
+   */
+  replacesBookingId?: string;
 }
 
 export interface BookingServiceDeps {
@@ -67,6 +73,15 @@ export function assertMayRequestFor(caller: Caller, event: EventInfo | null): Ev
   if (!event) throw notFound("Event not found.");
   if (event.assignedCoordinatorId !== caller.id) throw forbidden();
   if (!canRequestVenue(event.status)) throw bookingError("EVENT_NOT_ELIGIBLE");
+  return event;
+}
+
+/** SCRUM-107 (decision 3): as assertMayRequestFor, but for a replacement, which a Confirmed event may also have. */
+export function assertMayReplaceFor(caller: Caller, event: EventInfo | null): EventInfo {
+  if (caller.role !== "event_coordinator") throw forbidden();
+  if (!event) throw notFound("Event not found.");
+  if (event.assignedCoordinatorId !== caller.id) throw forbidden();
+  if (!canRequestReplacement(event.status)) throw bookingError("EVENT_NOT_ELIGIBLE");
   return event;
 }
 
@@ -108,6 +123,12 @@ export class BookingService {
     const event = await events.getById(original.eventId);
     if (!event || event.assignedCoordinatorId !== caller.id) throw forbidden();
     if (original.status !== "rejected") throw bookingError("NOT_REJECTED");
+    // SCRUM-107 (107-S4): a rejected replacement is not amended; its parent is a booking that was not rejected. A new request linked
+    // to it would not be linked to the original, so it could never take over. The coordinator starts again from the original.
+    if (original.amendsBookingId) {
+      const parent = await bookings.getById(original.amendsBookingId);
+      if (parent && parent.status !== "rejected") throw bookingError("REPLACEMENT_REJECTED");
+    }
     return original;
   }
 
@@ -149,6 +170,15 @@ export class BookingService {
   }
 
   /**
+   * SCRUM-107 [PROPOSED]: while a replacement for this booking waits for Venue Staff, changing or cancelling the original would make
+   * the later approval an ordinary one and leave the event holding two venues. Withdraw the replacement first (SCRUM-35).
+   */
+  private async refuseWhileReplacementPending(booking: BookingRecord): Promise<void> {
+    const history = await this.deps.bookings.listByEvent(booking.eventId);
+    if (history.some((b) => b.amendsBookingId === booking.id && b.status === "requested")) throw bookingError("REPLACEMENT_PENDING");
+  }
+
+  /**
    * SCRUM-102/AC2: cancels one PENDING or APPROVED venue booking with a reason. The event's other venue bookings, and the
    * event itself (AC5), are not touched. Same access rules as changing it (AC6).
    */
@@ -159,6 +189,7 @@ export class BookingService {
     if (!booking) throw notFound("Venue booking request not found.");
     assertMayRequestFor(caller, await events.getById(booking.eventId));
     if (!CHANGEABLE_DB_STATUSES.includes(booking.status)) throw bookingError("NOT_ACTIVE");
+    await this.refuseWhileReplacementPending(booking);
 
     const parsed = parseCancellationInput(body);
     if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
@@ -179,6 +210,7 @@ export class BookingService {
     if (!booking) throw notFound("Venue booking request not found.");
     const event = assertMayRequestFor(caller, await events.getById(booking.eventId));
     if (!CHANGEABLE_DB_STATUSES.includes(booking.status)) throw bookingError("NOT_ACTIVE");
+    await this.refuseWhileReplacementPending(booking);
 
     // the same validation as a new request; the venue is the venue booking's own and cannot change
     const fields = typeof body === "object" && body !== null ? body : {};
@@ -309,7 +341,8 @@ export class BookingService {
     if (!override.ok) throw validationFailed(override.fieldErrors);
 
     // 32-S4, 32-S3: assigned Coordinator of an eligible event.
-    const event = assertMayRequestFor(caller, await events.getById(eventId));
+    const loaded = await events.getById(eventId);
+    const event = options.replacesBookingId ? assertMayReplaceFor(caller, loaded) : assertMayRequestFor(caller, loaded);
 
     // 32-S5: unknown or retired venue.
     const venue = await venues.getById(input.venueId);
@@ -319,7 +352,10 @@ export class BookingService {
     // one rejected booking has at most one pending or approved replacement.
     const history = await bookings.listByEvent(event.id);
     const replacementExists = history.some(
-      (b) => options.amendsBookingId !== undefined && b.amendsBookingId === options.amendsBookingId && isHoldingDbStatus(b.status),
+      (b) => {
+        const parent = options.amendsBookingId ?? options.replacesBookingId;
+        return parent !== undefined && b.amendsBookingId === parent && isHoldingDbStatus(b.status);
+      },
     );
     if (replacementExists) throw bookingError("ACTIVE_REQUEST_EXISTS");
 
@@ -374,7 +410,7 @@ export class BookingService {
             venueRequirements,
             accessibilityNeeds: event.accessibilityNeeds,
           },
-          amendsBookingId: options.amendsBookingId ?? null,
+          amendsBookingId: options.amendsBookingId ?? options.replacesBookingId ?? null,
           fromSuggestion: options.fromSuggestion ?? false,
           suitability,
         }),

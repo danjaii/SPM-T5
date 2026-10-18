@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { ReplacementCandidateDto } from "@spm-t5/shared";
 import { redirect } from "next/navigation";
 import { SERVER_VENUE_URL, SESSION_COOKIE } from "./api";
 import type {
@@ -51,6 +52,13 @@ export async function getVenueBooking(id: string): Promise<{ booking: VenueBooki
   const res = await fromVenueService(`/venue-bookings/${encodeURIComponent(id)}`);
   const data = await res.json();
   return res.ok ? { booking: data } : { error: data.error ?? "We couldn't load this venue booking request." };
+}
+
+/** SCRUM-107/AC1: the venues that could replace a flagged booking, or why none are offered (409 NOT_FLAGGED, REPLACEMENT_PENDING). */
+export async function getReplacementCandidates(id: string): Promise<{ candidates: ReplacementCandidateDto[] } | { error: string }> {
+  const res = await fromVenueService(`/venue-bookings/${encodeURIComponent(id)}/replacement-candidates`);
+  const data = await res.json();
+  return res.ok ? { candidates: data } : { error: data.error ?? "We couldn't load the replacement options." };
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, FlagHistoryRecord, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
 
 /**
  * Storage for venue booking requests. The real implementation is Postgres (venue_bookings); the
@@ -63,6 +63,9 @@ export interface BookingRepository {
    * Their presence blocks approving a pending request (104-S4); a flag never changes a booking's status.
    */
   flagsFor(bookingIds: string[]): Promise<FlagRecord[]>;
+
+  /** SCRUM-107: every flag of one booking, open or resolved (the booking's history). Only flags the caller may read come back. */
+  flagHistoryFor(bookingId: string): Promise<FlagHistoryRecord[]>;
 
   /** One request by id, or null (SCRUM-33 detail). */
   getById(id: string): Promise<BookingRecord | null>;

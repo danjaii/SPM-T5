@@ -88,7 +88,7 @@ export class Fixtures {
       p_notes: notes,
     });
     if (error) throw new Error(error.message);
-    return data as string;
+    return (data as { block_id: string }[])[0]!.block_id;
   }
 
   /** A throwaway facility, linked to the venue (SCRUM-65); returns its id. */

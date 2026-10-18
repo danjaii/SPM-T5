@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import {
+  bookingsFlaggedMessage,
   formatShortSgt,
   parseUnavailabilityInput,
   SELECTABLE_UNAVAILABILITY_REASONS,
@@ -52,7 +53,9 @@ export function VenueUnavailabilityForm({ venueId }: { venueId: string }) {
     });
     setBusy(false);
     if (ok) {
-      setSaved(`Marked unavailable from ${formatShortSgt(parsed.data.start)} to ${formatShortSgt(parsed.data.end)}.`);
+      // SCRUM-106: "3 bookings affected; their coordinators have been notified." or "No existing bookings are affected."
+      const flagged = bookingsFlaggedMessage(data.affectedBookings ?? 0);
+      setSaved(`Marked unavailable from ${formatShortSgt(parsed.data.start)} to ${formatShortSgt(parsed.data.end)}. ${flagged}`);
       setStartDate("");
       setStartTime("");
       setEndDate("");

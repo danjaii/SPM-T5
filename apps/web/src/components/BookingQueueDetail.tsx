@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unavailabilityFlagText } from "@spm-t5/shared";
 import { SentBackNotice } from "./SentBackNotice";
 import { formatSgt, suitabilityLabel, type QueueDetailView } from "@/lib/bookingQueue";
 import { bookingStatusLabel } from "@/lib/venueBookings";
@@ -22,10 +23,12 @@ export function BookingQueueDetail({ booking }: { booking: QueueDetailView }) {
               <li key={f.id}>
                 {f.otherBookingId ? (
                   <Link href={`/booking-queue/${f.otherBookingId}`}>{f.otherEventName ?? "Another booking"}</Link>
-                ) : (
+                ) : f.unavailability ? null : (
                   f.label
                 )}
                 {f.otherPeriod && <> at this venue, {f.otherPeriod.date} {f.otherPeriod.startTime}–{f.otherPeriod.endTime}</>}
+                {/* SCRUM-106/AC3: the block that raised it, in words */}
+                {f.unavailability && <>{unavailabilityFlagText(f.unavailability, booking.venueName)}</>}
               </li>
             ))}
           </ul>
