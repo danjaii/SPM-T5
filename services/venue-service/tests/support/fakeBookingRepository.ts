@@ -1,6 +1,6 @@
 import { dbStatusToApi, isHoldingDbStatus, paddedPeriod, periodsOverlap, type Period, type VenueTiming } from "@spm-t5/shared";
 import { bookingError } from "../../src/domain/errors";
-import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../../src/domain/types";
+import type { BookingChange, BookingRecord, Decision, FlagHistoryRecord, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../../src/domain/types";
 import type { AffectedPair, VenueTimingWriter } from "../../src/readers/venueTimingWriter";
 import type { BookingRepository } from "../../src/repositories/bookingRepository";
 
@@ -113,6 +113,30 @@ export class FakeBookingRepository implements BookingRepository {
     return { set: async (venueId, setup, turnaround) => this.setTiming(venueId, setup, turnaround) };
   }
 
+  /** SCRUM-107: every flag of one booking, open or resolved. */
+  async flagHistoryFor(bookingId: string): Promise<FlagHistoryRecord[]> {
+    return this.flagRows.filter((f) => f.bookingId === bookingId);
+  }
+
+  /** SCRUM-106: a venue_unavailable flag on a booking, as the block trigger (migration 43) raises it. */
+  flagUnavailable(bookingId: string, start: Date, end: Date, reason = "maintenance"): FlagRecord {
+    const flag: FakeFlag = {
+      id: `flag-${++this.flagCounter}`,
+      bookingId,
+      kind: "venue_unavailable",
+      otherBookingId: null,
+      otherStart: start,
+      otherEnd: end,
+      unavailabilityId: `block-${this.flagCounter}`,
+      unavailabilityReason: reason,
+      createdAt: this.now(),
+      resolvedAt: null,
+      resolvedReason: null,
+    };
+    this.flagRows.push(flag);
+    return flag;
+  }
+
   async flagsFor(bookingIds: string[]): Promise<FlagRecord[]> {
     return this.openFlags()
       .filter((f) => bookingIds.includes(f.bookingId))
@@ -182,6 +206,8 @@ export class FakeBookingRepository implements BookingRepository {
       suitabilityOverrideReason: null,
       sentBackChanges: null,
       sentBackAt: null,
+      replacedByBookingId: null,
+      replacedAt: null,
       ...partial,
     };
     this.rows.push(row);
@@ -237,11 +263,21 @@ export class FakeBookingRepository implements BookingRepository {
     if (decision.outcome === "approved" && this.openFlags(id).length > 0) throw bookingError("BOOKING_FLAGGED");
     Object.assign(row, { status: decision.outcome, reviewedBy: by, reviewedAt: at });
     this.afterBookingChange(row, false);
+    if (decision.outcome === "approved") this.takeOver(row, at);
     if (decision.outcome === "rejected") {
       row.reviewNotes = decision.reason ?? null;
       row.suggestion = decision.suggestion ?? null;
     }
     return row;
+  }
+
+  /** migration 48's venue_booking_take_over(): an approved replacement of a holding, flagged-unavailable original replaces it. */
+  private takeOver(replacement: BookingRecord, at: Date): void {
+    const original = this.rows.find((r) => r.id === replacement.amendsBookingId);
+    if (!original || !isHoldingDbStatus(original.status)) return;
+    if (!this.openFlags(original.id).some((f) => f.kind === "venue_unavailable")) return;
+    Object.assign(original, { status: "replaced", replacedByBookingId: replacement.id, replacedAt: at });
+    this.resolveFlags((f) => f.bookingId === original.id, "replaced");
   }
 
   async change(id: string, change: BookingChange): Promise<BookingRecord | null> {

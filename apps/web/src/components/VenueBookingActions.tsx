@@ -23,7 +23,7 @@ export function VenueBookingActions({ booking }: { booking: VenueBookingDetailVi
   // SCRUM-110: the suggested venue does not suit the booking; accepted only after a reason
   const [unsuitable, setUnsuitable] = useState<UnmetRequirement[]>();
 
-  if (!allowed.withdraw && !allowed.amend && !allowed.acceptSuggestion) return null;
+  if (!allowed.withdraw && !allowed.amend && !allowed.acceptSuggestion && !allowed.findReplacement) return null;
 
   async function run(action: () => Promise<{ ok: boolean; data: { id?: string; error?: string; code?: string; unmet?: UnmetRequirement[] } }>, goToNew: boolean) {
     setBusy(true);
@@ -78,6 +78,13 @@ export function VenueBookingActions({ booking }: { booking: VenueBookingDetailVi
           <button className="btn" type="button" disabled={busy} onClick={() => run(() => acceptVenueSuggestion(booking.id), true)}>
             {busy ? "Accepting…" : "Accept suggested alternative"}
           </button>
+        </p>
+      )}
+
+      {/* SCRUM-107/AC1: only for a booking flagged as unavailable, and not while a replacement is waiting */}
+      {allowed.findReplacement && (
+        <p>
+          <Link className="btn" href={`/venue-bookings/${booking.id}/replacement`}>Find replacement</Link>
         </p>
       )}
 

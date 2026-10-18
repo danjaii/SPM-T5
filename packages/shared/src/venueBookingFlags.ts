@@ -140,3 +140,55 @@ export interface AffectedPairDto {
   first: AffectedBookingDto;
   second: AffectedBookingDto;
 }
+
+// ---------------------------------------------------------------------------
+// SCRUM-107 (docs/specs/replacement-venue.md): replacing a booking that a block made unavailable.
+// ---------------------------------------------------------------------------
+
+/** A venue that could replace a flagged booking (107-S1). */
+export interface ReplacementCandidateDto {
+  venueId: string;
+  name: string;
+  address: string;
+  maxCapacity: number;
+}
+
+/** The other end of a replacement link, as the booking detail shows it (107-S3). */
+export interface ReplacementRefDto {
+  id: string;
+  venueName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+}
+
+/** A flag as history: open or resolved, and why it was resolved (107-S3: "its flag reason remains visible"). */
+export interface FlagHistoryDto {
+  id: string;
+  kind: VenueBookingFlagKind;
+  label: string;
+  createdAt: string;
+  resolvedAt: string | null;
+  /** `no_longer_conflicts`, `booking_closed` or `replaced`; null while open. */
+  resolvedReason: string | null;
+  unavailability?: FlagUnavailabilityDto;
+}
+
+/**
+ * 107-S5, 107-S6: whether "Find replacement" is offered. Only the event's assigned coordinator, only for a holding booking that
+ * carries an open "Venue unavailable" flag, and only while no replacement is waiting for a decision.
+ */
+export function canFindReplacement(input: {
+  isAssignedCoordinator: boolean;
+  holding: boolean;
+  flags: Pick<FlagDto, "kind">[];
+  hasPendingReplacement: boolean;
+}): boolean {
+  return (
+    input.isAssignedCoordinator &&
+    input.holding &&
+    !input.hasPendingReplacement &&
+    input.flags.some((f) => f.kind === "venue_unavailable")
+  );
+}
