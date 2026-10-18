@@ -57,3 +57,53 @@ describe("SCRUM-83 — Sign-in returns a guest to the registration form", () => 
   // end of AC2
 });
 // end of SCRUM-83
+
+// ---------------------------------------------------------------------------
+// SCRUM-122 — Sign in: land on the role's home, explain a failed attempt inline, show progress
+// ---------------------------------------------------------------------------
+describe("SCRUM-122 — Sign-in form", () => {
+  // AC1: valid credentials land on the home page auth-service names for the role
+  it("SCRUM-122/AC1 lands on the role's home page after a valid sign-in", async () => {
+    mockSuccessfulSignIn();
+    render(<LoginForm />);
+
+    signIn();
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard/attendee"));
+  });
+
+  // AC2: wrong credentials show an inline error and keep the email the user typed
+  it("SCRUM-122/AC2 shows an inline error and keeps the email after a failed sign-in", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "Invalid email, password or role." }) }));
+    render(<LoginForm />);
+
+    signIn();
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Invalid email, password or role.");
+    expect((screen.getByLabelText("Work email") as HTMLInputElement).value).toBe("alicia.fernandez@example.com");
+    expect((screen.getByLabelText("Password") as HTMLInputElement).value).toBe("");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  // AC10: an unreachable server is an error state, not a blank screen
+  it("SCRUM-122/AC10 explains when the server cannot be reached", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<LoginForm />);
+
+    signIn();
+
+    expect((await screen.findByRole("alert")).textContent).toContain("couldn't reach the server");
+  });
+
+  // AC10: while the request is out the button is disabled and says so
+  it("SCRUM-122/AC10 shows a loading state while signing in", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
+    render(<LoginForm />);
+
+    signIn();
+
+    const button = await screen.findByRole("button", { name: /Signing in/ });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+// end of SCRUM-122
