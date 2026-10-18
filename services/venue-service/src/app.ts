@@ -3,7 +3,7 @@ import { errorHandler } from "./middlewares/errors";
 import { requireSession } from "./middlewares/session";
 import type { BookingRepository } from "./repositories/bookingRepository";
 import type { VenueTimingWriter } from "./readers/venueTimingWriter";
-import type { VenueSearchReader } from "./readers/venueSearchReader";
+import { SupabaseVenueSearchReader, type VenueSearchReader } from "./readers/venueSearchReader";
 import type { VenueUnavailabilityStore } from "./readers/venueUnavailabilityStore";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { bookingQueueRoutes } from "./routes/bookingQueue";
@@ -32,6 +32,7 @@ export interface AppOptions {
 export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
   const portsFor = options.ports ?? supabasePorts(deps);
+  const searchFor = options.venueSearch ?? ((token: string) => new SupabaseVenueSearchReader(deps.forUser(token)));
   const app = express();
   app.use(express.json());
 
@@ -59,7 +60,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
-  app.use(requireSession(deps), venueBookingRoutes(portsFor, now), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));
+  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));
 
   app.use(errorHandler);
   return app;

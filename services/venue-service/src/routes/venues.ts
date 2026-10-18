@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   bookingsAffectedMessage,
+  bookingsFlaggedMessage,
   bufferConflictSummary,
   canEditVenueTiming,
   canMarkVenueUnavailable,
@@ -244,8 +245,14 @@ export function venueRoutes(
       if (!venue) throw notFound("Venue not found.");
 
       const { start, end, reason, notes } = parsed.data;
-      const block = await unavailabilityFor(token).mark(req.params.id as string, { start, end, reason, ...(notes !== undefined ? { notes } : {}) });
-      res.status(201).json({ block: unavailabilityBlockView(block, true) });
+      const { block, affectedBookings } = await unavailabilityFor(token).mark(req.params.id as string, {
+        start,
+        end,
+        reason,
+        ...(notes !== undefined ? { notes } : {}),
+      });
+      // SCRUM-106: the database has flagged the affected bookings and told their coordinators; Venue Staff see how many
+      res.status(201).json({ block: unavailabilityBlockView(block, true), affectedBookings, message: bookingsFlaggedMessage(affectedBookings) });
     }),
   );
 
