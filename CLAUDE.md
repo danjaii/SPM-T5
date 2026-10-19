@@ -226,7 +226,7 @@ acceptance criterion — part of what the Scrum project is graded on.
 - Layout: every role has the same left sidebar and no top bar; keep it in one shared shell component.
 - Status is never color alone: always icon + label.
 - Per ticket: read the ticket and its Figma frame, show a plan and wait for my OK, then build. Cite SCRUM-<story>/AC<n> in commits and test names, and finish by commenting on the ticket with the PR link and pass/fail per AC.
-- PRs are written for a first-time reader who has not seen the ticket: plain language, no unexplained jargon or ticket-speak, why before what. Fill the template with an AC table (each AC, what the user now sees, pass/fail and how it was checked, "not verified" when it was not) and "How to test" as numbered steps someone can follow by clicking. Say what is deliberately out of scope.
+- PRs are written for a first-time reader who has not seen the ticket: plain language, no unexplained jargon or ticket-speak, why before what. Fill the template with an AC table (each AC as its Given/When/Then scenario, pass/fail and how it was checked, "not verified" when it was not) followed by a short INVEST check of the story (Independent, Negotiable, Valuable, Estimable, Small, Testable, each with a verdict); if a ticket's ACs are not Given/When/Then and independently testable, say so in the plan before building and "How to test" as numbered steps someone can follow by clicking. Say what is deliberately out of scope.
 
 ## Current state
 
