@@ -36,8 +36,8 @@ Notes from the story:
 ### AC4 — Submit for review
 - **Given** I have completed all mandatory fields
 - **When** I choose to submit the request
-- **Then** the request status changes to Submitted and it becomes available for coordinator
-  auto-assignment and review (see SCRUM-42)
+- **Then** the request status becomes Submitted and it enters the unassigned queue for the Event
+  Coordinator Lead (SCRUM-77)
 
 ### AC5 — Prevent incomplete submission
 - **Given** one or more mandatory fields are missing or invalid
@@ -67,7 +67,7 @@ Extra scenarios (error and edge cases):
 
 ## AC → test mapping
 
-Tests written so far (red step, backend AC1 + AC7). AC2–AC6 have no tests yet.
+Tests written so far: backend AC1, AC5 and AC7. AC5's 422 response copies `changeRequests.ts` (SCRUM-66).
 
 | AC | Test file | `describe` / `it` |
 | ----- | ----- | ----- |
@@ -83,10 +83,12 @@ Tests written so far (red step, backend AC1 + AC7). AC2–AC6 have no tests yet.
 | AC7 | same | refuses a `venue_staff` with 403, and stores nothing |
 | AC7 | same | refuses a `technical_support_staff` with 403, and stores nothing |
 | AC7 | same | refuses a `attendee` with 403, and stores nothing |
+| AC5 | `packages/shared/tests/unit/eventRequest.test.ts` | `SCRUM-49/AC5 eventRequestSchema accepts a complete request`, `every AC1 field is mandatory`, `dates`, `numbers`, `registration setup`, `all bad fields are reported together` |
+| AC5 | `services/event-service/tests/unit/event-request-create.test.ts` | `SCRUM-49/AC5 — Prevent incomplete submission` / refuses a missing or bad field with 422 `VALIDATION_FAILED` listing each field, and stores nothing |
 | AC2 | — | not yet written (apps/web) |
 | AC3 | — | not yet written (apps/web, shared schema) |
 | AC4 | — | not yet written (event-service) |
-| AC5 | — | not yet written (event-service, shared schema, apps/web) |
+| AC5 | — | apps/web form display of the field errors not yet written |
 | AC6 | — | not yet written (event-service, apps/web) |
 
 ## Affected workspaces
@@ -111,26 +113,28 @@ Tests written so far (red step, backend AC1 + AC7). AC2–AC6 have no tests yet.
 
 ## Out of scope
 
-- Coordinator auto-assignment (SCRUM-42). AC4 only requires the request to reach `submitted`.
-  Note: SCRUM-42 as built on `event-review-with-approval` is manual assignment by a coordinator.
+- Assigning a coordinator (SCRUM-42, SCRUM-77). AC4 only requires the request to reach `submitted`
+  with no coordinator assigned, so it waits in the Event Coordinator Lead's unassigned queue.
 - Notifications on submission (feature 20).
 - Saving as a draft (SCRUM-53). The schema already allows `draft`.
 - Multi-session events; each session is a separate request.
 - Listing and viewing submitted requests (SCRUM-22, SCRUM-23).
 
+## Decisions
+
+- **App-level role check stays.** `canCreateEventRequests` in `routes/eventRequests.ts` is kept as
+  defence-in-depth behind RLS, for a clean 403. Still raised as a question in the PR.
+- **Registration setup.** When registration is needed (Yes), capacity and the opens/closes window are
+  mandatory. Opens must be before closes, and closes by the event start. Capacity is at least 1.
+- **Room layouts** come from the `room_layouts` table (one choice, `preferred_room_layout_id`).
+- **Dates.** The preferred start must be in the future and the end after the start. No minimum notice
+  beyond that; this is still an open question for the customer.
+- **Editing after submit** is done through an event change request (SCRUM-66), not by editing the request.
+- **Event category is out of scope.** `events.event_category_id` is nullable in `01_schema.sql`, so
+  `events` does not require it and the form does not collect it.
+- **Other roles refused.** All six non-organiser roles get 403, including `event_coordinator_lead` and
+  `safety_officer`.
+
 ## Open questions
 
-- **Keep the app-level role check?** RLS (migration 19) now enforces organiser-only inserts, so the
-  `canCreateEventRequests` check in `routes/eventRequests.ts` is defence-in-depth. CLAUDE.md says
-  middleware "should not re-implement role checks that RLS already enforces". Keep it for the clean
-  403, or remove it and map the 42501 error to 403? For PR review.
-- **Registration setup contents.** Beyond whether registration is needed, are capacity and the
-  opens/closes window mandatory when it is? (Current tests and plan assume yes when required.)
-- **Room layout options.** Which layouts can be chosen: all rows in `room_layouts` (six seeded), or
-  only those a venue supports? Is a single choice enough?
-- **Date lead time.** Must the preferred start be in the future, and is there a minimum notice
-  period? (Current plan assumes future start, end after start, no minimum notice.)
-- **Editing after submit.** Can an organiser edit a request once it is `submitted`, or only via a
-  change request (feature 19)?
-- **Event category.** `events.event_category_id` exists and categories are seeded, but AC1 does not
-  list it. Is it collected at creation, and is it mandatory?
+- **Date lead time.** Is any minimum notice period needed beyond a future start? For the customer.

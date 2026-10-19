@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { canCreateEventRequests, isRole } from "@spm-t5/shared";
+import { canCreateEventRequests, isRole, parseEventRequest } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 
@@ -18,9 +18,16 @@ export function eventRequestRoutes(deps: SupabaseDeps) {
       return res.status(403).json({ error: "You are not allowed to create event requests." });
     }
 
+    // SCRUM-49 AC5: refuse an incomplete or invalid request before the database is called, listing every
+    // bad field. Same response shape as change requests (routes/changeRequests.ts, SCRUM-66).
+    const parsed = parseEventRequest(req.body, new Date());
+    if (!parsed.ok) {
+      return res.status(422).json({ code: "VALIDATION_FAILED", error: "Check the highlighted fields.", fieldErrors: parsed.fieldErrors });
+    }
+
     // SCRUM-49 AC1: store every field. AC7: no organiser or organisation argument is sent; the database
     // function takes both from the caller's verified token (see supabase/migrations/19_create_event_request.sql).
-    const b = req.body;
+    const b = parsed.data;
     const { data: event, error } = await deps
       .forUser(token)
       .rpc("create_event_request", {

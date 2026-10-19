@@ -7,7 +7,14 @@ describe("SCRUM-49/AC7 canCreateEventRequests", () => {
     expect(canCreateEventRequests("event_organiser")).toBe(true);
   });
 
-  it.each(["event_coordinator", "venue_staff", "technical_support_staff", "attendee"] as const)(
+  it.each([
+      "event_coordinator",
+      "event_coordinator_lead",
+      "venue_staff",
+      "technical_support_staff",
+      "safety_officer",
+      "attendee",
+    ] as const)(
     "refuses %s",
     (role) => {
       expect(canCreateEventRequests(role)).toBe(false);

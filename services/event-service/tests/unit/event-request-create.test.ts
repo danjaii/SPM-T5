@@ -198,6 +198,118 @@ describe("SCRUM-49/AC1 — Capture required fields", () => {
 });
 // end of AC1
 
+describe("SCRUM-49/AC5 — Prevent incomplete submission", () => {
+  const post = (fake: ReturnType<typeof createFake>, cookie: string, body: unknown) =>
+    request(createApp(fake.deps)).post("/events").set("Cookie", cookie).send(body as object);
+
+  it.each([
+    "name",
+    "purpose",
+    "description",
+    "preferred_start_datetime",
+    "preferred_end_datetime",
+    "expected_attendance",
+    "venue_requirements",
+    "preferred_room_layout_id",
+    "accessibility_requirements",
+    "equipment_requirements_notes",
+    "registration_required",
+  ])("refuses a request with no %s with 422 naming that field, and stores nothing", async (field) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const body = validRequest();
+    delete body[field];
+
+    const res = await post(fake, organiser.cookie, body);
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("VALIDATION_FAILED");
+    expect(res.body.error).toBe("Check the highlighted fields."); // same shape as changeRequests.ts (SCRUM-66)
+    expect(Object.keys(res.body.fieldErrors)).toEqual([field]);
+    expect(typeof res.body.fieldErrors[field]).toBe("string");
+    expect(fake.tables.events).toHaveLength(0);
+    expect(fake.tables.event_status_history).toHaveLength(0);
+    expect(fake.rpcCalls).toHaveLength(0);
+  });
+
+  it("lists every bad field together in the 422, and stores nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await post(fake, organiser.cookie, {
+      ...validRequest(),
+      name: "",
+      expected_attendance: 0,
+      preferred_end_datetime: validRequest().preferred_start_datetime,
+    });
+
+    expect(res.status).toBe(422);
+    expect(Object.keys(res.body.fieldErrors).sort()).toEqual(["expected_attendance", "name", "preferred_end_datetime"]);
+    expect(fake.tables.events).toHaveLength(0);
+    expect(fake.rpcCalls).toHaveLength(0);
+  });
+
+  it("refuses a start in the past with 422, and stores nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await post(fake, organiser.cookie, {
+      ...validRequest(),
+      preferred_start_datetime: inDays(-2, 9),
+      preferred_end_datetime: inDays(-2, 17),
+      registration_required: false,
+    });
+
+    expect(res.status).toBe(422);
+    expect(Object.keys(res.body.fieldErrors)).toEqual(["preferred_start_datetime"]);
+    expect(fake.tables.events).toHaveLength(0);
+  });
+
+  it("refuses registration with no capacity or window with 422 naming all three, and stores nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const { registration_capacity, registration_opens_at, registration_closes_at, ...rest } = validRequest();
+
+    const res = await post(fake, organiser.cookie, rest);
+
+    expect(res.status).toBe(422);
+    expect(Object.keys(res.body.fieldErrors).sort()).toEqual(["registration_capacity", "registration_closes_at", "registration_opens_at"]);
+    expect(fake.tables.events).toHaveLength(0);
+  });
+
+  it("refuses a window that closes after the event starts with 422, and stores nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await post(fake, organiser.cookie, { ...validRequest(), registration_closes_at: inDays(61, 9) });
+
+    expect(res.status).toBe(422);
+    expect(Object.keys(res.body.fieldErrors)).toEqual(["registration_closes_at"]);
+    expect(fake.tables.events).toHaveLength(0);
+  });
+
+  it("refuses an empty body with 422, and stores nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await post(fake, organiser.cookie, {});
+
+    expect(res.status).toBe(422);
+    expect(Object.keys(res.body.fieldErrors).length).toBeGreaterThanOrEqual(11);
+    expect(fake.tables.events).toHaveLength(0);
+  });
+
+  it("checks the role before the fields: an attendee sending a bad request gets 403, not 422", async () => {
+    const fake = createFake();
+    const attendee = fake.signIn("attendee");
+
+    const res = await post(fake, attendee.cookie, {});
+
+    expect(res.status).toBe(403);
+  });
+});
+// end of AC5
+
 describe("SCRUM-49/AC7 — Record ownership", () => {
   it("records the signed-in organiser as the request's event organiser", async () => {
     const fake = createFake();
@@ -248,7 +360,14 @@ describe("SCRUM-49/AC7 — Record ownership", () => {
   });
 
   // Decided with the PO: only event organisers create event requests
-  it.each(["event_coordinator", "venue_staff", "technical_support_staff", "attendee"])(
+  it.each([
+    "event_coordinator",
+    "event_coordinator_lead",
+    "venue_staff",
+    "technical_support_staff",
+    "safety_officer",
+    "attendee",
+  ])(
     "refuses a %s with 403, and stores nothing",
     async (role) => {
       const fake = createFake();
