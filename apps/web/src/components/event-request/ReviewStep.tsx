@@ -1,31 +1,37 @@
 import { reviewSections, type EventRequestFormValues } from "@/lib/eventRequestForm";
 import type { RoomLayoutOption } from "@/lib/eventRequests";
+import { Accordion, AccordionItem, AccordionPanel, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 
-// SCRUM-123/AC3: everything entered, in the same sections as the steps, each with an Edit link back to its step.
+// SCRUM-123/AC3: everything entered, in the same sections as the steps, each with an Edit link back to its step. Each section
+// is an accordion item, all open to start with so nothing is hidden, and the organiser can fold the ones already checked.
 export function ReviewStep({ values, layouts, onEdit }: { values: EventRequestFormValues; layouts: RoomLayoutOption[]; onEdit: (step: number) => void }) {
   const sections = reviewSections(values, (id) => layouts.find((l) => l.id === id)?.name);
   return (
-    <div className="flex flex-col gap-5">
+    <Accordion multiple defaultValue={sections.map((s) => s.title)}>
       {sections.map((section) => (
-        <section key={section.title} aria-labelledby={`review-${section.step}`} className="rounded-xl bg-muted p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 id={`review-${section.step}`} className="text-base font-bold text-foreground">{section.title}</h3>
-            <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(section.step)}
-              aria-label={`Edit ${section.title}`}>
-              Edit
-            </Button>
-          </div>
-          <dl className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-[12rem_1fr]">
-            {section.rows.map((row) => (
-              <div key={row.label} className="contents">
-                <dt className="text-sm font-semibold text-foreground">{row.label}</dt>
-                <dd className="text-sm break-words text-foreground">{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+        <AccordionItem key={section.title} value={section.title}>
+          <AccordionTrigger
+            action={
+              <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(section.step)} aria-label={`Edit ${section.title}`}>
+                Edit
+              </Button>
+            }
+          >
+            {section.title}
+          </AccordionTrigger>
+          <AccordionPanel>
+            <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-[12rem_1fr]">
+              {section.rows.map((row) => (
+                <div key={row.label} className="contents">
+                  <dt className="text-sm font-semibold text-foreground">{row.label}</dt>
+                  <dd className="text-sm break-words text-foreground">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </AccordionPanel>
+        </AccordionItem>
       ))}
-    </div>
+    </Accordion>
   );
 }

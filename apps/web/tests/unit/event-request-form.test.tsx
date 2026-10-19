@@ -133,6 +133,19 @@ describe("SCRUM-123/AC3 review step", () => {
     expect((screen.getByLabelText(/Event name/) as HTMLInputElement).value).toBe("Tech Summit");
   });
 
+  it("shows each section as an accordion item that opens and closes, all open to start with", async () => {
+    await toReview();
+    const triggers = screen.getAllByRole("button", { expanded: true }).filter((b) => b.getAttribute("data-slot") === "accordion-trigger");
+    expect(triggers.length).toBe(5);
+
+    fireEvent.click(screen.getByRole("button", { name: "Equipment" }));
+    await waitFor(() => expect(screen.queryByText("Equipment requirements")).toBeNull());
+    expect(screen.getByText("Tech Summit")).toBeTruthy(); // the other sections stay open
+
+    fireEvent.click(screen.getByRole("button", { name: "Equipment" }));
+    expect(await screen.findByText("Equipment requirements")).toBeTruthy();
+  });
+
   it("is where Submit is", async () => {
     await toReview();
     expect(screen.getByRole("button", { name: "Submit request" })).toBeTruthy();
