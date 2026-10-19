@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button";
 export function ReviewStep({ values, layouts, onEdit }: { values: EventRequestFormValues; layouts: RoomLayoutOption[]; onEdit: (step: number) => void }) {
   const sections = reviewSections(values, (id) => layouts.find((l) => l.id === id)?.name);
   return (
-    <Accordion multiple defaultValue={sections.map((s) => s.title)}>
+    <Accordion multiple className="border-b-0" defaultValue={sections.map((s) => s.title)}>
       {sections.map((section) => (
         <AccordionItem key={section.title} value={section.title}>
           <AccordionTrigger
             action={
-              <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(section.step)} aria-label={`Edit ${section.title}`}>
+              <Button type="button" variant="link" size="sm" onClick={() => onEdit(section.step)} aria-label={`Edit ${section.title}`}>
                 Edit
               </Button>
             }
@@ -21,11 +21,11 @@ export function ReviewStep({ values, layouts, onEdit }: { values: EventRequestFo
             {section.title}
           </AccordionTrigger>
           <AccordionPanel>
-            <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-[12rem_1fr]">
+            <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-[11rem_1fr]">
               {section.rows.map((row) => (
                 <div key={row.label} className="contents">
-                  <dt className="text-sm font-semibold text-foreground">{row.label}</dt>
-                  <dd className="text-sm break-words text-foreground">{row.value}</dd>
+                  <dt className="text-sm text-muted-foreground">{row.label}</dt>
+                  <dd className="text-sm font-medium break-words text-foreground">{row.value}</dd>
                 </div>
               ))}
             </dl>
