@@ -6,6 +6,15 @@ import { requireSession, type SessionUser } from "../middlewares/session";
 export function eventRequestRoutes(deps: SupabaseDeps) {
   const router = Router();
 
+  // SCRUM-123: the room layouts the request form offers. Read as the caller, so RLS decides what they see; any signed-in
+  // user may read the catalogue, and only the create route below is organiser-only.
+  router.get("/request-options", requireSession(deps), async (_req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const { data, error } = await deps.forUser(token).from("room_layouts").select("id, name").order("name");
+    if (error) return res.status(500).json({ error: "Could not load the room layouts." });
+    res.json({ roomLayouts: data ?? [] });
+  });
+
   // SCRUM-49: an event organiser creates and submits a new event request
   router.post("/", requireSession(deps), async (req, res) => {
     const { id: userId, token } = res.locals.user as SessionUser;
