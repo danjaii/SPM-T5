@@ -57,8 +57,9 @@ describe("SupabaseBookingRepository.insert: constraint translation", () => {
     await expect(repo.insert(input)).rejects.toMatchObject({ code: "SLOT_CONFLICT", httpStatus: 409 });
   });
 
-  it("32-S6: the one-active-per-event index is ACTIVE_REQUEST_EXISTS", async () => {
-    const { repo } = stubDb([pg("23505", 'duplicate key value violates unique constraint "venue_bookings_one_active_per_event"')]);
+  // SCRUM-98 (migration 28) replaced the one-active-per-event index with one active replacement per rejected booking
+  it("98-S20: the one-active-replacement index is ACTIVE_REQUEST_EXISTS", async () => {
+    const { repo } = stubDb([pg("23505", 'duplicate key value violates unique constraint "venue_bookings_one_active_replacement"')]);
     await expect(repo.insert(input)).rejects.toMatchObject({ code: "ACTIVE_REQUEST_EXISTS" });
   });
 
@@ -134,3 +135,71 @@ describe("SupabaseBookingRepository.hasHold", () => {
     await expect(repo.hasHold("v", start, end)).rejects.toThrow("Could not check the venue's availability.");
   });
 });
+
+// ----------------------------------------------------------------------------
+// SCRUM-102: change() and cancel() go through change_venue_booking() and cancel_venue_booking() (migration 30). The
+// functions refuse with their own codes, which become the service's errors; nothing from the database leaks.
+// ----------------------------------------------------------------------------
+
+/** A stub of rpc() that plays back one reply, and of from().select().eq().maybeSingle() for the re-read. */
+function stubRpc(reply: { data?: unknown; error?: { code: string; message: string } | null }) {
+  const calls: { fn: string; args: Record<string, unknown> }[] = [];
+  const db = {
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      calls.push({ fn, args });
+      return { data: reply.data ?? null, error: reply.error ?? null };
+    },
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { ...ROW, status: "cancelled" }, error: null }) }) }) }),
+  } as unknown as SupabaseClient;
+  return { repo: new SupabaseBookingRepository(db), calls };
+}
+
+const aChange = { start: new Date("2031-03-03T02:00:00Z"), end: new Date("2031-03-03T05:00:00Z"), expectedAttendance: 80, venueRequirements: "Banquet" };
+
+describe("SCRUM-102 SupabaseBookingRepository.change and cancel", () => {
+  it("102-S1: change sends the venue booking, its new period and its own numbers to change_venue_booking, then reads it back", async () => {
+    const { repo, calls } = stubRpc({ data: true });
+
+    expect(await repo.change("booking-1", aChange, new Date())).toMatchObject({ id: "booking-1" });
+    expect(calls).toEqual([
+      {
+        fn: "change_venue_booking",
+        args: { p_booking_id: "booking-1", p_start: "2031-03-03T02:00:00.000Z", p_end: "2031-03-03T05:00:00.000Z", p_expected_attendance: 80, p_venue_requirements: "Banquet", p_suitability: null, p_suitability_unmet: null, p_suitability_override_reason: null },
+      },
+    ]);
+  });
+
+  it("110-S10: change also sends the suitability result made afresh for the new numbers (migration 33)", async () => {
+    const { repo, calls } = stubRpc({ data: true });
+    const unmet = [{ key: "capacity" as const, label: "Capacity", message: "Expected attendance 80 exceeds capacity 60" }];
+
+    await repo.change("booking-1", { ...aChange, suitability: { result: "not_suitable", unmet, overrideReason: "Overflow room" } }, new Date());
+
+    expect(calls[0].args).toMatchObject({ p_suitability: "not_suitable", p_suitability_unmet: unmet, p_suitability_override_reason: "Overflow room" });
+  });
+
+  it("102-S12: cancel sends the venue booking and the reason to cancel_venue_booking, then reads it back", async () => {
+    const { repo, calls } = stubRpc({ data: true });
+
+    expect(await repo.cancel("booking-1", "user-1", new Date(), "Moved")).toMatchObject({ id: "booking-1", status: "cancelled" });
+    expect(calls).toEqual([{ fn: "cancel_venue_booking", args: { p_booking_id: "booking-1", p_reason: "Moved" } }]);
+  });
+
+  // false: the venue booking was no longer pending or approved
+  it("102-S11: a false answer is null, for change and for cancel", async () => {
+    expect(await stubRpc({ data: false }).repo.change("booking-1", aChange, new Date())).toBeNull();
+    expect(await stubRpc({ data: false }).repo.cancel("booking-1", "user-1", new Date(), "x")).toBeNull();
+  });
+
+  it.each([
+    ["102-S21: not the event's coordinator (42501) becomes FORBIDDEN", "42501", "FORBIDDEN", 403],
+    ["102-S23: an event whose venues can't change (CS102) becomes EVENT_NOT_ELIGIBLE", "CS102", "EVENT_NOT_ELIGIBLE", 409],
+    ["102-S4: another event holding the venue (23P01) becomes SLOT_CONFLICT", "23P01", "SLOT_CONFLICT", 409],
+  ])("%s", async (_name, pgCode, code, httpStatus) => {
+    const { repo } = stubRpc({ error: { code: pgCode, message: "raw database message" } });
+
+    await expect(repo.change("booking-1", aChange, new Date())).rejects.toMatchObject({ code, httpStatus });
+    await expect(stubRpc({ error: { code: pgCode, message: "raw" } }).repo.cancel("booking-1", "u", new Date(), "x")).rejects.toMatchObject({ code });
+  });
+});
+// end of SCRUM-102

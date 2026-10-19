@@ -7,7 +7,9 @@ import { z } from "zod";
 // DR4: statuses. The API speaks PENDING/APPROVED/REJECTED/WITHDRAWN; the DB enum is wider.
 // ---------------------------------------------------------------------------
 
-export const VENUE_BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN"] as const;
+// SCRUM-102 adds CANCELLED: a pending or approved venue booking the coordinator cancelled, with a reason.
+// SCRUM-107 adds REPLACED: an affected booking whose replacement at another venue was approved (migration 47).
+export const VENUE_BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN", "CANCELLED", "REPLACED"] as const;
 export type VenueBookingStatus = (typeof VENUE_BOOKING_STATUSES)[number];
 
 const DB_TO_API: Record<string, VenueBookingStatus> = {
@@ -17,9 +19,11 @@ const DB_TO_API: Record<string, VenueBookingStatus> = {
   confirmed: "APPROVED", // legacy seed rows
   rejected: "REJECTED",
   withdrawn: "WITHDRAWN",
+  cancelled: "CANCELLED", // SCRUM-102 (older seed rows read the same way, with no reason)
+  replaced: "REPLACED", // SCRUM-107
 };
 
-/** Maps a DB status to the API status. `cancelled` (legacy) is outside this feature, so undefined. */
+/** Maps a DB status to the API status. Undefined for a value this feature does not know. */
 export function dbStatusToApi(dbStatus: string): VenueBookingStatus | undefined {
   return DB_TO_API[dbStatus];
 }
@@ -47,19 +51,43 @@ export const VENUE_BOOKING_ERROR_CODES = [
   "SLOT_IN_PAST",
   "DUPLICATE_VENUE",
   "VERSION_CONFLICT",
+  "NO_CHANGES",
+  "NOT_ACTIVE",
+  "UNSUITABLE_VENUE",
+  "VENUE_UNAVAILABLE",
+  "BOOKING_FLAGGED",
+  "NOT_FLAGGED",
+  "REPLACEMENT_PENDING",
+  "REPLACEMENT_REJECTED",
 ] as const;
 export type VenueBookingErrorCode = (typeof VENUE_BOOKING_ERROR_CODES)[number];
 
 export const VENUE_BOOKING_MESSAGES = {
   SLOT_CONFLICT: "This venue is already held for part of that period.",
   EVENT_NOT_ELIGIBLE: "The event must be approved before a venue can be requested.",
-  ACTIVE_REQUEST_EXISTS: "This event already has an active venue booking request.",
+  // SCRUM-98 (98-S20): only for replacing a rejected request; an event itself may hold several venue bookings
+  ACTIVE_REQUEST_EXISTS: "This rejected request already has an active replacement.",
   REPEAT_OF_REJECTED: "That slot was already rejected. Choose a different venue, date or time.",
   NOT_PENDING: "This request is no longer pending.",
   NOT_REJECTED: "Only a rejected request can be amended.",
   SUGGESTION_ALREADY_USED: "The suggested alternative has already been used.",
   NO_SUGGESTION: "This request has no suggested alternative.",
   SLOT_IN_PAST: "The requested time has already passed.",
+  // SCRUM-98/AC3: the event's own booking holds this venue; another event's is SLOT_CONFLICT
+  DUPLICATE_VENUE: "This event already holds this venue for part of that period.",
+  // SCRUM-102/AC1 (102-S9): a change identical to what the venue booking already has would only send it back to venue staff
+  NO_CHANGES: "Nothing was changed.",
+  // SCRUM-102 (102-S11): a rejected one is amended instead (SCRUM-60); a withdrawn or cancelled one is finished
+  NOT_ACTIVE: "Only a pending or approved venue booking can be changed or cancelled.",
+  UNSUITABLE_VENUE: "This venue does not meet all of the event's requirements. Confirm with a reason to continue.",
+  // SCRUM-105/AC4: generic wording, for the database refusal; the service replaces it with unavailableMessage() naming the period
+  VENUE_UNAVAILABLE: "This venue is unavailable for part of that period.",
+  // SCRUM-104/AC4 (104-S4): a request with an open flag (buffer conflict, SCRUM-106 unavailable) cannot be approved; rejecting is allowed
+  BOOKING_FLAGGED: "This request is flagged and cannot be approved until the conflict is resolved. You can still reject it.",
+  // SCRUM-107: a replacement is only for a booking flagged as unavailable, one at a time (107-S5, 107-S6)
+  NOT_FLAGGED: "Only a booking flagged as unavailable can be replaced.",
+  REPLACEMENT_PENDING: "This booking already has a replacement request waiting for a decision.",
+  REPLACEMENT_REJECTED: "A rejected replacement cannot be amended. Choose Find replacement on the original booking.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -68,6 +96,14 @@ export const VENUE_BOOKING_MESSAGES = {
 // ---------------------------------------------------------------------------
 
 export const VENUE_REQUEST_ELIGIBLE_EVENT_STATUSES = ["approved", "planning", "awaiting_arrangements"] as const;
+
+/**
+ * SCRUM-107 (decision 3): a replacement for a flagged booking is allowed on any event that is not finished, even a Confirmed one
+ * (canRequestVenue refuses it). Completed, cancelled and rejected stay out, the same set as equipment_request_event_open (25).
+ */
+export function canRequestReplacement(eventStatus: string): boolean {
+  return !["completed", "cancelled", "rejected"].includes(eventStatus);
+}
 
 export function canRequestVenue(eventStatus: string): boolean {
   return (VENUE_REQUEST_ELIGIBLE_EVENT_STATUSES as readonly string[]).includes(eventStatus);
@@ -125,6 +161,48 @@ export interface VenueBookingInput {
   /** Requested period as UTC instants (a booking is one calendar day, so end is on the same SGT date). */
   start: Date;
   end: Date;
+  /** SCRUM-98/AC2: this booking's own numbers. Undefined means "use the event's". */
+  expectedAttendance?: number;
+  venueRequirements?: string;
+}
+
+export const VENUE_REQUIREMENTS_MAX_LENGTH = 500;
+
+/**
+ * SCRUM-98/AC2 (98-S6, 98-S7, 98-S12): the booking's own expected attendance and venue requirements, both
+ * optional. Left out, null or blank means "use the event's", so they come back undefined.
+ */
+function ownDetails(body: unknown) {
+  const raw = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+  const fieldErrors: Record<string, string> = {};
+  let expectedAttendance: number | undefined;
+  let venueRequirements: string | undefined;
+
+  const attendance = raw.expectedAttendance;
+  if (attendance !== undefined && attendance !== null) {
+    if (typeof attendance === "number" && Number.isInteger(attendance) && attendance >= 1) expectedAttendance = attendance;
+    else fieldErrors.expectedAttendance = "Enter the expected attendance as a whole number of 1 or more.";
+  }
+
+  const requirements = raw.venueRequirements;
+  if (requirements !== undefined && requirements !== null) {
+    const trimmed = typeof requirements === "string" ? requirements.trim() : "";
+    if (typeof requirements !== "string" || trimmed.length > VENUE_REQUIREMENTS_MAX_LENGTH) {
+      fieldErrors.venueRequirements = `The venue requirements must be ${VENUE_REQUIREMENTS_MAX_LENGTH} characters or fewer.`;
+    } else if (trimmed !== "") {
+      venueRequirements = trimmed;
+    }
+  }
+  return { fieldErrors, expectedAttendance, venueRequirements };
+}
+
+/**
+ * SCRUM-98/AC2 (98-S10, 98-S11): more people expected than the venue holds. A warning only, never a
+ * refusal (32-S9). With either number unknown there is nothing to warn about.
+ */
+export function exceedsCapacity(expectedAttendance: number | null | undefined, maxCapacity: number | null | undefined): boolean {
+  if (expectedAttendance == null || maxCapacity == null) return false;
+  return expectedAttendance > maxCapacity;
 }
 
 export type ParsedVenueBookingInput =
@@ -133,9 +211,10 @@ export type ParsedVenueBookingInput =
 
 /** Validates a request body. `now` is injected so tests (and the server clock) control "in the past". */
 export function parseVenueBookingInput(body: unknown, now: Date): ParsedVenueBookingInput {
+  const own = ownDetails(body);
   const parsed = inputShape.safeParse(body ?? {});
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
+    const fieldErrors: Record<string, string> = { ...own.fieldErrors };
     for (const issue of parsed.error.issues) {
       fieldErrors[String(issue.path[0] ?? "form")] ??= issue.message;
     }
@@ -143,7 +222,7 @@ export function parseVenueBookingInput(body: unknown, now: Date): ParsedVenueBoo
   }
 
   const { venueId, date, startTime, endTime } = parsed.data;
-  const fieldErrors: Record<string, string> = {};
+  const fieldErrors: Record<string, string> = { ...own.fieldErrors };
   if (endTime <= startTime) fieldErrors.endTime = "End time must be after the start time.";
 
   const start = sgtToUtc(date, startTime);
@@ -152,7 +231,10 @@ export function parseVenueBookingInput(body: unknown, now: Date): ParsedVenueBoo
   else if (start.getTime() < now.getTime()) fieldErrors.startTime = "The start time must not be in the past.";
 
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
-  return { ok: true, data: { venueId, date, startTime, endTime, start, end } };
+  const data: VenueBookingInput = { venueId, date, startTime, endTime, start, end };
+  if (own.expectedAttendance !== undefined) data.expectedAttendance = own.expectedAttendance;
+  if (own.venueRequirements !== undefined) data.venueRequirements = own.venueRequirements;
+  return { ok: true, data };
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +252,30 @@ const rejectionShape = z.object({
     .min(1, "Enter a reason for the rejection.")
     .max(REJECTION_REASON_MAX_LENGTH, `The reason must be ${REJECTION_REASON_MAX_LENGTH} characters or fewer.`),
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-102/AC2 (102-S13): cancelling needs a reason, 1 to 500 characters once trimmed, like a rejection (39-S2).
+// The customer: reasons for cancellations "should be recorded".
+// ---------------------------------------------------------------------------
+
+const cancellationShape = z.object({
+  reason: z
+    .string({ required_error: "Enter a reason for cancelling.", invalid_type_error: "Enter a reason for cancelling." })
+    .trim()
+    .min(1, "Enter a reason for cancelling.")
+    .max(REJECTION_REASON_MAX_LENGTH, `The reason must be ${REJECTION_REASON_MAX_LENGTH} characters or fewer.`),
+});
+
+export type ParsedCancellationInput =
+  | { ok: true; data: { reason: string } }
+  | { ok: false; fieldErrors: Record<string, string> };
+
+/** Validates a cancel body. The reason comes back trimmed; the error is always keyed `reason`. */
+export function parseCancellationInput(body: unknown): ParsedCancellationInput {
+  const parsed = cancellationShape.safeParse(typeof body === "object" && body !== null ? body : {});
+  if (parsed.success) return { ok: true, data: { reason: parsed.data.reason } };
+  return { ok: false, fieldErrors: { reason: parsed.error.issues[0].message } };
+}
 
 export type ParsedRejectionInput =
   | { ok: true; data: { reason: string } }

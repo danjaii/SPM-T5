@@ -30,3 +30,12 @@ export function canDecideEvent(status: string): boolean {
 export function canStartReview(status: string): boolean {
   return status === "submitted";
 }
+
+// SCRUM-77 (docs/specs/event-coordinator-lead-role.md, "Closed event"): the final statuses, agreed with the PO. Every
+// other status, including draft and returned, is non-closed. The one definition for app code and tests; the database's
+// is_closed_event_status() (migration 21) must match it, which tests/integration/leadQueue.test.ts checks.
+export const CLOSED_EVENT_STATUSES = ["completed", "cancelled", "rejected"] as const satisfies readonly EventStatus[];
+
+export function isClosedEventStatus(status: string): boolean {
+  return (CLOSED_EVENT_STATUSES as readonly string[]).includes(status);
+}

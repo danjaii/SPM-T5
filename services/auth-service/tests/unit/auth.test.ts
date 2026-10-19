@@ -418,3 +418,81 @@ describe("SCRUM-71 — Back to the List of events after signing in", () => {
   // end of AC6
 });
 // end of SCRUM-71
+
+// ---------------------------------------------------------------------------
+// SCRUM-75 — An Event Coordinator Lead signs in through the same login as everyone else (SCRUM-13)
+// ---------------------------------------------------------------------------
+describe("SCRUM-75 — Event Coordinator Lead sign-in", () => {
+  const LEAD = "event_coordinator_lead";
+
+  // AC2: an account set up with the Lead role is recognised as a Lead when it logs in
+  it("SCRUM-75/AC2 recognises a Lead account as a Lead when it logs in", async () => {
+    fake.seedUser("helen@example.com", LEAD);
+    const res = await login("helen@example.com", "Passw0rd!", LEAD);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user).toMatchObject({ email: "helen@example.com", role: LEAD });
+    const me = await request(app).get("/auth/me").set("Cookie", (res.headers["set-cookie"] as unknown as string[])[0].split(";")[0]);
+    expect(me.body.role).toBe(LEAD);
+  });
+  // end of AC2
+
+  // AC3: login, the generic error and password reset behave exactly as SCRUM-13 does for every other role
+  it("SCRUM-75/AC3 shows the same generic error for a Lead's wrong password", async () => {
+    fake.seedUser("helen@example.com", LEAD);
+    const res = await login("helen@example.com", "WrongPass1!", LEAD);
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: INVALID_LOGIN_MESSAGE });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("SCRUM-75/AC3 a Lead is not let in as an Event Coordinator, and a coordinator is not let in as a Lead", async () => {
+    fake.seedUser("helen@example.com", LEAD);
+    fake.seedUser("rachel@example.com", "event_coordinator");
+    const leadAsCoordinator = await login("helen@example.com", "Passw0rd!", "event_coordinator");
+    const coordinatorAsLead = await login("rachel@example.com", "Passw0rd!", LEAD);
+
+    for (const res of [leadAsCoordinator, coordinatorAsLead]) {
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: INVALID_LOGIN_MESSAGE });
+    }
+    expect(fake.sessions.size).toBe(0);
+  });
+
+  it("SCRUM-75/AC3 sends a Lead a password reset email, and the new password works", async () => {
+    const id = fake.seedUser("helen@example.com", LEAD);
+    const forgot = await request(app).post("/auth/forgot-password").send({ email: "helen@example.com" });
+    expect(forgot.status).toBe(200);
+    expect(fake.calls.resetEmails).toEqual([{ email: "helen@example.com", redirectTo: "http://localhost:3000/reset-password" }]);
+
+    const reset = await request(app).post("/auth/reset-password").send({ accessToken: `reset-${id}`, password: "N3wPassw0rd!" });
+    expect(reset.status).toBe(200);
+    expect((await login("helen@example.com", "N3wPassw0rd!", LEAD)).status).toBe(200);
+  });
+  // end of AC3
+
+  // AC4: a successful login lands on the Lead home page
+  it("SCRUM-75/AC4 sends a Lead to the Lead home page after signing in", async () => {
+    fake.seedUser("helen@example.com", LEAD);
+    const res = await login("helen@example.com", "Passw0rd!", LEAD);
+
+    expect(res.body.redirectTo).toBe("/dashboard/event_coordinator_lead");
+  });
+  // end of AC4
+});
+// end of SCRUM-75
+
+// ---------------------------------------------------------------------------
+// SCRUM-116 — Safety Officer sign-in
+// ---------------------------------------------------------------------------
+describe("SCRUM-116/AC4 — Safety Officer sign-in", () => {
+  it("SCRUM-116/AC4 a Safety Officer logs in with the Safety Officer role and is sent to their own dashboard", async () => {
+    fake.seedUser("farah@example.com", "safety_officer");
+    const res = await login("farah@example.com", "Passw0rd!", "safety_officer");
+
+    expect(res.status).toBe(200);
+    expect(res.body.redirectTo).toBe("/dashboard/safety_officer");
+    expect(res.body.user).toMatchObject({ email: "farah@example.com", role: "safety_officer" });
+  });
+});

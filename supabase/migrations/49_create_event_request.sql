@@ -1,8 +1,9 @@
 -- ConnectSphere: create and submit a new event request, all-or-nothing (SCRUM-49)
--- Follows 18_venue_search.sql.
+-- Follows 48_venue_booking_replacement.sql.
 --
--- AC1: the request's fields need somewhere to live. Venue requirements had no column.
-alter table events add column venue_requirements text;
+-- AC1: the request's fields need somewhere to live. events.venue_requirements is added by
+-- 34_edit_event_details.sql ("add column if not exists"), which runs before this file, so this
+-- migration does not add it. create_event_request below depends on that column.
 
 -- AC4 + AC7: create the event as submitted and record it in event_status_history together, so a
 -- failure can't leave an event with no history. Same approach as change_event_status().

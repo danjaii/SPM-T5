@@ -1,3 +1,4 @@
+import type { AffectedArrangement, EventDetailsFormValues } from "@spm-t5/shared";
 import { EVENT_URL, type ApiResult } from "./api";
 
 export interface EventStatusView {
@@ -26,8 +27,48 @@ export interface EventDetailView extends EventStatusView {
   organiser_name: string | null;
   /** SCRUM-42/AC5: the assigned coordinator's name, or null while unassigned. */
   point_of_contact_name: string | null;
-  /** SCRUM-42/AC8: whether the viewer may (re)assign the coordinator (event-service decides). */
-  canAssign: boolean;
+  /** SCRUM-111/AC5: details the coordinator can edit. */
+  description?: string | null;
+  category_name?: string | null;
+  venue_requirements?: string | null;
+  /** SCRUM-111/AC6, AC7: whether this viewer may edit the event's details (the assigned coordinator, while not finished). */
+  canEdit?: boolean;
+}
+
+/** SCRUM-111/AC2: GET /events/:id/edit-form, what the edit form starts with and offers. */
+export interface EventEditForm {
+  values: EventDetailsFormValues;
+  categories: { id: string; name: string }[];
+  roomLayouts: { id: string; name: string }[];
+  /** The form's boxes for important fields (they may affect venue or equipment arrangements). */
+  importantFields: string[];
+}
+
+/** SCRUM-111/AC4: one saved edit, as GET /events/:id/change-history returns it (newest first). */
+export interface EventChangeHistoryEntry {
+  id: string;
+  changedAt: string;
+  changedBy: string | null;
+  important: boolean;
+  changes: { field: string; label: string; from: unknown; to: unknown }[];
+}
+
+/** SCRUM-111/AC1: ask event-service, from the browser, to save the edited details. */
+export async function saveEventDetails(
+  id: string,
+  values: Record<string, unknown>,
+): Promise<ApiResult<{ important?: boolean; code?: string; affected?: AffectedArrangement[] }>> {
+  try {
+    const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } };
+  }
 }
 
 /** SCRUM-66/AC7: a change request as GET /events/:id/change-requests returns it. */
@@ -130,31 +171,9 @@ async function getFromEventService<T>(path: string): Promise<ApiResult<T>> {
   }
 }
 
-/** SCRUM-42/AC1, AC2: active coordinators who could take the event (the current one is left out). */
-export const fetchEligibleCoordinators = (id: string) =>
-  getFromEventService<CoordinatorOption[]>(`${encodeURIComponent(id)}/eligible-coordinators`);
-
 /** SCRUM-43/AC1: the event's assignment history. */
 export const fetchAssignmentHistory = (id: string) =>
   getFromEventService<AssignmentRecord[]>(`${encodeURIComponent(id)}/assignment-history`);
-
-/** SCRUM-42/AC3, SCRUM-41/AC3: make this coordinator the event's assigned coordinator. */
-export async function assignCoordinator(
-  id: string,
-  coordinatorId: string,
-): Promise<ApiResult<{ assigned_coordinator_id: string }>> {
-  try {
-    const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(id)}/assign-coordinator`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ coordinator_id: coordinatorId }),
-    });
-    return { ok: res.ok, data: await res.json() };
-  } catch {
-    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
-  }
-}
 
 /** SCRUM-44: the coordinator's decision on a request, from GET /events/:id/outcome; null while there is none. */
 export interface ReviewDecision {
@@ -170,6 +189,8 @@ export interface EventComment {
   body: string;
   created_at: string;
   parent_comment_id: string | null;
+  /** SCRUM-47/AC2: the coordinator asked the organiser for clarification; a reply to it is the answer (AC3). */
+  is_clarification_request?: boolean;
   author_name: string | null;
   /** SCRUM-27/AC3: who the body's @[userId] markers refer to. */
   mentions: Array<{ user_id: string; full_name: string | null }>;
@@ -186,6 +207,8 @@ export interface Attachment {
 /** SCRUM-25/AC5: can_comment says whether the viewer may add to the conversation. */
 export interface EventComments {
   can_comment: boolean;
+  /** SCRUM-47/AC2: the viewer is the event's assigned coordinator, so may ask its organiser for clarification. */
+  can_request_clarification: boolean;
   comments: EventComment[];
 }
 
@@ -213,13 +236,21 @@ async function postToEventService<T>(path: string, payload: object): Promise<Api
 
 /**
  * SCRUM-25/AC1: add a comment to the event. SCRUM-26/AC1: or, with parentCommentId, a reply to one of its
- * comments. SCRUM-28/AC1: with the files already uploaded for it.
+ * comments. SCRUM-28/AC1: with the files already uploaded for it. SCRUM-47/AC2: or a request for clarification from
+ * the organiser.
  */
-export const addEventComment = (id: string, body: string, parentCommentId?: string, attachments: Attachment[] = []) =>
+export const addEventComment = (
+  id: string,
+  body: string,
+  parentCommentId?: string,
+  attachments: Attachment[] = [],
+  clarificationRequest = false,
+) =>
   postToEventService<Record<string, never>>(`${encodeURIComponent(id)}/comments`, {
     body,
     ...(parentCommentId && { parent_comment_id: parentCommentId }),
     ...(attachments.length > 0 && { attachments }),
+    ...(clarificationRequest && { clarification_request: true }),
   });
 
 /** SCRUM-28/AC1: a one-time URL to upload one file to, and where it will be stored. */

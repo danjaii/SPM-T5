@@ -1,4 +1,12 @@
-import type { VenueBookingStatus } from "@spm-t5/shared";
+import {
+  canFindReplacement,
+  type FlagDto,
+  type FlagHistoryDto,
+  type ReplacementRefDto,
+  type UnmetRequirement,
+  type VenueBookingStatus,
+} from "@spm-t5/shared";
+import type { EquipmentRequestView } from "./equipmentRequests";
 import { VENUE_URL, type ApiResult } from "./api";
 
 export interface VenueOption {
@@ -34,6 +42,8 @@ export interface VenueBookingListItem {
   /** Only for APPROVED and REJECTED. */
   decidedAt: string | null;
   submittedAt: string;
+  /** SCRUM-104: the open flags (Buffer conflict) with the other booking's period, never its event name. */
+  flags: FlagDto[];
 }
 
 export interface VenueBookingChainItem extends VenueBookingListItem {
@@ -48,6 +58,10 @@ export interface VenueBookingDetailView extends VenueBookingListItem {
   suggestion: { venueId: string; venueName: string; date: string; startTime: string; endTime: string } | null;
   amendsRequestId: string | null;
   chain: VenueBookingChainItem[];
+  /** SCRUM-107: the replacement waiting for a decision or approved, the original this one replaces, and every flag with its outcome. */
+  replacedBy?: ReplacementRefDto | null;
+  replaces?: ReplacementRefDto | null;
+  flagHistory?: FlagHistoryDto[];
 }
 
 export interface VenueBookingInputBody {
@@ -56,13 +70,21 @@ export interface VenueBookingInputBody {
   date: string;
   startTime: string;
   endTime: string;
+  /** SCRUM-98/AC2: this venue booking's own numbers; left out means "use the event's". */
+  expectedAttendance?: number;
+  venueRequirements?: string;
+  /** SCRUM-110: why the coordinator requests a venue that does not suit the booking; sent only after the warning. */
+  overrideReason?: string;
 }
 
-/** POSTs JSON to venue-service from the browser, sending the session cookie. */
-async function postToVenueService(path: string, body?: unknown): Promise<ApiResult<{ id: string }>> {
+/** What venue-service answers: the new id, or (409 UNSUITABLE_VENUE) the requirements that are not met. */
+export type VenueBookingResult = ApiResult<{ id: string; code?: string; unmet?: UnmetRequirement[] }>;
+
+/** Sends JSON to venue-service from the browser (POST, or PATCH for SCRUM-102's change), with the session cookie. */
+async function postToVenueService(path: string, body?: unknown, method: "POST" | "PATCH" = "POST"): Promise<VenueBookingResult> {
   try {
     const res = await fetch(`${VENUE_URL}${path}`, {
-      method: "POST",
+      method,
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body ?? {}),
@@ -76,6 +98,32 @@ async function postToVenueService(path: string, body?: unknown): Promise<ApiResu
 /** SCRUM-32: submit a venue booking request. */
 export const submitVenueBooking = (body: VenueBookingInputBody) => postToVenueService("/venue-bookings", body);
 
+/** SCRUM-102/AC1: a venue booking's new date, times and own numbers; its venue never changes. Blank numbers are left out. */
+export interface VenueBookingChangeBody {
+  date: string;
+  startTime: string;
+  endTime: string;
+  expectedAttendance?: number;
+  venueRequirements?: string;
+  /** SCRUM-110: sent only after the warning that the changed booking does not suit the venue. */
+  overrideReason?: string;
+}
+
+/** SCRUM-102/AC1: change one pending or approved venue booking; it goes back to venue staff. */
+export const changeVenueBooking = (id: string, body: VenueBookingChangeBody) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}`, body, "PATCH");
+
+/** SCRUM-102/AC2, AC7: cancel one pending or approved venue booking with a reason; its equipment is released with it. */
+export const cancelVenueBooking = (id: string, reason: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/cancel`, { reason });
+
+/** SCRUM-102: only a PENDING or APPROVED venue booking can be changed or cancelled (the server checks again: NOT_ACTIVE). */
+export const isChangeableVenueBooking = (status: VenueBookingStatus | undefined) => status === "PENDING" || status === "APPROVED";
+
+/** SCRUM-102/AC7, AC8: the equipment requested for this venue booking that cancelling would release or changing would move. */
+export const equipmentFor = (requests: EquipmentRequestView[], venueBookingId: string) =>
+  requests.filter((r) => r.venueBookingId === venueBookingId && r.status !== "RELEASED");
+
 /** SCRUM-35: withdraw a pending request. */
 export const withdrawVenueBooking = (id: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/withdraw`);
@@ -85,8 +133,12 @@ export const amendVenueBooking = (id: string, body: Omit<VenueBookingInputBody, 
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/amend`, body);
 
 /** SCRUM-59: accept the suggested alternative on a rejected request. */
-export const acceptVenueSuggestion = (id: string) =>
-  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/accept-suggestion`);
+/** SCRUM-107/AC2: request a replacement for a flagged booking at `venueId`; the rest is the original's. */
+export const requestReplacementVenue = (id: string, venueId: string, overrideReason?: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/replacement`, { venueId, ...(overrideReason ? { overrideReason } : {}) });
+
+export const acceptVenueSuggestion = (id: string, overrideReason?: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/accept-suggestion`, overrideReason ? { overrideReason } : undefined);
 
 /** SCRUM-38: Venue Staff approve a pending request. */
 export const approveVenueBooking = (id: string) =>
@@ -96,21 +148,32 @@ export const approveVenueBooking = (id: string) =>
 export const rejectVenueBooking = (id: string, reason: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/reject`, { reason });
 
-/** GET /events/:id/venue-booking (38-S4): the event's approved venue, as its Coordinator sees it. */
-export interface EventVenueBookingView {
-  venueName: string;
-  date: string;
-  startTime: string;
-  endTime: string;
+/**
+ * GET /events/:id/venue-bookings (SCRUM-98/AC5): one venue booking of the event, as its assigned Coordinator sees it.
+ * Replaces SCRUM-38's single approved venue (38-S4): an approved one is in this list too.
+ */
+export interface EventVenueBookingItem extends VenueBookingChainItem {
+  /** SCRUM-102: only for a CANCELLED one. */
+  cancellationReason: string | null;
+  expectedAttendance: number | null;
+  venueRequirements: string | null;
+  /** More people expected than the venue holds: a warning, never a refusal. */
+  exceedsCapacity: boolean;
+  /** SCRUM-113/AC1: sent back to Pending for review after an important event change. */
+  sentBackForReview?: boolean;
+  /** SCRUM-107 (107-S3): "Replaced by Lotus Room" / "Replaces Orchid Hall". */
+  replacedBy?: ReplacementRefDto | null;
+  replaces?: ReplacementRefDto | null;
 }
 
 /**
  * Which decisions Venue Staff are offered (38-S2). Only a PENDING request can be decided; the server
  * enforces this again, so a stale screen just gets a NOT_PENDING refusal.
  */
-export function decisionActions(status: VenueBookingStatus | undefined) {
+export function decisionActions(status: VenueBookingStatus | undefined, flagged = false) {
   const pending = status === "PENDING";
-  return { approve: pending, reject: pending };
+  // SCRUM-104/AC4: a flagged request cannot be approved, but can still be rejected (the server and database refuse it too)
+  return { approve: pending && !flagged, reject: pending };
 }
 
 /**
@@ -118,7 +181,9 @@ export function decisionActions(status: VenueBookingStatus | undefined) {
  * withdrawn; only a REJECTED one can be amended, and only while the event has no other active
  * request; accepting also needs a suggestion. The server enforces all of this again.
  */
-export function bookingActions(booking: Pick<VenueBookingDetailView, "id" | "status" | "suggestion" | "chain">) {
+export function bookingActions(
+  booking: Pick<VenueBookingDetailView, "id" | "status" | "suggestion" | "chain"> & Partial<Pick<VenueBookingDetailView, "flags" | "replacedBy">>,
+) {
   const otherActive = booking.chain.some(
     (c) => c.id !== booking.id && (c.status === "PENDING" || c.status === "APPROVED"),
   );
@@ -127,6 +192,14 @@ export function bookingActions(booking: Pick<VenueBookingDetailView, "id" | "sta
     withdraw: booking.status === "PENDING",
     amend: rejected,
     acceptSuggestion: rejected && booking.suggestion !== null,
+    // SCRUM-107/AC5, AC6: only a holding booking flagged as unavailable, with no replacement waiting. The page is the assigned
+    // coordinator's (venue-service answers nobody else), and the server checks again.
+    findReplacement: canFindReplacement({
+      isAssignedCoordinator: true,
+      holding: booking.status === "PENDING" || booking.status === "APPROVED",
+      flags: booking.flags ?? [],
+      hasPendingReplacement: booking.replacedBy?.status === "PENDING",
+    }),
   };
 }
 

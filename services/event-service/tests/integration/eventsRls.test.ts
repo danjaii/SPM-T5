@@ -193,21 +193,15 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
       expect(history).toEqual([{ old_status: "submitted", new_status: "approved", changed_by: who.coordinatorA.userId }]);
     });
 
-    it("SCRUM-91/AC6 any coordinator may assign a coordinator (SCRUM-42), and organisers may not", async () => {
+    // SCRUM-78/SCRUM-79: the "any coordinator may assign" half was retired; only a Lead changes the coordinator now
+    // (leadAssign.test.ts and leadReassign.test.ts check coordinators are refused). Organisers still may not.
+    it("SCRUM-91/AC6 organisers may not assign a coordinator", async () => {
       const asOrganiser = await who.organiserA.client
         .from("events")
         .update({ assigned_coordinator_id: who.coordinatorB.userId })
         .eq("id", assignEvent)
         .select("id");
       expect(asOrganiser.data ?? []).toHaveLength(0);
-
-      const asOtherCoordinator = await who.coordinatorB.client
-        .from("events")
-        .update({ assigned_coordinator_id: who.coordinatorB.userId })
-        .eq("id", assignEvent)
-        .select("assigned_coordinator_id");
-      expect(asOtherCoordinator.error).toBeNull();
-      expect(asOtherCoordinator.data).toEqual([{ assigned_coordinator_id: who.coordinatorB.userId }]);
     });
 
     it("SCRUM-91 a coordinator cannot rewrite columns other than status and assigned_coordinator_id", async () => {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatSgt, type QueueItemView } from "@/lib/bookingQueue";
+import { formatSgt, suitabilityLabel, type QueueItemView } from "@/lib/bookingQueue";
 
 // SCRUM-37/AC1, AC4, AC5: pending requests in the order they arrive, with the event details attached.
 export function BookingQueueList({ requests }: { requests: QueueItemView[] }) {
@@ -17,6 +17,7 @@ export function BookingQueueList({ requests }: { requests: QueueItemView[] }) {
             <th>Attendance</th>
             <th>Venue requirements</th>
             <th>Accessibility needs</th>
+            <th>Suitability</th>
             <th>Requested by</th>
             <th>Submitted</th>
           </tr>
@@ -27,6 +28,10 @@ export function BookingQueueList({ requests }: { requests: QueueItemView[] }) {
               <td>
                 <Link href={`/booking-queue/${r.id}`}>{r.eventName}</Link>
                 {r.amendsRequestId && <span className="status-badge">Amends an earlier request</span>}
+                {/* SCRUM-104/AC4: text, not colour alone */}
+                {r.flags.length > 0 && <span className="status-badge status-badge--flag">Flagged: {r.flags.map((f) => f.label).join(", ")}</span>}
+                {/* SCRUM-113/AC3: the event changed since it was approved; its page says what changed */}
+                {r.sentBack && <span className="status-badge status-badge--sent-back">Sent back for review</span>}
               </td>
               <td>{r.venueName}</td>
               <td>{r.date}</td>
@@ -34,6 +39,7 @@ export function BookingQueueList({ requests }: { requests: QueueItemView[] }) {
               <td>{r.expectedAttendance ?? "Not specified"}</td>
               <td>{r.venueRequirements || "None specified"}</td>
               <td>{r.accessibilityNeeds || "None specified"}</td>
+              <td>{suitabilityLabel(r.suitability)}</td>
               <td>{r.requestedByName ?? "Unknown"}</td>
               <td>{formatSgt(r.submittedAt)}</td>
             </tr>

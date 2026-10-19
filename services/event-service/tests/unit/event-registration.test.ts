@@ -44,6 +44,10 @@ const VALID_FORM = { name: "Alicia Fernandez", email: "alicia.fernandez@example.
 /** The signed-in attendee's row in the users table (supabase/migrations/01_schema.sql). */
 const PROFILE: Row = { full_name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "+65 9123 4567" };
 
+/** When the registered event starts and ends: tomorrow, so it is upcoming (SCRUM-72/AC1) whenever the tests run. */
+const EVENT_START = fromNow(24 * HOUR);
+const EVENT_END = fromNow(26 * HOUR);
+
 /**
  * One event_registrations row, as `select("…, event:events(…)")` returns it: the event comes embedded.
  * Belongs to attendee-1 for a Pending registration of evt-1 unless overridden.
@@ -56,7 +60,13 @@ function registrationRow(overrides: Row = {}): Row {
     status: "waitlisted",
     registered_at: "2026-10-01T02:00:00Z",
     registration_details: VALID_FORM,
-    event: { id: "evt-1", name: "Tech Summit", preferred_start_datetime: "2026-12-12T11:00:00Z", preferred_end_datetime: "2026-12-12T13:00:00Z" },
+    event: {
+      id: "evt-1",
+      name: "Tech Summit",
+      status: "confirmed",
+      preferred_start_datetime: EVENT_START,
+      preferred_end_datetime: EVENT_END,
+    },
     ...overrides,
   };
 }
@@ -67,6 +77,8 @@ function registrationRow(overrides: Row = {}): Row {
  * Every insert is recorded in `inserts`, so a test can check what would have been written to the database.
  * Given `insertError`, every insert fails with it, the way supabase-js reports a refused insert.
  * Given `readError`, every table read fails with it the same way (no data, and an error object).
+ * Every update is recorded in `updates` (which row, and the fields written). Given `updateRefused`, an update changes
+ * no row, the way RLS silently filters out rows the caller may not update.
  */
 function createFake(
   events: Row[],
@@ -75,11 +87,13 @@ function createFake(
     readError = null,
     profile = PROFILE,
     registrations = [],
+    updateRefused = false,
   }: {
     insertError?: { code: string; message: string } | null;
     readError?: { message: string } | null;
     profile?: Row;
     registrations?: Row[];
+    updateRefused?: boolean;
   } = {},
 ) {
   // The tables a query can read. (The fake ignores the select() column list, so rows are stored already shaped.)
@@ -88,6 +102,14 @@ function createFake(
     event_registrations: registrations,
   };
   const inserts: { table: string; row: Row }[] = [];
+  const updates: { table: string; id: unknown; fields: Row }[] = [];
+  // A read of `rows`: each .eq() narrows them; then read as one row (maybeSingle) or as a list (await)
+  const query = (rows: Row[]) => ({
+    eq: (column: string, value: unknown) => query(rows.filter((row) => row[column] === value)),
+    maybeSingle: async () => (readError ? { data: null, error: readError } : { data: rows[0] ?? null, error: null }),
+    then: (resolve: (result: unknown) => void) =>
+      resolve(readError ? { data: null, error: readError } : { data: rows, error: null }),
+  });
   const deps = {
     anon: {
       auth: {
@@ -99,17 +121,23 @@ function createFake(
     },
     forUser: () => ({
       from: (table: string) => ({
-        // Reads: the rows of `table` whose `column` equals `value`, either as one row (maybeSingle) or as a list (await)
-        select: () => ({
-          eq: (column: string, value: unknown) => {
-            const found = (tables[table] ?? []).filter((row) => row[column] === value);
-            return {
-              maybeSingle: async () => (readError ? { data: null, error: readError } : { data: found[0] ?? null, error: null }),
-              then: (resolve: (result: unknown) => void) =>
-                resolve(readError ? { data: null, error: readError } : { data: found, error: null }),
-            };
-          },
-        }),
+        // Reads: the rows of `table` matching every .eq(), either as one row (maybeSingle) or as a list (await)
+        select: () => query(tables[table] ?? []),
+        // Updates: each .eq() narrows the rows to change; .select() changes them and returns the changed rows
+        update: (fields: Row) => {
+          const narrow = (rows: Row[]) => ({
+            eq: (column: string, value: unknown) => narrow(rows.filter((row) => row[column] === value)),
+            select: async () => {
+              const changed = updateRefused ? [] : rows;
+              for (const row of changed) {
+                Object.assign(row, fields);
+                updates.push({ table, id: row.id, fields });
+              }
+              return { data: changed, error: null };
+            },
+          });
+          return narrow(tables[table] ?? []);
+        },
         insert: async (row: Row) => {
           inserts.push({ table, row });
           return { data: null, error: insertError };
@@ -121,7 +149,7 @@ function createFake(
       },
     }),
   } as unknown as SupabaseDeps;
-  return { deps, inserts };
+  return { deps, inserts, updates };
 }
 // end of fake Supabase
 
@@ -412,12 +440,20 @@ describe("SCRUM-83 — My registrations (GET /events/my-registrations)", () => {
     const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
 
     expect(res.status).toBe(200);
-    const event = { id: "evt-1", name: "Tech Summit", start_at: "2026-12-12T11:00:00Z", end_at: "2026-12-12T13:00:00Z" };
+    // SCRUM-72/AC4: the event now carries its location; this fake lists no public events, so the venue is unknown
+    const event = {
+      id: "evt-1",
+      name: "Tech Summit",
+      start_at: EVENT_START,
+      end_at: EVENT_END,
+      venue: { name: null, address: null },
+    };
     expect(res.body).toHaveLength(2);
     expect(res.body).toEqual(
       expect.arrayContaining([
-        { id: "reg-old", status: "withdrawn", registered_at: "2026-09-01T02:00:00Z", event },
-        { id: "reg-new", status: "pending", registered_at: "2026-10-01T02:00:00Z", event },
+        // SCRUM-73/AC2: each also says whether it can be withdrawn
+        { id: "reg-old", status: "withdrawn", registered_at: "2026-09-01T02:00:00Z", event, can_withdraw: false },
+        { id: "reg-new", status: "pending", registered_at: "2026-10-01T02:00:00Z", event, can_withdraw: true },
       ]),
     );
   });
@@ -433,6 +469,68 @@ describe("SCRUM-83 — My registrations (GET /events/my-registrations)", () => {
   });
   // end of AC15
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-72 — The attendee views the status of their registrations (GET /events/my-registrations)
+// ---------------------------------------------------------------------------
+describe("SCRUM-72 — View the status of my registrations (GET /events/my-registrations)", () => {
+  // AC1: "My registrations" lists the upcoming events the attendee registered for, so an event that has
+  // already started is left out
+  it("SCRUM-72/AC1 lists only registrations for events that haven't started yet", async () => {
+    const started = registrationRow({
+      id: "reg-past",
+      event: {
+        id: "evt-past",
+        name: "Last Week's Meetup",
+        preferred_start_datetime: fromNow(-2 * HOUR),
+        preferred_end_datetime: fromNow(-1 * HOUR),
+      },
+    });
+    const upcoming = registrationRow({
+      id: "reg-next",
+      event: {
+        id: "evt-1",
+        name: "Tech Summit",
+        preferred_start_datetime: fromNow(24 * HOUR),
+        preferred_end_datetime: fromNow(26 * HOUR),
+      },
+    });
+    const fake = createFake([], { registrations: [started, upcoming] });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((r: { id: string }) => r.id)).toEqual(["reg-next"]);
+  });
+  // end of AC1
+
+  // AC2: an attendee sees only their own registrations, never another attendee's.
+  // The database enforces the same with RLS (tests/integration/event-registration-db.test.ts, SCRUM-83/AC15).
+  it("SCRUM-72/AC2 never lists another attendee's registration", async () => {
+    const mine = registrationRow({ id: "reg-mine" });
+    const someoneElses = registrationRow({ id: "reg-other", attendee_id: "attendee-2" });
+    const fake = createFake([], { registrations: [mine, someoneElses] });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((r: { id: string }) => r.id)).toEqual(["reg-mine"]);
+  });
+  // end of AC2
+
+  // AC4: each registration shows its event's location: the venue's name and address. They come from
+  // list_public_events() (as on the List of events, SCRUM-71/AC3), since RLS doesn't let attendees read venue bookings.
+  it("SCRUM-72/AC4 includes the location of each registration's event", async () => {
+    const fake = createFake([eventRow()], { registrations: [registrationRow()] });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0].event.venue).toEqual({ name: "Orchid Hall", address: "Level 3, East Wing" });
+  });
+  // end of AC4
+});
+// end of SCRUM-72
 
 // ---------------------------------------------------------------------------
 // SCRUM-83 — The event's registrations, for organisers and coordinators (GET /events/:id/registrations)
@@ -490,3 +588,142 @@ describe("SCRUM-83 — Event registrations (GET /events/:id/registrations)", () 
   // end of AC15
 });
 // end of SCRUM-83
+
+// ---------------------------------------------------------------------------
+// SCRUM-73 — Withdraw from an event (POST /events/my-registrations/:id/withdraw)
+// ---------------------------------------------------------------------------
+describe("SCRUM-73 — Withdraw from an event (POST /events/my-registrations/:id/withdraw)", () => {
+  // AC6: after the attendee confirms, their registration's status becomes Withdrawn
+  it("SCRUM-73/AC6 changes the attendee's own Pending registration to Withdrawn", async () => {
+    const fake = createFake([], { registrations: [registrationRow({ id: "reg-1", status: "waitlisted" })] });
+
+    const res = await request(createApp(fake.deps)).post("/events/my-registrations/reg-1/withdraw").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: "withdrawn" });
+    expect(fake.updates).toEqual([
+      { table: "event_registrations", id: "reg-1", fields: { status: "withdrawn", withdrawn_at: expect.any(String) } },
+    ]);
+    // withdrawn_at is when it happened: just now
+    expect(Date.now() - Date.parse(fake.updates[0].fields.withdrawn_at as string)).toBeLessThan(60_000);
+  });
+
+  // AC6: the database (RLS) refuses an update by changing no row rather than with an error, so "no row changed"
+  // must not be reported as a withdrawal
+  it("SCRUM-73/AC6 doesn't report a withdrawal the database refused", async () => {
+    const fake = createFake([], { registrations: [registrationRow({ id: "reg-1" })], updateRefused: true });
+
+    const res = await request(createApp(fake.deps)).post("/events/my-registrations/reg-1/withdraw").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This registration can no longer be withdrawn." });
+  });
+  // end of AC6
+
+  // AC1: an attendee can withdraw only their own registration, never another attendee's.
+  // The database refuses it too (tests/integration/event-registration-db.test.ts).
+  it("SCRUM-73/AC1 refuses to withdraw another attendee's registration, changing nothing", async () => {
+    const fake = createFake([], { registrations: [registrationRow({ id: "reg-2", attendee_id: "attendee-2" })] });
+
+    const res = await request(createApp(fake.deps)).post("/events/my-registrations/reg-2/withdraw").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Registration not found." });
+    expect(fake.updates).toEqual([]);
+  });
+  // end of AC1
+
+  // AC2: only a Pending or Confirmed registration can be withdrawn; a Rejected one (stored as 'cancelled') can't
+  it("SCRUM-73/AC2 refuses to withdraw a Rejected registration, changing nothing", async () => {
+    const fake = createFake([], { registrations: [registrationRow({ id: "reg-1", status: "cancelled" })] });
+
+    const res = await request(createApp(fake.deps)).post("/events/my-registrations/reg-1/withdraw").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Only a Pending or Confirmed registration can be withdrawn." });
+    expect(fake.updates).toEqual([]);
+  });
+
+  // AC2: a Confirmed registration (stored as 'registered') can be withdrawn, not just a Pending one
+  it("SCRUM-73/AC2 withdraws a Confirmed registration", async () => {
+    const fake = createFake([], { registrations: [registrationRow({ id: "reg-1", status: "registered" })] });
+
+    const res = await request(createApp(fake.deps)).post("/events/my-registrations/reg-1/withdraw").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(fake.updates.map((u) => u.fields.status)).toEqual(["withdrawn"]);
+  });
+  // end of AC2
+
+  // AC5: no withdrawing once the event has started (an event that has ended has started too)
+  it("SCRUM-73/AC5 refuses to withdraw from an event that has already started, changing nothing", async () => {
+    const started = registrationRow({
+      id: "reg-1",
+      event: {
+        id: "evt-1",
+        name: "Tech Summit",
+        status: "confirmed",
+        preferred_start_datetime: fromNow(-1 * HOUR),
+        preferred_end_datetime: fromNow(1 * HOUR),
+      },
+    });
+    const fake = createFake([], { registrations: [started] });
+
+    const res = await request(createApp(fake.deps)).post("/events/my-registrations/reg-1/withdraw").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This event has already started." });
+    expect(fake.updates).toEqual([]);
+  });
+
+  // AC5: no withdrawing from a cancelled event, even one whose date is still ahead
+  it("SCRUM-73/AC5 refuses to withdraw from a cancelled event, changing nothing", async () => {
+    const cancelled = registrationRow({
+      id: "reg-1",
+      event: {
+        id: "evt-1",
+        name: "Tech Summit",
+        status: "cancelled",
+        preferred_start_datetime: EVENT_START,
+        preferred_end_datetime: EVENT_END,
+      },
+    });
+    const fake = createFake([], { registrations: [cancelled] });
+
+    const res = await request(createApp(fake.deps)).post("/events/my-registrations/reg-1/withdraw").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This event has been cancelled." });
+    expect(fake.updates).toEqual([]);
+  });
+  // end of AC5
+
+  // AC2, AC5: "My registrations" says which registrations can be withdrawn, by the same rules as the route above,
+  // so the page can disable the Withdraw button (AC5) or leave it out (AC2)
+  it("SCRUM-73/AC2,AC5 says on My registrations which registrations can be withdrawn", async () => {
+    const open = registrationRow({ id: "reg-open", status: "waitlisted" });
+    const cancelledEvent = registrationRow({
+      id: "reg-cancelled-event",
+      status: "registered",
+      event: {
+        id: "evt-2",
+        name: "Design Day",
+        status: "cancelled",
+        preferred_start_datetime: EVENT_START,
+        preferred_end_datetime: EVENT_END,
+      },
+    });
+    const withdrawn = registrationRow({ id: "reg-withdrawn", status: "withdrawn" });
+    const fake = createFake([], { registrations: [open, cancelledEvent, withdrawn] });
+
+    const res = await request(createApp(fake.deps)).get("/events/my-registrations").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((r: { id: string; can_withdraw: boolean }) => [r.id, r.can_withdraw])).toEqual([
+      ["reg-open", true],
+      ["reg-cancelled-event", false],
+      ["reg-withdrawn", false],
+    ]);
+  });
+});
+// end of SCRUM-73

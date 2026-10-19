@@ -73,10 +73,11 @@ describe("SCRUM-33/AC1 requests are listed with their outcomes (33-S1)", () => {
     expect(res.headers["cache-control"]).toBe("no-store");
   });
 
-  it("leaves out legacy cancelled rows, which are outside this feature", async () => {
+  // SCRUM-102 (102-S25) replaced "leave out cancelled rows": a cancelled venue booking is now part of this feature
+  it("102-S25 shows a cancelled row as CANCELLED", async () => {
     const { bookings, get } = setup();
     bookings.seed({ eventId: "event-1", venueId: "venue-1", ...slot(14), status: "cancelled" });
-    expect((await get("/venue-bookings")).body).toEqual([]);
+    expect((await get("/venue-bookings")).body).toEqual([expect.objectContaining({ status: "CANCELLED" })]);
   });
 
   it("shows a placeholder if a venue has disappeared", async () => {

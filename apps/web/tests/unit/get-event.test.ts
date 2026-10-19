@@ -10,7 +10,7 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("next/navigation", () => ({ redirect }));
 
-import { getEvent, getEventOutcome } from "@/lib/getEvent";
+import { getEvent, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
 
 function mockServer(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => body });
@@ -85,5 +85,26 @@ describe("SCRUM-44 — loading the review outcome", () => {
   it("sends visitors who aren't signed in to the sign-in page", async () => {
     cookieValue.current = undefined;
     await expect(getEventOutcome("evt-1")).rejects.toThrow("redirect:/login");
+  });
+});
+
+describe("SCRUM-100/AC7 loading the Safety Officer's requested changes", () => {
+  const changes = [{ decision: "changes_requested", reason: "Move the stage clear of fire exit B", officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z" }];
+
+  it("SCRUM-100/AC7 asks event-service for the requested changes as the signed-in user", async () => {
+    const fetchMock = mockServer(200, changes);
+
+    await expect(getEventSafetyDecisions("evt-1")).resolves.toEqual(changes);
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:4002/events/evt-1/safety-decisions");
+    expect(options.headers.cookie).toBe("cs_session=token-123");
+  });
+
+  it("SCRUM-100/AC7 returns null, so the page leaves the section out, when the viewer may not see them or event-service can't be reached", async () => {
+    mockServer(403, { error: "You are not allowed to view this event's requested changes." });
+    await expect(getEventSafetyDecisions("evt-1")).resolves.toBeNull();
+
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+    await expect(getEventSafetyDecisions("evt-1")).resolves.toBeNull();
   });
 });

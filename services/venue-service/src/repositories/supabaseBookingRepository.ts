@@ -1,14 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { bookingError } from "../domain/errors";
-import type { BookingRecord, Decision, NewBooking } from "../domain/types";
+import { dbStatusToApi } from "@spm-t5/shared";
+import { BookingError, bookingError, forbidden } from "../domain/errors";
+import type { BookingChange, BookingRecord, Decision, FlagHistoryRecord, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
 export const BOOKING_COLUMNS =
   "id, event_id, venue_id, event_start_datetime, event_end_datetime, status, requested_by, created_at, " +
   "reviewed_by, reviewed_at, review_notes, withdrawn_by, withdrawn_at, amends_booking_id, from_suggestion, " +
+  "cancelled_by, cancelled_at, cancellation_reason, " +
   "suggested_venue_id, suggested_start_datetime, suggested_end_datetime, " +
-  "snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, snapshot_accessibility_needs";
+  "snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, snapshot_accessibility_needs, " +
+  "suitability, suitability_unmet, suitability_override_reason, sent_back_changes, sent_back_at, replaced_by_booking_id, replaced_at";
 
 type Row = Record<string, unknown>;
 
@@ -35,8 +38,18 @@ export function toBookingRecord(row: Row): BookingRecord {
     reviewNotes: (row.review_notes as string | null) ?? null,
     withdrawnBy: (row.withdrawn_by as string | null) ?? null,
     withdrawnAt: date(row.withdrawn_at),
+    cancelledBy: (row.cancelled_by as string | null) ?? null,
+    cancelledAt: date(row.cancelled_at),
+    cancellationReason: (row.cancellation_reason as string | null) ?? null,
     amendsBookingId: (row.amends_booking_id as string | null) ?? null,
     fromSuggestion: Boolean(row.from_suggestion),
+    suitability: (row.suitability as "suitable" | "not_suitable" | null) ?? null,
+    suitabilityUnmet: (row.suitability_unmet as BookingRecord["suitabilityUnmet"]) ?? null,
+    suitabilityOverrideReason: (row.suitability_override_reason as string | null) ?? null,
+    sentBackChanges: row.sent_back_changes ?? null,
+    sentBackAt: date(row.sent_back_at),
+    replacedByBookingId: (row.replaced_by_booking_id as string | null) ?? null,
+    replacedAt: date(row.replaced_at),
     suggestion: row.suggested_venue_id
       ? {
           venueId: row.suggested_venue_id as string,
@@ -44,6 +57,19 @@ export function toBookingRecord(row: Row): BookingRecord {
           end: new Date(row.suggested_end_datetime as string),
         }
       : null,
+  };
+}
+
+/** A row of venue_slot_conflicts / venue_occupied_periods (migration 27). */
+function toSlotConflict(row: Row): SlotConflict {
+  return {
+    eventStart: new Date(row.event_start as string),
+    eventEnd: new Date(row.event_end as string),
+    occupiedStart: new Date(row.occupied_start as string),
+    occupiedEnd: new Date(row.occupied_end as string),
+    status: dbStatusToApi(row.status as string) === "PENDING" ? "PENDING" : "APPROVED",
+    venueName: row.venue_name as string,
+    timing: { setupMinutes: row.setup_minutes as number, turnaroundMinutes: row.turnaround_minutes as number },
   };
 }
 
@@ -63,8 +89,16 @@ interface PgError {
 function translate(error: PgError): Error {
   const message = error.message ?? "";
   if (error.code === "23P01") return bookingError("SLOT_CONFLICT");
+  // SCRUM-102: change_venue_booking() and cancel_venue_booking() (migration 30) refuse with these
+  if (error.code === "42501") return forbidden();
+  if (error.code === "CS102") return bookingError("EVENT_NOT_ELIGIBLE");
+  // SCRUM-105: the padded-overlap trigger (migration 39) found the period inside an unavailability block
+  if (error.code === "CS105") return bookingError("VENUE_UNAVAILABLE");
+  // SCRUM-104: the approve guard (migration 36) refuses a request that still carries an open flag
+  if (error.code === "CS104") return bookingError("BOOKING_FLAGGED");
   if (error.code === "23505") {
-    if (message.includes("venue_bookings_one_active_per_event")) return bookingError("ACTIVE_REQUEST_EXISTS");
+    // 98-S20 (migration 28): the rejected venue booking already has an active replacement
+    if (message.includes("venue_bookings_one_active_replacement")) return bookingError("ACTIVE_REQUEST_EXISTS");
     if (message.includes("venue_bookings_one_suggestion_accept")) return bookingError("SUGGESTION_ALREADY_USED");
   }
   // The original stays attached as `cause` for server-side logging; it is never sent to the caller.
@@ -75,9 +109,9 @@ export class SupabaseBookingRepository implements BookingRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   /**
-   * Asks the database through venue_slot_is_held (migration 07), a yes/no security definer helper:
+   * Asks the database through venue_slot_is_held (migration 07, padded since migration 27), a yes/no security definer helper:
    * under RLS a coordinator cannot read other coordinators' requests, so a plain select here would
-   * never see the request holding the slot. The exclusion constraint remains the authority.
+   * never see the request holding the slot. The padded-overlap trigger remains the authority.
    */
   async hasHold(venueId: string, start: Date, end: Date): Promise<boolean> {
     const { data, error } = await this.db.rpc("venue_slot_is_held", {
@@ -87,6 +121,45 @@ export class SupabaseBookingRepository implements BookingRepository {
     });
     if (error) throw new Error("Could not check the venue's availability.");
     return data === true;
+  }
+
+  /** The padded conflicts, from venue_slot_conflicts (migration 27): security definer, so other coordinators' holds are visible, and identity-free. */
+  async slotConflicts(venueId: string, start: Date, end: Date, excludeBookingId?: string): Promise<SlotConflict[]> {
+    const { data, error } = await this.db.rpc("venue_slot_conflicts", {
+      p_venue_id: venueId,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+      p_exclude_booking_id: excludeBookingId ?? null,
+    });
+    if (error) throw new Error("Could not check the venue's availability.");
+    return ((data ?? []) as Row[]).map(toSlotConflict);
+  }
+
+  /** SCRUM-105: the blocks in the way, from venue_unavailability_conflicts (migration 39): security definer, role-gated, period and reason only. */
+  async unavailabilityConflicts(venueId: string, start: Date, end: Date): Promise<UnavailabilityConflict[]> {
+    const { data, error } = await this.db.rpc("venue_unavailability_conflicts", {
+      p_venue_id: venueId,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+    });
+    if (error) throw new Error("Could not check the venue's availability.");
+    return ((data ?? []) as Row[]).map((r) => ({
+      start: new Date(r.start_datetime as string),
+      end: new Date(r.end_datetime as string),
+      reason: r.reason as string,
+      venueName: r.venue_name as string,
+    }));
+  }
+
+  /** What occupies the venue in a window, from venue_occupied_periods (migration 27). */
+  async occupiedPeriods(venueId: string, from: Date, to: Date): Promise<SlotConflict[]> {
+    const { data, error } = await this.db.rpc("venue_occupied_periods", {
+      p_venue_id: venueId,
+      p_from: from.toISOString(),
+      p_to: to.toISOString(),
+    });
+    if (error) throw new Error("Could not read the venue's availability.");
+    return ((data ?? []) as Row[]).map(toSlotConflict);
   }
 
   async listPending(): Promise<BookingRecord[]> {
@@ -109,7 +182,12 @@ export class SupabaseBookingRepository implements BookingRepository {
       .eq("status", "requested")
       .select(BOOKING_COLUMNS)
       .maybeSingle();
-    if (error) throw new Error("Could not update the venue booking request.", { cause: error });
+    if (error) {
+      // A refusal the database makes on purpose (CS104 flagged, 42501) is a BookingError, not a 500 (104-S4).
+      const known = translate(error);
+      if (known instanceof BookingError) throw known;
+      throw new Error("Could not update the venue booking request.", { cause: error });
+    }
     return data ? toBookingRecord(data as unknown as Row) : null;
   }
 
@@ -136,6 +214,90 @@ export class SupabaseBookingRepository implements BookingRepository {
       }
     }
     return this.transitionFromPending(id, patch);
+  }
+
+  /**
+   * SCRUM-102/AC1: through change_venue_booking() (migration 30), a security definer function, because coordinators may only
+   * update a venue booking's status directly (07). It checks the caller and the venue booking and updates it in one step;
+   * the overlap constraint (06) still applies. Null when the venue booking was no longer PENDING or APPROVED. The time of
+   * the change is the database's own, so the interface's `at` is not taken here.
+   */
+  async change(id: string, change: BookingChange): Promise<BookingRecord | null> {
+    const { data, error } = await this.db.rpc("change_venue_booking", {
+      p_booking_id: id,
+      p_start: change.start.toISOString(),
+      p_end: change.end.toISOString(),
+      p_expected_attendance: change.expectedAttendance,
+      p_venue_requirements: change.venueRequirements,
+      // migration 33: the suitability result made afresh for the changed numbers (null leaves the stored one)
+      p_suitability: change.suitability?.result ?? null,
+      p_suitability_unmet: change.suitability?.unmet ?? null,
+      p_suitability_override_reason: change.suitability?.overrideReason ?? null,
+    });
+    if (error) throw translate(error);
+    return data === true ? this.getById(id) : null;
+  }
+
+  /**
+   * SCRUM-102/AC2, AC7: through cancel_venue_booking() (migration 30), a security definer function, for the same reason as
+   * change(). It also releases the venue booking's equipment, in the same step. Null when it was no longer PENDING or
+   * APPROVED. `by` and `at` are the database's own (auth.uid(), now()), so they are not sent.
+   */
+  async cancel(id: string, _by: string, _at: Date, reason: string): Promise<BookingRecord | null> {
+    const { data, error } = await this.db.rpc("cancel_venue_booking", { p_booking_id: id, p_reason: reason });
+    if (error) throw translate(error);
+    return data === true ? this.getById(id) : null;
+  }
+
+  /**
+   * SCRUM-104: the open flags on these bookings, oldest first, read as the caller. RLS (migration 36) shows Venue Staff
+   * every flag and a coordinator only the flags on bookings of their own events.
+   */
+  async flagsFor(bookingIds: string[]): Promise<FlagRecord[]> {
+    if (bookingIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from("venue_booking_flags")
+      .select("id, booking_id, kind, other_booking_id, other_start, other_end, created_at, unavailability_id, unavailability:venue_unavailability(reason)")
+      .in("booking_id", bookingIds)
+      .is("resolved_at", null)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw new Error("Could not read the venue booking flags.");
+    return ((data ?? []) as Row[]).map((row) => ({
+      id: row.id as string,
+      bookingId: row.booking_id as string,
+      kind: row.kind as FlagRecord["kind"],
+      otherBookingId: (row.other_booking_id as string | null) ?? null,
+      otherStart: date(row.other_start),
+      otherEnd: date(row.other_end),
+      unavailabilityId: (row.unavailability_id as string | null) ?? null,
+      unavailabilityReason: ((row.unavailability as { reason?: string } | null)?.reason as string | undefined) ?? null,
+      createdAt: new Date(row.created_at as string),
+    }));
+  }
+
+  /** SCRUM-107: every flag of one booking, open or resolved, oldest first, with why it was resolved (107-S3). */
+  async flagHistoryFor(bookingId: string): Promise<FlagHistoryRecord[]> {
+    const { data, error } = await this.db
+      .from("venue_booking_flags")
+      .select("id, booking_id, kind, other_booking_id, other_start, other_end, created_at, resolved_at, resolved_reason, unavailability_id, unavailability:venue_unavailability(reason)")
+      .eq("booking_id", bookingId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw new Error("Could not read the venue booking flags.");
+    return ((data ?? []) as Row[]).map((row) => ({
+      id: row.id as string,
+      bookingId: row.booking_id as string,
+      kind: row.kind as FlagRecord["kind"],
+      otherBookingId: (row.other_booking_id as string | null) ?? null,
+      otherStart: date(row.other_start),
+      otherEnd: date(row.other_end),
+      unavailabilityId: (row.unavailability_id as string | null) ?? null,
+      unavailabilityReason: ((row.unavailability as { reason?: string } | null)?.reason as string | undefined) ?? null,
+      createdAt: new Date(row.created_at as string),
+      resolvedAt: date(row.resolved_at),
+      resolvedReason: (row.resolved_reason as string | null) ?? null,
+    }));
   }
 
   async getById(id: string): Promise<BookingRecord | null> {
@@ -179,6 +341,9 @@ export class SupabaseBookingRepository implements BookingRepository {
       snapshot_accessibility_needs: input.snapshot.accessibilityNeeds,
       amends_booking_id: input.amendsBookingId ?? null,
       from_suggestion: input.fromSuggestion ?? false,
+      suitability: input.suitability?.result ?? null,
+      suitability_unmet: input.suitability?.unmet ?? null,
+      suitability_override_reason: input.suitability?.overrideReason ?? null,
     };
 
     // When two overlapping inserts collide head-on, Postgres aborts one as a deadlock victim (40P01;

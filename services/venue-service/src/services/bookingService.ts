@@ -1,10 +1,28 @@
-import { canRequestVenue, isHoldingDbStatus, parseVenueBookingInput, utcToSgt, type Role } from "@spm-t5/shared";
-import { bookingError, forbidden, notFound, validationFailed } from "../domain/errors";
-import type { BookingRecord } from "../domain/types";
+import {
+  canRequestReplacement,
+  canRequestVenue,
+  checkSuitability,
+  exceedsCapacity,
+  isHoldingDbStatus,
+  paddedPeriod,
+  parseCancellationInput,
+  parseSuitabilityOverride,
+  parseVenueBookingInput,
+  periodsOverlap,
+  unmetRequirements,
+  utcToSgt,
+  type Period,
+  type Role,
+  type VenueTiming,
+} from "@spm-t5/shared";
+import { BookingError, bookingError, forbidden, notFound, unsuitableVenue, validationFailed } from "../domain/errors";
+import type { BookingRecord, BookingSuitability } from "../domain/types";
 import type { EventInfo, EventReader } from "../readers/eventReader";
+import type { VenueDetailsReader } from "../readers/venueDetailsReader";
 import type { VenueReader } from "../readers/venueReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
-import { SlotConflictRule } from "./slotConflictRule";
+import { SlotConflictRule, slotConflictError } from "./slotConflictRule";
+import { UnavailabilityRule, unavailableError } from "./unavailabilityRule";
 
 export interface Caller {
   id: string;
@@ -12,17 +30,41 @@ export interface Caller {
   role: Role | undefined;
 }
 
+/** A new booking, and whether more people are expected than its venue holds (SCRUM-98/AC2: a warning only). */
+export interface SubmittedBooking {
+  booking: BookingRecord;
+  exceedsCapacity: boolean;
+}
+
 export interface SubmitOptions {
   /** Set by SCRUM-60 / SCRUM-59 when the request replaces a rejected one. */
   amendsBookingId?: string;
   fromSuggestion?: boolean;
+  /**
+   * SCRUM-107 (decision 3): the request replaces this flagged booking, so the event may be in any status but completed,
+   * cancelled or rejected (even Confirmed). The caller has already checked the flag. Also sets amendsBookingId.
+   */
+  replacesBookingId?: string;
 }
 
 export interface BookingServiceDeps {
   bookings: BookingRepository;
   events: EventReader;
   venues: VenueReader;
+  /** SCRUM-110: the venue's layouts, hours and capacity, for the suitability check. */
+  venueDetails: VenueDetailsReader;
   now: () => Date;
+}
+
+/** SCRUM-102: the DB statuses a venue booking can be changed or cancelled in (PENDING and APPROVED). */
+const CHANGEABLE_DB_STATUSES = ["requested", "approved"];
+
+/**
+ * SCRUM-103 + SCRUM-98: two periods at the same venue clash when their padded periods (setup before, turnaround after) overlap.
+ * Used for this event's own other bookings (DUPLICATE_VENUE); the database trigger (migration 27) is the authority.
+ */
+function clashes(a: Period, b: Period, timing: VenueTiming): boolean {
+  return periodsOverlap(paddedPeriod(a, timing), paddedPeriod(b, timing));
 }
 
 /** DR2 + DR9: only the event's assigned Coordinator, and only for an eligible event. */
@@ -34,12 +76,23 @@ export function assertMayRequestFor(caller: Caller, event: EventInfo | null): Ev
   return event;
 }
 
+/** SCRUM-107 (decision 3): as assertMayRequestFor, but for a replacement, which a Confirmed event may also have. */
+export function assertMayReplaceFor(caller: Caller, event: EventInfo | null): EventInfo {
+  if (caller.role !== "event_coordinator") throw forbidden();
+  if (!event) throw notFound("Event not found.");
+  if (event.assignedCoordinatorId !== caller.id) throw forbidden();
+  if (!canRequestReplacement(event.status)) throw bookingError("EVENT_NOT_ELIGIBLE");
+  return event;
+}
+
 /** SCRUM-32: the one path that creates a venue booking request (also used by SCRUM-60 and SCRUM-59). */
 export class BookingService {
   private readonly slotRule: SlotConflictRule;
+  private readonly blockRule: UnavailabilityRule;
 
   constructor(private readonly deps: BookingServiceDeps) {
     this.slotRule = new SlotConflictRule(deps.bookings);
+    this.blockRule = new UnavailabilityRule(deps.bookings);
   }
 
   /**
@@ -70,6 +123,12 @@ export class BookingService {
     const event = await events.getById(original.eventId);
     if (!event || event.assignedCoordinatorId !== caller.id) throw forbidden();
     if (original.status !== "rejected") throw bookingError("NOT_REJECTED");
+    // SCRUM-107 (107-S4): a rejected replacement is not amended; its parent is a booking that was not rejected. A new request linked
+    // to it would not be linked to the original, so it could never take over. The coordinator starts again from the original.
+    if (original.amendsBookingId) {
+      const parent = await bookings.getById(original.amendsBookingId);
+      if (parent && parent.status !== "rejected") throw bookingError("REPLACEMENT_REJECTED");
+    }
     return original;
   }
 
@@ -77,7 +136,7 @@ export class BookingService {
    * SCRUM-60: a new PENDING request for another venue, date or time that refers to a rejected one.
    * The rejected request is never written. Every other rule is submit()'s, so nothing is duplicated.
    */
-  async amend(caller: Caller, id: string, body: unknown): Promise<BookingRecord> {
+  async amend(caller: Caller, id: string, body: unknown): Promise<SubmittedBooking> {
     const original = await this.loadRejectedFor(caller, id);
     const fields = typeof body === "object" && body !== null ? body : {};
     return this.submit(caller, { ...fields, eventId: original.eventId }, { amendsBookingId: original.id });
@@ -89,7 +148,7 @@ export class BookingService {
    * The suggestion's "used" state is the new request itself (from_suggestion = true); the unique index
    * in migration 06 makes a second accept fail even if two race past the pre-check (59-S3).
    */
-  async acceptSuggestion(caller: Caller, id: string): Promise<BookingRecord> {
+  async acceptSuggestion(caller: Caller, id: string, body?: unknown): Promise<SubmittedBooking> {
     const original = await this.loadRejectedFor(caller, id);
     if (!original.suggestion) throw bookingError("NO_SUGGESTION");
 
@@ -99,17 +158,169 @@ export class BookingService {
     }
 
     const start = utcToSgt(original.suggestion.start);
-    const body = {
+    const slot = {
+      ...(typeof body === "object" && body !== null && "overrideReason" in body ? { overrideReason: body.overrideReason } : {}),
       eventId: original.eventId,
       venueId: original.suggestion.venueId,
       date: start.date,
       startTime: start.time,
       endTime: utcToSgt(original.suggestion.end).time,
     };
-    return this.submit(caller, body, { amendsBookingId: original.id, fromSuggestion: true });
+    return this.submit(caller, slot, { amendsBookingId: original.id, fromSuggestion: true });
   }
 
-  async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<BookingRecord> {
+  /**
+   * SCRUM-107 [PROPOSED]: while a replacement for this booking waits for Venue Staff, changing or cancelling the original would make
+   * the later approval an ordinary one and leave the event holding two venues. Withdraw the replacement first (SCRUM-35).
+   */
+  private async refuseWhileReplacementPending(booking: BookingRecord): Promise<void> {
+    const history = await this.deps.bookings.listByEvent(booking.eventId);
+    if (history.some((b) => b.amendsBookingId === booking.id && b.status === "requested")) throw bookingError("REPLACEMENT_PENDING");
+  }
+
+  /**
+   * SCRUM-102/AC2: cancels one PENDING or APPROVED venue booking with a reason. The event's other venue bookings, and the
+   * event itself (AC5), are not touched. Same access rules as changing it (AC6).
+   */
+  async cancel(caller: Caller, id: string, body: unknown): Promise<BookingRecord> {
+    const { bookings, events, now } = this.deps;
+    if (caller.role !== "event_coordinator") throw forbidden();
+    const booking = await bookings.getById(id);
+    if (!booking) throw notFound("Venue booking request not found.");
+    assertMayRequestFor(caller, await events.getById(booking.eventId));
+    if (!CHANGEABLE_DB_STATUSES.includes(booking.status)) throw bookingError("NOT_ACTIVE");
+    await this.refuseWhileReplacementPending(booking);
+
+    const parsed = parseCancellationInput(body);
+    if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+
+    const cancelled = await bookings.cancel(id, caller.id, now(), parsed.data.reason);
+    if (!cancelled) throw bookingError("NOT_ACTIVE"); // it was decided or withdrawn a moment ago
+    return cancelled;
+  }
+
+  /**
+   * SCRUM-102/AC1: a new date, start, end, attendance or requirements for one PENDING or APPROVED venue booking. The same
+   * venue booking takes them and goes back to PENDING for venue staff; the event's other venue bookings are not touched.
+   */
+  async change(caller: Caller, id: string, body: unknown): Promise<SubmittedBooking> {
+    const { bookings, events, venues, now } = this.deps;
+    if (caller.role !== "event_coordinator") throw forbidden();
+    const booking = await bookings.getById(id);
+    if (!booking) throw notFound("Venue booking request not found.");
+    const event = assertMayRequestFor(caller, await events.getById(booking.eventId));
+    if (!CHANGEABLE_DB_STATUSES.includes(booking.status)) throw bookingError("NOT_ACTIVE");
+    await this.refuseWhileReplacementPending(booking);
+
+    // the same validation as a new request; the venue is the venue booking's own and cannot change
+    const fields = typeof body === "object" && body !== null ? body : {};
+    const parsed = parseVenueBookingInput({ ...fields, venueId: booking.venueId }, now());
+    if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+    const input = parsed.data;
+    const override = parseSuitabilityOverride(body);
+    if (!override.ok) throw validationFailed(override.fieldErrors);
+
+    // left out means "keep this venue booking's own", not the event's
+    const expectedAttendance = input.expectedAttendance ?? booking.snapshot.expectedAttendance;
+    const venueRequirements = input.venueRequirements ?? booking.snapshot.venueRequirements;
+
+    // 102-S9: nothing different, so an approved venue booking is not sent back to venue staff for nothing
+    const unchanged =
+      input.start.getTime() === booking.start.getTime() &&
+      input.end.getTime() === booking.end.getTime() &&
+      expectedAttendance === booking.snapshot.expectedAttendance &&
+      venueRequirements === booking.snapshot.venueRequirements;
+    if (unchanged) throw bookingError("NO_CHANGES");
+
+    // 102-S10 (32-S7's rule) and 102-S5 (98-S13's rule), against the event's other venue bookings only (102-S6). Another
+    // event holding the venue is the database's overlap constraint (102-S4), which also ignores the row being changed.
+    const venue = await venues.getById(booking.venueId);
+    const timing = { setupMinutes: venue?.setupMinutes ?? 0, turnaroundMinutes: venue?.turnaroundMinutes ?? 0 };
+    const others = (await bookings.listByEvent(booking.eventId)).filter((b) => b.id !== booking.id);
+    const sameVenue = others.filter((b) => b.venueId === booking.venueId);
+    if (sameVenue.some((b) => b.status === "rejected" && b.start.getTime() === input.start.getTime() && b.end.getTime() === input.end.getTime())) {
+      throw bookingError("REPEAT_OF_REJECTED");
+    }
+    if (sameVenue.some((b) => isHoldingDbStatus(b.status) && clashes(b, input, timing))) throw bookingError("DUPLICATE_VENUE");
+
+    // SCRUM-103: another event holding the venue, setup and turnaround included, naming the occupied period. The row being
+    // changed does not count against itself.
+    await this.slotRule.check(booking.venueId, input.start, input.end, booking.id);
+    // SCRUM-105: then an unavailability block, padded period against the block itself (105-S4)
+    await this.blockRule.check(booking.venueId, input.start, input.end);
+
+    // 110-S10: the booking goes back to venue staff with new numbers, so the stored result is made afresh from them (the
+    // old one could say "suitable" about 40 people when it is now 200). An unsuitable change needs a reason, like a new
+    // request. Availability is the slot check above, which ignores this booking itself.
+    const suitability = await this.assessSuitability(
+      event,
+      booking.venueId,
+      { attendance: expectedAttendance, layoutName: venueRequirements, start: input.start, end: input.end },
+      override.data.reason,
+    );
+
+    const changed = await this.persist(
+      () => bookings.change(id, { start: input.start, end: input.end, expectedAttendance, venueRequirements, suitability }, now()),
+      booking.venueId,
+      input,
+      booking.id,
+    );
+    if (!changed) throw bookingError("NOT_ACTIVE"); // it was decided or withdrawn a moment ago
+    return { booking: changed, exceedsCapacity: exceedsCapacity(expectedAttendance, venue?.maxCapacity) };
+  }
+
+  /**
+   * SCRUM-110: judges the venue against this booking (its own attendance and layout, SCRUM-98) and the event's accessibility
+   * text. Suitable: the result to store. Not suitable: UNSUITABLE_VENUE (409, nothing written) unless the coordinator gave
+   * a reason, which is stored with the unmet requirements. Availability is never judged here; the caller has settled it.
+   */
+  private async assessSuitability(
+    event: EventInfo,
+    venueId: string,
+    booking: { attendance: number | null; layoutName: string | null; start: Date; end: Date },
+    reason: string | null,
+  ): Promise<BookingSuitability> {
+    const details = await this.deps.venueDetails.getById(venueId);
+    if (!details) throw notFound("Venue not found.");
+    const report = checkSuitability(
+      details,
+      {
+        attendance: booking.attendance,
+        layoutName: booking.layoutName,
+        accessibilityNeeds: event.accessibilityNeeds,
+        start: booking.start,
+        end: booking.end,
+      },
+      { conflict: null },
+    );
+    if (report.overall === "suitable") return { result: "suitable", unmet: [], overrideReason: null };
+    const unmet = unmetRequirements(report);
+    if (!reason) throw unsuitableVenue(unmet);
+    return { result: "not_suitable", unmet, overrideReason: reason };
+  }
+
+  /**
+   * SCRUM-103/103-S7: runs the write. If another request won the race between the pre-check and the write, the database only
+   * says "held" (SLOT_CONFLICT), so look the holder up again and give the same specific message as the pre-check.
+   */
+  private async persist<T>(write: () => Promise<T>, venueId: string, period: Period, excludeBookingId?: string): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if (error instanceof BookingError && error.code === "SLOT_CONFLICT") {
+        const conflict = await this.slotRule.findConflict(venueId, period.start, period.end, excludeBookingId);
+        if (conflict) throw slotConflictError(conflict);
+      }
+      // SCRUM-105: the trigger refused a block made after the pre-check; name its period like the pre-check does
+      if (error instanceof BookingError && error.code === "VENUE_UNAVAILABLE") {
+        const block = await this.blockRule.findBlock(venueId, period.start, period.end);
+        if (block) throw unavailableError(block);
+      }
+      throw error;
+    }
+  }
+
+  async submit(caller: Caller, body: unknown, options: SubmitOptions = {}): Promise<SubmittedBooking> {
     const { bookings, events, venues, now } = this.deps;
 
     // 32-S4: the role check comes before anything else, so it reveals nothing about the body or event.
@@ -125,18 +336,30 @@ export class BookingService {
     }
     const input = parsed.data;
 
+    // 110-S2b: the reason for going ahead with an unsuitable venue; only a reason that is too long is an error.
+    const override = parseSuitabilityOverride(body);
+    if (!override.ok) throw validationFailed(override.fieldErrors);
+
     // 32-S4, 32-S3: assigned Coordinator of an eligible event.
-    const event = assertMayRequestFor(caller, await events.getById(eventId));
+    const loaded = await events.getById(eventId);
+    const event = options.replacesBookingId ? assertMayReplaceFor(caller, loaded) : assertMayRequestFor(caller, loaded);
 
     // 32-S5: unknown or retired venue.
     const venue = await venues.getById(input.venueId);
     if (!venue || !venue.isActive) throw notFound("Venue not found.");
 
-    // 32-S6 (DR6) and 32-S7 (DR7).
+    // SCRUM-98 dropped DR6: an event may hold several bookings at once. What stays (60-S5, 98-S20) is that
+    // one rejected booking has at most one pending or approved replacement.
     const history = await bookings.listByEvent(event.id);
-    if (history.some((b) => isHoldingDbStatus(b.status))) {
-      throw bookingError("ACTIVE_REQUEST_EXISTS");
-    }
+    const replacementExists = history.some(
+      (b) => {
+        const parent = options.amendsBookingId ?? options.replacesBookingId;
+        return parent !== undefined && b.amendsBookingId === parent && isHoldingDbStatus(b.status);
+      },
+    );
+    if (replacementExists) throw bookingError("ACTIVE_REQUEST_EXISTS");
+
+    // 32-S7 (DR7).
     const repeatsRejected = history.some(
       (b) =>
         b.status === "rejected" &&
@@ -146,24 +369,56 @@ export class BookingService {
     );
     if (repeatsRejected) throw bookingError("REPEAT_OF_REJECTED");
 
+    // 98-S13, 98-S14: this event already holds the same venue for an overlapping period. Checked before the
+    // slot check, which would refuse it too but with a message that points at someone else.
+    const ownOverlap = history.some(
+      (b) => b.venueId === input.venueId && isHoldingDbStatus(b.status) && clashes(b, input, venue),
+    );
+    if (ownOverlap) throw bookingError("DUPLICATE_VENUE");
+
     // 32-S8: friendly pre-check; the database constraint stays the authority (36-S4).
     await this.slotRule.check(input.venueId, input.start, input.end);
+    // SCRUM-105: a held slot is reported first (SCRUM-103 unchanged), then an unavailability block (105-S4, 105-S5).
+    await this.blockRule.check(input.venueId, input.start, input.end);
 
-    // 32-S9: no capacity check. 32-S10: the snapshot is copied now and never updated (DR8).
-    return bookings.insert({
-      eventId: event.id,
-      venueId: input.venueId,
+    // 32-S10: the snapshot is copied now and never updated (DR8). 98-S6, 98-S7: the booking's own attendance and
+    // requirements if it has them, the event's if not.
+    const expectedAttendance = input.expectedAttendance ?? event.expectedAttendance;
+    const venueRequirements = input.venueRequirements ?? event.venueRequirements;
+
+    // 110-S1, S2, S5, S6: after the slot (availability is a hard block that no reason overrides), warn if the venue does
+    // not suit this booking, judged on the booking's own attendance and requirements (98-S6). Without a reason nothing
+    // is created; with one, the result travels with the booking.
+    const suitability = await this.assessSuitability(event, input.venueId, {
+      attendance: expectedAttendance,
+      layoutName: venueRequirements,
       start: input.start,
       end: input.end,
-      requestedBy: caller.id,
-      snapshot: {
-        eventName: event.name,
-        expectedAttendance: event.expectedAttendance,
-        venueRequirements: event.venueRequirements,
-        accessibilityNeeds: event.accessibilityNeeds,
-      },
-      amendsBookingId: options.amendsBookingId ?? null,
-      fromSuggestion: options.fromSuggestion ?? false,
-    });
+    }, override.data.reason);
+
+    const booking = await this.persist(
+      () =>
+        bookings.insert({
+          eventId: event.id,
+          venueId: input.venueId,
+          start: input.start,
+          end: input.end,
+          requestedBy: caller.id,
+          snapshot: {
+            eventName: event.name,
+            expectedAttendance,
+            venueRequirements,
+            accessibilityNeeds: event.accessibilityNeeds,
+          },
+          amendsBookingId: options.amendsBookingId ?? options.replacesBookingId ?? null,
+          fromSuggestion: options.fromSuggestion ?? false,
+          suitability,
+        }),
+      input.venueId,
+      input,
+    );
+
+    // 32-S9, 98-S10: more people than the venue holds is flagged, never refused.
+    return { booking, exceedsCapacity: exceedsCapacity(expectedAttendance, venue.maxCapacity) };
   }
 }

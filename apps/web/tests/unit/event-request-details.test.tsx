@@ -19,7 +19,6 @@ const FULL: EventDetailView = {
   submitted_at: "2026-10-01T02:00:00Z",
   organiser_name: "Sam Tan",
   point_of_contact_name: null,
-  canAssign: false,
 };
 
 const EMPTY: EventDetailView = {
@@ -76,7 +75,7 @@ describe("SCRUM-23/AC3 — missing optional information", () => {
     const { container } = render(<EventRequestDetails event={EMPTY} />);
 
     const values = [...container.querySelectorAll("dd")];
-    expect(values).toHaveLength(8);
+    expect(values).toHaveLength(11); // SCRUM-111 added description, category and venue requirements
     for (const value of values) expect(value.textContent).toBe(NOT_PROVIDED);
   });
 

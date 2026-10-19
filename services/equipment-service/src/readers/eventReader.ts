@@ -10,6 +10,8 @@ export interface EventInfo {
   end: Date | null;
   /** The assigned event coordinator's name, or null if none is assigned yet. */
   coordinatorName: string | null;
+  /** SCRUM-86/AC7: the assigned event coordinator's id, or null if none is assigned yet. */
+  assignedCoordinatorId: string | null;
 }
 
 export interface EventReader {
@@ -22,7 +24,7 @@ export interface EventReader {
 type Row = Record<string, unknown>;
 
 const COLUMNS =
-  "id, name, status, preferred_start_datetime, preferred_end_datetime, coordinator:users!events_assigned_coordinator_id_fkey(full_name)";
+  "id, name, status, preferred_start_datetime, preferred_end_datetime, assigned_coordinator_id, coordinator:users!events_assigned_coordinator_id_fkey(full_name)";
 
 const date = (value: unknown) => (value ? new Date(value as string) : null);
 
@@ -33,6 +35,7 @@ const toEvent = (r: Row): EventInfo => ({
   start: date(r.preferred_start_datetime),
   end: date(r.preferred_end_datetime),
   coordinatorName: ((r.coordinator as Row | null)?.full_name as string | undefined) ?? null,
+  assignedCoordinatorId: (r.assigned_coordinator_id as string | null) ?? null,
 });
 
 export class SupabaseEventReader implements EventReader {

@@ -1,21 +1,18 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { AVAILABILITY_LABELS as LABELS } from "@/lib/availabilityLabels";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import type { UpcomingEvent } from "@/lib/getUpcomingEvents";
 
-// SCRUM-71/AC7: the label for each availability event-service can send ("open" has none)
-const LABELS: Record<UpcomingEvent["availability"], string | null> = {
-  cancelled: "Cancelled",
-  full: "Event Full",
-  closed: "Registration Closed",
-  open: null,
-};
 
 // SCRUM-71/AC10: how the attendee's own active registration reads on the card
 const REGISTRATIONS: Record<NonNullable<UpcomingEvent["my_registration"]>, string> = {
   confirmed: "Confirmed",
   pending: "Pending",
 };
+
+// SCRUM-9/AC2: the places left, in words ("12 slots left", "1 slot left", "No slots left"); an event with no capacity has "No limit"
+const slotsText = (slots: number | null) => (slots === null ? "No limit" : slots === 0 ? "No slots left" : `${slots} ${slots === 1 ? "slot" : "slots"} left`);
 
 // SCRUM-71: the attendee's List of events, one card per upcoming event
 export function UpcomingEventList({ events }: { events: UpcomingEvent[] }) {
@@ -39,6 +36,8 @@ export function UpcomingEventList({ events }: { events: UpcomingEvent[] }) {
           <p className="event-card__location">
             {event.venue.name ? `${event.venue.name}, ${event.venue.address}` : "Venue to be confirmed"}
           </p>
+          {/* SCRUM-9/AC2: the available slots */}
+          <p className="event-card__slots">{slotsText(event.available_slots)}</p>
           {/* SCRUM-71/AC8: Register leads to the event's registration form (built by the registration story) */}
           {/* SCRUM-71/AC9: only on open events; cancelled, full and closed ones have no button (their label says why) */}
           {/* SCRUM-71/AC10: an active registration shows its status instead of the button */}

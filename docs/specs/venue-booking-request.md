@@ -259,7 +259,7 @@ Rules used: DR2, DR3, DR4, DR6, DR7, DR8, DR9, DR11, DR12, DR13, DR16. Event dat
 - `32-S3`: run for each status. Approved and Planning return 201. The other seven return 409 `EVENT_NOT_ELIGIBLE` with "The event must be approved before a venue can be requested."; the UI control is hidden.
 - `32-S4`: another Coordinator, ORGANISER, VENUE_STAFF, TECHNICAL_SUPPORT, ATTENDEE all get 403; no session gets 401; no row created.
 - `32-S5`: 422 with field errors for end before start, end equal to start, start in the past, missing venue. Unknown venue id returns 404. No row created.
-- `32-S6`: with a PENDING request, then again with an APPROVED request, a second submit returns 409 `ACTIVE_REQUEST_EXISTS`. With the earlier one REJECTED, then WITHDRAWN, submit returns 201.
+- `32-S6`: with a PENDING request, then again with an APPROVED request, a second submit returns 409 `ACTIVE_REQUEST_EXISTS`. With the earlier one REJECTED, then WITHDRAWN, submit returns 201. *(Replaced by SCRUM-98: a second submit is now 201, see 98-S1 and 98-S2.)*
 - `32-S7`: identical venue, date, start, end as a REJECTED request returns 409 `REPEAT_OF_REJECTED`. Changing any one field is not refused by this rule. Also true against any earlier rejected request for the event, not only the latest.
 - `32-S8`: integration with SCRUM-36: 409 `SLOT_CONFLICT`, no row.
 - `32-S9`: attendance 200, capacity 150: 201 PENDING.
@@ -623,7 +623,7 @@ Rules used: DR2, DR4, DR6, DR7, DR8, DR9, DR11, DR12. Calls the SCRUM-60 amend p
 
 **DR5 Slot holding and overlap.** A request holds its venue and period if and only if its status is PENDING or APPROVED. Two periods overlap when they are for the same venue and date and `a.start < b.end` and `b.start < a.end` (half-open, so back-to-back is allowed). Setup and turnaround time, operating hours and blocked periods are not considered in this release (customer, Weeks 2 and 4).
 
-**DR6 One active request per event.** [DECIDED] An event may have at most one request in PENDING or APPROVED at a time.
+**DR6 One active request per event.** [DECIDED] An event may have at most one request in PENDING or APPROVED at a time. *(Replaced by SCRUM-98, `docs/specs/multiple-venue-bookings.md`: an event may hold several venue bookings. What stays is that one REJECTED request has at most one PENDING or APPROVED replacement, still refused with `ACTIVE_REQUEST_EXISTS`.)*
 
 **DR7 Repeat guard.** [PROPOSED] A new or amended request for an event must differ in venue, date, start or end from every REJECTED request previously made for that event.
 

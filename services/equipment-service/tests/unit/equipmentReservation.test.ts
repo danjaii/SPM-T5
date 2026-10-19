@@ -14,6 +14,7 @@ import {
   anEvent,
   fakeDeps,
   fakeRoles,
+  noRequestPorts,
 } from "../support/fakes";
 
 // ----------------------------------------------------------------------------
@@ -38,6 +39,7 @@ function setup(
       reservations: new FakeReservationReader(stored),
       roles: fakeRoles(),
       writer,
+      ...noRequestPorts(),
     }),
   });
   const reserve = (body: Record<string, unknown>, user: string | null = "tech-1") => {

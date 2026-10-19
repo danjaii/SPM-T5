@@ -1,5 +1,9 @@
 import Link from "next/link";
+import { describeFlag } from "@spm-t5/shared";
 import { bookingStatusLabel, type VenueBookingDetailView } from "@/lib/venueBookings";
+
+const resolvedReasonLabel = (reason: string | null) =>
+  reason === "replaced" ? "replaced by another venue" : reason === "booking_closed" ? "booking closed" : "no longer applies";
 
 // SCRUM-33/AC4: read-only view of one request: outcome, rejection reason, suggested alternative, amendment chain.
 export function VenueBookingDetail({ booking }: { booking: VenueBookingDetailView }) {
@@ -9,6 +13,16 @@ export function VenueBookingDetail({ booking }: { booking: VenueBookingDetailVie
       <p className="event__status">
         Status <span className="status-badge">{bookingStatusLabel(booking.status)}</span>
       </p>
+
+      {/* SCRUM-104/AC3: raised when the venue's setup or turnaround time was raised; change or cancel one booking to clear it */}
+      {booking.flags.length > 0 && (
+        <div className="alert alert--warning" aria-label="Flags">
+          {booking.flags.map((f) => (
+            <p key={f.id}>{describeFlag(f, booking.venueName)}</p>
+          ))}
+          <p>Change or cancel this booking to resolve it.</p>
+        </div>
+      )}
 
       <dl className="vb__facts">
         <dt>Venue</dt>
@@ -25,6 +39,25 @@ export function VenueBookingDetail({ booking }: { booking: VenueBookingDetailVie
         <dd>{booking.accessibilityNeeds || "None specified"}</dd>
       </dl>
 
+      {/* SCRUM-107/AC3: the link between a flagged booking and its replacement, in words */}
+      {booking.replacedBy && (
+        <p>
+          {booking.status === "REPLACED" ? "Replaced by " : "Replacement request waiting for a decision: "}
+          <Link href={`/venue-bookings/${booking.replacedBy.id}`}>
+            {booking.replacedBy.venueName}, {booking.replacedBy.date} {booking.replacedBy.startTime}–{booking.replacedBy.endTime}
+          </Link>{" "}
+          <span className="status-badge">{bookingStatusLabel(booking.replacedBy.status)}</span>
+        </p>
+      )}
+      {booking.replaces && (
+        <p>
+          Replaces{" "}
+          <Link href={`/venue-bookings/${booking.replaces.id}`}>
+            {booking.replaces.venueName}, {booking.replaces.date} {booking.replaces.startTime}–{booking.replaces.endTime}
+          </Link>
+        </p>
+      )}
+
       {booking.rejectionReason && (
         <>
           <h2>Reason for rejection</h2>
@@ -39,6 +72,22 @@ export function VenueBookingDetail({ booking }: { booking: VenueBookingDetailVie
             {booking.suggestion.venueName} on {booking.suggestion.date},{" "}
             {booking.suggestion.startTime}–{booking.suggestion.endTime}
           </p>
+        </>
+      )}
+
+      {/* SCRUM-107/AC3: why it was flagged and how it ended stay visible after the take-over */}
+      {booking.flagHistory && booking.flagHistory.some((f) => f.resolvedAt) && (
+        <>
+          <h2>Flag history</h2>
+          <ul className="vb__list">
+            {booking.flagHistory.map((f) => (
+              <li key={f.id}>
+                {f.unavailability ? describeFlag({ ...f, otherPeriod: null }, booking.venueName) : f.label}
+                {": "}
+                {f.resolvedAt ? `resolved (${resolvedReasonLabel(f.resolvedReason)})` : "open"}
+              </li>
+            ))}
+          </ul>
         </>
       )}
 

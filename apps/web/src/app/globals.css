@@ -15,44 +15,74 @@
   --line: #b4b8bd;
   --subtle: #555b63;
   --field: #e6e6e6;
-  --border: oklch(0.922 0 0);
   --ink: #1b1f24;
-  --muted: oklch(0.97 0 0);
   --selected: #e8f1fc;
   --danger: #a12a2a;
   --danger-bg: #fbeaea;
   --ok: #1f6b3a;
   --ok-bg: #e6f4ea;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --warn: #8a5a00;
+  --warn-bg: #fdf3dc;
+  /* SCRUM-120: theme tokens from the Figma variables (ConnectSphere UI Mock-Ups, "Components v2").
+     This block is the only place colours are written; components use the Tailwind names mapped in @theme inline. */
+  --background: #f4f7f7;
+  --foreground: #0b2e33;
+  --card: #ffffff;
+  --card-foreground: #0b2e33;
+  --popover: #ffffff;
+  --popover-foreground: #0b2e33;
+  --primary: #4f7c82;
+  --primary-hover: #3f6b71;
+  --primary-foreground: #ffffff;
+  --secondary: #e6f2f4;
+  --secondary-foreground: #0b2e33;
+  --muted: #e6f2f4;
+  --muted-foreground: #3f666b;
+  /* Neutral hover/focus surface for menus, ghost and outline buttons. Never a brand colour. */
+  --accent: #edf1f2;
+  --accent-foreground: #0b2e33;
+  --destructive: #c53030;
+  --destructive-hover: #a82727;
+  --border: #cfdcde;
+  --border-strong: #93b1b5;
+  /* Form-control border: darker than --border-strong so it stays at 3:1 on white and on the canvas. */
+  --input: #6b8a8f;
+  --ring: #2f6269;
+  /* Selected navigation item background. */
+  --highlight: #b8e3e9;
+  --fg-primary: #2f6269;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0b2e33;
+  --sidebar-primary: #4f7c82;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edf1f2;
+  --sidebar-accent-foreground: #0b2e33;
+  --sidebar-border: #cfdcde;
+  --sidebar-ring: #2f6269;
+  /* Status tones: a tinted background with a darker text/icon colour. Never the primary colour. */
+  --status-neutral: #edf1f2;
+  --status-neutral-fg: #3f4f52;
+  --status-info: #dcf0f3;
+  --status-info-fg: #1f5a63;
+  --status-warning: #ffe8a3;
+  --status-warning-fg: #8a5a00;
+  --status-success: #dcfce7;
+  --status-success-fg: #166534;
+  --status-danger: #ffe4e2;
+  --status-danger-fg: #b42318;
+  /* SCRUM-121: the dark app-shell sidebar (Figma nav/* variables). */
+  --nav-sidebar: #0b2e33;
+  --nav-chip: #17434a;
+  --nav-border: #24505a;
+  --nav-muted: #b5cfd2;
+  --nav-text: #f4f7f7;
+  --nav-active: #4f7c82;
 }
 
 /* Legacy hand-written styles sit in the components layer so Tailwind utilities (and shadcn) win over them. */
@@ -107,6 +137,8 @@ a { color: var(--steel-dark); }
   outline: 2px solid var(--steel); outline-offset: 2px;
 }
 .field--error input { border-color: var(--danger); }
+/* SCRUM-86/AC4: dropdowns and text areas are highlighted too (.field.field--error outranks the later .field select rule) */
+.field.field--error select, .field.field--error textarea { border-color: var(--danger); }
 .field__hint { font-size: 12px; color: var(--subtle); margin: 6px 0 0; }
 .field__error { font-size: 12px; color: var(--danger); margin: 6px 0 0; }
 
@@ -139,6 +171,9 @@ a { color: var(--steel-dark); }
 .alert { padding: 11px 14px; margin-bottom: 20px; font-size: 14px; border-left: 3px solid; }
 .alert--error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 .alert--ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+/* SCRUM-98/AC2: a warning that does not block (more people than the venue holds) */
+.alert--warning { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+.capacity-flag { display: block; margin-top: 2px; font-size: 13px; color: var(--warn); }
 
 /* SCRUM-18 equipment availability page: the form on the left, the result on the right, larger labels.
    On narrow screens the result drops below the form. */
@@ -243,6 +278,16 @@ a { color: var(--steel-dark); }
 .profile-responsibilities li::before { content: "\2713"; position: absolute; left: 0; top: 0; font-weight: 700; color: var(--ok); }
 @media (max-width: 860px) { .profile-layout { grid-template-columns: 1fr; } }
 
+/* SCRUM-9 the attendee's List of events: one search box above the cards, with a clear (x) button inside it while something is typed */
+.event-search__box { position: relative; margin: 12px 0 20px; } /* no max-width: as wide as the tables above it */
+.event-search__box input { width: 100%; padding: 11px 44px 11px 12px; font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 0; }
+.event-search__box input:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.event-search__box input::-webkit-search-cancel-button { display: none; } /* our own clear button replaces the browser's */
+.event-search__clear { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: 32px; height: 32px; border: 0; background: transparent; font-size: 22px; line-height: 1; color: var(--subtle); cursor: pointer; }
+.event-search__clear:hover { color: var(--ink); }
+.event-search__clear:focus-visible { outline: 2px solid var(--steel); }
+.event-card__slots { margin: 0; font-size: 14px; color: var(--subtle); }
+
 /* ---------- Dashboard ---------- */
 .dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px; background: var(--navy); color: #fff; }
 .dash__who { display: flex; align-items: center; gap: 20px; font-size: 14px; }
@@ -254,6 +299,12 @@ a { color: var(--steel-dark); }
 .dash__links { display: flex; gap: 20px; margin: -12px 0 28px; font-size: 15px; font-weight: 500; }
 .dash__section h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); background: #fff; }
+/* SCRUM-74/AC10: a registration list past 15 rows scrolls inside its box; the header stays in view */
+.table-wrap--scroll { max-height: 41rem; overflow-y: auto; } /* about 15 rows and the header */
+.table-wrap--scroll thead th { position: sticky; top: 0; }
+/* SCRUM-74/AC6: the registration summary sits above the registrations table */
+.reg-summary { margin-bottom: 16px; }
+.reg-summary th, .reg-summary td { text-align: center; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8; vertical-align: top; }
 th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
@@ -277,6 +328,14 @@ tr:last-child td { border-bottom: 0; }
   padding: 4px 10px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--steel-dark); background: var(--selected); border: 1px solid var(--steel);
 }
+/* SCRUM-72/AC3: a registration's status in its own colour on "My registrations" */
+.status-badge--pending { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
+.status-badge--confirmed { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
+.status-badge--rejected { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+.status-badge--withdrawn { color: var(--subtle); background: var(--muted); border-color: var(--line); }
+/* SCRUM-104: a flagged booking; always paired with the text "Flagged: …", never colour alone */
+.status-badge--flag { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); margin-left: 6px; }
+.vb__flag { color: var(--warn); }
 .event__form { padding: 24px; background: #fff; border: 1px solid var(--border); }
 .event__missing { color: var(--subtle); font-style: italic; }
 
@@ -333,6 +392,10 @@ tr:last-child td { border-bottom: 0; }
 .comment__reply:hover { text-decoration: underline; }
 .comment__reply:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
 .comment-form > .alert { margin: 0 0 12px; }
+/* SCRUM-47/AC2: the clarification checkbox sits inline with its label (same fix as .venue-search below: `.field input`
+   would stretch it across the row and push the text onto the next line). */
+.comment-form .field label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.comment-form .field input[type="checkbox"] { width: 16px; height: 16px; padding: 0; flex: none; accent-color: var(--steel-dark); }
 /* SCRUM-27: @mentions, set apart in posted comments (AC3) and offered as you type (AC1) */
 .mention { padding: 0 3px; background: var(--selected); color: var(--steel-dark); font-weight: 600; }
 .mention-field { position: relative; }
@@ -417,7 +480,31 @@ tr:last-child td { border-bottom: 0; }
 .vb__note { display: block; color: var(--subtle); font-size: 14px; margin-top: 2px; }
 .vb__list { margin: 0; padding: 14px 24px 14px 40px; background: #fff; border: 1px solid var(--border); line-height: 1.8; }
 
+/* SCRUM-109: venue suitability report */
+.suitability-check { margin: 4px 0 20px; }
+.suitability-check .btn { width: auto; padding: 10px 18px; }
+.suitability { margin-top: 14px; }
+.suitability__list { list-style: none; margin: 0 0 12px; padding: 0; background: #fff; border: 1px solid var(--border); }
+.suitability__list li { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.suitability__list li:last-child { border-bottom: 0; }
+.suitability__list li > div { margin-top: 2px; color: var(--subtle); font-size: 14px; }
+.suitability h3 { font-size: 16px; margin: 12px 0 6px; }
+
 .vb__actions { margin-top: 8px; }
+/* SCRUM-102: Change and Cancel on each venue booking row, and the cancel confirmation */
+.vb__row-actions { white-space: nowrap; }
+/* SCRUM-111: the edit form's important fields, and the change history */
+.field__hint--important { color: var(--warn); font-weight: 600; }
+.event__form fieldset { border: 1px solid var(--border); padding: 12px 16px; margin: 0 0 16px; }
+.event__form legend { font-weight: 600; padding: 0 6px; }
+.change-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.change-history ul { margin: 6px 0 0; padding-left: 20px; }
+.change-history__who { margin: 0; }
+.change-history__important { margin-left: 8px; color: var(--warn); border-color: var(--warn); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.vb__row-actions .btn { display: inline-block; width: auto; padding: 6px 12px; font-size: 14px; text-decoration: none; }
+.vb__confirm { white-space: normal; min-width: 260px; padding: 12px; margin-top: 8px; border: 1px solid var(--border); background: var(--paper); }
+.vb__confirm .vb__list { padding: 8px 12px 8px 28px; }
 .vb__actions .btn { display: inline-block; width: auto; padding: 10px 18px; text-decoration: none; }
 .btn--secondary { background: #fff; color: var(--steel-dark); border: 1px solid var(--steel); }
 .btn--secondary:hover:not(:disabled) { background: var(--steel); color: #fff; }
@@ -426,6 +513,27 @@ tr:last-child td { border-bottom: 0; }
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
+  --color-border-strong: var(--border-strong);
+  --color-primary-hover: var(--primary-hover);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-highlight: var(--highlight);
+  --color-fg-primary: var(--fg-primary);
+  --color-nav-sidebar: var(--nav-sidebar);
+  --color-nav-chip: var(--nav-chip);
+  --color-nav-border: var(--nav-border);
+  --color-nav-muted: var(--nav-muted);
+  --color-nav-text: var(--nav-text);
+  --color-nav-active: var(--nav-active);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-fg: var(--status-neutral-fg);
+  --color-status-info: var(--status-info);
+  --color-status-info-fg: var(--status-info-fg);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-fg: var(--status-warning-fg);
+  --color-status-success: var(--status-success);
+  --color-status-success-fg: var(--status-success-fg);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-fg: var(--status-danger-fg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -509,5 +617,103 @@ tr:last-child td { border-bottom: 0; }
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ---------- Label/value detail table (SCRUM-78, SCRUM-79 assign and reassign) ---------- */
+/* Row labels, not column headers: undo the global th style (mono, uppercase, shaded) and size the label column to its
+   longest label so the values line up in one readable column. */
+.lead-summary { margin: 16px 0 28px; }
+.event-detail-card--table .detail-table { min-width: 0; }
+.detail-table th, .detail-table td { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.detail-table th {
+  width: 1%; white-space: nowrap; background: none;
+  font-family: inherit; font-size: 14px; letter-spacing: normal; text-transform: none; font-weight: 400; color: var(--subtle);
+}
+.detail-table td { color: var(--ink); font-weight: 500; }
+.detail-table tr:last-child th, .detail-table tr:last-child td { border-bottom: 0; }
+/* Phones: label above its value, so long values aren't squeezed into a narrow column */
+@media (max-width: 480px) {
+  .detail-table tr { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .detail-table tr:last-child { border-bottom: 0; }
+  .detail-table th, .detail-table td { display: block; width: auto; padding: 0; border: 0; white-space: normal; }
+  .detail-table th { font-size: 13px; margin-bottom: 2px; }
+}
+
+/* SCRUM-112: the arrangements an important change may affect, before it is saved */
+.impact { margin-top: 8px; padding: 16px; background: var(--warn-bg); border-left: 3px solid var(--warn); }
+.impact h2 { margin: 0 0 6px; font-size: 16px; color: var(--warn); }
+.impact__list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 10px; }
+.impact__item { padding: 10px 12px; background: #fff; border: 1px solid var(--border); }
+.impact__name { margin: 0; font-weight: 600; }
+.impact__meta { margin: 2px 0 6px; font-size: 13px; color: var(--muted-foreground); }
+.impact__reasons { margin: 0; padding-left: 18px; font-size: 14px; }
+.impact__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.impact__actions .btn { width: auto; }
+
+/* ---------- Venue availability day (SCRUM-103) ---------- */
+.avail__form { display: flex; align-items: flex-end; gap: 12px; margin: 16px 0 24px; }
+.avail__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.avail__item { background: #fff; border: 1px solid var(--border); padding: 14px 18px; }
+.avail__summary { margin: 0 0 10px; }
+.avail__status { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); border: 1px solid var(--line); padding: 1px 6px; }
+.avail__bar { display: flex; gap: 2px; min-height: 40px; }
+.avail__segment { flex-basis: 0; min-width: 120px; padding: 6px 8px; font-size: 13px; line-height: 1.3; border: 1px solid var(--steel-dark); }
+.avail__segment--event { background: var(--steel-dark); color: #fff; }
+.avail__segment--setup, .avail__segment--turnaround { background: var(--selected); color: var(--ink); border-style: dashed; }
+/* SCRUM-105: an unavailability block, named in text; the stripes and red are only a second cue */
+.avail__segment--unavailable { flex: 1; background: repeating-linear-gradient(135deg, var(--danger-bg), var(--danger-bg) 8px, #fff 8px, #fff 16px); color: var(--danger); border-color: var(--danger); font-weight: 600; }
+@media (max-width: 800px) { .avail__bar { flex-direction: column; } .avail__segment { min-width: 0; } }
+
+/* SCRUM-113: an arrangement sent back for review after an important event change, and what changed */
+.sent-back { margin: 12px 0 20px; padding: 12px 16px; background: var(--warn-bg); border-left: 3px solid var(--warn); }
+.sent-back h2 { margin: 0 0 4px; font-size: 16px; color: var(--warn); }
+.sent-back p { margin: 4px 0; }
+.sent-back__changes { margin: 6px 0 0; padding-left: 18px; }
+.status-badge--sent-back { margin-left: 6px; background: var(--warn-bg); color: var(--warn); }
+
+/* SCRUM-46: the notification list; an unread row is highlighted, and also carries the word "Unread" */
+.notifications { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: #fff; }
+.notification { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.notification:last-child { border-bottom: 0; }
+.notification--unread { background: var(--warn-bg); border-left: 3px solid var(--warn); font-weight: 600; }
+.notification__open { flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.notification__message, .notification__related, .notification__time { font-weight: 400; font-size: 14px; color: var(--subtle); }
+/* the shared .btn is full width; here it sits beside the text, so keep it to its own width */
+.notification .btn { width: auto; flex: none; white-space: nowrap; }
+
+/* SCRUM-47/AC11: the notification bell in the page header, its unread number, and its dropdown list. The list shows
+   about 8 rows, then scrolls (less on a short screen). */
+.bell-wrap { position: relative; }
+.bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; background: none; border: 0; color: #fff; cursor: pointer; }
+.bell svg { width: 20px; height: 20px; }
+.bell:hover { color: var(--sky-text); }
+.bell:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+.bell__count { position: absolute; top: 0; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
+.bell-menu { position: absolute; top: calc(100% + 10px); right: 0; z-index: 50; width: min(380px, calc(100vw - 32px)); background: #fff; color: var(--ink); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); text-align: left; }
+.bell-menu__list { list-style: none; margin: 0; padding: 0; max-height: min(calc(8 * 84px), 70vh); overflow-y: auto; }
+.bell-menu__item { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.bell-menu__item--unread { background: var(--warn-bg); border-left: 3px solid var(--warn); }
+/* the whole row, Mark as read included, turns blue on hover (after --unread, so it wins over the unread colour) */
+.bell-menu__item:hover { background: var(--selected); }
+.bell-menu__open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+.bell-menu__open:focus-visible { outline: 2px solid var(--steel); outline-offset: -2px; }
+/* the title wraps with its badges, which are smaller here than on the full page so they fit the dropdown */
+.bell-menu__title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 14px; font-weight: 600; }
+.bell-menu .status-badge { padding: 1px 7px; font-size: 10px; letter-spacing: 0.04em; line-height: 1.4; border-radius: 999px; }
+.bell-menu__read { flex: none; margin: 0 12px 0 0; padding: 3px 10px; border-radius: 999px; font: inherit; font-size: 12px; white-space: nowrap; color: var(--steel-dark); background: #fff; border: 1px solid var(--steel); cursor: pointer; }
+.bell-menu__read:hover { background: var(--selected); }
+.bell-menu__read:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.bell-menu__related, .bell-menu__time { font-size: 12px; color: var(--subtle); }
+.bell-menu__empty { margin: 0; padding: 14px; font-size: 14px; color: var(--subtle); }
+.bell-menu__all { display: block; padding: 10px 14px; font-size: 14px; color: var(--steel-dark); }
+
+/* SCRUM-121: inside the shell the sidebar replaces each page's own top bar, and the notification menu opens beside it. */
+@layer components {
+  .app-shell .dash__bar { display: none; }
+  .shell-bell .bell { color: var(--nav-text); }
+  .shell-bell .bell-menu { top: 0; right: auto; left: calc(100% + 8px); }
+  @media (max-width: 767px) {
+    .shell-bell .bell-menu { position: fixed; top: 64px; left: 16px; right: 16px; width: auto; }
   }
 }

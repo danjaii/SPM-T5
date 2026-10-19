@@ -1,32 +1,40 @@
 @startuml component-event-service
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include <C4/C4_Component>
 
 title ConnectSphere — Component Diagram: Event Service (C4 Level 3)
 ' Built so far: event status management (SCRUM-6 view as coordinator, SCRUM-7 view as organiser,
 ' SCRUM-8 edit status), event review and approval (SCRUM-22 to 28, 44, 45), coordinator assignment
-' (SCRUM-41 to 43), the attendee's List of events (SCRUM-71), attendee registration (SCRUM-83) and the
-' organiser's change requests (SCRUM-66). Components marked "Planned" are not built yet. Copy this file
+' history (SCRUM-43), the attendee's List of events (SCRUM-71), attendee registration (SCRUM-83), the
+' organiser's change requests (SCRUM-66) and the Event Coordinator Lead's queue, coordinator overview, assignment and
+' reassignment (SCRUM-75, 77, 78, 79, 81; these replaced coordinator self-assignment, SCRUM-41/42), and the Safety Officer's
+' Operational Safety Check (SCRUM-99, SCRUM-100). Components marked "Planned" are not built yet. Copy this file
 ' per service as it gets built out.
 
-Container(web, "Web App", "Next.js, React", "Review queue (/events/review); event page (/events/[id]): request details, start review, approve/reject, coordinator assignment + history, status change; attendee dashboard List of events (/dashboard/attendee); registration form (/events/[id]/register), My registrations (/registrations), an event's registrations (/events/[id]/registrations)")
+Container(web, "Web App", "Next.js, React", "Review queue (/events/review); event page (/events/[id]): request details, start review, approve/reject, coordinator + assignment history, status change; attendee dashboard List of events (/dashboard/attendee); registration form (/events/[id]/register), My registrations (/registrations), an event's registrations (/events/[id]/registrations); Lead pages: unassigned queue (/lead/queue), coordinator overview (/lead/coordinators, /lead/coordinators/[id]), assign and reassign (/lead/events/[id]/assign, /reassign); Safety Officer pages: events waiting for a safety check (/safety-checks), review and decide (/safety-checks/[id]), again after changes are made or an approval stops applying (SCRUM-100); the event page's Safety check section shows the coordinator and organiser every safety decision (SCRUM-100)")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
-ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "events, users, event_status_history, event_comments, event_comment_mentions, event_comment_attachments, coordinator_assignment_logs, event_change_requests, event_registrations (RLS: own rows, the event's organiser and assigned coordinator); change_event_status(), assign_coordinator() and list_public_events() functions")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "events, users, event_change_history (SCRUM-111), event_status_history, event_comments, event_comment_mentions, event_comment_attachments, coordinator_assignment_logs, event_change_requests, event_registrations (RLS: own rows, the event's organiser and assigned coordinator); change_event_status(), assign_coordinator() and list_public_events() functions; Lead functions lead_unassigned_queue(), lead_coordinator_overview(), lead_coordinator_events(), lead_assign_coordinator(), lead_reassign_coordinator(); events_assignment_guard trigger (only a Lead changes the coordinator; closed events never); safety_checks (SCRUM-99, read and written only through safety_check_queue(), safety_check_details(), record_safety_decision() and, for the event's organiser and coordinator, event_safety_decisions() (SCRUM-100)); events_safety_gate trigger (no one moves an event to confirmed until it is Safety Approved); trg_events_revoke_safety_approval trigger (an important change revokes the approval, SCRUM-100)")
 Container(storage, "Supabase Storage", "event-attachments bucket", "Comment attachment files")
 Container(notificationSvc, "Notification Service", "Node.js/TypeScript", "Planned: reacts to status changes")
 
 Container_Boundary(eventSvc, "Event Service") {
-  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin; mounts /events")
+  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; CORS for the web app's origin; mounts /events, /lead and /safety-checks (and GET /events/:id/safety-decisions, SCRUM-100)")
   Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
-  Component(eventRoutes, "Event Status Routes", "routes/events.ts", "GET /events/:id — coordinators: any event; organisers: only events they submitted; others 403. Returns canChangeStatus / canReview / canAssign for the page. PATCH /events/:id/status — assigned coordinator only (also Start review)")
+  Component(eventRoutes, "Event Status Routes", "routes/events.ts", "GET /events/:id — coordinators: any event; organisers: only events they submitted; others 403. Returns canChangeStatus / canReview for the page. PATCH /events/:id/status — assigned coordinator only (also Start review); 409 when events_safety_gate refuses confirmed before a safety approval (SCRUM-99)")
   Component(reviewRoutes, "Review & Approval Routes", "routes/events.ts", "GET /events (review queue: search, status and date filters, own + unassigned), GET /events/my-events, POST /events/:id/approve, POST /events/:id/reject (reason required) — assigned coordinator only, Submitted / Under review only. GET /events/:id/outcome — latest approve/reject with reason, time and decider; none while awaiting a decision (SCRUM-44)")
   Component(commentRoutes, "Comment Routes", "routes/events.ts", "GET/POST /events/:id/comments (threaded replies, mentions, attachments), GET /events/:id/mentionable-users (coordinators + the event's organiser), POST /events/:id/attachments/upload-url (type/size checked, SCRUM-28), GET /events/:id/attachments/signed-url")
-  Component(assignRoutes, "Coordinator Assignment Routes", "routes/events.ts", "GET /events/:id/eligible-coordinators, POST /events/:id/assign-coordinator — unassigned: any coordinator claims it for themselves; assigned: only the assigned coordinator reassigns. GET /events/:id/assignment-history (with names)")
+  Component(assignRoutes, "Coordinator Assignment Routes", "routes/events.ts", "GET /events/:id/assignment-history (with names). GET /events/:id/eligible-coordinators and POST /events/:id/assign-coordinator now only refuse (403): a Lead assigns and reassigns (SCRUM-78/79)")
+  Component(leadMw, "Lead Middleware", "middlewares/lead.ts", "requireLead: refuses every role but event_coordinator_lead (403) before a Lead route runs (SCRUM-75)")
+  Component(leadRoutes, "Lead Routes", "routes/lead.ts", "GET /lead/queue (SCRUM-77), GET /lead/coordinators and /lead/coordinators/:id/events (SCRUM-81), GET /lead/events/:id/assignment + POST /assign (SCRUM-78), GET /lead/events/:id/reassignment + POST /reassign (SCRUM-79). The database functions decide and enforce; the routes map their refusals to messages")
+  Component(safetyMw, "Safety Officer Middleware", "middlewares/safetyOfficer.ts", "requireSafetyOfficer: refuses every role but safety_officer (403) before a safety check route runs (SCRUM-99)")
+  Component(safetyRoutes, "Safety Check Routes", "routes/safetyChecks.ts", "SCRUM-99: GET /safety-checks (events ready for a check), GET /safety-checks/:id (safety information and decisions), POST /safety-checks/:id/decision (Approve, Reject or Request Changes; validated with safetyDecisionProblem; Request Changes returns the event to Planning, SCRUM-100). SCRUM-100: GET /events/:id/safety-decisions (every decision, for the event's coordinator and organiser). The database functions decide and enforce; the routes map their refusals to messages")
   Component(changeRoutes, "Change Request Routes", "routes/changeRequests.ts", "POST /events/:id/change-requests — organiser of the event only; validates with the shared parser, refuses draft/cancelled/rejected/completed (409) and no-change requests (422), inserts a pending request and never updates the event. GET /events/:id/change-requests — requests with their status")
+  Component(detailsRoutes, "Event Details Routes", "routes/eventDetails.ts", "SCRUM-111: GET /events/:id/edit-form and PATCH /events/:id for the event's assigned coordinator (not for a completed, cancelled or rejected event); GET /events/:id/change-history for its coordinator and organiser. Validates with parseEventDetailsInput; saves through update_event_details() (migration 34), which updates the event and writes event_change_history together. SCRUM-112: an important change that affects the event's venue bookings or equipment requests (affectedArrangements in packages/shared) answers 409 CONFIRM_IMPACT with the list, and is saved only when sent again with confirmImpact: true. SCRUM-113: that save passes the same arrangements as p_send_back, so update_event_details() (migration 40) sends them back for review in the same step")
+  Component(changeReviewRoutes, "Change Request Review Routes", "routes/changeRequestReview.ts", "SCRUM-67: GET /change-requests/:id (each requested change with the current value, and what approving affects), POST /change-requests/:id/approve and /reject, for the event's assigned coordinator only. Reads the request with readChangeRequest; review_change_request() (migration 42) applies an approval through update_event_details() in the same transaction, or rejects with a reason")
   Component(upcomingRoutes, "Upcoming Events Route", "routes/upcomingEvents.ts", "GET /events/upcoming — any signed-in user; mounted before the /events/:id routes; 500 (not []) when the data cannot be loaded")
   Component(upcomingRules, "Upcoming Events Rules", "services/upcomingEvents.ts", "Hides started events, sorts soonest first, picks one label (cancelled > full > closed) and maps the caller's active registration")
   Component(registrationRoutes, "Registration Routes", "routes/registrations.ts", "GET /events/:id/registration-form, POST /events/:id/registrations (Pending; 409 when closed, full, cancelled or already registered), GET /events/my-registrations, GET /events/:id/registrations; mounted before the /events/:id routes")
   Component(registrationRules, "Registration Rules", "services/registrations.ts", "Why a registration is refused (reuses the List of events labels and active-registration rule); maps statuses to Pending/Confirmed/Rejected/Withdrawn")
-  Component(shared, "Shared Rules", "@spm-t5/shared", "isRole, canReviewEvents, EVENT_STATUSES / isEventStatus, canDecideEvent, canStartReview, registrationFormSchema — same rules the web app uses")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "isRole, canReviewEvents, isLead, EVENT_STATUSES, CLOSED_EVENT_STATUSES / isClosedEventStatus / isEventStatus, canDecideEvent, canStartReview, registrationFormSchema — same rules the web app uses")
   Component(supabaseDeps, "Supabase Client", "supabase.ts", "Publishable key + caller's token, so every query runs as the user (RLS applies)")
 
   Component(draftMgr, "Draft Manager", "Planned", "Save/resume incomplete event requests")
@@ -34,10 +42,26 @@ Container_Boundary(eventSvc, "Event Service") {
 }
 
 Rel(web, app, "Views / changes event status, reviews requests, comments, assigns coordinators (browser + server-side)", "HTTPS/JSON, session cookie")
+Rel(app, detailsRoutes, "Routes event detail edits")
+Rel(app, changeReviewRoutes, "Routes /change-requests")
+Rel(changeReviewRoutes, db, "review_change_request() (security definer, migration 42); reads the request, the event and its arrangements", "PostgREST")
+Rel(detailsRoutes, db, "update_event_details() (security definer, migration 34); reads event_change_history; reads the event's venue_bookings and equipment_reservations (SCRUM-112); sends them back for review (SCRUM-113)", "PostgREST")
 Rel(app, eventRoutes, "Routes /events requests")
 Rel(app, reviewRoutes, "Routes /events requests")
 Rel(app, commentRoutes, "Routes /events requests")
 Rel(app, assignRoutes, "Routes /events requests")
+Rel(app, leadRoutes, "Routes /lead requests")
+Rel(web, leadRoutes, "Lead pages load the queue, overview and assign/reassign steps; the browser confirms assignments", "HTTPS/JSON, session cookie")
+Rel(leadRoutes, session, "Requires a signed-in caller")
+Rel(leadRoutes, leadMw, "Requires an Event Coordinator Lead")
+Rel(leadRoutes, shared, "Checks isClosedEventStatus for the assign/reassign action")
+Rel(leadRoutes, supabaseDeps, "Calls the lead_* functions (security invoker reads; security definer assign/reassign with the Lead check inside); reads events as the Lead (RLS)")
+Rel(app, safetyRoutes, "Routes /safety-checks requests")
+Rel(web, safetyRoutes, "Safety Officer pages load the queue and an event's safety information; the browser submits the decision", "HTTPS/JSON, session cookie")
+Rel(safetyRoutes, session, "Requires a signed-in caller")
+Rel(safetyRoutes, safetyMw, "Requires a Safety Officer")
+Rel(safetyRoutes, shared, "Runs safetyDecisionProblem and SAFETY_DECISION_LABELS (same rules as the web form)")
+Rel(safetyRoutes, supabaseDeps, "Calls safety_check_queue(), safety_check_details() and record_safety_decision() (security definer, each checks the caller is a Safety Officer)")
 Rel(app, changeRoutes, "Routes /events/:id/change-requests")
 Rel(app, upcomingRoutes, "Routes /events/upcoming")
 Rel(app, registrationRoutes, "Routes registration requests")
@@ -63,7 +87,7 @@ Rel(commentRoutes, shared, "Checks roles and attachment type/size (same rules as
 Rel(eventRoutes, supabaseDeps, "Queries events and users; calls change_event_status()")
 Rel(reviewRoutes, supabaseDeps, "Queries events and users; calls change_event_status() to approve/reject; reads event_status_history for the outcome")
 Rel(commentRoutes, supabaseDeps, "Reads/writes comments, mentions, attachments; creates signed URLs")
-Rel(assignRoutes, supabaseDeps, "Calls assign_coordinator(); reads coordinator_assignment_logs and users")
+Rel(assignRoutes, supabaseDeps, "Reads coordinator_assignment_logs, users and the event")
 Rel(upcomingRoutes, supabaseDeps, "Calls list_public_events() (security definer: supplies each public event's venue, Confirmed registration count and the caller's own active registration)")
 Rel(supabaseDeps, db, "Reads; status change + history and assignment + log each written in one transaction", "PostgREST / RPC")
 Rel(supabaseDeps, storage, "Creates signed upload and download URLs for attachments", "HTTPS")

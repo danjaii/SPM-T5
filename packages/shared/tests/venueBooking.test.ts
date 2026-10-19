@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   canRequestVenue,
   dbStatusToApi,
+  exceedsCapacity,
   HOLDING_DB_STATUSES,
   isHoldingDbStatus,
   parseRejectionInput,
@@ -66,8 +67,10 @@ describe("DR4/DR5 — status mapping", () => {
     expect(dbStatusToApi("withdrawn")).toBe("WITHDRAWN");
   });
 
-  it("returns undefined for a status outside this feature (cancelled)", () => {
-    expect(dbStatusToApi("cancelled")).toBeUndefined();
+  // SCRUM-102 made `cancelled` a status of this feature
+  it("SCRUM-102 maps cancelled to CANCELLED, and an unknown status to undefined", () => {
+    expect(dbStatusToApi("cancelled")).toBe("CANCELLED");
+    expect(dbStatusToApi("nope")).toBeUndefined();
   });
 
   it("holds the slot only for requested, tentative, approved and confirmed", () => {
@@ -194,5 +197,73 @@ describe("SCRUM-39/AC2 — parseRejectionInput (39-S2)", () => {
       ok: true,
       data: { reason: "No" },
     });
+  });
+});
+
+// ----------------------------------------------------------------------------
+// SCRUM-98/AC2 each booking has its own expected attendance and venue requirements
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-98/AC2 parseVenueBookingInput: the booking's own attendance and requirements (98-S6, 98-S7, 98-S12)", () => {
+  const now = new Date("2026-10-01T00:00:00.000Z");
+  const valid = { venueId: "venue-1", date: "2026-11-14", startTime: "09:00", endTime: "17:00" };
+
+  it("98-S6 keeps the attendance and the requirements typed for this booking, trimmed", () => {
+    const result = parseVenueBookingInput({ ...valid, expectedAttendance: 80, venueRequirements: "  Banquet, stage  " }, now);
+    expect(result).toMatchObject({ ok: true, data: { expectedAttendance: 80, venueRequirements: "Banquet, stage" } });
+  });
+
+  // left out, null or blank all mean "use the event's" (the service fills them in)
+  it.each([
+    ["left out", {}],
+    ["null", { expectedAttendance: null, venueRequirements: null }],
+    ["blank", { venueRequirements: "   " }],
+  ])("98-S7 %s: no attendance or requirements of its own", (_name, extra) => {
+    const result = parseVenueBookingInput({ ...valid, ...extra }, now);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.expectedAttendance).toBeUndefined();
+      expect(result.data.venueRequirements).toBeUndefined();
+    }
+  });
+
+  it.each([
+    ["0", 0],
+    ["a negative number", -5],
+    ["a fraction", 2.5],
+    ["text", "abc"],
+  ])("98-S12 refuses %s as the attendance, keyed by expectedAttendance", (_name, expectedAttendance) => {
+    expect(parseVenueBookingInput({ ...valid, expectedAttendance }, now)).toEqual({
+      ok: false,
+      fieldErrors: { expectedAttendance: "Enter the expected attendance as a whole number of 1 or more." },
+    });
+  });
+
+  it("98-S12 refuses requirements longer than 500 characters, keyed by venueRequirements", () => {
+    expect(parseVenueBookingInput({ ...valid, venueRequirements: "x".repeat(501) }, now)).toEqual({
+      ok: false,
+      fieldErrors: { venueRequirements: "The venue requirements must be 500 characters or fewer." },
+    });
+    expect(parseVenueBookingInput({ ...valid, venueRequirements: "x".repeat(500) }, now).ok).toBe(true);
+  });
+});
+
+describe("SCRUM-98/AC2 exceedsCapacity: the warning, not a refusal (98-S10, 98-S11)", () => {
+  it.each([
+    ["98-S10", 200, 150, true],
+    ["98-S10", 151, 150, true],
+    ["98-S11", 150, 150, false], // exactly full is fine
+    ["98-S11", 100, 150, false],
+  ])("%s attendance %i at a venue for %i: %s", (_id, attendance, capacity, expected) => {
+    expect(exceedsCapacity(attendance, capacity)).toBe(expected);
+  });
+
+  // with no attendance, or no capacity on record, there is nothing to warn about
+  it.each([
+    [null, 150],
+    [200, null],
+    [null, null],
+  ])("98-S11 attendance %s at a venue for %s: false", (attendance, capacity) => {
+    expect(exceedsCapacity(attendance, capacity)).toBe(false);
   });
 });

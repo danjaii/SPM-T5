@@ -1,5 +1,14 @@
 /** The refusals equipment-service sends back, each with its HTTP status. */
-export type ServiceErrorCode = "FORBIDDEN" | "VALIDATION_FAILED" | "INSUFFICIENT";
+export type ServiceErrorCode =
+  | "FORBIDDEN"
+  | "VALIDATION_FAILED"
+  | "INSUFFICIENT"
+  | "NOT_FOUND"
+  | "EVENT_LOCKED"
+  | "NOT_WAITING"
+  | "NOT_EDITABLE"
+  | "ALREADY_ASSIGNED"
+  | "ASSIGNMENT_CANCELLED";
 
 export class ServiceError extends Error {
   constructor(
@@ -38,3 +47,33 @@ export const insufficient = (available: number, requested: number) =>
     undefined,
     available,
   );
+
+/** 404: there is no such event (or the caller may not see it). */
+export const notFound = (message: string) => new ServiceError("NOT_FOUND", 404, message);
+
+/** 409, SCRUM-86/AC6: the event is finished, so no equipment can be requested for it. */
+export const eventLocked = (message: string) => new ServiceError("EVENT_LOCKED", 409, message);
+
+/** 409, SCRUM-87/AC4: the request is already Arranged or Cannot Fulfil, so its status can no longer be changed. */
+export const notWaiting = (message: string) => new ServiceError("NOT_WAITING", 409, message);
+
+/** 409, SCRUM-88 (decision): Released equipment cannot be changed. */
+export const notEditable = (message: string) => new ServiceError("NOT_EDITABLE", 409, message);
+
+/** 409, SCRUM-87 (decision): too few units are free in the request's period to mark it Arranged. */
+export const tooFewToArrange = (available: number, needed: number) =>
+  new ServiceError(
+    "INSUFFICIENT",
+    409,
+    `Only ${available} available for that period, but this request needs ${needed}. It has not been marked Arranged.`,
+    undefined,
+    available,
+  );
+
+/** 409, SCRUM-20/S3: that technician is already on that venue booking. */
+export const alreadyAssigned = () =>
+  new ServiceError("ALREADY_ASSIGNED", 409, "This technician is already assigned to that venue booking.");
+
+/** 409, SCRUM-20/S7: a cancelled assignment cannot be changed or cancelled again. */
+export const assignmentCancelled = () =>
+  new ServiceError("ASSIGNMENT_CANCELLED", 409, "This assignment has been cancelled, so it can no longer be changed.");

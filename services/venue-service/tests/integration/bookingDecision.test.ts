@@ -3,6 +3,7 @@ import { sgtToUtc } from "@spm-t5/shared";
 import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookingRepository";
 import { SupabaseEventReader } from "../../src/readers/supabaseEventReader";
 import { SupabaseVenueReader } from "../../src/readers/venueReader";
+import { SupabaseVenueDetailsReader } from "../../src/readers/venueDetailsReader";
 import { BookingService } from "../../src/services/bookingService";
 import { DecisionService } from "../../src/services/decisionService";
 import { TrackingService } from "../../src/services/trackingService";
@@ -19,6 +20,7 @@ describe.skipIf(!hasDb)("SCRUM-38 booking decisions against Postgres", () => {
   const fixtures = new Fixtures(admin);
   const adminRepo = new SupabaseBookingRepository(admin);
   let staffId: string;
+  let staffClient: Awaited<ReturnType<typeof signInAs>>["client"];
   let decisions: DecisionService;
   let coordinator: string;
 
@@ -33,6 +35,7 @@ describe.skipIf(!hasDb)("SCRUM-38 booking decisions against Postgres", () => {
 
     const { client, userId } = await signInAs(STAFF_EMAIL);
     staffId = userId;
+    staffClient = client;
     decisions = new DecisionService({
       bookings: new SupabaseBookingRepository(client),
       events: new SupabaseEventReader(client),
@@ -61,10 +64,13 @@ describe.skipIf(!hasDb)("SCRUM-38 booking decisions against Postgres", () => {
     await decisions.approve(staff(), first.id);
 
     const otherEvent = await fixtures.event("approved", coordinator);
+    // SCRUM-103: the padded availability check answers coordinators and venue staff only, so use a signed-in client (as the
+    // service does in production). The overlap is refused by the pre-check, before any insert, so staff RLS is not in play.
     const service = new BookingService({
-      bookings: adminRepo,
+      bookings: new SupabaseBookingRepository(staffClient),
       events: new SupabaseEventReader(admin),
       venues: new SupabaseVenueReader(admin),
+      venueDetails: new SupabaseVenueDetailsReader(admin),
       now: () => NOW,
     });
     await expect(

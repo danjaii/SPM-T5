@@ -2,7 +2,18 @@ import { ROLES, type Role } from "@spm-t5/shared";
 import type { EquipmentInfo, EquipmentReader } from "../../src/readers/equipmentReader";
 import type { EventInfo, EventReader } from "../../src/readers/eventReader";
 import type { ReservationInfo, ReservationReader } from "../../src/readers/reservationReader";
+import type { EquipmentRequestInfo, EquipmentRequestReader } from "../../src/readers/equipmentRequestReader";
 import type { RoleReader } from "../../src/readers/roleReader";
+import type { VenueBookingInfo, VenueBookingReader } from "../../src/readers/venueBookingReader";
+import type {
+  ChangeOutcome,
+  EquipmentRequestChange,
+  EquipmentRequestReview,
+  EquipmentRequestReviewer,
+  EquipmentRequestWriter,
+  NewEquipmentRequest,
+  ReviewOutcome,
+} from "../../src/writers/equipmentRequestWriter";
 import type { NewReservation, ReservationWriter, ReserveOutcome } from "../../src/writers/reservationWriter";
 import type { SupabaseDeps } from "../../src/supabase";
 
@@ -76,6 +87,9 @@ export const fakeDeps = {
 export const fakeRoles = () =>
   new FakeRoleReader({
     "tech-1": "technical_support_staff",
+    // SCRUM-86: coord-1 is the default event's assigned coordinator; coord-2 is another coordinator.
+    "coord-1": "event_coordinator",
+    "coord-2": "event_coordinator",
     ...Object.fromEntries(ROLES.map((role) => [`${role}-user`, role])),
   });
 
@@ -131,6 +145,7 @@ export const anEvent = (overrides: Partial<EventInfo> = {}): EventInfo => ({
   start: new Date("2026-10-15T01:00:00Z"),
   end: new Date("2026-10-15T09:00:00Z"),
   coordinatorName: "Dana Lim",
+  assignedCoordinatorId: "coord-1",
   ...overrides,
 });
 
@@ -147,3 +162,146 @@ export class FakeEventReader implements EventReader {
 }
 
 // end of fake events
+
+// ----------------------------------------------------------------------------
+// Fakes for SCRUM-86 equipment requests: the event's venue bookings, its requests, and a writer that records what
+// it saves. The real ones (migration 25's insert policy) are tested against a real database in CI.
+// ----------------------------------------------------------------------------
+
+/** One venue booking. Defaults to the approved Grand Hall booking for "evt-devops", 15 Oct 2026, 09:00 to 17:00 SGT. */
+export const aVenueBooking = (overrides: Partial<VenueBookingInfo> = {}): VenueBookingInfo => ({
+  id: "vb-hall",
+  eventId: "evt-devops",
+  venueName: "Grand Hall",
+  status: "approved",
+  start: new Date("2026-10-15T01:00:00Z"),
+  end: new Date("2026-10-15T09:00:00Z"),
+  ...overrides,
+});
+
+export class FakeVenueBookingReader implements VenueBookingReader {
+  constructor(private readonly items: VenueBookingInfo[] = []) {}
+
+  async forEvent(eventId: string) {
+    return this.items.filter((b) => b.eventId === eventId);
+  }
+}
+
+/**
+ * One saved request. Defaults to 2 Projector Units for the approved "DevOps Summit" ("evt-devops") in the Grand Hall,
+ * Submitted, 15 Oct 2026, 09:00 to 17:00 Singapore time.
+ */
+export const anEquipmentRequest = (overrides: Partial<EquipmentRequestInfo> = {}): EquipmentRequestInfo => ({
+  id: "req-1",
+  eventId: "evt-devops",
+  eventName: "DevOps Summit",
+  eventStatus: "approved",
+  eventStart: new Date("2026-10-15T01:00:00Z"),
+  equipmentId: "eq-projector",
+  equipmentName: "Projector Unit",
+  equipmentType: "AV",
+  quantity: 2,
+  venueName: "Grand Hall",
+  venueBookingId: "vb-hall",
+  notes: null,
+  status: "requested",
+  start: new Date("2026-10-15T01:00:00Z"),
+  end: new Date("2026-10-15T09:00:00Z"),
+  reviewReason: null,
+  venueBookingCancellationReason: null,
+  lastChangedBy: null,
+  lastChangedAt: null,
+  createdAt: new Date("2026-10-01T01:00:00Z"),
+  sentBackChanges: null,
+  sentBackAt: null,
+  ...overrides,
+});
+
+export class FakeEquipmentRequestReader implements EquipmentRequestReader {
+  constructor(private readonly items: EquipmentRequestInfo[] = []) {}
+
+  async forEvent(eventId: string) {
+    return this.items.filter((r) => r.eventId === eventId);
+  }
+
+  async waiting() {
+    return this.items.filter((r) => ["requested", "under_review"].includes(r.status));
+  }
+
+  async find(id: string) {
+    return this.items.find((r) => r.id === id);
+  }
+}
+
+/**
+ * Records every request it is asked to save, and answers with ids "req-new-1", "req-new-2", ... SCRUM-88: records
+ * every change too and answers with a set outcome; on "updated" it changes the row in `stored` (shared with a
+ * FakeEquipmentRequestReader) as update_equipment_request() does: back to Submitted, marked as changed by Rachel.
+ */
+export class FakeEquipmentRequestWriter implements EquipmentRequestWriter {
+  readonly saved: NewEquipmentRequest[] = [];
+  readonly changed: EquipmentRequestChange[] = [];
+
+  constructor(
+    private readonly changeOutcome: ChangeOutcome = "updated",
+    private readonly stored: EquipmentRequestInfo[] = [],
+  ) {}
+
+  async create(request: NewEquipmentRequest) {
+    this.saved.push(request);
+    return { id: `req-new-${this.saved.length}` };
+  }
+
+  async update(change: EquipmentRequestChange) {
+    this.changed.push(change);
+    const row = this.stored.find((r) => r.id === change.requestId);
+    if (this.changeOutcome === "updated" && row) {
+      Object.assign(row, {
+        equipmentId: change.equipmentId,
+        quantity: change.quantity,
+        venueBookingId: change.venueBookingId,
+        notes: change.notes,
+        start: change.start,
+        end: change.end,
+        status: "requested",
+        reviewReason: null,
+        lastChangedBy: "Rachel Tan",
+        lastChangedAt: new Date("2026-10-15T09:40:00Z"),
+      });
+    }
+    return this.changeOutcome;
+  }
+}
+
+/**
+ * SCRUM-87: records every status change it is asked to make and answers with a set outcome. On "updated" it also
+ * changes the row in `stored` (shared with a FakeEquipmentRequestReader), as review_equipment_request() does.
+ */
+export class FakeEquipmentRequestReviewer implements EquipmentRequestReviewer {
+  readonly reviewed: EquipmentRequestReview[] = [];
+
+  constructor(
+    private readonly outcome: ReviewOutcome = { outcome: "updated" },
+    private readonly stored: EquipmentRequestInfo[] = [],
+  ) {}
+
+  async review(review: EquipmentRequestReview) {
+    this.reviewed.push(review);
+    const row = this.stored.find((r) => r.id === review.requestId);
+    if (this.outcome.outcome === "updated" && row) {
+      row.status = review.dbStatus;
+      row.reviewReason = review.reason;
+    }
+    return this.outcome;
+  }
+}
+
+/** The SCRUM-86/87 ports with nothing in them, for test setups that do not use requests. */
+export const noRequestPorts = () => ({
+  venueBookings: new FakeVenueBookingReader(),
+  requests: new FakeEquipmentRequestReader(),
+  requestWriter: new FakeEquipmentRequestWriter(),
+  reviewer: new FakeEquipmentRequestReviewer(),
+});
+
+// end of SCRUM-86 fakes

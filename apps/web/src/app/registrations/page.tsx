@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
-import { LogoutButton } from "@/components/LogoutButton";
+import { AppHeader } from "@/components/AppHeader";
 import { MyRegistrationList } from "@/components/MyRegistrationList";
 import { getMyRegistrations } from "@/lib/eventRegistrationServer";
 
@@ -15,17 +14,14 @@ export default async function MyRegistrationsPage() {
 
   return (
     <>
-      <header className="dash__bar">
-        <Logo />
-        <LogoutButton />
-      </header>
+      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/dashboard/attendee">← Back to events</Link>
         <h1>My registrations</h1>
         {"registrations" in result ? (
           <MyRegistrationList registrations={result.registrations} />
         ) : (
-          // Couldn't load: say so, rather than "You haven't registered for any events yet."
+          // Couldn't load: say so, rather than "You have not registered for an event" (SCRUM-72/AC5)
           <div className="alert alert--error" role="alert">{result.error}</div>
         )}
       </main>

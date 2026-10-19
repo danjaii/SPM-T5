@@ -2,12 +2,16 @@ import { forbidden, notFound } from "../domain/errors";
 import {
   rejectionReasonOf,
   toBookingListItem,
+  toFlagDto,
+  toFlagHistoryDto,
+  toReplacementRef,
   type BookingDetail,
   type BookingListItem,
   type ChainItem,
+  type EventBookingItem,
 } from "../domain/dto";
 import type { BookingRecord } from "../domain/types";
-import { utcToSgt } from "@spm-t5/shared";
+import { exceedsCapacity, utcToSgt, type FlagDto } from "@spm-t5/shared";
 import type { EventReader } from "../readers/eventReader";
 import type { VenueReader } from "../readers/venueReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
@@ -60,13 +64,81 @@ export class TrackingService {
     return new Map(venues.map((v) => [v.id, v.name]));
   }
 
-  /** 33-S1, S3, S4: my events' requests, newest first. Legacy statuses outside this feature are left out. */
+  /** SCRUM-104/AC3: the open flags of these bookings as a coordinator may see them (the other period, no event name), by booking id. */
+  private async flagDtos(bookings: BookingRecord[]): Promise<Map<string, FlagDto[]>> {
+    const byBooking = new Map<string, FlagDto[]>();
+    for (const f of await this.deps.bookings.flagsFor(bookings.map((b) => b.id))) {
+      byBooking.set(f.bookingId, [...(byBooking.get(f.bookingId) ?? []), toFlagDto(f)]);
+    }
+    return byBooking;
+  }
+
+  /** SCRUM-107: the bookings at the two ends of this one's replacement links (a replacement, or the original it replaces). */
+  private linkedBookings(booking: BookingRecord, sameEvent: BookingRecord[]): BookingRecord[] {
+    const { replacedBy, replaces } = this.replacementEnds(booking, sameEvent);
+    return [replacedBy, replaces].filter((b): b is BookingRecord => b !== null);
+  }
+
+  /**
+   * The replacement of a booking (the approved one that took over, else one still waiting) and the original a replacement stands in
+   * for. A booking amended from a REJECTED one is the ordinary SCRUM-60 amendment, not a replacement, so it has no original here.
+   */
+  private replacementEnds(booking: BookingRecord, sameEvent: BookingRecord[]) {
+    const replacedBy =
+      sameEvent.find((b) => b.id === booking.replacedByBookingId) ??
+      sameEvent.find((b) => b.amendsBookingId === booking.id && b.status === "requested" && booking.status !== "rejected") ??
+      null;
+    const parent = booking.amendsBookingId ? sameEvent.find((b) => b.id === booking.amendsBookingId) : undefined;
+    const replaces = parent && parent.status !== "rejected" ? parent : null;
+    return { replacedBy, replaces };
+  }
+
+  private replacementLinks(booking: BookingRecord, sameEvent: BookingRecord[], nameOf: (venueId: string) => string) {
+    const { replacedBy, replaces } = this.replacementEnds(booking, sameEvent);
+    return {
+      replacedBy: replacedBy ? toReplacementRef(replacedBy, nameOf(replacedBy.venueId)) : null,
+      replaces: replaces ? toReplacementRef(replaces, nameOf(replaces.venueId)) : null,
+    };
+  }
+
+  /** 33-S1, S3, S4: my events' requests, newest first. Cancelled ones are listed too (102-S25). */
   async list(caller: Caller): Promise<BookingListItem[]> {
     this.requireCoordinator(caller);
     const eventIds = await this.deps.events.listIdsAssignedTo(caller.id);
-    const bookings = (await this.deps.bookings.listByEvents(eventIds)).filter((b) => b.status !== "cancelled");
+    const bookings = await this.deps.bookings.listByEvents(eventIds);
     const names = await this.venueNames(bookings);
-    return bookings.map((b) => toBookingListItem(b, names.get(b.venueId) ?? "Unknown venue"));
+    const flags = await this.flagDtos(bookings);
+    return bookings.map((b) => toBookingListItem(b, names.get(b.venueId) ?? "Unknown venue", flags.get(b.id)));
+  }
+
+  /**
+   * SCRUM-98/AC5 (98-S21 to S23): every booking of one event, earliest start first (then the one requested first),
+   * including rejected and withdrawn ones. Only the event's assigned Coordinator may see them (98-S27, 98-S28).
+   */
+  async forEvent(caller: Caller, eventId: string): Promise<EventBookingItem[]> {
+    this.requireCoordinator(caller);
+    const event = await this.deps.events.getById(eventId);
+    if (!event) throw notFound("Event not found.");
+    if (event.assignedCoordinatorId !== caller.id) throw forbidden();
+
+    // 102-S25: cancelled ones are listed too, with their reason
+    const bookings = (await this.deps.bookings.listByEvent(eventId)).sort((a, b) => a.start.getTime() - b.start.getTime() || a.createdAt.getTime() - b.createdAt.getTime());
+    const venues = new Map((await this.deps.venues.getByIds([...new Set(bookings.map((b) => b.venueId))])).map((v) => [v.id, v]));
+    const flags = await this.flagDtos(bookings);
+
+    return bookings.map((b) => {
+      const venue = venues.get(b.venueId);
+      return {
+        ...toBookingListItem(b, venue?.name ?? "Unknown venue", flags.get(b.id)),
+        expectedAttendance: b.snapshot.expectedAttendance,
+        venueRequirements: b.snapshot.venueRequirements,
+        rejectionReason: rejectionReasonOf(b),
+        cancellationReason: b.cancellationReason, // only a cancelled one has a reason
+        exceedsCapacity: exceedsCapacity(b.snapshot.expectedAttendance, venue?.maxCapacity),
+        sentBackForReview: b.sentBackAt !== null,
+        ...this.replacementLinks(b, bookings, (id) => venues.get(id)?.name ?? "Unknown venue"),
+      };
+    });
   }
 
   /** 33-S2, S5: one request with its reason, suggestion and amendment chain. */
@@ -77,10 +149,13 @@ export class TrackingService {
     const event = await this.deps.events.getById(booking.eventId);
     if (!event || event.assignedCoordinatorId !== caller.id) throw forbidden();
 
-    const chain = amendmentChain(booking, await this.deps.bookings.listByEvent(booking.eventId));
-    const names = await this.venueNames([booking, ...chain]);
+    const sameEvent = await this.deps.bookings.listByEvent(booking.eventId);
+    const chain = amendmentChain(booking, sameEvent);
+    const links = this.linkedBookings(booking, sameEvent);
+    const names = await this.venueNames([booking, ...chain, ...links]);
     const nameOf = (venueId: string) => names.get(venueId) ?? "Unknown venue";
-    const item = (b: BookingRecord) => toBookingListItem(b, nameOf(b.venueId));
+    const flags = await this.flagDtos([booking, ...chain]);
+    const item = (b: BookingRecord) => toBookingListItem(b, nameOf(b.venueId), flags.get(b.id));
     const chainItems: ChainItem[] = chain.map((b) => ({ ...item(b), rejectionReason: rejectionReasonOf(b) }));
 
     const s = booking.suggestion;
@@ -102,6 +177,8 @@ export class TrackingService {
         : null,
       amendsRequestId: booking.amendsBookingId,
       chain: chainItems,
+      ...this.replacementLinks(booking, sameEvent, nameOf),
+      flagHistory: (await this.deps.bookings.flagHistoryFor(booking.id)).map(toFlagHistoryDto),
     };
   }
 }

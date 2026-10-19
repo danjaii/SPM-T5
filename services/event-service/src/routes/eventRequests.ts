@@ -11,7 +11,7 @@ export function eventRequestRoutes(deps: SupabaseDeps) {
     const { id: userId, token } = res.locals.user as SessionUser;
 
     // SCRUM-49 AC7: only event organisers may create event requests.
-    // RLS enforces this too (migration 19: organiser-only INSERT on events and event_status_history);
+    // RLS enforces this too (migration 49: organiser-only INSERT on events and event_status_history);
     // this check is defence-in-depth and gives a clean 403 instead of a raw 42501 from the database.
     const { data: profile } = await deps.forUser(token).from("users").select("role").eq("id", userId).maybeSingle();
     if (!isRole(profile?.role) || !canCreateEventRequests(profile.role)) {
@@ -26,7 +26,7 @@ export function eventRequestRoutes(deps: SupabaseDeps) {
     }
 
     // SCRUM-49 AC1: store every field. AC7: no organiser or organisation argument is sent; the database
-    // function takes both from the caller's verified token (see supabase/migrations/19_create_event_request.sql).
+    // function takes both from the caller's verified token (see supabase/migrations/49_create_event_request.sql).
     const b = parsed.data;
     const { data: event, error } = await deps
       .forUser(token)

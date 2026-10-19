@@ -1,5 +1,5 @@
 @startuml context
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+!include <C4/C4_Context>
 
 title ConnectSphere — System Context (C4 Level 1)
 

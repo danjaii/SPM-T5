@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SERVER_EVENT_URL, SESSION_COOKIE } from "./api";
-import type { EventRegistration, MyRegistration, RegistrationFormData } from "./eventRegistration";
+import type { EventRegistration, ManagedEvent, MyRegistration, RegistrationFormData } from "./eventRegistration";
 
 // Server-only: reads event-service with the session cookie via next/headers. Client components must not
 // import this file; the browser-safe types and the POST helper live in ./eventRegistration.
@@ -42,4 +42,11 @@ export async function getEventRegistrations(
   return res.ok
     ? { registrations: data }
     : { error: data.error ?? "We couldn't load this event's registrations. Please try again." };
+}
+
+/** SCRUM-74/AC1: the events whose registrations the signed-in organiser or coordinator can view. */
+export async function getManagedEvents(): Promise<{ events: ManagedEvent[] } | { error: string }> {
+  const res = await fromEventService("/events/managed");
+  const data = await res.json();
+  return res.ok ? { events: data } : { error: data.error ?? "We couldn't load your events. Please try again." };
 }

@@ -97,9 +97,9 @@ Tests written so far: backend AC1, AC5 and AC7. AC5's 422 response copies `chang
 - `packages/shared` — request validation schema (first zod schema there) and a role helper for who
   may create requests, so `apps/web` and the service validate identically. Flag in the commit body.
 - `apps/web` — the request form, field validation and confirmation (AC2, AC3, AC6), later.
-- `supabase/migrations/` — **one new migration, `19_create_event_request.sql`** (numbered after
-  `18_venue_search.sql`, the last migration on `main` when this branch merged it). It adds:
-  - a `venue_requirements` text column on `events` (AC1 lists venue requirements; no column holds it)
+- `supabase/migrations/` — **one new migration, `49_create_event_request.sql`** (numbered after
+  `48_venue_booking_replacement.sql`, the last migration on `main` when this branch merged it).
+  `events.venue_requirements` (AC1) is not added here: `34_edit_event_details.sql` owns it. It adds:
   - a `create_event_request` function that creates the event and its `event_status_history` row in
     one transaction, taking the organiser from `auth.uid()` (AC7)
   - organiser-only INSERT policies on `events` and `event_status_history`, so RLS enforces the

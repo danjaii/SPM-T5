@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { canViewVenueCatalogue, isRole } from "@spm-t5/shared";
+import { canMakeSafetyDecision, canViewVenueCatalogue, isLead, isRole } from "@spm-t5/shared";
 import { roleLabel } from "@/lib/roles";
+import { AppHeader } from "./AppHeader";
 import { BfcacheGuard } from "./BfcacheGuard";
-import { LogoutButton } from "./LogoutButton";
-import { Logo } from "./Logo";
+import { NeedsAction } from "./shell/NeedsAction";
 
 export interface DashboardData {
   user: { fullName: string; email: string; role: string };
@@ -22,22 +22,23 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
   return (
     <>
       <BfcacheGuard />
-      <header className="dash__bar">
-        <Logo />
-        <div className="dash__who">
-          <span>
-            {user.fullName} <span className="dash__role">{roleLabel(user.role)}</span>
-          </span>
-          <LogoutButton />
-        </div>
-      </header>
+      {/* SCRUM-47/AC11: the notification bell sits beside the role, in place of the old Notifications link */}
+      <AppHeader user={user} />
       <main className="dash__main">
         <h1>{roleLabel(user.role)} dashboard</h1>
         <p className="dash__lede">Signed in as {user.fullName}</p>
+        {/* SCRUM-121: queue roles see what is waiting for them, from the same counts as the sidebar */}
+        <NeedsAction />
         {/* SCRUM-68: every signed-in user has a profile to view and update, whatever their role */}
         <nav className="dash__links">
           <Link href="/profile">My profile</Link>
         </nav>
+        {/* SCRUM-74/AC2: organisers and coordinators both see the registrations of the events they manage */}
+        {(user.role === "event_organiser" || user.role === "event_coordinator") && (
+          <nav className="dash__links">
+            <Link href="/registrations-overview">Event registrations</Link>
+          </nav>
+        )}
         {/* SCRUM-29 AC3 + AC4 + AC6 + AC7: same shared rule venue-service uses — coordinators and venue staff only */}
         {/* if role is event coord or venue staff, we show the link that leads them to see the venue catalogue */}
         {isRole(user.role) && canViewVenueCatalogue(user.role) && (
@@ -45,6 +46,8 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
             <Link href="/venues">Venue catalogue</Link>
             {/* SCRUM-65: searching venues for an event is for event coordinators */}
             {user.role === "event_coordinator" && <Link href="/venues/search">Search venues</Link>}
+            {/* SCRUM-104/AC3: the coordinator's venue bookings, where a Buffer conflict flag shows */}
+            {user.role === "event_coordinator" && <Link href="/venue-bookings">My venue bookings</Link>}
             {/* SCRUM-37/AC7: the pending request queue is for venue staff only */}
             {user.role === "venue_staff" && <Link href="/booking-queue">Pending booking requests</Link>}
           </nav>
@@ -55,6 +58,21 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
             <Link href="/equipment-availability">Check equipment availability</Link>
             {/* SCRUM-19: reserving equipment is for Technical Support Staff only */}
             <Link href="/equipment-reservation">Reserve equipment</Link>
+            {/* SCRUM-87/AC7: reviewing equipment requests is for Technical Support Staff only */}
+            <Link href="/equipment-requests">Equipment requests</Link>
+          </nav>
+        )}
+        {/* SCRUM-75/AC4: the Lead home page links to the unassigned event queue and the coordinator overview */}
+        {isLead(user.role) && (
+          <nav className="dash__links">
+            <Link href="/lead/queue">Unassigned event requests</Link>
+            <Link href="/lead/coordinators">Coordinator overview</Link>
+          </nav>
+        )}
+        {/* SCRUM-99/AC2: the Safety Officer home page links to the events waiting for a safety check */}
+        {isRole(user.role) && canMakeSafetyDecision(user.role) && (
+          <nav className="dash__links">
+            <Link href="/safety-checks">Waiting for safety check</Link>
           </nav>
         )}
         {sections.map((section) => (

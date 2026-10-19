@@ -42,6 +42,7 @@ The `migrate` job needs one more, pointing at the hosted project the team's `.en
 - `SUPABASE_DB_URL`: in the Supabase dashboard, **Connect → Session pooler**, e.g.
   `postgresql://postgres.<project-ref>:<password>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres`.
   Use the session pooler, not the direct connection (IPv6-only, which GitHub runners can't reach), and
-  percent-encode any special characters in the password.
+  percent-encode any special characters in the password. Replace every placeholder with real values before
+  saving the secret (do not save literals like `postgres.${REF}` or `<project-ref>`).
 
 Without it, every push to `main` fails the `migrate` job.

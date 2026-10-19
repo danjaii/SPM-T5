@@ -10,7 +10,8 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>();
-  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_comments: [], event_comment_mentions: [], event_comment_attachments: [] };
+  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_categories: [], event_comments: [], event_comment_mentions: [], event_comment_attachments: [] };
+  const rpcCalls: Array<{ fn: string; args: Row }> = [];
 
   const makeQuery = (table: string) => {
     const filters: Array<[string, unknown]> = [];
@@ -85,6 +86,9 @@ function createFake() {
           row.organiser = organiser ? { full_name: organiser.full_name } : null;
           const layout = tables.room_layouts.find((l) => l.id === row.preferred_room_layout_id);
           row.preferred_room_layout = layout ? { name: layout.name } : null;
+          // SCRUM-111/AC5: the category's name
+          const category = tables.event_categories.find((c) => c.id === row.event_category_id);
+          row.category = category ? { name: category.name } : null;
         }
         return Promise.resolve({ data: row, error: null });
       },
@@ -125,6 +129,30 @@ function createFake() {
     forUser: (token: string) => ({
       from: (table: string) => makeQuery(table),
       rpc: (_fn: string, args: Row) => ({
+        // SCRUM-47: post_event_comment (migration 44) saves the comment and its mentions together, as the caller
+        then<T>(onFulfilled?: ((v: { data: unknown; error: { code: string; message: string } | null }) => T | PromiseLike<T>) | null) {
+          rpcCalls.push({ fn: _fn, args });
+          let data: unknown = null;
+          // a mention of "refused-…" stands in for migration 08's mention policy saying no (the whole call rolls back)
+          if (_fn === "post_event_comment" && (args.p_mentions as string[]).some((m) => m.startsWith("refused-"))) {
+            return Promise.resolve({ data: null, error: { code: "42501", message: "new row violates row-level security policy" } }).then(onFulfilled);
+          }
+          if (_fn === "post_event_comment") {
+            const id = crypto.randomUUID();
+            tables.event_comments.push({
+              id,
+              event_id: args.p_event_id,
+              author_id: sessions.get(token),
+              comment_text: args.p_body,
+              parent_comment_id: args.p_parent_comment_id,
+              is_clarification_request: args.p_clarification_request ?? false,
+              created_at: new Date().toISOString(),
+            });
+            for (const userId of args.p_mentions as string[]) tables.event_comment_mentions.push({ comment_id: id, user_id: userId });
+            data = id;
+          }
+          return Promise.resolve({ data, error: null as null }).then(onFulfilled);
+        },
         maybeSingle: async () => {
           if (_fn === "change_event_status") {
             const event = tables.events.find((e) => e.id === args.p_event_id);
@@ -158,7 +186,7 @@ function createFake() {
     return { id, cookie: `cs_session=token-${id}` };
   };
 
-  return { deps, tables, signIn };
+  return { deps, tables, signIn, rpcCalls };
 }
 
 // ---------------------------------------------------------------------------
@@ -685,9 +713,12 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_name: "Alice Johnson",
       point_of_contact_name: null,
+      description: null, // SCRUM-111/AC5
+      category_name: null,
+      venue_requirements: null,
+      canEdit: false, // SCRUM-111/AC7: this coordinator is not the assigned one
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
       canReview: false, // SCRUM-24/AC5: only the assigned coordinator may approve or reject
-      canAssign: true, // SCRUM-42/AC8: coordinators may assign
       isOrganiser: false, // SCRUM-66
       canRequestChange: false, // SCRUM-66: only an organiser may
     });
@@ -733,12 +764,78 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_name: "Bob Smith",
       point_of_contact_name: null,
+      description: null, // SCRUM-111/AC5
+      category_name: null,
+      venue_requirements: null,
+      canEdit: false, // SCRUM-111/AC7
       canChangeStatus: false, // SCRUM-8: this coordinator is not the assigned one
       canReview: false, // SCRUM-24/AC5: only the assigned coordinator may approve or reject
-      canAssign: true, // SCRUM-42/AC8: coordinators may assign
       isOrganiser: false, // SCRUM-66
       canRequestChange: false, // SCRUM-66: only an organiser may
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-111/AC5, AC6, AC7 — the event shows its latest details, and whether this viewer may edit them
+// ---------------------------------------------------------------------------
+describe("SCRUM-111/AC5, AC6, AC7 — GET /events/:id after an edit (111-S15 to 111-S17)", () => {
+  /** "Tech Summit", a Conference with a description and venue requirements, assigned to `coordinatorId`. */
+  function withEvent(status: string) {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Johnson");
+    const coordinator = fake.signIn("event_coordinator");
+    const other = fake.signIn("event_coordinator");
+    const categoryId = crypto.randomUUID();
+    fake.tables.event_categories.push({ id: categoryId, name: "Conference" });
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status,
+      description: "Annual summit",
+      event_category_id: categoryId,
+      venue_requirements: "Stage and lift",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
+    });
+    const view = (who: { cookie: string }) => request(createApp(fake.deps)).get(`/events/${eventId}`).set("Cookie", who.cookie);
+    return { view, organiser, coordinator, other };
+  }
+
+  // the edit form can save these, so the event page shows them too
+  it("111-S15 returns the description, the category's name and the venue requirements", async () => {
+    const { view, coordinator } = withEvent("planning");
+
+    const res = await view(coordinator);
+
+    expect(res.body).toMatchObject({ description: "Annual summit", category_name: "Conference", venue_requirements: "Stage and lift" });
+  });
+
+  it("111-S15 the organiser sees them too", async () => {
+    const { view, organiser } = withEvent("planning");
+
+    expect((await view(organiser)).body).toMatchObject({ description: "Annual summit", category_name: "Conference" });
+  });
+
+  // canEdit tells the page whether to offer "Edit event details"
+  it.each(["submitted", "approved", "planning", "confirmed"])("111-S17 the assigned coordinator of a %s event may edit it", async (status) => {
+    const { view, coordinator } = withEvent(status);
+
+    expect((await view(coordinator)).body.canEdit).toBe(true);
+  });
+
+  it.each(["completed", "cancelled", "rejected"])("111-S16 a %s event can't be edited, even by its coordinator", async (status) => {
+    const { view, coordinator } = withEvent(status);
+
+    expect((await view(coordinator)).body.canEdit).toBe(false);
+  });
+
+  it("111-S17 another coordinator, and the organiser, may not edit it", async () => {
+    const { view, other, organiser } = withEvent("planning");
+
+    expect((await view(other)).body.canEdit).toBe(false);
+    expect((await view(organiser)).body.canEdit).toBe(false);
   });
 });
 
@@ -1920,6 +2017,123 @@ describe("SCRUM-27/AC2 — Add a mention", () => {
 // ---------------------------------------------------------------------------
 // SCRUM-27/AC3 — Display mentions
 // ---------------------------------------------------------------------------
+describe("SCRUM-47/AC9 — a comment and its mentions are saved together", () => {
+  it("posts the comment through one post_event_comment call with its mentions", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: `Hello @[${organiser.id}] please review this.` });
+
+    expect(res.status).toBe(201);
+    expect(fake.rpcCalls).toEqual([
+      {
+        fn: "post_event_comment",
+        args: {
+          p_event_id: eventId,
+          p_body: `Hello @[${organiser.id}] please review this.`,
+          p_parent_comment_id: null,
+          p_mentions: [organiser.id],
+          p_clarification_request: false,
+        },
+      },
+    ]);
+  });
+
+  it("SCRUM-47/AC2 asks the database to mark the comment as a clarification request when the coordinator ticks it", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted", assigned_coordinator_id: coordinator.id,
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({ body: "How many guests use wheelchairs?", clarification_request: true });
+
+    expect(res.status).toBe(201);
+    expect(fake.rpcCalls[0].args.p_clarification_request).toBe(true);
+  });
+
+  it("SCRUM-47/AC2 lists which comments are clarification requests, so the organiser knows what to answer", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted", assigned_coordinator_id: coordinator.id,
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+    const app = createApp(fake.deps);
+    await request(app).post(`/events/${eventId}/comments`).set("Cookie", coordinator.cookie)
+      .send({ body: "How many guests use wheelchairs?", clarification_request: true });
+    await request(app).post(`/events/${eventId}/comments`).set("Cookie", coordinator.cookie)
+      .send({ body: "Thanks for submitting." });
+
+    const res = await request(app).get(`/events/${eventId}/comments`).set("Cookie", organiser.cookie);
+
+    expect(res.body.comments.map((c: Row) => [c.body, c.is_clarification_request])).toEqual([
+      ["How many guests use wheelchairs?", true],
+      ["Thanks for submitting.", false],
+    ]);
+  });
+
+  it("SCRUM-47/AC2 only the event's assigned coordinator is offered the clarification request", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const assigned = fake.signIn("event_coordinator", "Bob");
+    const other = fake.signIn("event_coordinator", "Carol");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted", assigned_coordinator_id: assigned.id,
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+    const app = createApp(fake.deps);
+    const offered = async (cookie: string) =>
+      (await request(app).get(`/events/${eventId}/comments`).set("Cookie", cookie)).body.can_request_clarification;
+
+    expect([await offered(assigned.cookie), await offered(other.cookie), await offered(organiser.cookie)]).toEqual([
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it("SCRUM-47/AC10 a comment the database refuses is reported as refused, and no attachment is saved", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice");
+    const coordinator = fake.signIn("event_coordinator", "Bob");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({
+      id: eventId, name: "Tech Summit", status: "submitted",
+      submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id,
+    });
+
+    const res = await request(createApp(fake.deps))
+      .post(`/events/${eventId}/comments`)
+      .set("Cookie", coordinator.cookie)
+      .send({
+        body: "@[refused-venue-staff] can you check the hall?",
+        attachments: [{ file_name: "plan.pdf", storage_path: `${eventId}/plan.pdf` }],
+      });
+
+    expect(res.status).toBe(403);
+    expect(fake.tables.event_comment_attachments).toEqual([]);
+  });
+});
+
 describe("SCRUM-27/AC3 — Display mentions", () => {
   it("includes a mentions array with user_id and full_name for a mentioned user", async () => {
     const fake = createFake();

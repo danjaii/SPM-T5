@@ -1,6 +1,15 @@
 import { ROLES } from "@spm-t5/shared";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// the real notification bell (tests/setup.ts stubs it for page tests), answering with 2 unread
+vi.unmock("@/components/NotificationBell");
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ unreadCount: 2 }) }));
+});
+afterEach(() => vi.unstubAllGlobals());
+
 import { DashboardView, type DashboardData } from "@/components/DashboardView";
 
 const data: DashboardData = {
@@ -100,6 +109,15 @@ describe("Dashboard tables", () => {
     if (role === "technical_support_staff") expect(link?.getAttribute("href")).toBe("/equipment-reservation");
     else expect(link).toBeNull();
   });
+
+  // SCRUM-87/AC7: only Technical Support Staff see the link to the equipment request queue.
+  it.each(ROLES)("SCRUM-87/AC7: for a %s, shows the 'Equipment requests' link only if Technical Support Staff", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    const link = screen.queryByRole("link", { name: "Equipment requests" });
+    if (role === "technical_support_staff") expect(link?.getAttribute("href")).toBe("/equipment-requests");
+    else expect(link).toBeNull();
+  });
   // end of SCRUM-19 dashboard link
 
   // SCRUM-68: every signed-in user has a profile, so every role gets the link to it.
@@ -112,4 +130,66 @@ describe("Dashboard tables", () => {
     expect(screen.getByRole("link", { name: "My profile" }).getAttribute("href")).toBe("/profile");
   });
   // end of SCRUM-68 dashboard link
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-74 — Reaching the registration information page
+// ---------------------------------------------------------------------------
+describe("SCRUM-74 — Event registrations link", () => {
+  /** A dashboard with no tables, for a user with `role`. */
+  const dashboardFor = (role: string): DashboardData => ({
+    user: { fullName: "Jason Chua", email: "jason@example.com", role },
+    sections: [],
+  });
+
+  // AC2: an organiser reaches the registrations of the events they manage from their dashboard
+  it("SCRUM-74/AC2 links an organiser to the event registrations page", () => {
+    render(<DashboardView data={dashboardFor("event_organiser")} />);
+
+    expect(screen.getByRole("link", { name: "Event registrations" }).getAttribute("href")).toBe("/registrations-overview");
+  });
+
+  // AC2: a coordinator has the same access as an organiser, so the same link
+  it("SCRUM-74/AC2 links a coordinator to the event registrations page", () => {
+    render(<DashboardView data={dashboardFor("event_coordinator")} />);
+
+    expect(screen.getByRole("link", { name: "Event registrations" }).getAttribute("href")).toBe("/registrations-overview");
+  });
+  // end of AC2
+
+  // AC1: registration information is only for organisers and coordinators, so nobody else gets the link
+  it("SCRUM-74/AC1 doesn't link an attendee to the event registrations page", () => {
+    render(<DashboardView data={dashboardFor("attendee")} />);
+
+    expect(screen.queryByRole("link", { name: "Event registrations" })).toBeNull();
+  });
+  // end of AC1
+});
+// end of SCRUM-74
+
+// ---------------------------------------------------------------------------
+// SCRUM-99 — the Safety Officer reaches the events waiting for a safety check
+// ---------------------------------------------------------------------------
+describe("SCRUM-99/AC2 Waiting for safety check link", () => {
+  it("SCRUM-99/AC2 links a Safety Officer to the events waiting for a safety check", () => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role: "safety_officer" } }} />);
+
+    expect(screen.getByRole("link", { name: "Waiting for safety check" }).getAttribute("href")).toBe("/safety-checks");
+  });
+
+  it.each(ROLES.filter((role) => role !== "safety_officer"))("SCRUM-99/AC2 does not offer the link to a %s", (role) => {
+    render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
+
+    expect(screen.queryByRole("link", { name: "Waiting for safety check" })).toBeNull();
+  });
+});
+
+describe("SCRUM-47/AC11 the dashboard's notification bell", () => {
+  it("is in the header beside the role, in place of the old Notifications link", async () => {
+    const { container } = render(<DashboardView data={data} />);
+
+    const header = container.querySelector("header")!;
+    expect(await within(header).findByRole("button", { name: "Notifications, 2 unread" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /^Notifications/ })).toBeNull();
+  });
 });

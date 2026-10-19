@@ -15,6 +15,10 @@ export const SERVER_VENUE_URL = process.env.VENUE_SERVICE_URL ?? VENUE_URL;
 export const EQUIPMENT_URL = process.env.NEXT_PUBLIC_EQUIPMENT_SERVICE_URL ?? "http://localhost:4004";
 export const SERVER_EQUIPMENT_URL = process.env.EQUIPMENT_SERVICE_URL ?? EQUIPMENT_URL;
 
+// notification-service (SCRUM-46), same idea again.
+export const NOTIFICATION_URL = process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE_URL ?? "http://localhost:4005";
+export const SERVER_NOTIFICATION_URL = process.env.NOTIFICATION_SERVICE_URL ?? NOTIFICATION_URL;
+
 export const SESSION_COOKIE = "cs_session";
 
 export interface ApiResult<T> {

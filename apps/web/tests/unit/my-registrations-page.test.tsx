@@ -22,7 +22,13 @@ describe("SCRUM-83 — My registrations page", () => {
           id: "reg-1",
           status: "pending",
           registered_at: "2026-10-01T02:00:00Z",
-          event: { id: "evt-1", name: "Tech Summit", start_at: "2026-12-12T11:00:00Z", end_at: null },
+          event: {
+            id: "evt-1",
+            name: "Tech Summit",
+            start_at: "2026-12-12T11:00:00Z",
+            end_at: null,
+            venue: { name: "Orchid Hall", address: "Level 3, East Wing" },
+          },
         },
       ],
     });
@@ -41,7 +47,7 @@ describe("SCRUM-83 — My registrations page", () => {
     render(await MyRegistrationsPage());
 
     expect(screen.getByRole("alert").textContent).toBe("We couldn't load your registrations. Please try again.");
-    expect(screen.queryByText("You haven't registered for any events yet.")).toBeNull();
+    expect(screen.queryByText("You have not registered for an event")).toBeNull();
   });
   // end of AC15
 });

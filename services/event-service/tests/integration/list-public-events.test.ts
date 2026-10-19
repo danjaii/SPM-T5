@@ -48,10 +48,10 @@ describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
     return data.id as string;
   }
 
-  async function bookVenue(eventId: string, venueId: string, status: string) {
+  async function bookVenue(eventId: string, venueId: string, status: string, start = START, end = END) {
     const { error } = await admin
       .from("venue_bookings")
-      .insert({ event_id: eventId, venue_id: venueId, status, event_start_datetime: START, event_end_datetime: END });
+      .insert({ event_id: eventId, venue_id: venueId, status, event_start_datetime: start, event_end_datetime: end });
     if (error) throw new Error(error.message);
   }
 
@@ -201,5 +201,54 @@ describe.skipIf(!hasDb)("SCRUM-71 list_public_events() (migration 10)", () => {
     expect(data).toContainEqual(expect.objectContaining({ id: othersOnly, my_registration_status: null }));
   });
   // end of AC10
+
+  // SCRUM-9/AC1: migration 20 adds the names the attendee's search looks in. An attendee cannot read event_categories, organisations or
+  // users themselves, so the function has to supply them. An event with none of them still comes back, with null.
+  it("SCRUM-9/AC1 returns the category, client organisation and assigned coordinator names, and null for an event without them", async () => {
+    const { data: category } = await admin.from("event_categories").select("id").eq("name", "Conference").single();
+    const { data: organiser } = await admin.from("users").select("organisation_id").eq("id", organiserId).single();
+    const { data: organisation } = await admin.from("organisations").select("name").eq("id", organiser!.organisation_id).single();
+    const { data: coordinator } = await admin.from("users").select("id").eq("email", "rachel.tan@connectsphere.example.com").single();
+    const withNames = await newEvent({
+      status: "confirmed",
+      registration_required: true,
+      event_category_id: category!.id,
+      client_organisation_id: organiser!.organisation_id,
+      assigned_coordinator_id: coordinator!.id,
+    });
+    const withoutNames = await newEvent({ status: "confirmed", registration_required: true });
+
+    const { data, error } = await attendee.client.rpc("list_public_events");
+
+    expect(error).toBeNull();
+    expect(data).toContainEqual(
+      expect.objectContaining({ id: withNames, category_name: "Conference", organisation_name: organisation!.name, coordinator_name: "Rachel Tan" }),
+    );
+    expect(data).toContainEqual(expect.objectContaining({ id: withoutNames, category_name: null, organisation_name: null, coordinator_name: null }));
+  });
+  // end of SCRUM-9 search fields
+
+  // SCRUM-98/AC5 (98-S25): an event can now have several approved venues. It must still be one card, not one per venue, so
+  // migration 28 returns one row per event with the venue names joined, earliest booking first, and that booking's address.
+  // A venue booked twice (morning and evening) is named once.
+  it("SCRUM-98/AC5 lists an event with several approved venues once, with every venue name, earliest first", async () => {
+    const evening = await newVenue("IT-Orchid Hall", "IT-Level 3, East Wing");
+    const morning = await newVenue("IT-Lotus Room", "IT-2 Marina Way");
+    const rejected = await newVenue("IT-Rejected Hall", "IT-1 Nowhere Road");
+    const eventId = await newEvent({ status: "confirmed", registration_required: true });
+    await bookVenue(eventId, evening, "approved", "2031-03-03T10:00:00+00:00", "2031-03-03T12:00:00+00:00");
+    await bookVenue(eventId, morning, "approved", "2031-03-03T01:00:00+00:00", "2031-03-03T03:00:00+00:00");
+    await bookVenue(eventId, morning, "confirmed", "2031-03-03T13:00:00+00:00", "2031-03-03T14:00:00+00:00");
+    await bookVenue(eventId, rejected, "rejected", "2031-03-03T00:00:00+00:00", "2031-03-03T01:00:00+00:00");
+
+    const { data, error } = await attendee.client.rpc("list_public_events");
+
+    expect(error).toBeNull();
+    const rows = (data as { id: string }[]).filter((row) => row.id === eventId);
+    expect(rows).toEqual([
+      expect.objectContaining({ venue_name: "IT-Lotus Room, IT-Orchid Hall", venue_address: "IT-2 Marina Way" }),
+    ]);
+  });
+  // end of SCRUM-98
 });
 // end of SCRUM-71

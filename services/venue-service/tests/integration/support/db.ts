@@ -75,6 +75,22 @@ export class Fixtures {
     if (error) throw new Error(error.message);
   }
 
+  /**
+   * SCRUM-105: a block made the way the app makes it, by calling mark_venue_unavailable as signed-in venue staff (the table has
+   * no direct write for anyone but the secret key). Returns the block's id; deleted with the venue.
+   */
+  async unavailabilityAs(staff: SupabaseClient, venueId: string, start: Date, end: Date, reason = "maintenance", notes: string | null = null): Promise<string> {
+    const { data, error } = await staff.rpc("mark_venue_unavailable", {
+      p_venue_id: venueId,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+      p_reason: reason,
+      p_notes: notes,
+    });
+    if (error) throw new Error(error.message);
+    return (data as { block_id: string }[])[0]!.block_id;
+  }
+
   /** A throwaway facility, linked to the venue (SCRUM-65); returns its id. */
   async facility(venueId: string): Promise<string> {
     const { data, error } = await this.db
@@ -125,7 +141,10 @@ export class Fixtures {
       await this.db.from("venue_bookings").delete().in("event_id", this.eventIds);
       await this.db.from("events").delete().in("id", this.eventIds);
     }
-    if (this.venueIds.length) await this.db.from("venues").delete().in("id", this.venueIds);
+    if (this.venueIds.length) {
+      await this.db.from("activity_log").delete().in("entity_id", this.venueIds); // SCRUM-105 logs each block against its venue
+      await this.db.from("venues").delete().in("id", this.venueIds);
+    }
     if (this.facilityIds.length) await this.db.from("facilities").delete().in("id", this.facilityIds);
   }
 }
