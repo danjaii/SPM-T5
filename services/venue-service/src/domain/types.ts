@@ -52,6 +52,9 @@ export interface BookingRecord {
   /** SCRUM-113: the event's changes that sent it back for review ({ field: { from, to } }), and when; null otherwise. */
   sentBackChanges: unknown;
   sentBackAt: Date | null;
+  /** SCRUM-107: the approved replacement that took over a `replaced` booking, and when (migration 48); null otherwise. */
+  replacedByBookingId: string | null;
+  replacedAt: Date | null;
 }
 
 /** SCRUM-102/AC1: a venue booking's new period and its own numbers. Its venue never changes. */
@@ -114,5 +117,15 @@ export interface FlagRecord {
   otherBookingId: string | null;
   otherStart: Date | null;
   otherEnd: Date | null;
+  /** SCRUM-106: the block that raised a `venue_unavailable` flag, and its reason; null for a buffer conflict. */
+  unavailabilityId?: string | null;
+  unavailabilityReason?: string | null;
   createdAt: Date;
+}
+
+/** SCRUM-107: a flag with its outcome, for the booking's history (107-S3). */
+export interface FlagHistoryRecord extends FlagRecord {
+  resolvedAt: Date | null;
+  /** `no_longer_conflicts`, `booking_closed` or `replaced`; null while open. */
+  resolvedReason: string | null;
 }

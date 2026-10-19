@@ -1,22 +1,69 @@
-import { dbStatusToApi, flagLabel, utcToSgt, type FlagDto, type VenueBookingStatus } from "@spm-t5/shared";
-import type { BookingRecord, FlagRecord } from "./types";
+import {
+  dbStatusToApi,
+  flagLabel,
+  notificationReasonLabel,
+  utcToSgt,
+  type FlagDto,
+  type FlagHistoryDto,
+  type FlagUnavailabilityDto,
+  type ReplacementRefDto,
+  type VenueBookingStatus,
+} from "@spm-t5/shared";
+import type { BookingRecord, FlagHistoryRecord, FlagRecord } from "./types";
 
 /**
  * SCRUM-104: an open flag as the API shows it. The coordinator's version carries the other booking's period and no event
  * name (36-S5); Venue Staff pass `otherEventName` to get it too (the name is joined at read time, never stored).
  */
 export function toFlagDto(f: FlagRecord, staff?: { otherEventName: string | null }): FlagDto {
+  // SCRUM-106: a block can span days, so its period is `unavailability` (dates included) and `otherPeriod`, a single day, is null
+  const unavailability = f.kind === "venue_unavailable" && f.otherStart && f.otherEnd ? toUnavailabilityDto(f) : undefined;
   return {
     id: f.id,
     kind: f.kind,
     label: flagLabel(f.kind) ?? f.kind,
     createdAt: f.createdAt.toISOString(),
     otherPeriod:
-      f.otherStart && f.otherEnd
+      !unavailability && f.otherStart && f.otherEnd
         ? { date: utcToSgt(f.otherStart).date, startTime: utcToSgt(f.otherStart).time, endTime: utcToSgt(f.otherEnd).time }
         : null,
+    ...(unavailability ? { unavailability } : {}),
     ...(staff ? { otherEventName: staff.otherEventName, otherBookingId: f.otherBookingId } : {}),
   };
+}
+
+/** SCRUM-107 (107-S3): a flag with its outcome, so the original booking keeps showing why it was flagged and how it ended. */
+export function toFlagHistoryDto(f: FlagHistoryRecord): FlagHistoryDto {
+  const dto = toFlagDto(f);
+  return {
+    id: dto.id,
+    kind: dto.kind,
+    label: dto.label,
+    createdAt: dto.createdAt,
+    resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
+    resolvedReason: f.resolvedReason,
+    ...(dto.unavailability ? { unavailability: dto.unavailability } : {}),
+  };
+}
+
+/** SCRUM-107: the booking at the other end of a replacement link. */
+export function toReplacementRef(b: BookingRecord, venueName: string): ReplacementRefDto {
+  const start = utcToSgt(b.start);
+  return {
+    id: b.id,
+    venueName,
+    date: start.date,
+    startTime: start.time,
+    endTime: utcToSgt(b.end).time,
+    status: dbStatusToApi(b.status) ?? b.status,
+  };
+}
+
+function toUnavailabilityDto(f: FlagRecord): FlagUnavailabilityDto {
+  const start = utcToSgt(f.otherStart as Date);
+  const end = utcToSgt(f.otherEnd as Date);
+  const reason = f.unavailabilityReason ?? "other";
+  return { startDate: start.date, startTime: start.time, endDate: end.date, endTime: end.time, reason, reasonLabel: notificationReasonLabel(reason) };
 }
 
 /** A venue booking request as the API shows it: Singapore date and times, API status (DR3, DR4). */
@@ -151,6 +198,9 @@ export interface EventBookingItem extends ChainItem {
   exceedsCapacity: boolean;
   /** SCRUM-113/AC1: sent back to Pending for review after an important event change, and not decided since. */
   sentBackForReview: boolean;
+  /** SCRUM-107: the booking that replaces this one (pending or approved), and the one this replaces; null when there is none. */
+  replacedBy: ReplacementRefDto | null;
+  replaces: ReplacementRefDto | null;
 }
 
 export interface BookingDetail extends BookingListItem {
@@ -163,6 +213,11 @@ export interface BookingDetail extends BookingListItem {
   amendsRequestId: string | null;
   /** The amendment chain in order, root first, including this request. */
   chain: ChainItem[];
+  /** SCRUM-107: the replacement waiting for a decision or approved, and the original this one replaces. */
+  replacedBy: ReplacementRefDto | null;
+  replaces: ReplacementRefDto | null;
+  /** SCRUM-107 (107-S3): every flag this booking ever had and how each ended. */
+  flagHistory: FlagHistoryDto[];
 }
 
 export const rejectionReasonOf = (b: BookingRecord) => (b.status === "rejected" ? b.reviewNotes : null);

@@ -38,7 +38,7 @@ describe("SCRUM-35/AC2, SCRUM-60/AC4, SCRUM-59/AC4 actions are offered only wher
   });
 
   it("35-S2: a pending request can be withdrawn but not amended or accepted", () => {
-    expect(bookingActions(detail({ suggestion }))).toEqual({ withdraw: true, amend: false, acceptSuggestion: false });
+    expect(bookingActions(detail({ suggestion }))).toEqual({ withdraw: true, amend: false, acceptSuggestion: false, findReplacement: false });
   });
 
   it.each(["PENDING", "APPROVED", "WITHDRAWN"] as const)("60-S4 / 59-S4: nothing to amend or accept for %s", (status) => {
@@ -48,14 +48,14 @@ describe("SCRUM-35/AC2, SCRUM-60/AC4, SCRUM-59/AC4 actions are offered only wher
   });
 
   it("60-S4: a rejected request can be amended; 59-S4: accept needs a suggestion", () => {
-    expect(bookingActions(rejected())).toEqual({ withdraw: false, amend: true, acceptSuggestion: false });
-    expect(bookingActions(rejected({ suggestion }))).toEqual({ withdraw: false, amend: true, acceptSuggestion: true });
+    expect(bookingActions(rejected())).toEqual({ withdraw: false, amend: true, acceptSuggestion: false, findReplacement: false });
+    expect(bookingActions(rejected({ suggestion }))).toEqual({ withdraw: false, amend: true, acceptSuggestion: true, findReplacement: false });
   });
 
   it("60-S5: hidden while a later amendment is still active", () => {
     const later = { ...detail({ id: "b-2", status: "PENDING" }), rejectionReason: null };
     expect(bookingActions(rejected({ suggestion, chain: [{ ...rejected(), rejectionReason: "Renovation" }, later] }))).toEqual({
-      withdraw: false, amend: false, acceptSuggestion: false,
+      withdraw: false, amend: false, acceptSuggestion: false, findReplacement: false,
     });
   });
 

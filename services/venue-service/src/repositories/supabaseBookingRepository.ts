@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dbStatusToApi } from "@spm-t5/shared";
 import { BookingError, bookingError, forbidden } from "../domain/errors";
-import type { BookingChange, BookingRecord, Decision, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
+import type { BookingChange, BookingRecord, Decision, FlagHistoryRecord, FlagRecord, NewBooking, SlotConflict, UnavailabilityConflict } from "../domain/types";
 import type { BookingRepository } from "./bookingRepository";
 
 /** Columns read back from venue_bookings. */
@@ -11,7 +11,7 @@ export const BOOKING_COLUMNS =
   "cancelled_by, cancelled_at, cancellation_reason, " +
   "suggested_venue_id, suggested_start_datetime, suggested_end_datetime, " +
   "snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, snapshot_accessibility_needs, " +
-  "suitability, suitability_unmet, suitability_override_reason, sent_back_changes, sent_back_at";
+  "suitability, suitability_unmet, suitability_override_reason, sent_back_changes, sent_back_at, replaced_by_booking_id, replaced_at";
 
 type Row = Record<string, unknown>;
 
@@ -48,6 +48,8 @@ export function toBookingRecord(row: Row): BookingRecord {
     suitabilityOverrideReason: (row.suitability_override_reason as string | null) ?? null,
     sentBackChanges: row.sent_back_changes ?? null,
     sentBackAt: date(row.sent_back_at),
+    replacedByBookingId: (row.replaced_by_booking_id as string | null) ?? null,
+    replacedAt: date(row.replaced_at),
     suggestion: row.suggested_venue_id
       ? {
           venueId: row.suggested_venue_id as string,
@@ -255,7 +257,7 @@ export class SupabaseBookingRepository implements BookingRepository {
     if (bookingIds.length === 0) return [];
     const { data, error } = await this.db
       .from("venue_booking_flags")
-      .select("id, booking_id, kind, other_booking_id, other_start, other_end, created_at")
+      .select("id, booking_id, kind, other_booking_id, other_start, other_end, created_at, unavailability_id, unavailability:venue_unavailability(reason)")
       .in("booking_id", bookingIds)
       .is("resolved_at", null)
       .order("created_at", { ascending: true })
@@ -268,7 +270,33 @@ export class SupabaseBookingRepository implements BookingRepository {
       otherBookingId: (row.other_booking_id as string | null) ?? null,
       otherStart: date(row.other_start),
       otherEnd: date(row.other_end),
+      unavailabilityId: (row.unavailability_id as string | null) ?? null,
+      unavailabilityReason: ((row.unavailability as { reason?: string } | null)?.reason as string | undefined) ?? null,
       createdAt: new Date(row.created_at as string),
+    }));
+  }
+
+  /** SCRUM-107: every flag of one booking, open or resolved, oldest first, with why it was resolved (107-S3). */
+  async flagHistoryFor(bookingId: string): Promise<FlagHistoryRecord[]> {
+    const { data, error } = await this.db
+      .from("venue_booking_flags")
+      .select("id, booking_id, kind, other_booking_id, other_start, other_end, created_at, resolved_at, resolved_reason, unavailability_id, unavailability:venue_unavailability(reason)")
+      .eq("booking_id", bookingId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw new Error("Could not read the venue booking flags.");
+    return ((data ?? []) as Row[]).map((row) => ({
+      id: row.id as string,
+      bookingId: row.booking_id as string,
+      kind: row.kind as FlagRecord["kind"],
+      otherBookingId: (row.other_booking_id as string | null) ?? null,
+      otherStart: date(row.other_start),
+      otherEnd: date(row.other_end),
+      unavailabilityId: (row.unavailability_id as string | null) ?? null,
+      unavailabilityReason: ((row.unavailability as { reason?: string } | null)?.reason as string | undefined) ?? null,
+      createdAt: new Date(row.created_at as string),
+      resolvedAt: date(row.resolved_at),
+      resolvedReason: (row.resolved_reason as string | null) ?? null,
     }));
   }
 

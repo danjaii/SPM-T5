@@ -8,6 +8,8 @@ export class FakeVenueUnavailabilityStore implements VenueUnavailabilityStore {
   readonly marked: { venueId: string; input: MarkUnavailable }[] = [];
   /** The `withRecorder` flag of every list() call. */
   readonly listedWithRecorder: boolean[] = [];
+  /** What the database would say it flagged (SCRUM-106); a test sets it. */
+  affectedBookings = 0;
   private counter = 0;
 
   constructor(private readonly recordedAt: () => Date = () => new Date("2026-10-01T02:00:00.000Z")) {}
@@ -19,9 +21,9 @@ export class FakeVenueUnavailabilityStore implements VenueUnavailabilityStore {
     return row;
   }
 
-  async mark(venueId: string, input: MarkUnavailable): Promise<UnavailabilityBlockRow> {
+  async mark(venueId: string, input: MarkUnavailable): Promise<{ block: UnavailabilityBlockRow; affectedBookings: number }> {
     this.marked.push({ venueId, input });
-    return this.seed(venueId, input.start, input.end, input.reason, input.notes ?? null);
+    return { block: this.seed(venueId, input.start, input.end, input.reason, input.notes ?? null), affectedBookings: this.affectedBookings };
   }
 
   async list(venueId: string, withRecorder: boolean): Promise<UnavailabilityBlockRow[]> {

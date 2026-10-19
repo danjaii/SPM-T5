@@ -1,4 +1,11 @@
-import type { FlagDto, UnmetRequirement, VenueBookingStatus } from "@spm-t5/shared";
+import {
+  canFindReplacement,
+  type FlagDto,
+  type FlagHistoryDto,
+  type ReplacementRefDto,
+  type UnmetRequirement,
+  type VenueBookingStatus,
+} from "@spm-t5/shared";
 import type { EquipmentRequestView } from "./equipmentRequests";
 import { VENUE_URL, type ApiResult } from "./api";
 
@@ -51,6 +58,10 @@ export interface VenueBookingDetailView extends VenueBookingListItem {
   suggestion: { venueId: string; venueName: string; date: string; startTime: string; endTime: string } | null;
   amendsRequestId: string | null;
   chain: VenueBookingChainItem[];
+  /** SCRUM-107: the replacement waiting for a decision or approved, the original this one replaces, and every flag with its outcome. */
+  replacedBy?: ReplacementRefDto | null;
+  replaces?: ReplacementRefDto | null;
+  flagHistory?: FlagHistoryDto[];
 }
 
 export interface VenueBookingInputBody {
@@ -122,6 +133,10 @@ export const amendVenueBooking = (id: string, body: Omit<VenueBookingInputBody, 
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/amend`, body);
 
 /** SCRUM-59: accept the suggested alternative on a rejected request. */
+/** SCRUM-107/AC2: request a replacement for a flagged booking at `venueId`; the rest is the original's. */
+export const requestReplacementVenue = (id: string, venueId: string, overrideReason?: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/replacement`, { venueId, ...(overrideReason ? { overrideReason } : {}) });
+
 export const acceptVenueSuggestion = (id: string, overrideReason?: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/accept-suggestion`, overrideReason ? { overrideReason } : undefined);
 
@@ -146,6 +161,9 @@ export interface EventVenueBookingItem extends VenueBookingChainItem {
   exceedsCapacity: boolean;
   /** SCRUM-113/AC1: sent back to Pending for review after an important event change. */
   sentBackForReview?: boolean;
+  /** SCRUM-107 (107-S3): "Replaced by Lotus Room" / "Replaces Orchid Hall". */
+  replacedBy?: ReplacementRefDto | null;
+  replaces?: ReplacementRefDto | null;
 }
 
 /**
@@ -163,7 +181,9 @@ export function decisionActions(status: VenueBookingStatus | undefined, flagged 
  * withdrawn; only a REJECTED one can be amended, and only while the event has no other active
  * request; accepting also needs a suggestion. The server enforces all of this again.
  */
-export function bookingActions(booking: Pick<VenueBookingDetailView, "id" | "status" | "suggestion" | "chain">) {
+export function bookingActions(
+  booking: Pick<VenueBookingDetailView, "id" | "status" | "suggestion" | "chain"> & Partial<Pick<VenueBookingDetailView, "flags" | "replacedBy">>,
+) {
   const otherActive = booking.chain.some(
     (c) => c.id !== booking.id && (c.status === "PENDING" || c.status === "APPROVED"),
   );
@@ -172,6 +192,14 @@ export function bookingActions(booking: Pick<VenueBookingDetailView, "id" | "sta
     withdraw: booking.status === "PENDING",
     amend: rejected,
     acceptSuggestion: rejected && booking.suggestion !== null,
+    // SCRUM-107/AC5, AC6: only a holding booking flagged as unavailable, with no replacement waiting. The page is the assigned
+    // coordinator's (venue-service answers nobody else), and the server checks again.
+    findReplacement: canFindReplacement({
+      isAssignedCoordinator: true,
+      holding: booking.status === "PENDING" || booking.status === "APPROVED",
+      flags: booking.flags ?? [],
+      hasPendingReplacement: booking.replacedBy?.status === "PENDING",
+    }),
   };
 }
 

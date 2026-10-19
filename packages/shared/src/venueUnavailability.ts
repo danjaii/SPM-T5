@@ -214,3 +214,74 @@ export function parseUnavailabilityInput(body: unknown): ParsedUnavailabilityInp
   if (notes !== undefined) data.notes = notes;
   return { ok: true, data };
 }
+
+// ---------------------------------------------------------------------------
+// SCRUM-106 (docs/specs/venue-unavailability-flags.md): the bookings a new block affects, and what their coordinator is told.
+// The notification text is built in SQL (migration 46, venue_booking_flags_notify) so it is written in the same transaction as
+// the flag; `flaggedBookingMessage` is its twin, and a parity test runs the two against each other.
+// ---------------------------------------------------------------------------
+
+/** 106-S2: the title of the notification, and of the flag (the en dash is on purpose). */
+export const FLAGGED_BOOKING_NOTIFICATION_TITLE = "Venue unavailable – alternative needed";
+
+/** The block's period as the flag shows it, in Singapore time. Dates are separate because a block can span days. */
+export interface FlagUnavailabilityDto {
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  reason: string;
+  reasonLabel: string;
+}
+
+/** A block's period as one phrase: "14 Nov 08:00 to 16 Nov 18:00". */
+export function unavailabilityPeriodText(start: Date, end: Date): string {
+  return `${formatShortSgt(start)} to ${formatShortSgt(end)}`;
+}
+
+/** A booked period: "14 Nov 09:00 to 17:00" when it ends the same Singapore day, else both dates are shown. */
+export function bookedPeriodText(start: Date, end: Date): string {
+  const s = utcToSgt(start);
+  const e = utcToSgt(end);
+  return s.date === e.date ? `${formatShortSgt(start)} to ${e.time}` : `${formatShortSgt(start)} to ${formatShortSgt(end)}`;
+}
+
+/** The label of a reason as the notification shows it; anything unknown reads "Other", as in the SQL. */
+export function notificationReasonLabel(reason: string): string {
+  return isUnavailabilityReason(reason) ? UNAVAILABILITY_REASON_LABELS[reason] : UNAVAILABILITY_REASON_LABELS.other;
+}
+
+/** 106-S2: the message a coordinator gets when a booking of theirs is flagged. Equal to the SQL for the same inputs. */
+export function flaggedBookingMessage(input: {
+  eventName: string;
+  venueName: string;
+  bookingStart: Date;
+  bookingEnd: Date;
+  blockStart: Date;
+  blockEnd: Date;
+  reason: string;
+}): string {
+  const { eventName, venueName } = input;
+  return (
+    `${eventName}: your booking for ${venueName} on ${bookedPeriodText(input.bookingStart, input.bookingEnd)} is affected. ` +
+    `${venueName} is unavailable from ${unavailabilityPeriodText(input.blockStart, input.blockEnd)} ` +
+    `(${notificationReasonLabel(input.reason)}). Request a replacement venue.`
+  );
+}
+
+/** 106-S1: the banner on a flagged booking, e.g. "Orchid Hall is unavailable from 14 Nov 08:00 to 16 Nov 18:00 (Maintenance)". */
+export function unavailabilityFlagText(block: FlagUnavailabilityDto, venueName?: string): string {
+  const monthDay = (isoDate: string) => `${Number(isoDate.slice(8, 10))} ${MONTHS[Number(isoDate.slice(5, 7)) - 1]}`;
+  return (
+    `${venueName ?? "This venue"} is unavailable from ${monthDay(block.startDate)} ${block.startTime} ` +
+    `to ${monthDay(block.endDate)} ${block.endTime} (${block.reasonLabel})`
+  );
+}
+
+/** 106 open question 5: what Venue Staff are told after saving a block (a count of flagged bookings, not of people). */
+export function bookingsFlaggedMessage(count: number): string {
+  if (count <= 0) return "No existing bookings are affected.";
+  return count === 1
+    ? "1 booking affected; its coordinator has been notified."
+    : `${count} bookings affected; their coordinators have been notified.`;
+}

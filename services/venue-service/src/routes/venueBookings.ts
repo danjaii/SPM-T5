@@ -5,11 +5,13 @@ import { asyncHandler } from "../middlewares/errors";
 import type { SessionUser } from "../middlewares/session";
 import type { PortsFactory } from "../ports";
 import { assertMayRequestFor, BookingService } from "../services/bookingService";
+import type { VenueSearchReader } from "../readers/venueSearchReader";
 import { DecisionService } from "../services/decisionService";
+import { ReplacementService } from "../services/replacementService";
 import { TrackingService } from "../services/trackingService";
 
 /** Routes for SCRUM-32 (submit), SCRUM-33 (track), SCRUM-38 (approve) and SCRUM-39 (reject). Session middleware is mounted by the caller. */
-export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
+export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date, searchFor: (accessToken: string) => VenueSearchReader) {
   const router = Router();
 
   /** Builds the service and the caller (with role) for this request. */
@@ -22,6 +24,16 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
       service: new BookingService({ ...ports, now }),
       tracking: new TrackingService(ports),
       decisions: new DecisionService({ ...ports, now }),
+      // the search reader is only built when a replacement is asked for, so other requests never touch it
+      replacements: new ReplacementService({
+        ...ports,
+        now,
+        search: {
+          availableVenueIds: (start, end) => searchFor(user.token).availableVenueIds(start, end),
+          activeVenues: () => searchFor(user.token).activeVenues(),
+          options: () => searchFor(user.token).options(),
+        },
+      }),
     };
   }
 
@@ -95,6 +107,25 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date) {
     asyncHandler(async (req, res) => {
       const { caller, service } = await context(res.locals.user as SessionUser);
       res.status(201).json(toSubmittedBookingDto(await service.acceptSuggestion(caller, String(req.params.id), req.body)));
+    }),
+  );
+
+  // 107-S1: the venues that could replace a booking flagged as unavailable.
+  router.get(
+    "/venue-bookings/:id/replacement-candidates",
+    asyncHandler(async (req, res) => {
+      const { caller, replacements } = await context(res.locals.user as SessionUser);
+      res.set("Cache-Control", "no-store").json(await replacements.candidates(caller, String(req.params.id)));
+    }),
+  );
+
+  // 107-S2: request a replacement for a flagged booking; body { venueId, overrideReason? }.
+  router.post(
+    "/venue-bookings/:id/replacement",
+    asyncHandler(async (req, res) => {
+      const { caller, replacements } = await context(res.locals.user as SessionUser);
+      const original = String(req.params.id);
+      res.status(201).json({ ...toSubmittedBookingDto(await replacements.replace(caller, original, req.body)), replaces: original });
     }),
   );
 
