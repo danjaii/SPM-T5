@@ -20,7 +20,7 @@ export default async function AccessDeniedPage() {
   const { role } = shell.user;
 
   return (
-    <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <Card className="w-full max-w-md text-center">
         <CardHeader className="items-center justify-items-center gap-3">
           <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-status-danger text-status-danger-fg">
