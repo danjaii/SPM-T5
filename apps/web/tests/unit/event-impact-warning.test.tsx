@@ -83,7 +83,7 @@ function raiseAttendanceAndSave() {
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 }
 
-const warning = () => screen.findByRole("region", { name: "Affected arrangements" });
+const warning = () => screen.findByRole("dialog", { name: "Check affected arrangements" });
 
 // end of test setup
 
@@ -95,7 +95,7 @@ describe("SCRUM-112/AC1, AC2, AC3 the warning lists the affected arrangements", 
 
     const panel = within(await warning());
     expect(panel.getByText("This change may affect existing arrangements. Check them before saving.")).toBeTruthy();
-    const items = panel.getAllByRole("listitem").filter((li) => li.className === "impact__item");
+    const items = panel.getAllByTestId("affected-item");
     expect(items).toHaveLength(2);
     expect(items[0].textContent).toContain("Venue booking: Orchid Hall");
     expect(items[0].textContent).toContain("Sat, 12 Dec 2099, 10:00 AM – 12:00 PM");
@@ -128,7 +128,7 @@ describe("SCRUM-112/AC4 Go back", () => {
 
     fireEvent.click(within(await warning()).getByRole("button", { name: "Go back" }));
 
-    expect(screen.queryByRole("region", { name: "Affected arrangements" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(push).not.toHaveBeenCalled();
     expect((screen.getByLabelText("Expected attendance") as HTMLInputElement).value).toBe("600");
@@ -139,9 +139,9 @@ describe("SCRUM-112/AC4 Go back", () => {
     raiseAttendanceAndSave();
     await warning();
 
-    fireEvent.change(screen.getByLabelText("Expected attendance"), { target: { value: "700" } });
+    fireEvent.change(screen.getByLabelText("Expected attendance", { selector: "input" }), { target: { value: "700" } });
 
-    expect(screen.queryByRole("region", { name: "Affected arrangements" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
 
@@ -152,6 +152,26 @@ describe("SCRUM-112/AC6 no warning when nothing is affected", () => {
     raiseAttendanceAndSave();
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/events/evt-1?saved=1"));
-    expect(screen.queryByRole("region", { name: "Affected arrangements" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("SCRUM-128/AC2, AC3 the warning is a dialog over the form", () => {
+  it("SCRUM-128/AC2: Save changes on an important change opens the dialog naming each affected booking and reservation", async () => {
+    mockServer([409, confirmImpact]);
+    raiseAttendanceAndSave();
+    const dialog = within(await warning());
+    expect(dialog.getByText("Venue booking: Orchid Hall")).toBeTruthy();
+    expect(dialog.getByText("Equipment request: Projector × 2")).toBeTruthy();
+  });
+
+  it("SCRUM-128/AC3: Go back returns to the form with nothing saved", async () => {
+    const fetchMock = mockServer([409, confirmImpact]);
+    raiseAttendanceAndSave();
+    fireEvent.click(within(await warning()).getByRole("button", { name: "Go back" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sentBody(fetchMock, 0).confirmImpact).toBeUndefined();
+    expect(push).not.toHaveBeenCalled();
   });
 });

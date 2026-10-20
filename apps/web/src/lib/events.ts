@@ -5,6 +5,10 @@ export interface EventStatusView {
   id: string;
   name: string;
   status: string;
+  /** SCRUM-127/AC2: for a rejected or cancelled event, the status it had before, so the stepper can show where it stopped. */
+  previous_status?: string | null;
+  /** The assigned coordinator's name, or null while unassigned; the stepper shows a submitted event as Assigned once it has one. */
+  point_of_contact_name?: string | null;
   /** Whether the viewer may change the status (event-service decides: the assigned coordinator only). */
   canChangeStatus: boolean;
   /** SCRUM-66: whether the viewer is the event's organiser, and may raise a change request in its current status. */

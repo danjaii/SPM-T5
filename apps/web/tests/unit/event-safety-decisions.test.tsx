@@ -18,11 +18,14 @@ describe("SCRUM-100/AC7 view requested changes", () => {
     expect(section.getByText("Move the stage clear of fire exit B")).toBeTruthy();
   });
 
-  it.each([
-    ["none were requested", []],
-    ["the viewer may not see them", null],
-  ])("SCRUM-100/AC7 leaves the section out when %s", (_, decisions) => {
-    const { container } = render(<EventSafetyDecisions decisions={decisions} />);
+  it("SCRUM-100/AC7 says so when none were requested", () => {
+    render(<EventSafetyDecisions decisions={[]} />);
+
+    expect(screen.getByText("No safety decision has been made on this event yet.")).toBeTruthy();
+  });
+
+  it("SCRUM-100/AC7 leaves the section out when the viewer may not see them", () => {
+    const { container } = render(<EventSafetyDecisions decisions={null} />);
 
     expect(container.innerHTML).toBe("");
   });

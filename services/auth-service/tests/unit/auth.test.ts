@@ -245,7 +245,7 @@ describe("US3 — Role based access", () => {
     const res = await request(app).get("/dashboard").set("Cookie", cookie);
 
     const [myEvents, myBookings] = res.body.sections;
-    expect(myEvents.columns).toContainEqual({ key: "status", label: "Status", linkKey: "statusHref" });
+    expect(myEvents.columns).toContainEqual({ key: "status", label: "Status", linkKey: "statusHref", statusKey: "statusKey" });
     expect(myEvents.rows).toEqual([expect.objectContaining({ status: "under review", statusHref: "/events/evt-1" })]);
     expect(myBookings.columns.some((c: Row) => c.linkKey)).toBe(false);
 
@@ -270,7 +270,7 @@ describe("US3 — Role based access", () => {
 
     const [myEvents] = res.body.sections;
     expect(myEvents.columns).toContainEqual({ key: "name", label: "Event", linkKey: "eventHref" });
-    expect(myEvents.columns).toContainEqual({ key: "status", label: "Status", linkKey: "eventHref" });
+    expect(myEvents.columns).toContainEqual({ key: "status", label: "Status", linkKey: "eventHref", statusKey: "statusKey" });
     expect(myEvents.rows).toEqual([expect.objectContaining({ name: "My conference", eventHref: "/events/evt-2" })]);
   });
 

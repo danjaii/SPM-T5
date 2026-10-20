@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const event = { id: "evt-1", name: "Tech Summit", status: "under_review", canChangeStatus: false, canReview: false };
 
@@ -21,7 +23,7 @@ describe("Event status page", () => {
     render(<EventStatusPanel event={event} />);
 
     expect(screen.getByRole("heading", { name: "Tech Summit" })).toBeTruthy();
-    expect(screen.getByText("Under review")).toBeTruthy();
+    expect(screen.getByText("Under Review")).toBeTruthy();
   });
 
   // SCRUM-8 AC4 + AC6: only the assigned coordinator gets the controls to change the status
@@ -42,7 +44,7 @@ describe("Event status page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Status updated to Returned.")).toBeTruthy();
-    expect(screen.getByText("Returned", { selector: ".status-badge" })).toBeTruthy(); // the shown status updates too
+    expect(screen.getByText("Returned", { selector: "header [data-tone]" })).toBeTruthy(); // the shown status updates too
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:4002/events/evt-1/status");
     expect(options).toMatchObject({ method: "PATCH", credentials: "include" });
@@ -57,7 +59,7 @@ describe("Event status page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Only the coordinator assigned to this event can change its status.")).toBeTruthy();
-    expect(screen.getByText("Under review", { selector: ".status-badge" })).toBeTruthy(); // the shown status stays the same
+    expect(screen.getByText("Under Review", { selector: "header [data-tone]" })).toBeTruthy(); // the shown status stays the same
   });
 });
 
@@ -71,7 +73,7 @@ describe("SCRUM-45 — Start reviewing an event request", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start review" }));
 
     expect(await screen.findByText("Status updated to Under review.")).toBeTruthy();
-    expect(screen.getByText("Under review", { selector: ".status-badge" })).toBeTruthy();
+    expect(screen.getByText("Under Review", { selector: "header [data-tone]" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Start review" })).toBeNull(); // AC3: no longer submitted
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:4002/events/evt-1/status");
@@ -95,15 +97,15 @@ describe("SCRUM-24 — Decision on the event page", () => {
     render(<EventStatusPanel event={{ ...event, canReview: true }} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Approve request" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes, approve" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve request" }));
 
     expect(await screen.findByText("Status updated to Approved.")).toBeTruthy();
-    expect(screen.getByText("Approved", { selector: ".status-badge" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Approve request" })).toBeNull(); // no second decision
+    expect(screen.getByText("Approved", { selector: "header [data-tone]" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve request" })).toBeNull(); // no second decision (dialog closed, actions gone)
   });
 
   it("AC5: shows no decision to someone who may not review", () => {
     render(<EventStatusPanel event={event} />);
-    expect(screen.queryByRole("heading", { name: "Decision" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Review this request" })).toBeNull();
   });
 });

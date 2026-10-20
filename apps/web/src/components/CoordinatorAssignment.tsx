@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EmptyNote, EventSection } from "@/components/event/EventSection";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fetchAssignmentHistory, type AssignmentRecord } from "@/lib/events";
 
 // SCRUM-43: no recorded changes. Not "nobody assigned": an event can have a coordinator from before logging began.
@@ -31,48 +33,40 @@ export function CoordinatorAssignment({ eventId, coordinatorName }: Props) {
 
   return (
     <>
-      <section className="event-section" aria-labelledby="coordinator-heading">
-        <h2 id="coordinator-heading">Coordinator</h2>
-        <div className="event-detail-card">
-          <div className="event-coordinator">
-            <p className="event-coordinator__name">
-              {coordinatorName ?? <span className="event__missing">Not yet assigned</span>}
-            </p>
-          </div>
-        </div>
-      </section>
+      <EventSection id="coordinator-heading" title="Coordinator">
+        <p className="text-sm font-semibold">
+          {coordinatorName ?? <span className="font-normal text-muted-foreground">Not yet assigned</span>}
+        </p>
+      </EventSection>
 
-      <section className="event-section" aria-labelledby="history-heading">
-        <h2 id="history-heading">Assignment history</h2>
+      <EventSection id="history-heading" title="Assignment history">
         {history === undefined ? (
-          <p className="event-detail-card event-detail-card--quiet" role="status">Loading history…</p>
+          <EmptyNote role="status">Loading history…</EmptyNote>
         ) : history.length === 0 ? (
-          <p className="event-detail-card event-detail-card--quiet">{NO_HISTORY}</p>
+          <EmptyNote>{NO_HISTORY}</EmptyNote>
         ) : (
-          <div className="event-detail-card event-detail-card--table">
-            <table>
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Assigned to</th>
-                  <th>Previously</th>
-                  <th>By</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((h) => (
-                  <tr key={`${h.assigned_at}-${h.coordinator_id}`}>
-                    <td>{formatDateTime(h.assigned_at)}</td>
-                    <td>{h.coordinator_name ?? "—"}</td>
-                    <td>{h.previous_coordinator_name ?? "—"}</td>
-                    <td>{h.assigned_by_name ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>When</TableHead>
+                <TableHead>Assigned to</TableHead>
+                <TableHead>Previously</TableHead>
+                <TableHead>By</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {history.map((h) => (
+                <TableRow key={`${h.assigned_at}-${h.coordinator_id}`}>
+                  <TableCell>{formatDateTime(h.assigned_at)}</TableCell>
+                  <TableCell>{h.coordinator_name ?? "—"}</TableCell>
+                  <TableCell>{h.previous_coordinator_name ?? "—"}</TableCell>
+                  <TableCell>{h.assigned_by_name ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </section>
+      </EventSection>
     </>
   );
 }

@@ -12,8 +12,8 @@ export default function ReviewQueuePage() {
           Back to dashboard
         </Link>
       </AppHeader>
-      <main className="mx-auto w-full max-w-5xl p-6">
-        <h1 className="mb-4 text-2xl font-semibold">Review event requests</h1>
+      <main className="dash__main">
+        <h1 className="mb-4">Review event requests</h1>
         <ReviewQueue />
       </main>
     </>

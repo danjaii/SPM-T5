@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 
 function createFake() {
   const sessions = new Map<string, string>();
-  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_categories: [], event_comments: [], event_comment_mentions: [], event_comment_attachments: [] };
+  const tables: Record<string, Row[]> = { users: [], events: [], room_layouts: [], event_categories: [], event_comments: [], event_comment_mentions: [], event_comment_attachments: [], event_status_history: [] };
   const rpcCalls: Array<{ fn: string; args: Row }> = [];
 
   const makeQuery = (table: string) => {
@@ -65,6 +65,7 @@ function createFake() {
         orClauses.push(filter);
         return builder;
       },
+      limit: (_n: number) => builder,
       order: (col: string, opts?: { ascending?: boolean }) => {
         orderCol = col;
         orderAsc = opts?.ascending !== false;
@@ -204,6 +205,7 @@ describe("SCRUM-22/AC1 — View submitted requests", () => {
       status: "submitted",
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
     };
     fake.tables.events.push(event);
 
@@ -301,7 +303,7 @@ describe("SCRUM-22/AC2 — Default request visibility", () => {
     expect(res.body[0].id).toBe(myEvent.id);
   });
 
-  it("also shows unassigned events alongside the coordinator's own assigned events", async () => {
+  it("SCRUM-126/AC4 shows only the events assigned to the coordinator, not unassigned ones", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser");
     const coordinator = fake.signIn("event_coordinator");
@@ -338,10 +340,7 @@ describe("SCRUM-22/AC2 — Default request visibility", () => {
       .set("Cookie", coordinator.cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(2);
-    const ids = res.body.map((e: { id: string }) => e.id);
-    expect(ids).toContain(myEvent.id);
-    expect(ids).toContain(unassignedEvent.id);
+    expect(res.body.map((e: { id: string }) => e.id)).toEqual([myEvent.id]);
   });
 
   it("hides events assigned to a different coordinator", async () => {
@@ -378,8 +377,8 @@ describe("SCRUM-22/AC3 — Search requests", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Tech Summit 2026", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Art Fair", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Tech Summit 2026", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Art Fair", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -398,8 +397,8 @@ describe("SCRUM-22/AC3 — Search requests", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Event A", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser1.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Event B", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser2.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Event A", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser1.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Event B", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser2.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -417,8 +416,8 @@ describe("SCRUM-22/AC3 — Search requests", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Event A", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Event B", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Event A", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Event B", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -440,7 +439,7 @@ describe("SCRUM-22/AC3 — Search requests", () => {
       status: "submitted",
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_id: organiser.id,
-      assigned_coordinator_id: null,
+      assigned_coordinator_id: coordinator.id,
     });
 
     const res = await request(createApp(fake.deps))
@@ -462,8 +461,8 @@ describe("SCRUM-22/AC4 — Filter by status", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -481,9 +480,9 @@ describe("SCRUM-22/AC4 — Filter by status", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Approved Event", status: "approved", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Approved Event", status: "approved", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -503,8 +502,8 @@ describe("SCRUM-22/AC4 — Filter by status", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Under Review Event", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -527,8 +526,8 @@ describe("SCRUM-22/AC5 — Filter by submission date", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Early Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Late Event", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Early Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Late Event", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -546,8 +545,8 @@ describe("SCRUM-22/AC5 — Filter by submission date", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Early Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Late Event", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Early Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Late Event", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -565,9 +564,9 @@ describe("SCRUM-22/AC5 — Filter by submission date", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Event 1 Sep", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Event 2 Sep", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Event 3 Sep", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Event 1 Sep", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Event 2 Sep", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Event 3 Sep", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -587,8 +586,8 @@ describe("SCRUM-22/AC5 — Filter by submission date", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Event A", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Event B", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Event A", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Event B", status: "submitted", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -610,9 +609,9 @@ describe("SCRUM-22/AC6 — Combine search and filters", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Tech Gala", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Art Fair", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Tech Gala", status: "under_review", submitted_at: "2026-09-02T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Art Fair", status: "submitted", submitted_at: "2026-09-03T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -630,9 +629,9 @@ describe("SCRUM-22/AC6 — Combine search and filters", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Old Submitted", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "New Submitted", status: "submitted", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "New Review", status: "under_review", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Old Submitted", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "New Submitted", status: "submitted", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "New Review", status: "under_review", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -650,10 +649,10 @@ describe("SCRUM-22/AC6 — Combine search and filters", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Tech Summit Sep1", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Tech Summit Sep5", status: "submitted", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Tech Gala Sep1", status: "under_review", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
-      { id: crypto.randomUUID(), name: "Art Fair Sep1", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Tech Summit Sep1", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Tech Summit Sep5", status: "submitted", submitted_at: "2026-09-05T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Tech Gala Sep1", status: "under_review", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
+      { id: crypto.randomUUID(), name: "Art Fair Sep1", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -713,6 +712,7 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_name: "Alice Johnson",
       point_of_contact_name: null,
+      previous_status: null,
       description: null, // SCRUM-111/AC5
       category_name: null,
       venue_requirements: null,
@@ -764,6 +764,7 @@ describe("SCRUM-23/AC1 — Open a request", () => {
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_name: "Bob Smith",
       point_of_contact_name: null,
+      previous_status: null,
       description: null, // SCRUM-111/AC5
       category_name: null,
       venue_requirements: null,
@@ -1068,7 +1069,7 @@ describe("SCRUM-22/AC7 — No matching requests", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -1085,7 +1086,7 @@ describe("SCRUM-22/AC7 — No matching requests", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Submitted Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -1102,7 +1103,7 @@ describe("SCRUM-22/AC7 — No matching requests", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Sep Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Sep Event", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -1119,7 +1120,7 @@ describe("SCRUM-22/AC7 — No matching requests", () => {
     const coordinator = fake.signIn("event_coordinator");
 
     fake.tables.events.push(
-      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: null },
+      { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", submitted_at: "2026-09-01T10:00:00.000Z", organiser_id: organiser.id, assigned_coordinator_id: coordinator.id },
     );
 
     const res = await request(createApp(fake.deps))
@@ -2907,5 +2908,37 @@ describe("SCRUM-44 — View event request review outcome", () => {
     const fake = createFake();
 
     expect((await request(createApp(fake.deps)).get(`/events/${eventId}/outcome`)).status).toBe(401);
+  });
+});
+
+describe("SCRUM-127/AC2 — Where a rejected or cancelled event stopped", () => {
+  const stopped = async (status: string, history: Array<{ old_status: string; new_status: string; changed_at: string }>) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser", "Alice Johnson");
+    const eventId = crypto.randomUUID();
+    fake.tables.events.push({ id: eventId, name: "Tech Summit", status, organiser_id: organiser.id });
+    fake.tables.event_status_history.push(...history.map((h) => ({ event_id: eventId, ...h })));
+    return request(createApp(fake.deps)).get(`/events/${eventId}`).set("Cookie", organiser.cookie);
+  };
+
+  it("returns the status a cancelled event had before it was cancelled", async () => {
+    const res = await stopped("cancelled", [
+      { old_status: "planning", new_status: "cancelled", changed_at: "2026-10-02T00:00:00Z" },
+      { old_status: "approved", new_status: "planning", changed_at: "2026-10-01T00:00:00Z" },
+    ]);
+    expect(res.body.previous_status).toBe("planning");
+  });
+
+  it("uses the latest rejection when there is more than one", async () => {
+    const res = await stopped("rejected", [
+      { old_status: "under_review", new_status: "rejected", changed_at: "2026-10-03T00:00:00Z" },
+      { old_status: "submitted", new_status: "rejected", changed_at: "2026-10-01T00:00:00Z" },
+    ]);
+    expect(res.body.previous_status).toBe("under_review");
+  });
+
+  it("is null for an event that was not stopped, or has no history", async () => {
+    expect((await stopped("planning", [])).body.previous_status).toBeNull();
+    expect((await stopped("cancelled", [])).body.previous_status).toBeNull();
   });
 });

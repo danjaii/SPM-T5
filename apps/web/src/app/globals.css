@@ -275,8 +275,8 @@ a { color: var(--steel-dark); }
 .reg-summary { margin-bottom: 16px; }
 .reg-summary th, .reg-summary td { text-align: center; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8; vertical-align: top; }
-th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
+:where(table:not([data-slot="table"])) :is(th, td) { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8; vertical-align: top; }
+:where(table:not([data-slot="table"])) th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
 tr:last-child td { border-bottom: 0; }
 .empty { padding: 18px 14px; color: var(--subtle); }
 
@@ -311,7 +311,7 @@ tr:last-child td { border-bottom: 0; }
 /* ---------- Event details page layout (SCRUM-23/24/42/43/45) ----------
    One centred column; every section is a heading + white card with the same spacing, so the page reads
    top to bottom: header, actions, request details, coordinator, history, venue, change status. */
-.event-page { max-width: 820px; margin: 0 auto; }
+.event-page { max-width: 1120px; margin: 0 auto; }
 .event-header h1 { font-size: 30px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .event-header .event__status { margin: 12px 0 0; }
 .event-panel > .alert { margin: 20px 0 0; }

@@ -73,16 +73,16 @@ describe("SCRUM-111/AC2 the edit form (111-S4, 111-S5)", () => {
     expect(box("Date").value).toBe("2099-12-12");
     expect(box("Start time").value).toBe("09:00");
     expect(box("Expected attendance").value).toBe("120");
-    expect((screen.getByLabelText("Category") as HTMLSelectElement).value).toBe("cat-conference");
-    expect((screen.getByLabelText("Room layout") as HTMLSelectElement).value).toBe("layout-theatre");
+    expect(screen.getByLabelText("Category").textContent).toContain("Conference");
+    expect(screen.getByLabelText("Room layout").textContent).toContain("Theatre");
     expect(box("Venue requirements").value).toBe("Stage");
   });
 
   it("111-S5 shows ordinary and important fields in two groups", () => {
     render(<EventDetailsForm eventId="evt-1" form={form} />);
 
-    const ordinary = screen.getByRole("group", { name: "Event details" });
-    const important = screen.getByRole("group", { name: "Important details" });
+    const ordinary = screen.getByRole("region", { name: "Event details" });
+    const important = screen.getByRole("region", { name: "Important details" });
     for (const label of ["Event name", "Description", "Purpose", "Category"]) expect(within(ordinary).getByLabelText(label)).toBeTruthy();
     for (const label of ["Date", "Start time", "End date", "End time", "Expected attendance", "Room layout", "Accessibility needs", "Venue requirements", "Equipment requirements"]) {
       expect(within(important).getByLabelText(label)).toBeTruthy();
@@ -94,7 +94,8 @@ describe("SCRUM-111/AC2 the edit form (111-S4, 111-S5)", () => {
     render(<EventDetailsForm eventId="evt-1" form={form} />);
 
     expect(screen.getAllByText(IMPORTANT)).toHaveLength(9);
-    expect(box("Expected attendance").getAttribute("aria-describedby")).toBe("expectedAttendance-important");
+    expect(box("Expected attendance").getAttribute("aria-describedby")).toBe("expectedAttendance-message");
+    expect(document.getElementById("expectedAttendance-message")?.textContent).toBe(IMPORTANT);
     expect(box("Event name").getAttribute("aria-describedby")).toBeNull();
   });
 });
@@ -215,7 +216,7 @@ describe("SCRUM-111/AC4 the change history on the event page (111-S13)", () => {
   it("111-S13 lists each save, newest first: when, who, Important or not, and each field's old and new value", () => {
     render(<EventChangeHistory entries={entries} />);
 
-    const [newest, oldest] = screen.getAllByRole("listitem").filter((li) => li.classList.contains("event-detail-card"));
+    const [newest, oldest] = screen.getAllByRole("listitem").filter((li) => li.textContent?.includes("Rachel Tan"));
     expect(newest.textContent).toContain("Rachel Tan");
     expect(within(newest).getByText("Important")).toBeTruthy();
     expect(newest.textContent).toContain("Expected attendance: 100 → 120");

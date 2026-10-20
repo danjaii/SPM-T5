@@ -11,7 +11,7 @@ const BOOKING_COLUMNS =
 interface Section {
   title: string;
   /** linkKey: the row field holding a link for this column's value (the web app renders it as a link). */
-  columns: { key: string; label: string; linkKey?: string }[];
+  columns: { key: string; label: string; linkKey?: string; statusKey?: string }[];
   rows: Row[];
 }
 
@@ -72,10 +72,10 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
         title: "My event requests",
         columns: [
           // SCRUM-66/AC1: the event page holds the change request form, so the organiser reaches it by clicking the event
-          { key: "name", label: "Event", linkKey: "eventHref" }, { key: "status", label: "Status", linkKey: "eventHref" },
+          { key: "name", label: "Event", linkKey: "eventHref" }, { key: "status", label: "Status", linkKey: "eventHref", statusKey: "statusKey" },
           { key: "start", label: "Preferred start" }, { key: "attendance", label: "Expected attendance" },
         ],
-        rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), eventHref: `/events/${e.id}`, start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
+        rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), statusKey: cell(e.status), eventHref: `/events/${e.id}`, start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
       }];
     }
     case "event_coordinator": {
@@ -90,10 +90,10 @@ async function sectionsFor(role: Role, userId: string, db: Db, rows: Fetch): Pro
           title: "Events I coordinate",
           columns: [
             // SCRUM-8 UI: these are the coordinator's assigned events, so they may change each status — link to the page for it
-            { key: "name", label: "Event" }, { key: "status", label: "Status", linkKey: "statusHref" },
+            { key: "name", label: "Event" }, { key: "status", label: "Status", linkKey: "statusHref", statusKey: "statusKey" },
             { key: "start", label: "Starts" }, { key: "attendance", label: "Expected attendance" },
           ],
-          rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), statusHref: `/events/${e.id}`, start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
+          rows: events.map((e) => ({ name: cell(e.name), status: status(e.status), statusKey: cell(e.status), statusHref: `/events/${e.id}`, start: date(e.preferred_start_datetime), attendance: cell(e.expected_attendance) })),
         },
         {
           title: "My venue booking requests",

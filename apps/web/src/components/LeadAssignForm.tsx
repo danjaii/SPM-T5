@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { leadChangeCoordinator } from "@/lib/lead";
 import type { LeadCoordinator } from "@/lib/leadServer";
 
@@ -12,6 +14,8 @@ interface Props {
   eventName: string;
   /** The Lead's eligible coordinators; for a reassignment, without the current one (SCRUM-79/AC2). */
   coordinators: LeadCoordinator[];
+  /** The coordinator a reassignment takes the event from; they are told too (SCRUM-126/AC3). */
+  currentName?: string;
   /** Where Cancel goes (SCRUM-78/AC8, SCRUM-79/AC7). */
   cancelHref?: string;
 }
@@ -33,17 +37,15 @@ const TEXT = {
   },
 };
 
-/** One dropdown option: the coordinator and their workload (SCRUM-78/AC1, SCRUM-79/AC2). */
-function coordinatorOption(c: LeadCoordinator) {
-  return `${c.full_name} — ${c.workload} active ${c.workload === 1 ? "event" : "events"}`;
-}
+/** SCRUM-78/AC1, SCRUM-79/AC2, SCRUM-126/AC2: a coordinator's current workload. */
+const workloadText = (c: LeadCoordinator) => `${c.workload} active ${c.workload === 1 ? "event" : "events"}`;
 
 // The Lead picks one of their eligible coordinators, each shown with their workload (SCRUM-78/AC1, SCRUM-79/AC2), then
 // confirms (SCRUM-78/AC2-AC3, SCRUM-79/AC3) or cancels, which sends nothing (SCRUM-78/AC8, SCRUM-79/AC7). event-service
 // and the database decide whether the change stands (SCRUM-78/AC5, AC7, AC9; SCRUM-79/AC5, AC6, AC9).
-export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinators, cancelHref = "/lead/queue" }: Props) {
+export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinators, currentName, cancelHref = "/lead/queue" }: Props) {
   const text = TEXT[mode];
-  const [choice, setChoice] = useState("");
+  const [choice, setChoice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [assignedTo, setAssignedTo] = useState<string>();
@@ -57,7 +59,11 @@ export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinato
   if (assignedTo) {
     return (
       <>
-        <p className="alert alert--success" role="status">{eventName} is now assigned to {assignedTo}.</p>
+        <p className="alert alert--success" role="status">
+          {eventName} is now assigned to {assignedTo}.{" "}
+          {/* SCRUM-126/AC3: event-service's trigger notifies the new coordinator and, on a reassignment, the previous one */}
+          {currentName ? `${assignedTo} and ${currentName} have been notified.` : `${assignedTo} has been notified.`}
+        </p>
         <Link href={text.back.href}>{text.back.label}</Link>
       </>
     );
@@ -77,20 +83,31 @@ export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinato
     <>
       {error && <div className="alert alert--error" role="alert">{error}</div>}
       <div className="field">
-        <label htmlFor="coordinator">Event Coordinator</label>
-        <select id="coordinator" value={choice} onChange={(e) => setChoice(e.target.value)}>
-          <option value="" disabled>Select a coordinator</option>
-          {coordinators.map((c) => (
-            <option key={c.id} value={c.id}>{coordinatorOption(c)}</option>
-          ))}
-        </select>
+        <label id="coordinator-label">Event Coordinator</label>
+        <Select value={choice} onValueChange={setChoice}>
+          <SelectTrigger aria-labelledby="coordinator-label" className="w-full">
+            <SelectValue placeholder="Select a coordinator">
+              {(value: string | null) => coordinators.find((c) => c.id === value)?.full_name ?? "Select a coordinator"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent alignItemWithTrigger={false}>
+            {coordinators.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                <span className="flex flex-col">
+                  <span className="font-medium">{c.full_name}</span>
+                  <span className="text-xs text-muted-foreground">{workloadText(c)}</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <p className="field__hint">Active events is each coordinator&apos;s current workload.</p>
       </div>
       <div className="event-buttons">
-        <button className="btn" type="button" disabled={!choice || busy} onClick={confirm}>
+        <Button type="button" disabled={!choice || busy} onClick={confirm}>
           {busy ? text.busy : text.confirm}
-        </button>
-        <Link className="btn btn--secondary" href={cancelHref}>Cancel</Link>
+        </Button>
+        <Link className={buttonVariants({ variant: "secondary" })} href={cancelHref}>Cancel</Link>
       </div>
     </>
   );

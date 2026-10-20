@@ -41,6 +41,7 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
       "safety_changes_requested",
       "clarification_requested",
       "clarification_answered",
+      "coordinator_reassigned",
     ]);
   });
 });
@@ -63,6 +64,7 @@ describe("SCRUM-47/AC11 whether a notification needs the reader to act (47-S11)"
     ["safety_rejected", false],
     ["clarification_requested", true], // 47-S2
     ["clarification_answered", true], // 47-S3
+    ["coordinator_reassigned", false], // SCRUM-126/AC3: information only
   ])("47-S11: %s → %s", (type, expected) => {
     expect(notificationRequiresAction(type)).toBe(expected);
   });
