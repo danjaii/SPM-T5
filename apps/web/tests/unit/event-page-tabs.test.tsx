@@ -30,13 +30,13 @@ describe("SCRUM-127/AC1 event page tabs", () => {
     expect(screen.getByText("tab body")).toBeTruthy();
   });
 
-  it("keeps the decision and Change status on the overview only", () => {
+  it("keeps Change status on the overview only; the review actions sit beside the title on every tab (SCRUM-125/AC1)", () => {
     const { unmount } = render(<EventStatusPanel event={event} activeTab="overview" />);
-    expect(screen.getByRole("heading", { name: "Decision" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Approve request" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Change status" })).toBeTruthy();
     unmount();
     render(<EventStatusPanel event={event} activeTab="venues" />);
-    expect(screen.queryByRole("heading", { name: "Decision" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Approve request" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Change status" })).toBeNull();
   });
 });

@@ -112,6 +112,17 @@ export function leadRoutes(deps: SupabaseDeps) {
     return res.json(data ?? []);
   });
 
+  // SCRUM-126: the figures beside the queue (events this month, the next event, reassignments this week), from lead_queue_summary()
+  router.get("/summary", async (_req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const { data, error } = await deps.forUser(token).rpc("lead_queue_summary");
+    if (error) {
+      console.error("lead_queue_summary failed:", error.message);
+      return res.status(500).json({ error: "We couldn't load the queue summary. Please try again." });
+    }
+    return res.json((data as unknown[] | null)?.[0] ?? null);
+  });
+
   // SCRUM-81/AC1, AC3-AC6: the Lead's active coordinators with their workload counts (lead_coordinator_overview())
   router.get("/coordinators", async (_req, res) => {
     const { token } = res.locals.user as SessionUser;

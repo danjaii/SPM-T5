@@ -21,7 +21,7 @@ export function ReviewQueueTable({ events }: { events: ReviewQueueItem[] }) {
       <TableBody>
         {events.map((event) => (
           <TableRow key={event.id}>
-            <TableCell className="font-medium">
+            <TableCell className="font-semibold text-foreground">
               {/* SCRUM-23/AC1: open the full request from the list */}
               <Link href={`/events/${encodeURIComponent(event.id)}`} className="underline-offset-4 hover:underline">
                 {event.name}

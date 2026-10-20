@@ -34,6 +34,11 @@ export function canViewVenueCatalogue(role: Role): boolean {
   return role === "event_coordinator" || role === "venue_staff";
 }
 
+/** SCRUM-49: only event organisers create event requests */
+export function canCreateEventRequests(role: Role): boolean {
+  return role === "event_organiser";
+}
+
 /** SCRUM-69: the staff who work inside ConnectSphere (the roles marked Internal in CLAUDE.md). The rest are external. */
 const INTERNAL_ROLES: readonly Role[] = [
   "event_coordinator",
