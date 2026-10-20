@@ -4,6 +4,9 @@
   "packageManager": "pnpm@12.6.0",
   "scripts": {
     "dev": "pnpm --parallel --filter @spm-t5/web --filter @spm-t5/auth-service --filter @spm-t5/event-service --filter @spm-t5/venue-service --filter @spm-t5/equipment-service --filter @spm-t5/notification-service run dev",
+    "env:local": "node scripts/use-env.mjs local",
+    "env:hosted": "node scripts/use-env.mjs hosted",
+    "check:web": "pnpm --filter @spm-t5/web run typecheck && pnpm --filter @spm-t5/web run lint && pnpm --filter @spm-t5/web run test:unit",
     "test:all": "pnpm -r --if-present run test",
     "lint:all": "pnpm -r --if-present run lint",
     "build:all": "pnpm -r --if-present run build"

@@ -1,6 +1,6 @@
 // SCRUM-116 — the Safety Officer signs in through the usual sign-in page and lands on their own home page
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // Pretend the loading helper (tested in its own file), so these tests are only about the pages
@@ -22,10 +22,11 @@ const dashboard = {
 // ---------------------------------------------------------------------------
 describe("SCRUM-116 — Safety Officer sign-in and home page", () => {
   // AC4: the Safety Officer signs in on the same page as everyone else, choosing their role
-  it("SCRUM-116/AC4 offers Safety Officer as a role on the sign-in page", () => {
+  it("SCRUM-116/AC4 offers Safety Officer as a role on the sign-in page", async () => {
     render(<LoginForm />);
 
-    expect(screen.getByRole("radio", { name: /Safety Officer/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("combobox", { name: /Continue as/ }));
+    expect(await screen.findByRole("option", { name: /Safety Officer/ })).toBeTruthy();
   });
 
   // AC4: after signing in, the Safety Officer lands on their own home page

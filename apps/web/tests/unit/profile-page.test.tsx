@@ -35,7 +35,9 @@ describe("SCRUM-68 profile page (/profile)", () => {
 
     expect(screen.getByRole("heading", { name: "My profile" })).toBeTruthy();
     expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Rachel Tan");
-    expect(screen.getByRole("link", { name: /back to dashboard/i }).getAttribute("href")).toBe("/dashboard");
+    // SCRUM-122/AC13: the shell is the way back; the page carries no top bar or back link of its own
+    expect(screen.queryByRole("link", { name: /back to dashboard/i })).toBeNull();
+    expect(screen.queryByRole("banner")).toBeNull();
   });
   // end of showing the profile
   // If the profile could not be loaded (the service is down, say), the page shows that message instead of a form.

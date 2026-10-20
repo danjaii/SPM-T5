@@ -77,14 +77,15 @@ describe("SCRUM-75 — Lead page route guard", () => {
   );
   // end of AC6
 
-  // AC7: anyone else typing a Lead page's URL is sent to their own dashboard, and a guest to sign in
+  // AC7: anyone else typing a Lead page's URL is refused (SCRUM-122/AC3: with the access-denied page, no longer a bounce
+  // to their own dashboard), and a guest is sent to sign in
   it.each(["event_coordinator", "venue_staff", "event_organiser", "attendee", "safety_officer"])(
-    "SCRUM-75/AC7 sends a %s who opens a Lead page by URL to their own dashboard",
+    "SCRUM-75/AC7 sends a %s who opens a Lead page by URL to the access-denied page",
     async (role) => {
       const res = await middleware(new NextRequest("http://localhost:3000/lead/queue", signedInAs(role)));
 
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toBe(`http://localhost:3000/dashboard/${role}`);
+      expect(res.headers.get("location")).toBe("http://localhost:3000/access-denied");
     },
   );
 
@@ -102,3 +103,33 @@ describe("SCRUM-75 — Lead page route guard", () => {
   // end of AC7
 });
 // end of SCRUM-75
+
+// ---------------------------------------------------------------------------
+// SCRUM-122 — a page outside the caller's role shows the access-denied page
+// ---------------------------------------------------------------------------
+describe("SCRUM-122 — Access-denied route guard", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const signedInAs = (role: string) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ role }) }));
+    return { headers: { cookie: `cs_session=token-${role}` } };
+  };
+
+  it.each(["/dashboard/venue_staff", "/booking-queue", "/safety-checks", "/equipment-requests"])(
+    "SCRUM-122/AC3 sends an attendee who opens %s to the access-denied page",
+    async (path) => {
+      const res = await middleware(new NextRequest(`http://localhost:3000${path}`, signedInAs("attendee")));
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("http://localhost:3000/access-denied");
+    },
+  );
+
+  it("SCRUM-122/AC3 lets venue staff open the booking queue", async () => {
+    const res = await middleware(new NextRequest("http://localhost:3000/booking-queue", signedInAs("venue_staff")));
+
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+});
+// end of SCRUM-122
