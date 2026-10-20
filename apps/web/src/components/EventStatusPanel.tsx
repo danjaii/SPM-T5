@@ -2,8 +2,11 @@
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview } from "@spm-t5/shared";
+import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview, type EventStatus } from "@spm-t5/shared";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { changeEventStatus, statusLabel, type EventStatusView } from "@/lib/events";
+import { EVENT_STATUS_DISPLAY } from "@/lib/status";
 import { EventReviewActions } from "./EventReviewActions";
 
 // SCRUM-6/7: shows an event's current status. SCRUM-8: the assigned coordinator can also change it.
@@ -45,11 +48,13 @@ export function EventStatusPanel({ event, children }: { event: EventStatusView; 
 
   return (
     <div className="event-panel">
-      <header className="event-header">
-        <h1>{event.name}</h1>
-        <p className="event__status">
-          Status <span className="status-badge">{statusLabel(status)}</span>
-        </p>
+      {/* SCRUM-125/AC1: the review actions sit beside the name and status, as in the Figma event page. AC6: StatusBadge. */}
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold break-words">{event.name}</h1>
+          <StatusBadge {...(EVENT_STATUS_DISPLAY[status as EventStatus] ?? { label: statusLabel(status) })} />
+        </div>
+        <EventReviewActions eventId={event.id} status={status} canReview={event.canReview} onDecided={showStatus} />
       </header>
 
       {message && (
@@ -62,20 +67,18 @@ export function EventStatusPanel({ event, children }: { event: EventStatusView; 
         <div className="event-buttons">
           {/* SCRUM-45/AC1, AC3, AC5: only the assigned coordinator, and only while the request is submitted. */}
           {showStartReview && (
-            <button className="btn" type="button" disabled={saving} onClick={() => save("under_review", "")}>
+            <Button disabled={saving} onClick={() => save("under_review", "")}>
               {saving ? "Starting…" : "Start review"}
-            </button>
+            </Button>
           )}
           {showVenueLink && (
-            <Link className="btn btn--secondary" href={`/events/${event.id}/venue-request`}>Request a venue</Link>
+            <Link className={buttonVariants({ variant: "outline" })} href={`/events/${event.id}/venue-request`}>Request a venue</Link>
           )}
         </div>
       )}
       {event.canChangeStatus && !canRequestVenue(status) && (
         <p className="field__hint">{VENUE_BOOKING_MESSAGES.EVENT_NOT_ELIGIBLE}</p>
       )}
-
-      <EventReviewActions eventId={event.id} status={status} canReview={event.canReview} onDecided={showStatus} />
 
       {children}
 
@@ -97,7 +100,7 @@ export function EventStatusPanel({ event, children }: { event: EventStatusView; 
               <textarea id="reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
             </div>
             <div className="event-buttons">
-              <button className="btn" type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+              <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
             </div>
           </form>
         </section>
