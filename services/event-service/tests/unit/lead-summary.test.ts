@@ -5,7 +5,7 @@ import type { SupabaseDeps } from "../../src/supabase";
 
 /**
  * SCRUM-126: GET /lead/summary, the figures beside the Lead's queue (events this month, the next event, reassignments this
- * week). The database works them out (lead_queue_summary(), migration 50); these tests cover the route.
+ * week). The database works them out (lead_queue_summary(), migration 51); these tests cover the route.
  */
 type Result = { data: unknown; error: { message: string } | null };
 

@@ -24,7 +24,7 @@ export const NOTIFICATION_TYPES = [
   "safety_changes_requested",
   "clarification_requested",
   "clarification_answered",
-  // SCRUM-126: the coordinator an event was taken from (migration 49)
+  // SCRUM-126: the coordinator an event was taken from (migration 50)
   "coordinator_reassigned",
 ] as const;
 
