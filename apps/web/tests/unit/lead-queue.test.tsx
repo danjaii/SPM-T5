@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { cookieValue, redirect } = vi.hoisted(() => ({
@@ -8,10 +8,11 @@ const { cookieValue, redirect } = vi.hoisted(() => ({
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => (cookieValue.current ? { value: cookieValue.current } : undefined) }),
 }));
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ refresh: vi.fn() }) }));
 
 import LeadQueuePage from "@/app/lead/queue/page";
-import { LeadQueueList, waitingLabel } from "@/components/LeadQueueList";
+import { LeadQueueList } from "@/components/LeadQueueList";
+import { waitingLabel } from "@/lib/leadQueueView";
 import { getLeadQueue, type LeadQueueItem } from "@/lib/leadServer";
 
 const item = (over: Partial<LeadQueueItem> = {}): LeadQueueItem => ({
@@ -25,8 +26,16 @@ const item = (over: Partial<LeadQueueItem> = {}): LeadQueueItem => ({
   ...over,
 });
 
+const COORDINATORS = [{ id: "c-1", full_name: "Rachel Tan", workload: 2 }];
+const SUMMARY = { events_this_month: 9, next_event_name: "Robotics Meetup", next_event_start: "2031-11-14T02:00:00Z", reassigned_this_week: 2 };
+
+// The queue answers with `status` and `body`; the coordinators and the summary beside it always load
 function mockServer(status: number, body: unknown) {
-  const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => body });
+  const fetchMock = vi.fn(async (url: string) => {
+    const answer = url.endsWith("/lead/coordinators") ? COORDINATORS : url.endsWith("/lead/summary") ? SUMMARY : body;
+    const ok = url.endsWith("/lead/queue") ? status < 400 : true;
+    return { ok, status: url.endsWith("/lead/queue") ? status : 200, json: async () => answer };
+  });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -46,21 +55,19 @@ describe("SCRUM-77 — Unassigned event queue page", () => {
     render(<LeadQueueList requests={[item()]} />);
 
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(headers).toEqual(["Event", "Event Organiser", "Preferred date and time", "Expected attendance", "Submitted", "Waiting", "Assign to"]);
+    expect(headers).toEqual(["Event", "Organiser", "Date", "Waiting", "Assign to"]);
     const cells = [...screen.getAllByRole("row")[1].querySelectorAll("td")].map((c) => c.textContent);
-    expect(cells[0]).toBe("Tech Summit");
+    expect(cells[0]).toBe("Tech Summit120 people");
     expect(cells[1]).toBe("Jason Chua");
-    expect(cells[2]).toBe("Sun, 15 Jun 2031, 9:00 AM – 5:00 PM");
-    expect(cells[3]).toBe("120");
-    expect(cells[4]).toBe("2031-01-02 11:04");
+    expect(cells[2]).toBe("15 Jun 2031");
   });
 
   it("SCRUM-77/AC2 says so when a request has no preferred date or attendance yet", () => {
     render(<LeadQueueList requests={[item({ preferred_start_datetime: null, preferred_end_datetime: null, expected_attendance: null })]} />);
 
     const cells = [...screen.getAllByRole("row")[1].querySelectorAll("td")].map((c) => c.textContent);
+    expect(cells[0]).toBe("Tech SummitNot specified");
     expect(cells[2]).toBe("Not specified");
-    expect(cells[3]).toBe("Not specified");
   });
   // end of AC1 + AC2
 
@@ -68,7 +75,7 @@ describe("SCRUM-77 — Unassigned event queue page", () => {
   it("SCRUM-77/AC3 lists the requests in the order received, oldest submission first", () => {
     render(<LeadQueueList requests={[item({ id: "a", name: "Oldest" }), item({ id: "b", name: "Middle" }), item({ id: "c", name: "Newest" })]} />);
 
-    const names = screen.getAllByRole("row").slice(1).map((r) => r.querySelector("td")!.textContent);
+    const names = screen.getAllByRole("row").slice(1).map((r) => r.querySelector("td .font-medium")!.textContent);
     expect(names).toEqual(["Oldest", "Middle", "Newest"]);
   });
   // end of AC3
@@ -93,6 +100,31 @@ describe("SCRUM-77 — Unassigned event queue page", () => {
     );
     expect(screen.getByRole("heading", { name: "Unassigned queue" })).toBeTruthy();
     expect(screen.getByText("Tech Summit")).toBeTruthy();
+  });
+
+  // SCRUM-126/AC1: the four figures above the queue
+  it("SCRUM-126/AC1 shows Unassigned, Active events, Events this month and Reassigned this week above the queue", async () => {
+    mockServer(200, [item()]);
+
+    render(await LeadQueuePage());
+
+    const cards = within(screen.getByRole("list", { name: "Queue summary" })).getAllByRole("listitem").map((li) => li.textContent);
+    expect(cards).toEqual([
+      expect.stringContaining("Unassigned1"),
+      expect.stringContaining("Active events2Across 1 coordinator"),
+      expect.stringContaining("Events this month9Next: Robotics Meetup, 14 Nov 2031"),
+      expect.stringContaining("Reassigned this week2"),
+    ]);
+  });
+
+  it("SCRUM-126/AC2 offers each request's coordinators with their workload, and a workload panel beside the queue", async () => {
+    mockServer(200, [item()]);
+
+    render(await LeadQueuePage());
+
+    expect(screen.getByRole("combobox", { name: "Assign Tech Summit to" })).toBeTruthy();
+    expect(screen.getByText("Coordinator workload")).toBeTruthy();
+    expect(screen.getByText("2 active")).toBeTruthy();
   });
 
   // AC7: if event-service refuses (not a Lead), the page shows its refusal and no requests
@@ -132,8 +164,8 @@ describe("SCRUM-126/AC1 unassigned queue order and waiting time", () => {
     );
 
     const rows = screen.getAllByRole("row").slice(1);
-    expect(rows.map((r) => r.querySelector("td")!.textContent)).toEqual(["Oldest", "Newer", "Newest"]);
-    expect(rows.map((r) => r.querySelectorAll("td")[5].textContent)).toEqual(["3 days", "1 day", "Today"]);
+    expect(rows.map((r) => r.querySelector("td .font-medium")!.textContent)).toEqual(["Oldest", "Newer", "Newest"]);
+    expect(rows.map((r) => r.querySelectorAll("td")[3].textContent)).toEqual(["3 days", "1 day", "Today"]);
   });
 
   it("SCRUM-126/AC1 never shows a negative wait, and says so when there is no submission time", () => {
