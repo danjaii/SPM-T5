@@ -103,6 +103,19 @@ describe.skipIf(!hasDb)("SCRUM-47 Receive relevant notifications (migration 44)"
     expect(error).toBeNull();
     expect(await notificationsOf(who.coordB, eventId)).toEqual([{ type: "coordinator_assigned", event_id: eventId }]);
   });
+
+  it("SCRUM-126/AC3 the coordinator an event is reassigned away from receives a coordinator_reassigned notification", async () => {
+    const eventId = await newEvent();
+    await who.lead.client.rpc("lead_assign_coordinator", { p_event_id: eventId, p_coordinator_id: who.coordA.userId });
+
+    const { error } = await who.lead.client.rpc("lead_reassign_coordinator", {
+      p_event_id: eventId,
+      p_coordinator_id: who.coordB.userId,
+    });
+
+    expect(error).toBeNull();
+    expect(await notificationsOf(who.coordA, eventId)).toContainEqual({ type: "coordinator_reassigned", event_id: eventId });
+  });
   // end of AC1
 
   // AC4: the organiser is told when the coordinator approves their event request

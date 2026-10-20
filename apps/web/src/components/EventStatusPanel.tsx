@@ -2,15 +2,16 @@
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview } from "@spm-t5/shared";
+import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview, type EventStatus } from "@spm-t5/shared";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { changeEventStatus, statusLabel, type EventStatusView } from "@/lib/events";
+import { EVENT_STATUS_DISPLAY } from "@/lib/status";
 import { EventReviewActions } from "./EventReviewActions";
-import EventStatusBadge from "./EventStatusBadge";
 import { EventSection } from "./event/EventSection";
 import { EventTabs, type EventTabId } from "./event/EventTabs";
 import { InlineMessage } from "./event/InlineMessage";
 import { StatusStepper } from "./event/StatusStepper";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -61,12 +62,14 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, children
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold break-words">{event.name}</h1>
-            <EventStatusBadge status={status} />
+            <StatusBadge {...(EVENT_STATUS_DISPLAY[status as EventStatus] ?? { label: statusLabel(status) })} />
           </div>
           {meta && <p className="text-sm text-muted-foreground">{meta}</p>}
         </div>
-        {(showStartReview || showVenueLink) && (
+        {(showStartReview || showVenueLink || event.canReview) && (
           <div className="flex flex-wrap gap-3">
+            {/* SCRUM-125/AC1: the review actions sit beside the name and status; each opens a dialog. */}
+            <EventReviewActions eventId={event.id} status={status} canReview={event.canReview} onDecided={showStatus} />
             {/* SCRUM-45/AC1, AC3, AC5: only the assigned coordinator, and only while the request is submitted. */}
             {showStartReview && (
               <Button type="button" disabled={saving} onClick={() => save("under_review", "")}>
@@ -88,10 +91,6 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, children
 
       {activeTab === "venues" && event.canChangeStatus && !canRequestVenue(status) && (
         <p className="text-sm text-muted-foreground">{VENUE_BOOKING_MESSAGES.EVENT_NOT_ELIGIBLE}</p>
-      )}
-
-      {activeTab === "overview" && (
-        <EventReviewActions eventId={event.id} status={status} canReview={event.canReview} onDecided={showStatus} />
       )}
 
       {children}

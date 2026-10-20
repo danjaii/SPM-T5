@@ -21,6 +21,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { getEventTechnicalAssignments } from "@/lib/technicalAssignmentsServer";
+import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
 import { getEventVenueBookings } from "@/lib/venueBookingsServer";
 
@@ -39,11 +40,13 @@ export default async function EventPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ saved?: string; tab?: string }>;
+  searchParams?: Promise<{ saved?: string; submitted?: string; tab?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
   const saved = query?.saved === "1";
+  // SCRUM-123/AC4: arriving from the new request form
+  const justSubmitted = query?.submitted === "1";
   const tab = tabFrom(query?.tab);
   const result = await getEvent(id);
   // SCRUM-38/AC4, SCRUM-98/AC5: every venue booking of the event, when the viewer may see them (else null).
@@ -93,6 +96,13 @@ export default async function EventPage({
                   decision={outcome}
                   showAwaiting={canDecideEvent(view.status) && !view.canReview && !view.canChangeStatus}
                 />
+                {/* SCRUM-123/AC4, SCRUM-49/AC6: confirmation with the submission time; the status is the panel above */}
+                {justSubmitted && (
+                  <InlineMessage kind="ok">
+                    Your event request was submitted
+                    {view.submitted_at ? ` on ${formatEventDateTime(view.submitted_at, null)}` : ""}.
+                  </InlineMessage>
+                )}
                 {/* SCRUM-111/AC5: back from the edit form */}
                 {saved && <InlineMessage kind="ok">Event details saved.</InlineMessage>}
                 <EventRequestDetails event={view} />

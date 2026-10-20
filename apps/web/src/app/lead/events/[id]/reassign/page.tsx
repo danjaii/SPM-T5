@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { isClosedEventStatus } from "@spm-t5/shared";
-import { AppHeader } from "@/components/AppHeader";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadEventSummary } from "@/components/LeadEventSummary";
 import { getLeadReassignment } from "@/lib/leadServer";
@@ -20,7 +19,6 @@ export default async function LeadReassignPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href={back}>← Back</Link>
         {"reassignment" in result ? (
@@ -36,6 +34,7 @@ export default async function LeadReassignPage({ params }: { params: Promise<{ i
                 eventId={id}
                 eventName={result.reassignment.event.name}
                 coordinators={result.reassignment.coordinators}
+                currentName={result.reassignment.current.full_name ?? undefined}
                 cancelHref={back}
               />
             ) : (
