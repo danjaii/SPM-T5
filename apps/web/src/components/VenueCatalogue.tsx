@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { InputField } from "@/components/ui/input-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { emptyVenueQuery, filterChips, relaxHint, withoutFilter } from "@/lib/venueFilters";
@@ -35,6 +36,8 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
   const [error, setError] = useState<string>();
   const [searching, setSearching] = useState(false);
   const [open, setOpen] = useState(true);
+  // The optional filters stay folded away unless some are already set (e.g. pre-filled from an event).
+  const [more, setMore] = useState(Boolean(prefill?.query.layoutId || prefill?.query.accessible || prefill?.query.facilityIds.length));
 
   const run = useCallback(
     async (query: VenueSearchQuery) => {
@@ -101,6 +104,8 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
   };
 
   const today = utcToSgt(new Date()).date;
+  const extraCount = (draft.layoutId ? 1 : 0) + (draft.accessible ? 1 : 0) + draft.facilityIds.length;
+  const whenErrors = [fieldErrors.startDate, fieldErrors.endDate, fieldErrors.startTime, fieldErrors.endTime].filter((m): m is string => Boolean(m));
   const chips = applied && options ? filterChips(applied, options) : [];
   const byId = new Map(venues.map((v) => [v.id, v]));
 
@@ -118,7 +123,7 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
 
       <div className="flex flex-col gap-4">
         {options && (
-          <Card className="px-4">
+          <Card className="gap-4 px-4">
             <div className="flex items-center justify-between gap-2">
               <Button type="button" variant="ghost" size="sm" aria-expanded={open} aria-controls="venue-filters" onClick={() => setOpen((o) => !o)}>
                 <SlidersHorizontal aria-hidden="true" />
@@ -134,49 +139,70 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                   {error}
                 </p>
               )}
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-                <InputField id="startDate" label="Start date" type="date" min={today} value={draft.startDate} onChange={setStartDate} error={fieldErrors.startDate} />
-                <InputField id="endDate" label="End date" type="date" min={draft.startDate || undefined} value={draft.endDate} onChange={set("endDate")} error={fieldErrors.endDate} />
-                <InputField id="startTime" label="Start time" type="time" value={draft.startTime} onChange={set("startTime")} error={fieldErrors.startTime} />
-                <InputField id="endTime" label="End time" type="time" value={draft.endTime} onChange={set("endTime")} error={fieldErrors.endTime} />
-                <InputField id="attendance" label="People (optional)" type="number" min={1} step={1} inputMode="numeric" value={draft.attendance} onChange={set("attendance")} error={fieldErrors.attendance} />
-                <InputField id="location" label="Location (optional)" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
+
+              {/* The essentials on one row: when, how many, where. Everything else is under "More filters". */}
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                <fieldset className="flex flex-col gap-1.5">
+                  <legend className="mb-1.5 text-sm font-semibold text-foreground">When</legend>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="w-40"><Input id="startDate" type="date" aria-label="Start date" min={today} value={draft.startDate} onChange={setStartDate} aria-invalid={fieldErrors.startDate ? true : undefined} /></div>
+                    <span aria-hidden="true" className="text-sm text-muted-foreground">to</span>
+                    <div className="w-40"><Input id="endDate" type="date" aria-label="End date" min={draft.startDate || undefined} value={draft.endDate} onChange={set("endDate")} aria-invalid={fieldErrors.endDate ? true : undefined} /></div>
+                    <div className="w-28"><Input id="startTime" type="time" aria-label="Start time" value={draft.startTime} onChange={set("startTime")} aria-invalid={fieldErrors.startTime ? true : undefined} /></div>
+                    <span aria-hidden="true" className="text-sm text-muted-foreground">–</span>
+                    <div className="w-28"><Input id="endTime" type="time" aria-label="End time" value={draft.endTime} onChange={set("endTime")} aria-invalid={fieldErrors.endTime ? true : undefined} /></div>
+                  </div>
+                  {whenErrors.map((message) => (
+                    <p key={message} className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+                      <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
+                      {message}
+                    </p>
+                  ))}
+                </fieldset>
+                <InputField className="lg:w-28" id="attendance" label="People" type="number" min={1} step={1} inputMode="numeric" value={draft.attendance} onChange={set("attendance")} error={fieldErrors.attendance} />
+                <InputField className="lg:w-48" id="location" label="Location" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
               </div>
 
-              <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
-              {options.layouts.length > 0 && (
-                <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-2 text-sm font-semibold text-foreground">Layout (optional)</legend>
-                  <div className="flex flex-wrap gap-2">
-                    {options.layouts.map((l) => {
-                      const on = draft.layoutId === l.id;
-                      return (
-                        <Button key={l.id} type="button" size="sm" variant={on ? "secondary" : "outline"} aria-pressed={on}
-                          onClick={() => setDraft((q) => ({ ...q, layoutId: on ? "" : l.id }))}>
-                          {on && <Check aria-hidden="true" />}
-                          {l.name}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              )}
-
-              <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-sm font-semibold text-foreground">Must have (optional)</legend>
-                <div className="flex flex-wrap gap-x-5 gap-y-2">
-                <label className="flex items-center gap-2 text-sm text-foreground">
-                  <Checkbox checked={draft.accessible} onCheckedChange={(c) => setDraft((q) => ({ ...q, accessible: c }))} />
-                  Accessible venue
-                </label>
-                {options.facilities.map((f) => (
-                  <label key={f.id} className="flex items-center gap-2 text-sm text-foreground">
-                    <Checkbox checked={draft.facilityIds.includes(f.id)} onCheckedChange={() => toggleFacility(f.id)} />
-                    {f.name}
-                  </label>
-                ))}
+              <div className="flex flex-col items-start gap-3">
+                <Button type="button" variant="ghost" size="sm" aria-expanded={more} aria-controls="venue-more-filters" onClick={() => setMore((m) => !m)}>
+                  More filters
+                  {extraCount > 0 && <Badge variant="secondary">{extraCount}</Badge>}
+                  <ChevronDown aria-hidden="true" className={more ? "rotate-180" : undefined} />
+                </Button>
+                <div id="venue-more-filters" hidden={!more} className="flex w-full flex-wrap items-start gap-x-10 gap-y-4 rounded-lg bg-muted p-4">
+                  {options.layouts.length > 0 && (
+                    <fieldset className="flex flex-col gap-2">
+                      <legend className="mb-2 text-sm font-semibold text-foreground">Layout</legend>
+                      <div className="flex flex-wrap gap-2">
+                        {options.layouts.map((l) => {
+                          const on = draft.layoutId === l.id;
+                          return (
+                            <Button key={l.id} type="button" size="sm" variant={on ? "default" : "outline"} aria-pressed={on}
+                              onClick={() => setDraft((q) => ({ ...q, layoutId: on ? "" : l.id }))}>
+                              {on && <Check aria-hidden="true" />}
+                              {l.name}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  )}
+                  <fieldset className="flex flex-col gap-2">
+                    <legend className="mb-2 text-sm font-semibold text-foreground">Must have</legend>
+                    <div className="flex flex-wrap gap-x-5 gap-y-2">
+                      <label className="flex items-center gap-2 text-sm text-foreground">
+                        <Checkbox checked={draft.accessible} onCheckedChange={(c) => setDraft((q) => ({ ...q, accessible: c }))} />
+                        Accessible venue
+                      </label>
+                      {options.facilities.map((f) => (
+                        <label key={f.id} className="flex items-center gap-2 text-sm text-foreground">
+                          <Checkbox checked={draft.facilityIds.includes(f.id)} onCheckedChange={() => toggleFacility(f.id)} />
+                          {f.name}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                 </div>
-              </fieldset>
               </div>
 
               <Button type="submit" className="self-start" disabled={searching}>{searching ? "Searching…" : "Apply filters"}</Button>

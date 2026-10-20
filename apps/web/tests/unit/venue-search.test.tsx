@@ -38,6 +38,7 @@ function fill(changes: Partial<Record<"date" | "start" | "end" | "endDate", stri
   if (v.endDate) fireEvent.change(screen.getByLabelText("End date"), { target: { value: v.endDate } });
   fireEvent.change(screen.getByLabelText("End time"), { target: { value: v.end } });
 }
+const openMore = () => fireEvent.click(screen.getByRole("button", { name: /More filters/ }));
 const apply = () => fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
 
 afterEach(() => vi.restoreAllMocks());
@@ -77,7 +78,7 @@ describe("SCRUM-131/AC1 filters pre-filled from an event", () => {
     expect(screen.getByText("Venue requirements: Projector")).toBeTruthy();
     expect((screen.getByLabelText("Start date") as HTMLInputElement).value).toBe("2099-11-14");
     expect((screen.getByLabelText("Start time") as HTMLInputElement).value).toBe("09:00");
-    expect((screen.getByLabelText("People (optional)") as HTMLInputElement).value).toBe("60");
+    expect((screen.getByLabelText("People") as HTMLInputElement).value).toBe("60");
     expect(screen.getByRole("button", { name: "Classroom" }).getAttribute("aria-pressed")).toBe("true");
     await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("Open 08:00–20:00")).toBeTruthy();
@@ -88,7 +89,8 @@ describe("SCRUM-131/AC2 active filters are removable chips", () => {
   it("shows a chip for each active filter above the results", async () => {
     render(<VenueCatalogue venues={catalogue} options={options} search={found([venue()])} />);
     fill();
-    fireEvent.change(screen.getByLabelText("People (optional)"), { target: { value: "60" } });
+    fireEvent.change(screen.getByLabelText("People"), { target: { value: "60" } });
+    openMore();
     fireEvent.click(screen.getByRole("button", { name: "Theatre" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Projector" }));
     apply();
@@ -102,13 +104,13 @@ describe("SCRUM-131/AC2 active filters are removable chips", () => {
     const search = found([venue()]);
     render(<VenueCatalogue venues={catalogue} options={options} search={search} />);
     fill();
-    fireEvent.change(screen.getByLabelText("People (optional)"), { target: { value: "60" } });
+    fireEvent.change(screen.getByLabelText("People"), { target: { value: "60" } });
     apply();
     fireEvent.click(await screen.findByRole("button", { name: "Remove filter 60 people" }));
 
     await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
     expect(search).toHaveBeenLastCalledWith(expect.objectContaining({ attendance: "" }));
-    expect((screen.getByLabelText("People (optional)") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("People") as HTMLInputElement).value).toBe("");
   });
 
   it("removing the date chip leaves nothing to search, so the whole catalogue comes back", async () => {
@@ -135,7 +137,8 @@ describe("SCRUM-131/AC3 no venue matches", () => {
   it("suggests which filters to relax", async () => {
     render(<VenueCatalogue venues={catalogue} options={options} search={found([])} />);
     fill();
-    fireEvent.change(screen.getByLabelText("People (optional)"), { target: { value: "900" } });
+    fireEvent.change(screen.getByLabelText("People"), { target: { value: "900" } });
+    openMore();
     fireEvent.click(screen.getByRole("checkbox", { name: "Projector" }));
     apply();
 
@@ -162,7 +165,7 @@ describe("SCRUM-131 the search is part of the catalogue", () => {
   it("the filters collapse and open again like an accordion, keeping what was typed", () => {
     render(<VenueCatalogue venues={catalogue} options={options} search={found([])} />);
     const toggle = screen.getByRole("button", { name: "Filters" });
-    fireEvent.change(screen.getByLabelText("People (optional)"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("People"), { target: { value: "30" } });
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
 
     fireEvent.click(toggle);
@@ -170,7 +173,16 @@ describe("SCRUM-131 the search is part of the catalogue", () => {
     expect(screen.queryByRole("button", { name: "Apply filters" })).toBeNull();
 
     fireEvent.click(toggle);
-    expect((screen.getByLabelText("People (optional)") as HTMLInputElement).value).toBe("30");
+    expect((screen.getByLabelText("People") as HTMLInputElement).value).toBe("30");
+  });
+
+  it("keeps the optional filters folded under More filters, with a count of those set", () => {
+    render(<VenueCatalogue venues={catalogue} options={options} search={found([])} />);
+    expect(screen.queryByRole("button", { name: "Theatre" })).toBeNull();
+    openMore();
+    fireEvent.click(screen.getByRole("button", { name: "Theatre" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Projector" }));
+    expect(screen.getByRole("button", { name: /More filters/ }).textContent).toContain("2");
   });
 
   it("shows no filters for a role that may not search", () => {
@@ -199,8 +211,9 @@ describe("SCRUM-65 the filters ask venue-service for the chosen period and check
     const search = found([]);
     render(<VenueCatalogue venues={catalogue} options={options} search={search} />);
     fill();
-    fireEvent.change(screen.getByLabelText("People (optional)"), { target: { value: "50" } });
-    fireEvent.change(screen.getByLabelText("Location (optional)"), { target: { value: "Orchard" } });
+    fireEvent.change(screen.getByLabelText("People"), { target: { value: "50" } });
+    fireEvent.change(screen.getByLabelText("Location"), { target: { value: "Orchard" } });
+    openMore();
     fireEvent.click(screen.getByRole("button", { name: "Theatre" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Accessible venue" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Projector" }));

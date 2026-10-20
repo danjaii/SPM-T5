@@ -59,7 +59,7 @@ describe("SCRUM-29 — Venue catalogue page (/venues)", () => {
 
     expect(getEvent).toHaveBeenCalledWith("e1");
     expect(screen.getByText("Filters are pre-filled from Annual Tech Summit")).toBeTruthy();
-    expect((screen.getByLabelText("People (optional)") as HTMLInputElement).value).toBe("60");
+    expect((screen.getByLabelText("People") as HTMLInputElement).value).toBe("60");
   });
 });
 // end of SCRUM-29
