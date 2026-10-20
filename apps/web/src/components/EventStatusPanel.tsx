@@ -5,17 +5,22 @@ import Link from "next/link";
 import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview } from "@spm-t5/shared";
 import { changeEventStatus, statusLabel, type EventStatusView } from "@/lib/events";
 import { EventReviewActions } from "./EventReviewActions";
+import EventStatusBadge from "./EventStatusBadge";
+import { StatusStepper } from "./event/StatusStepper";
 
 // SCRUM-6/7: shows an event's current status. SCRUM-8: the assigned coordinator can also change it.
 // SCRUM-45: the assigned coordinator starts the review. SCRUM-24: they also approve or reject it.
 export function EventStatusPanel({ event, children }: { event: EventStatusView; children?: ReactNode }) {
   const [status, setStatus] = useState(event.status);
+  // SCRUM-127/AC2: the status before the latest change, so a rejection or cancellation made here lands on the right stage
+  const [previousStatus, setPreviousStatus] = useState(event.previous_status);
   const [newStatus, setNewStatus] = useState(event.status);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string }>();
   const [saving, setSaving] = useState(false);
 
   function showStatus(saved: string) {
+    setPreviousStatus(status);
     setStatus(saved);
     setNewStatus(saved);
     setMessage({ kind: "ok", text: `Status updated to ${statusLabel(saved)}.` });
@@ -48,9 +53,13 @@ export function EventStatusPanel({ event, children }: { event: EventStatusView; 
       <header className="event-header">
         <h1>{event.name}</h1>
         <p className="event__status">
-          Status <span className="status-badge">{statusLabel(status)}</span>
+          Status <EventStatusBadge status={status} />
         </p>
       </header>
+
+      <div className="mb-4">
+        <StatusStepper status={status} hasCoordinator={Boolean(event.point_of_contact_name)} previousStatus={previousStatus} />
+      </div>
 
       {message && (
         <div className={`alert alert--${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>

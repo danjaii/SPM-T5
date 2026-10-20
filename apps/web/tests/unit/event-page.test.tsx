@@ -134,7 +134,7 @@ describe("Event status page route (/events/[id])", () => {
 
     await open("evt-1");
 
-    expect(screen.getByText("Submitted", { selector: ".status-badge" })).toBeTruthy();
+    expect(screen.getByText("Submitted", { selector: ".event__status [data-tone]" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Request details" })).toBeTruthy();
     expect(screen.getByText("Sam Tan")).toBeTruthy();
     expect(screen.getByText("Annual industry conference")).toBeTruthy();

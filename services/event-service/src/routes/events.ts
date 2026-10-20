@@ -194,10 +194,25 @@ export function eventRoutes(deps: SupabaseDeps) {
       pointOfContactName = (poc?.full_name as string | null) ?? null;
     }
 
+    // SCRUM-127/AC2: a rejected or cancelled event shows its badge on the stage it was at, so say what it was before
+    let previousStatus: string | null = null;
+    if (event.status === "cancelled" || event.status === "rejected") {
+      const { data: last } = await deps
+        .forUser(token)
+        .from("event_status_history")
+        .select("old_status")
+        .eq("event_id", event.id)
+        .eq("new_status", event.status)
+        .order("changed_at", { ascending: false })
+        .limit(1);
+      previousStatus = (last?.[0]?.old_status as string | null) ?? null;
+    }
+
     res.json({
       id: event.id,
       name: event.name,
       status: event.status,
+      previous_status: previousStatus,
       canChangeStatus,
       canReview,
       // SCRUM-66/AC1-AC3: for the UI, whether this viewer is the organiser and may raise a change request now
