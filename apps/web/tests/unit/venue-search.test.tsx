@@ -38,7 +38,6 @@ function fill(changes: Partial<Record<"date" | "start" | "end" | "endDate", stri
   if (v.endDate) fireEvent.change(screen.getByLabelText("End date"), { target: { value: v.endDate } });
   fireEvent.change(screen.getByLabelText("End time"), { target: { value: v.end } });
 }
-const openMore = () => fireEvent.click(screen.getByRole("button", { name: /More filters/ }));
 const apply = () => fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
 
 afterEach(() => vi.restoreAllMocks());
@@ -90,7 +89,6 @@ describe("SCRUM-131/AC2 active filters are removable chips", () => {
     render(<VenueCatalogue venues={catalogue} options={options} search={found([venue()])} />);
     fill();
     fireEvent.change(screen.getByLabelText("People"), { target: { value: "60" } });
-    openMore();
     fireEvent.click(screen.getByRole("button", { name: "Theatre" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Projector" }));
     apply();
@@ -138,7 +136,6 @@ describe("SCRUM-131/AC3 no venue matches", () => {
     render(<VenueCatalogue venues={catalogue} options={options} search={found([])} />);
     fill();
     fireEvent.change(screen.getByLabelText("People"), { target: { value: "900" } });
-    openMore();
     fireEvent.click(screen.getByRole("checkbox", { name: "Projector" }));
     apply();
 
@@ -176,13 +173,11 @@ describe("SCRUM-131 the search is part of the catalogue", () => {
     expect((screen.getByLabelText("People") as HTMLInputElement).value).toBe("30");
   });
 
-  it("keeps the optional filters folded under More filters, with a count of those set", () => {
+  it("shows layout and must-have filters directly, without a further fold", () => {
     render(<VenueCatalogue venues={catalogue} options={options} search={found([])} />);
-    expect(screen.queryByRole("button", { name: "Theatre" })).toBeNull();
-    openMore();
-    fireEvent.click(screen.getByRole("button", { name: "Theatre" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Projector" }));
-    expect(screen.getByRole("button", { name: /More filters/ }).textContent).toContain("2");
+    expect(screen.queryByRole("button", { name: /More filters/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Theatre" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Projector" })).toBeTruthy();
   });
 
   it("shows no filters for a role that may not search", () => {
@@ -213,7 +208,6 @@ describe("SCRUM-65 the filters ask venue-service for the chosen period and check
     fill();
     fireEvent.change(screen.getByLabelText("People"), { target: { value: "50" } });
     fireEvent.change(screen.getByLabelText("Location"), { target: { value: "Orchard" } });
-    openMore();
     fireEvent.click(screen.getByRole("button", { name: "Theatre" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Accessible venue" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Projector" }));

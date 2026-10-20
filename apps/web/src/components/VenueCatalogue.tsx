@@ -36,8 +36,6 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
   const [error, setError] = useState<string>();
   const [searching, setSearching] = useState(false);
   const [open, setOpen] = useState(true);
-  // The optional filters stay folded away unless some are already set (e.g. pre-filled from an event).
-  const [more, setMore] = useState(Boolean(prefill?.query.layoutId || prefill?.query.accessible || prefill?.query.facilityIds.length));
 
   const run = useCallback(
     async (query: VenueSearchQuery) => {
@@ -104,7 +102,6 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
   };
 
   const today = utcToSgt(new Date()).date;
-  const extraCount = (draft.layoutId ? 1 : 0) + (draft.accessible ? 1 : 0) + draft.facilityIds.length;
   const whenErrors = [fieldErrors.startDate, fieldErrors.endDate, fieldErrors.startTime, fieldErrors.endTime].filter((m): m is string => Boolean(m));
   const chips = applied && options ? filterChips(applied, options) : [];
   const byId = new Map(venues.map((v) => [v.id, v]));
@@ -140,8 +137,8 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                 </p>
               )}
 
-              {/* The essentials on one row: when, how many, where. Everything else is under "More filters". */}
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+              {/* When is the only required filter, so it gets its own row; people and location follow, then the optional ones. */}
+              <div className="flex flex-col gap-4">
                 <fieldset className="flex flex-col gap-1.5">
                   <legend className="mb-1.5 text-sm font-semibold text-foreground">When</legend>
                   <div className="flex flex-wrap items-center gap-2">
@@ -159,17 +156,14 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                     </p>
                   ))}
                 </fieldset>
-                <InputField className="lg:w-28" id="attendance" label="People" type="number" min={1} step={1} inputMode="numeric" value={draft.attendance} onChange={set("attendance")} error={fieldErrors.attendance} />
-                <InputField className="lg:w-48" id="location" label="Location" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
               </div>
 
-              <div className="flex flex-col items-start gap-3">
-                <Button type="button" variant="ghost" size="sm" aria-expanded={more} aria-controls="venue-more-filters" onClick={() => setMore((m) => !m)}>
-                  More filters
-                  {extraCount > 0 && <Badge variant="secondary">{extraCount}</Badge>}
-                  <ChevronDown aria-hidden="true" className={more ? "rotate-180" : undefined} />
-                </Button>
-                <div id="venue-more-filters" hidden={!more} className="flex w-full flex-wrap items-start gap-x-10 gap-y-4 rounded-lg bg-muted p-4">
+              <div className="flex flex-wrap gap-4">
+                <InputField className="w-full sm:w-28" id="attendance" label="People" type="number" min={1} step={1} inputMode="numeric" value={draft.attendance} onChange={set("attendance")} error={fieldErrors.attendance} />
+                <InputField className="w-full sm:w-64" id="location" label="Location" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
+              </div>
+
+              <div className="flex flex-wrap items-start gap-x-10 gap-y-4 "
                   {options.layouts.length > 0 && (
                     <fieldset className="flex flex-col gap-2">
                       <legend className="mb-2 text-sm font-semibold text-foreground">Layout</legend>
@@ -203,7 +197,6 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                     </div>
                   </fieldset>
                 </div>
-              </div>
 
               <Button type="submit" className="self-start" disabled={searching}>{searching ? "Searching…" : "Apply filters"}</Button>
             </form>
