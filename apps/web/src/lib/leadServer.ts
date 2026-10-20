@@ -98,3 +98,18 @@ export async function getLeadReassignment(id: string): Promise<{ reassignment: L
   const data = await res.json();
   return res.ok ? { reassignment: data } : { error: data.error ?? "We couldn't load this event." };
 }
+
+/** SCRUM-126: the figures beside the queue, from event-service's lead_queue_summary(). */
+export interface LeadSummary {
+  events_this_month: number;
+  next_event_name: string | null;
+  next_event_start: string | null;
+  reassigned_this_week: number;
+}
+
+/** SCRUM-126: events this month, the next event and reassignments this week. Leads only. */
+export async function getLeadSummary(): Promise<{ summary: LeadSummary } | { error: string }> {
+  const res = await fromEventService("/lead/summary");
+  const data = await res.json();
+  return res.ok && data ? { summary: data } : { error: data?.error ?? "We couldn't load the queue summary." };
+}

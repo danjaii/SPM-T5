@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { isClosedEventStatus } from "@spm-t5/shared";
-import { AppHeader } from "@/components/AppHeader";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadEventSummary } from "@/components/LeadEventSummary";
 import { getLeadAssignment } from "@/lib/leadServer";
@@ -17,7 +16,6 @@ export default async function LeadAssignPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <AppHeader />
       <main className="dash__main">
         <Link className="back-link" href="/lead/queue">← Back to unassigned event requests</Link>
         {"assignment" in result ? (

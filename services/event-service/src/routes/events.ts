@@ -83,7 +83,7 @@ export function eventRoutes(deps: SupabaseDeps) {
   const router = Router();
 
   // SCRUM-22/AC1: list submitted event requests for a coordinator
-  // SCRUM-22/AC2: show own + unassigned events; hide events assigned to other coordinators
+  // SCRUM-22/AC2, SCRUM-126/AC4: show only the events assigned to the coordinator. Unassigned events are the Lead's queue now.
   // SCRUM-22/AC3: optional ?search= filters by event name or organiser name (case-insensitive)
   // SCRUM-22/AC4: optional ?status= filters by one or more statuses; defaults to submitted
   // SCRUM-22/AC5: optional ?from= and ?to= filter by submission date range (YYYY-MM-DD)
@@ -97,7 +97,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       .forUser(token)
       .from("events")
       .select("id, name, status, submitted_at, organiser:organiser_id(full_name)")
-      .or(`assigned_coordinator_id.eq.${userId},assigned_coordinator_id.is.null`);
+      .eq("assigned_coordinator_id", userId);
     const statusParam = req.query.status;
     const statuses: string[] = statusParam
       ? (Array.isArray(statusParam) ? statusParam : [statusParam]).filter((s): s is string => typeof s === "string")
@@ -153,7 +153,10 @@ export function eventRoutes(deps: SupabaseDeps) {
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
     const isCoordinator = role !== undefined && canReviewEvents(role);
     const isOrganiser = role === "event_organiser";
-    if (!isCoordinator && !isOrganiser) {
+    // SCRUM-126: a Lead opens an event from their queue to read it. Row level security limits it to the unassigned
+    // requests and their own team's events; the Lead is not the assigned coordinator, so nothing here lets them change it.
+    const isLead = role === "event_coordinator_lead";
+    if (!isCoordinator && !isOrganiser && !isLead) {
       return res.status(403).json({ error: "You are not allowed to view this event's status." });
     }
 

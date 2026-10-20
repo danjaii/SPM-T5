@@ -137,6 +137,19 @@ describe("SCRUM-6 — View event status as event coordinator", () => {
     expect(res.body).not.toHaveProperty("status");
   });
   // end of AC3
+
+  // SCRUM-126: a Lead opens an event from their queue, read-only
+  it("SCRUM-126/AC1 lets an Event Coordinator Lead read an event, with no way to change or edit it", async () => {
+    const fake = createFake();
+    const lead = fake.signIn("event_coordinator_lead");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "submitted", assigned_coordinator_id: null };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps)).get(`/events/${event.id}`).set("Cookie", lead.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ name: "Tech Summit", status: "submitted", canChangeStatus: false, canReview: false, canEdit: false, isOrganiser: false });
+  });
 });
 // end of SCRUM-6
 
