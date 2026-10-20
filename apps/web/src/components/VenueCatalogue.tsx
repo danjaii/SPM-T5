@@ -163,7 +163,7 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                 <InputField className="w-full sm:w-64" id="location" label="Location" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
               </div>
 
-              <div className="flex flex-wrap items-start gap-x-10 gap-y-4 "
+              <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
                   {options.layouts.length > 0 && (
                     <fieldset className="flex flex-col gap-2">
                       <legend className="mb-2 text-sm font-semibold text-foreground">Layout</legend>
