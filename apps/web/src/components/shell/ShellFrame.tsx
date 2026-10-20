@@ -1,6 +1,7 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -18,6 +19,7 @@ const initials = (name: string) =>
 
 function SidebarBody({ shell, onNavigate, onClose }: { shell: ShellState; onNavigate?: () => void; onClose?: () => void }) {
   const { user, counts } = shell;
+  const onProfile = /^\/profile(\/|$)/.test(usePathname());
   return (
     <>
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
@@ -37,14 +39,22 @@ function SidebarBody({ shell, onNavigate, onClose }: { shell: ShellState; onNavi
       <div className="mt-4 flex-1 overflow-y-auto px-3">
         <SidebarNav role={user.role} counts={counts} onNavigate={onNavigate} />
       </div>
-      <div className="flex items-center gap-3 border-t border-nav-border p-4">
-        <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-highlight text-xs font-bold text-fg-primary">
-          {initials(user.fullName)}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-nav-text">{user.fullName}</span>
-          <span className="block truncate text-xs text-nav-muted">{roleLabel(user.role)}</span>
-        </span>
+      <div className="flex items-center gap-2 border-t border-nav-border p-3">
+        {/* SCRUM-122/AC12: the name opens the user's profile; there is no "My profile" nav item */}
+        <Link
+          href="/profile"
+          onClick={onNavigate}
+          aria-current={onProfile ? "page" : undefined}
+          className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring ${onProfile ? "bg-nav-active" : "hover:bg-nav-chip"}`}
+        >
+          <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-highlight text-xs font-bold text-fg-primary">
+            {initials(user.fullName)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-nav-text"><span className="sr-only">My profile: </span>{user.fullName}</span>
+            <span className="block truncate text-xs text-nav-muted">{roleLabel(user.role)}</span>
+          </span>
+        </Link>
         <LogoutButton />
       </div>
     </>
