@@ -34,7 +34,7 @@ describe("SCRUM-29 — Venue catalogue list", () => {
     render(<VenueList venues={[]} />);
 
     expect(screen.getByText("No venues in the catalogue yet.")).toBeTruthy();
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("list")).toBeNull();
   });
   // end of AC5
 });

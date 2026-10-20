@@ -100,13 +100,14 @@ describe("SCRUM-106/AC2 the unavailability form says how many bookings were flag
   const fill = () => {
     const values = { "Start date": "2026-11-14", "Start time": "08:00", "End date": "2026-11-16", "End time": "18:00", Reason: "maintenance" };
     for (const [label, value] of Object.entries(values)) fireEvent.change(screen.getByLabelText(label), { target: { value } });
-    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save unavailable period" }));
   };
   const mockServer = (body: unknown) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => body }));
 
   it("106-S5: three flagged -> '3 bookings affected; their coordinators have been notified.'", async () => {
     mockServer({ block: {}, affectedBookings: 3, message: "3 bookings affected; their coordinators have been notified." });
     render(<VenueDetail venue={venue()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
     fill();
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(within(screen.getByRole("status")).getByText(/3 bookings affected; their coordinators have been notified\./)).toBeTruthy();
@@ -115,6 +116,7 @@ describe("SCRUM-106/AC2 the unavailability form says how many bookings were flag
   it("106-S6: none flagged -> 'No existing bookings are affected.'", async () => {
     mockServer({ block: {}, affectedBookings: 0 });
     render(<VenueDetail venue={venue()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
     fill();
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(screen.getByRole("status").textContent).toContain("No existing bookings are affected.");

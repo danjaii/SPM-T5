@@ -92,6 +92,7 @@ describe("SCRUM-105/AC6 only venue staff see the form (105-S6)", () => {
   it("105-S6: venue staff get the form", () => {
     render(<VenueDetail venue={venue({ can_mark_unavailable: true })} />);
     expect(screen.getByRole("button", { name: "Mark unavailable" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
     for (const label of ["Start date", "Start time", "End date", "End time", "Reason", "Notes"]) expect(screen.getByLabelText(label)).toBeTruthy();
   });
 });
@@ -99,6 +100,7 @@ describe("SCRUM-105/AC6 only venue staff see the form (105-S6)", () => {
 describe("SCRUM-105/AC2 a reason is required (105-S2)", () => {
   it("105-S2: offers the five reasons, with 'Safety concern' for safety, and not Internal activity", () => {
     render(<VenueDetail venue={venue({ can_mark_unavailable: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
 
     const options = within(screen.getByLabelText("Reason")).getAllByRole("option").map((o) => o.textContent);
     expect(options).toEqual(["Choose a reason", "Maintenance", "Equipment failure", "Renovation", "Safety concern", "Other"]);
@@ -107,9 +109,10 @@ describe("SCRUM-105/AC2 a reason is required (105-S2)", () => {
   it("105-S2: submitting without a reason shows a message and sends nothing", () => {
     const fetchMock = mockServer(201, {});
     render(<VenueDetail venue={venue({ can_mark_unavailable: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
 
     fill({ ...FILLED, Reason: "" });
-    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save unavailable period" }));
 
     expect(screen.getByText("Choose a reason.")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -119,9 +122,10 @@ describe("SCRUM-105/AC2 a reason is required (105-S2)", () => {
   it("105-S2: Other without notes shows a message [PROPOSED]", () => {
     const fetchMock = mockServer(201, {});
     render(<VenueDetail venue={venue({ can_mark_unavailable: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
 
     fill({ ...FILLED, Reason: "other" });
-    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save unavailable period" }));
 
     expect(screen.getByText("Enter notes describing the reason.")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -135,9 +139,10 @@ describe("SCRUM-105/AC3 the end must follow the start (105-S3)", () => {
   ])("105-S3: an end %s shows a message and sends nothing", (_name, change) => {
     const fetchMock = mockServer(201, {});
     render(<VenueDetail venue={venue({ can_mark_unavailable: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
 
     fill({ ...FILLED, ...change });
-    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save unavailable period" }));
 
     expect(screen.getByText("The end must be after the start.")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -149,9 +154,10 @@ describe("SCRUM-105/AC1 saving a block (105-S1)", () => {
   it("105-S1: POSTs the period in Singapore time with the reason, says it was saved and refreshes the page", async () => {
     const fetchMock = mockServer(201, { block: block() });
     render(<VenueDetail venue={venue({ can_mark_unavailable: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
 
     fill({ ...FILLED, Notes: "Annual inspection" });
-    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save unavailable period" }));
 
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0];
@@ -165,9 +171,10 @@ describe("SCRUM-105/AC1 saving a block (105-S1)", () => {
   it("105-S1: a server refusal per field is shown and the page is not refreshed", async () => {
     mockServer(422, { code: "VALIDATION_FAILED", error: "Some fields are invalid.", fieldErrors: { reason: "Choose one of the listed reasons." } });
     render(<VenueDetail venue={venue({ can_mark_unavailable: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
 
     fill(FILLED);
-    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save unavailable period" }));
 
     expect(await screen.findByText("Choose one of the listed reasons.")).toBeTruthy();
     expect(refresh).not.toHaveBeenCalled();
@@ -176,9 +183,10 @@ describe("SCRUM-105/AC1 saving a block (105-S1)", () => {
   it("105-S6: a 403 message from the server is shown", async () => {
     mockServer(403, { code: "FORBIDDEN", error: "Only venue staff can mark a venue unavailable." });
     render(<VenueDetail venue={venue({ can_mark_unavailable: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
 
     fill(FILLED);
-    fireEvent.click(screen.getByRole("button", { name: "Mark unavailable" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save unavailable period" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("Only venue staff");
   });

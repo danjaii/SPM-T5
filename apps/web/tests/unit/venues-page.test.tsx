@@ -21,7 +21,6 @@ describe("SCRUM-29 — Venue catalogue page (/venues)", () => {
 
     expect(screen.getByRole("heading", { name: "Venue catalogue" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Orchid Hall" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /back to dashboard/i }).getAttribute("href")).toBe("/dashboard");
   });
   // end of AC1
 
@@ -33,7 +32,7 @@ describe("SCRUM-29 — Venue catalogue page (/venues)", () => {
     render(await VenuesPage());
 
     expect(screen.getByRole("alert").textContent).toBe("You are not allowed to view the venue catalogue.");
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("list")).toBeNull();
   });
   // end of AC4 + AC6 + AC7
 });

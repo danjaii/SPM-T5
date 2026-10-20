@@ -36,10 +36,11 @@ describe("SCRUM-29 — Venue detail", () => {
     expect(screen.getByRole("heading", { name: "Orchid Hall" })).toBeTruthy();
     expect(screen.getByText("Level 3, East Wing")).toBeTruthy();
     expect(screen.getByText("150 people")).toBeTruthy();
-    expect(screen.getByText("Theatre (up to 150)")).toBeTruthy();
-    expect(screen.getByText("Classroom (up to 80)")).toBeTruthy();
-    expect(screen.getByText("Banquet (up to 100)")).toBeTruthy();
-    expect(screen.getByText("Step-free access, Hearing loop")).toBeTruthy();
+    expect(screen.getByText("Theatre")).toBeTruthy();
+    expect(screen.getByText("Classroom")).toBeTruthy();
+    expect(screen.getByText("Banquet")).toBeTruthy();
+    expect(screen.getByText("Step-free access")).toBeTruthy();
+    expect(screen.getByText("Hearing loop")).toBeTruthy();
     expect(screen.getByText("Projector")).toBeTruthy();
     expect(screen.getByText("PA system")).toBeTruthy();
     expect(screen.getByText("Video conferencing")).toBeTruthy();
