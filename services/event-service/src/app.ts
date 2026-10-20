@@ -4,6 +4,7 @@ import { changeRequestRoutes } from "./routes/changeRequests";
 import { changeRequestReviewRoutes } from "./routes/changeRequestReview";
 import { eventDetailsRoutes } from "./routes/eventDetails";
 import { eventRoutes } from "./routes/events";
+import { eventRequestRoutes } from "./routes/eventRequests";
 import { leadRoutes } from "./routes/lead";
 import { upcomingEventRoutes } from "./routes/upcomingEvents";
 import { registrationRoutes } from "./routes/registrations";
@@ -30,6 +31,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/events", upcomingEventRoutes(deps));
   app.use("/events", changeRequestRoutes(deps));
   app.use("/events", registrationRoutes(deps));
+  app.use("/events", eventRequestRoutes(deps));
   // SCRUM-111: the assigned coordinator edits an event's details (PATCH /events/:id)
   app.use("/events", eventDetailsRoutes(deps, now));
   app.use("/events", eventRoutes(deps));

@@ -16,6 +16,7 @@ import { EventVenueBookings } from "@/components/EventVenueBookings";
 import { EventSafetyDecisions } from "@/components/EventSafetyDecisions";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { getEventTechnicalAssignments } from "@/lib/technicalAssignmentsServer";
+import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
 import { getEventVenueBookings } from "@/lib/venueBookingsServer";
 
@@ -34,10 +35,13 @@ export default async function EventPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ saved?: string }>;
+  searchParams?: Promise<{ saved?: string; submitted?: string }>;
 }) {
   const { id } = await params;
-  const saved = (await searchParams)?.saved === "1";
+  const query = await searchParams;
+  const saved = query?.saved === "1";
+  // SCRUM-123/AC4: arriving from the new request form
+  const justSubmitted = query?.submitted === "1";
   const result = await getEvent(id);
   // SCRUM-38/AC4, SCRUM-98/AC5: every venue booking of the event, when the viewer may see them (else null).
   // SCRUM-44: the coordinator's decision, when there is one and the viewer may see it (else null).
@@ -74,6 +78,13 @@ export default async function EventPage({
                 decision={outcome}
                 showAwaiting={canDecideEvent(result.event.status) && !result.event.canReview && !result.event.canChangeStatus}
               />
+              {/* SCRUM-123/AC4, SCRUM-49/AC6: confirmation with the submission time; the status is the panel above */}
+              {justSubmitted && (
+                <div className="alert alert--ok" role="status">
+                  Your event request was submitted
+                  {result.event.submitted_at ? ` on ${formatEventDateTime(result.event.submitted_at, null)}` : ""}.
+                </div>
+              )}
               {/* SCRUM-111/AC5: back from the edit form */}
               {saved && <div className="alert alert--ok" role="status">Event details saved.</div>}
               <EventRequestDetails event={result.event} />
