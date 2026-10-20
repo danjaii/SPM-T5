@@ -153,7 +153,10 @@ export function eventRoutes(deps: SupabaseDeps) {
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
     const isCoordinator = role !== undefined && canReviewEvents(role);
     const isOrganiser = role === "event_organiser";
-    if (!isCoordinator && !isOrganiser) {
+    // SCRUM-126: a Lead opens an event from their queue to read it. Row level security limits it to the unassigned
+    // requests and their own team's events; the Lead is not the assigned coordinator, so nothing here lets them change it.
+    const isLead = role === "event_coordinator_lead";
+    if (!isCoordinator && !isOrganiser && !isLead) {
       return res.status(403).json({ error: "You are not allowed to view this event's status." });
     }
 

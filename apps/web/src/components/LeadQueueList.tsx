@@ -48,7 +48,8 @@ export function LeadQueueList({ requests, coordinators, now }: Props) {
             return (
               <TableRow key={r.id}>
                 <TableCell>
-                  <div className="font-medium">{r.name}</div>
+                  {/* SCRUM-126: open the event's details before assigning it */}
+                  <Link className="block font-medium underline-offset-4 hover:underline" href={`/lead/events/${r.id}`}>{r.name}</Link>
                   <div className="text-xs text-muted-foreground">
                     {r.expected_attendance === null ? NOT_SPECIFIED : `${r.expected_attendance} people`}
                   </div>
