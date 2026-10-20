@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { InputField } from "@/components/ui/input-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { emptyVenueQuery, filterChips, relaxHint, withoutFilter } from "@/lib/venueFilters";
@@ -102,7 +101,6 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
   };
 
   const today = utcToSgt(new Date()).date;
-  const whenErrors = [fieldErrors.startDate, fieldErrors.endDate, fieldErrors.startTime, fieldErrors.endTime].filter((m): m is string => Boolean(m));
   const chips = applied && options ? filterChips(applied, options) : [];
   const byId = new Map(venues.map((v) => [v.id, v]));
 
@@ -139,31 +137,23 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
 
               {/* When is the only required filter, so it gets its own row; people and location follow, then the optional ones. */}
               <div className="flex flex-col gap-4">
-                <fieldset className="flex flex-col gap-1.5">
+                <fieldset className="flex flex-col gap-1">
                   <legend className="mb-1.5 text-sm font-semibold text-foreground">When</legend>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="w-40"><Input id="startDate" type="date" aria-label="Start date" min={today} value={draft.startDate} onChange={setStartDate} aria-invalid={fieldErrors.startDate ? true : undefined} /></div>
-                    <span aria-hidden="true" className="text-sm text-muted-foreground">to</span>
-                    <div className="w-40"><Input id="endDate" type="date" aria-label="End date" min={draft.startDate || undefined} value={draft.endDate} onChange={set("endDate")} aria-invalid={fieldErrors.endDate ? true : undefined} /></div>
-                    <div className="w-28"><Input id="startTime" type="time" aria-label="Start time" value={draft.startTime} onChange={set("startTime")} aria-invalid={fieldErrors.startTime ? true : undefined} /></div>
-                    <span aria-hidden="true" className="text-sm text-muted-foreground">–</span>
-                    <div className="w-28"><Input id="endTime" type="time" aria-label="End time" value={draft.endTime} onChange={set("endTime")} aria-invalid={fieldErrors.endTime ? true : undefined} /></div>
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                    <InputField id="startDate" label="Start date" type="date" min={today} value={draft.startDate} onChange={setStartDate} error={fieldErrors.startDate} />
+                    <InputField id="endDate" label="End date" type="date" min={draft.startDate || undefined} value={draft.endDate} onChange={set("endDate")} error={fieldErrors.endDate} />
+                    <InputField id="startTime" label="Start time" type="time" value={draft.startTime} onChange={set("startTime")} error={fieldErrors.startTime} />
+                    <InputField id="endTime" label="End time" type="time" value={draft.endTime} onChange={set("endTime")} error={fieldErrors.endTime} />
                   </div>
-                  {whenErrors.map((message) => (
-                    <p key={message} className="flex items-center gap-1.5 text-sm font-medium text-destructive">
-                      <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
-                      {message}
-                    </p>
-                  ))}
                 </fieldset>
               </div>
 
-              <div className="flex flex-wrap gap-4">
-                <InputField className="w-full sm:w-28" id="attendance" label="People" type="number" min={1} step={1} inputMode="numeric" value={draft.attendance} onChange={set("attendance")} error={fieldErrors.attendance} />
-                <InputField className="w-full sm:w-64" id="location" label="Location" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <InputField id="attendance" label="People" type="number" min={1} step={1} inputMode="numeric" value={draft.attendance} onChange={set("attendance")} error={fieldErrors.attendance} />
+                <InputField id="location" label="Location" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
               </div>
 
-              <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                   {options.layouts.length > 0 && (
                     <fieldset className="flex flex-col gap-2">
                       <legend className="mb-2 text-sm font-semibold text-foreground">Layout</legend>
@@ -198,7 +188,7 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                   </fieldset>
                 </div>
 
-              <Button type="submit" className="self-start" disabled={searching}>{searching ? "Searching…" : "Apply filters"}</Button>
+              <Button type="submit" className="w-full" disabled={searching}>{searching ? "Searching…" : "Apply filters"}</Button>
             </form>
           </Card>
         )}
