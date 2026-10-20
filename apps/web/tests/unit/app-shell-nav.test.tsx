@@ -115,7 +115,7 @@ describe("SCRUM-121/AC3 mobile menu", () => {
     expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
     const menu = screen.getByRole("dialog", { name: "Menu" });
-    expect(labelsIn(menu)).toEqual(NAV_ITEMS.venue_staff.map((i) => i.label));
+    expect(labelsIn(within(menu).getByRole("navigation", { name: "Main" }))).toEqual(NAV_ITEMS.venue_staff.map((i) => i.label));
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
   });
@@ -136,5 +136,34 @@ describe("SCRUM-121/AC3 mobile menu", () => {
     expect(button.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(button);
     expect(button.getAttribute("aria-expanded")).toBe("true");
+  });
+});
+
+describe("SCRUM-122/AC12 profile reached from the user's name", () => {
+  it.each(ROLES)("12-S1: no %s nav item is called My profile, and the name links to /profile", (role) => {
+    renderShell(role);
+    expect(NAV_ITEMS[role].some((i) => i.href === "/profile" || /profile/i.test(i.label))).toBe(false);
+    const main = screen.getByRole("navigation", { name: "Main" });
+    expect(within(main).queryByRole("link", { name: /profile/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /my profile.*priya nair/i }).getAttribute("href")).toBe("/profile");
+  });
+
+  it("12-S2: marks the name as the current page on /profile, and not elsewhere", () => {
+    nav.pathname = "/profile";
+    const { unmount } = renderShell("attendee");
+    const link = screen.getByRole("link", { name: /my profile/i });
+    expect(link.getAttribute("aria-current")).toBe("page");
+    expect(within(screen.getByRole("navigation", { name: "Main" })).queryAllByRole("link").filter((a) => a.getAttribute("aria-current") === "page")).toEqual([]);
+    unmount();
+    nav.pathname = "/dashboard/attendee";
+    renderShell("attendee");
+    expect(screen.getByRole("link", { name: /my profile/i }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("12-S3: closes the mobile menu when the name is chosen", () => {
+    renderShell("attendee");
+    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Menu" })).getByRole("link", { name: /my profile/i }));
+    expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
   });
 });

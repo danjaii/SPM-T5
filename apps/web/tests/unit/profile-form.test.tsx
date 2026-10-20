@@ -240,3 +240,26 @@ describe("SCRUM-68/AC6 profile form: saving", () => {
   // end of saving
 });
 // end of SCRUM-68 profile form
+
+describe("SCRUM-122/AC13 profile form: new design keeps the behaviour", () => {
+  // Status is never colour alone (shared AC6): the role badge carries an icon as well as the label.
+  it("13-S2: shows the role as a badge with an icon, and the two cards", () => {
+    const { container } = render(<ProfileForm profile={profile} save={vi.fn()} />);
+
+    const badge = screen.getByText("Event Coordinator").closest('[data-slot="badge"]')!;
+    expect(badge.querySelector("svg")).toBeTruthy();
+    expect(container.querySelectorAll('[data-slot="card"]').length).toBe(2);
+    expect(screen.getByRole("region", { name: "Your role" })).toBeTruthy();
+  });
+  // A failed save is shown with an icon and text, and the person's typing is kept.
+  it("13-S3: shows a failed save as an alert and keeps what was typed", async () => {
+    const save = vi.fn().mockResolvedValue({ ok: false, data: { error: "Could not save." } });
+    render(<ProfileForm profile={profile} save={save} />);
+
+    fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "+65 9000 0000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Could not save.");
+    expect((screen.getByLabelText("Phone") as HTMLInputElement).value).toBe("+65 9000 0000");
+  });
+});

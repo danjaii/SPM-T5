@@ -1,6 +1,6 @@
 // SCRUM-75 — the Event Coordinator Lead signs in through the usual sign-in page and lands on their own home page
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // Pretend the loading helper (tested in its own file), so these tests are only about the pages
@@ -22,10 +22,11 @@ const dashboard = {
 // ---------------------------------------------------------------------------
 describe("SCRUM-75 — Event Coordinator Lead sign-in and home page", () => {
   // AC3: the Lead signs in on the same page as everyone else (SCRUM-13), choosing the Lead role
-  it("SCRUM-75/AC3 offers Event Coordinator Lead as a role on the sign-in page", () => {
+  it("SCRUM-75/AC3 offers Event Coordinator Lead as a role on the sign-in page", async () => {
     render(<LoginForm />);
 
-    expect(screen.getByRole("radio", { name: /Event Coordinator Lead/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("combobox", { name: /Continue as/ }));
+    expect(await screen.findByRole("option", { name: /Event Coordinator Lead/ })).toBeTruthy();
   });
   // end of AC3
 

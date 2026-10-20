@@ -134,7 +134,7 @@ describe("Event status page route (/events/[id])", () => {
 
     await open("evt-1");
 
-    expect(screen.getByText("Submitted", { selector: ".status-badge" })).toBeTruthy();
+    expect(screen.getByText("Submitted", { selector: "[data-tone]" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Request details" })).toBeTruthy();
     expect(screen.getByText("Sam Tan")).toBeTruthy();
     expect(screen.getByText("Annual industry conference")).toBeTruthy();
@@ -249,13 +249,13 @@ describe("SCRUM-44 — review outcome on the event page", () => {
     expect(screen.queryByRole("heading", { name: "Review outcome" })).toBeNull();
   });
 
-  it("leaves the pending note out for the assigned coordinator, who has the Decision actions instead", async () => {
+  it("leaves the pending note out for the assigned coordinator, who has the review actions instead", async () => {
     getEvent.mockResolvedValue({ event: { ...organiserView("submitted").event, canChangeStatus: true, canReview: true } });
 
     await open("evt-1");
 
     expect(screen.queryByText(/still being reviewed/)).toBeNull();
-    expect(screen.getByRole("heading", { name: "Decision" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Review this request" })).toBeTruthy();
   });
 
   it("AC6: loads no outcome when the event itself can't be shown", async () => {
