@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ repla
 
 import EventPage from "@/app/events/[id]/page";
 
-const open = async (id: string) => render(await EventPage({ params: Promise.resolve({ id }) }));
+const open = async (id: string, tab?: string) => render(await EventPage({ params: Promise.resolve({ id }), searchParams: Promise.resolve({ tab }) }));
 
 // The browser-side sections load from event-service: comments get a thread, everything else a list.
 const stubEventService = () =>
@@ -60,7 +60,7 @@ describe("Event status page route (/events/[id])", () => {
   it("SCRUM-83/AC15 links to the event's registration information page", async () => {
     getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "confirmed", canChangeStatus: false } });
 
-    await open("evt-1");
+    await open("evt-1", "registrations");
 
     expect(screen.getByRole("link", { name: "View registrations" }).getAttribute("href")).toBe("/events/evt-1/registrations");
   });
@@ -72,7 +72,7 @@ describe("Event status page route (/events/[id])", () => {
       canCreate: true,
     });
 
-    await open("evt-1");
+    await open("evt-1", "equipment");
 
     expect(getEventEquipmentRequests).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Equipment requests" })).toBeTruthy();
@@ -82,9 +82,9 @@ describe("Event status page route (/events/[id])", () => {
   it("SCRUM-86/AC7 shows no equipment section to a viewer equipment-service answers nothing for", async () => {
     getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: false } });
 
-    await open("evt-1");
+    await open("evt-1", "equipment");
 
-    expect(screen.queryByRole("heading", { name: "Equipment requests" })).toBeNull();
+    expect(screen.getByText("This is not available to you for this event.")).toBeTruthy();
   });
 
   it("shows event-service's message when the event can't be shown", async () => {
@@ -102,13 +102,13 @@ describe("Event status page route (/events/[id])", () => {
         point_of_contact_name: "Alice Coord" },
     });
 
-    await open("evt-1");
+    await open("evt-1", "changes");
 
     expect(screen.getByRole("heading", { name: "Coordinator" })).toBeTruthy();
     expect(screen.getByText("Alice Coord")).toBeTruthy();
   });
 
-  it("SCRUM-23/AC2: reads top to bottom — details, coordinator, then the manual status change", async () => {
+  it("SCRUM-23/AC2: the overview reads top to bottom — details, comments, then the manual status change", async () => {
     getEvent.mockResolvedValue({
       event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: true, canReview: false,
         point_of_contact_name: "Alice Coord", organiser_name: "Sam Tan" },
@@ -118,8 +118,7 @@ describe("Event status page route (/events/[id])", () => {
     await screen.findByRole("heading", { name: "Comments" }); // SCRUM-25: loads from the browser
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    // SCRUM-67: the assigned coordinator also sees the event's change requests, to review them
-    expect(headings).toEqual(["Request details", "Coordinator", "Assignment history", "Comments", "Change requests", "Registrations", "Change status"]);
+    expect(headings).toEqual(["Request details", "Comments", "Change status"]);
   });
 
   it("SCRUM-23/AC1, AC2: shows the full request details alongside the status", async () => {
@@ -134,7 +133,7 @@ describe("Event status page route (/events/[id])", () => {
 
     await open("evt-1");
 
-    expect(screen.getByText("Submitted", { selector: "[data-tone]" })).toBeTruthy();
+    expect(screen.getByText("Submitted", { selector: "header [data-tone]" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Request details" })).toBeTruthy();
     expect(screen.getByText("Sam Tan")).toBeTruthy();
     expect(screen.getByText("Annual industry conference")).toBeTruthy();
@@ -163,7 +162,7 @@ describe("Event status page route (/events/[id])", () => {
     });
     getEventVenueBookings.mockResolvedValue([booking("b-1", "Orchid Hall", "APPROVED"), booking("b-2", "Lotus Room", "PENDING")]);
 
-    await open("evt-1");
+    await open("evt-1", "venues");
 
     expect(getEventVenueBookings).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Venue bookings" })).toBeTruthy();
@@ -174,9 +173,9 @@ describe("Event status page route (/events/[id])", () => {
   it("SCRUM-38/AC4 38-S4, SCRUM-98/AC6 98-S27: shows no venue section to a viewer who may not see it", async () => {
     getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "approved", canChangeStatus: false } });
 
-    await open("evt-1");
+    await open("evt-1", "venues");
 
-    expect(screen.queryByRole("heading", { name: "Venue bookings" })).toBeNull();
+    expect(screen.getByText("This is not available to you for this event.")).toBeTruthy();
   });
 
   // SCRUM-102: while the event can still have venues, its pending and approved venue bookings can be changed or cancelled;
@@ -198,7 +197,7 @@ describe("Event status page route (/events/[id])", () => {
       canCreate: false,
     });
 
-    await open("evt-1");
+    await open("evt-1", "venues");
 
     expect(!!screen.queryByRole("link", { name: "Change the Orchid Hall venue booking" })).toBe(offered);
     expect(!!screen.queryByRole("button", { name: "Cancel the Orchid Hall venue booking" })).toBe(offered);
@@ -320,7 +319,7 @@ describe("SCRUM-111 the event page's Edit button, saved message and change histo
       { id: "h-1", changedAt: "2099-10-02T03:00:00+00:00", changedBy: "Rachel Tan", important: false, changes: [{ field: "name", label: "Event name", from: "Summit", to: "Tech Summit" }] },
     ]);
 
-    await open("evt-1");
+    await open("evt-1", "changes");
 
     expect(getEventChangeHistory).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Change history" })).toBeTruthy();
@@ -337,7 +336,7 @@ describe("SCRUM-67/AC1 the event page tells the assigned coordinator a change re
       { id: "cr-1", change_description: "Changed: expected attendance", proposed_changes: null, status: "pending", requested_at: "2099-10-01T00:00:00Z", review_notes: null },
     ]);
 
-    await open("evt-1");
+    await open("evt-1", "changes");
 
     expect(getChangeRequests).toHaveBeenCalledWith("evt-1");
     expect(screen.getAllByRole("status").some((el) => el.textContent === "A change request is awaiting your review.")).toBe(true);
@@ -346,7 +345,7 @@ describe("SCRUM-67/AC1 the event page tells the assigned coordinator a change re
     getChangeRequests.mockClear();
     getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: false } });
     cleanup();
-    await open("evt-1");
+    await open("evt-1", "changes");
     expect(getChangeRequests).not.toHaveBeenCalled();
     expect(screen.queryByRole("heading", { name: "Change requests" })).toBeNull();
   });
@@ -368,7 +367,7 @@ describe("SCRUM-100/AC7 the event page shows the Safety Officer's requested chan
       { decision: "changes_requested", reason: "Move the stage clear of fire exit B", officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z" },
     ]);
 
-    await open("evt-1");
+    await open("evt-1", "safety");
 
     expect(getEventSafetyDecisions).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Safety check" })).toBeTruthy();

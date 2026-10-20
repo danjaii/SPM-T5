@@ -3,6 +3,7 @@ import { Bell, Building2, Check, Home, Inbox, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { NavItem } from "@/components/ui/nav-item";
+import { StatusStepper } from "@/components/event/StatusStepper";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ALL_STATUS_DISPLAYS, type StatusTone } from "@/lib/status";
 import type { MeasuredPair } from "@/lib/tokens";
@@ -158,6 +159,21 @@ export function Styleguide({ tokens, pairs }: { tokens: Record<string, string>; 
                 <StatusBadge key={s.key} {...s.display} />
               ))}
             </Row>
+          </div>
+        ))}
+      </Section>
+
+      <Section id="stepper" title="Status stepper">
+        <Caption>SCRUM-127: the eight stages of an event. A returned, rejected or cancelled event shows a badge on the step where it happened.</Caption>
+        {[
+          ["Under review", "under_review", true, undefined],
+          ["Returned", "returned", true, undefined],
+          ["Cancelled during planning", "cancelled", true, "planning"],
+          ["Completed", "completed", true, undefined],
+        ].map(([label, status, coordinator, previous]) => (
+          <div key={String(label)} className="flex min-w-0 flex-col gap-2">
+            <Subhead>{String(label)}</Subhead>
+            <StatusStepper status={String(status)} hasCoordinator={Boolean(coordinator)} previousStatus={previous as string | undefined} />
           </div>
         ))}
       </Section>

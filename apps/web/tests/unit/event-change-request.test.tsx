@@ -61,7 +61,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("SCRUM-66/AC1, AC2, AC3 the event page offers a change request only when allowed", () => {
-  const open = async () => render(await EventPage({ params: Promise.resolve({ id: "evt-1" }) }));
+  const open = async () => render(await EventPage({ params: Promise.resolve({ id: "evt-1" }), searchParams: Promise.resolve({ tab: "changes" }) }));
 
   it("AC1 shows the form to the organiser of a submitted event", async () => {
     getEvent.mockResolvedValue({ event });
@@ -96,9 +96,9 @@ describe("SCRUM-66/AC7 the organiser sees whether each request is pending, appro
         ]}
       />,
     );
-    expect(screen.getByText("Pending", { selector: ".status-badge" })).toBeTruthy();
-    expect(screen.getByText("Approved", { selector: ".status-badge" })).toBeTruthy();
-    expect(screen.getByText("Rejected", { selector: ".status-badge" })).toBeTruthy();
+    expect(screen.getByText("Pending", { selector: "[data-tone]" })).toBeTruthy();
+    expect(screen.getByText("Approved", { selector: "[data-tone]" })).toBeTruthy();
+    expect(screen.getByText("Rejected", { selector: "[data-tone]" })).toBeTruthy();
     expect(screen.getByText("Venue is full")).toBeTruthy();
   });
 
@@ -128,9 +128,9 @@ describe("SCRUM-66/AC7 the organiser sees whether each request is pending, appro
     getChangeRequests.mockResolvedValue([
       { id: "1", change_description: "More sign-ups", proposed_changes: null, status: "pending", requested_at: "2031-01-02T00:00:00Z" },
     ]);
-    render(await EventPage({ params: Promise.resolve({ id: "evt-1" }) }));
+    render(await EventPage({ params: Promise.resolve({ id: "evt-1" }), searchParams: Promise.resolve({ tab: "changes" }) }));
     expect(getChangeRequests).toHaveBeenCalledWith("evt-1");
-    expect(screen.getByText("Pending", { selector: ".status-badge" })).toBeTruthy();
+    expect(screen.getByText("Pending", { selector: "[data-tone]" })).toBeTruthy();
   });
 });
 

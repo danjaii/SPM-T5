@@ -147,3 +147,10 @@ describe("SCRUM-81 — One coordinator's active events", () => {
   // end of AC7
 });
 // end of SCRUM-81
+
+describe("SCRUM-127/AC3 status badge in the coordinator's event list", () => {
+  it("shows each event's status as an icon-and-label StatusBadge", () => {
+    render(<LeadCoordinatorEvents events={[event()]} />);
+    expect(screen.getByTestId("status-icon")).toBeTruthy();
+  });
+});
