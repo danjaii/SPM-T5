@@ -173,7 +173,7 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                   )}
                   <fieldset className="flex flex-col gap-2">
                     <legend className="mb-2 text-sm font-semibold text-foreground">Must have</legend>
-                    <div className="flex flex-wrap gap-x-5 gap-y-2">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                       <label className="flex items-center gap-2 text-sm text-foreground">
                         <Checkbox checked={draft.accessible} onCheckedChange={(c) => setDraft((q) => ({ ...q, accessible: c }))} />
                         Accessible venue
