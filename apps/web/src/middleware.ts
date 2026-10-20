@@ -1,13 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isLead } from "@spm-t5/shared";
 import { SERVER_AUTH_URL, SESSION_COOKIE } from "@/lib/api";
+import { canOpen } from "@/lib/roleAccess";
 
 // SCRUM-83: an event's registration form, /events/<id>/register
 const REGISTRATION_FORM = /^\/events\/[^/]+\/register$/;
-// SCRUM-75/AC6 + AC7: the Lead's pages (unassigned queue, coordinator overview), for Event Coordinator Leads only
-const LEAD_PAGE = /^\/lead(\/|$)/;
 
-// Route guard for /dashboard/*, Lead pages and registration forms. Asks auth-service who the caller is on every request, so a
+// Route guard for /dashboard/*, Lead pages, role-only pages and registration forms. Asks auth-service who the caller is on every request, so a
 // logged-out session (or the Back button after logging out) can never render a dashboard.
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -35,14 +33,11 @@ export async function middleware(request: NextRequest) {
     return toLogin();
   }
 
-  // Each role only gets its own dashboard; anything else is sent to it.
-  // SCRUM-83/AC2: a registration form isn't a dashboard, so a signed-in user carries on to it.
-  // SCRUM-75/AC7: anyone but a Lead who types a Lead page's URL is sent to their own dashboard too.
-  const toOwnDashboard = () => NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
-  if (LEAD_PAGE.test(pathname)) {
-    if (!isLead(role)) return toOwnDashboard();
-  } else if (!REGISTRATION_FORM.test(pathname) && pathname.split("/")[2] !== role) {
-    return toOwnDashboard();
+  // SCRUM-122/AC3: a page outside the caller's role shows the access-denied page (with a link to their home), not a silent bounce.
+  // SCRUM-83/AC2: a registration form isn't role-bound, so a signed-in user carries on to it.
+  // SCRUM-75/AC7: Lead pages are for Leads only.
+  if (!REGISTRATION_FORM.test(pathname) && !canOpen(role, pathname)) {
+    return NextResponse.redirect(new URL("/access-denied", request.url));
   }
 
   const response = NextResponse.next();
@@ -50,4 +45,16 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/dashboard/:path*", "/lead/:path*", "/events/:id/register"] };
+// Next.js reads this at build time, so it must be a literal (no spread); roleAccess.test.ts checks the role-only entries match ROLE_ONLY_MATCHERS.
+export const config = {
+  matcher: [
+    "/dashboard/:path*",
+    "/lead/:path*",
+    "/events/:id/register",
+    "/booking-queue/:path*",
+    "/safety-checks/:path*",
+    "/equipment-requests/:path*",
+    "/equipment-availability/:path*",
+    "/equipment-reservation/:path*",
+  ],
+};
