@@ -1,3 +1,5 @@
+import EventStatusBadge from "@/components/EventStatusBadge";
+import { EmptyNote, EventSection } from "@/components/event/EventSection";
 import type { ReviewDecision } from "@/lib/events";
 
 // SCRUM-44/AC5: shown to the organiser while the request has no decision, so it never looks approved or rejected.
@@ -18,29 +20,26 @@ export function EventReviewOutcome({ decision, showAwaiting }: Props) {
   if (!decision && !showAwaiting) return null;
 
   return (
-    <section className="event-section" aria-labelledby="outcome-heading">
-      <h2 id="outcome-heading">Review outcome</h2>
+    <EventSection id="outcome-heading" title="Review outcome">
       {decision ? (
-        <div className="event-detail-card">
-          <p className="outcome">
-            <span className={`outcome-badge outcome-badge--${decision.outcome}`}>
-              {decision.outcome === "approved" ? "Approved" : "Rejected"}
-            </span>
-            <span className="outcome__when">
+        <div className="flex flex-col gap-3">
+          <p className="flex flex-wrap items-center gap-3">
+            <EventStatusBadge status={decision.outcome} />
+            <span className="text-sm text-muted-foreground">
               {formatDateTime(decision.decided_at)}
               {decision.decided_by_name && <> · by {decision.decided_by_name}</>}
             </span>
           </p>
           {decision.reason && (
-            <div className="outcome__reason">
-              <h3>{decision.outcome === "rejected" ? "Reason for rejection" : "Coordinator's comments"}</h3>
-              <p>{decision.reason}</p>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-xs font-medium text-fg-primary">{decision.outcome === "rejected" ? "Reason for rejection" : "Coordinator's comments"}</h3>
+              <p className="text-sm">{decision.reason}</p>
             </div>
           )}
         </div>
       ) : (
-        <p className="event-detail-card event-detail-card--quiet" role="status">{AWAITING_OUTCOME}</p>
+        <EmptyNote role="status">{AWAITING_OUTCOME}</EmptyNote>
       )}
-    </section>
+    </EventSection>
   );
 }

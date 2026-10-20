@@ -306,8 +306,8 @@ a { color: var(--steel-dark); }
 .reg-summary { margin-bottom: 16px; }
 .reg-summary th, .reg-summary td { text-align: center; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8; vertical-align: top; }
-th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
+:where(table:not([data-slot="table"])) :is(th, td) { text-align: left; padding: 10px 14px; border-bottom: 1px solid #e3e5e8; vertical-align: top; }
+:where(table:not([data-slot="table"])) th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); background: var(--field); font-weight: 500; }
 tr:last-child td { border-bottom: 0; }
 .empty { padding: 18px 14px; color: var(--subtle); }
 

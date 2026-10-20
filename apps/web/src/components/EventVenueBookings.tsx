@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { describeFlag } from "@spm-t5/shared";
+import { EmptyNote, EventSection } from "@/components/event/EventSection";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BOOKING_STATUS_DISPLAY, type BookingStatusKey } from "@/lib/status";
 import { VenueBookingCancel } from "./VenueBookingCancel";
 import type { EquipmentRequestView } from "@/lib/equipmentRequests";
 import { bookingStatusLabel, equipmentFor, isChangeableVenueBooking, type EventVenueBookingItem } from "@/lib/venueBookings";
@@ -20,74 +26,73 @@ export function EventVenueBookings({
 }) {
   if (!bookings) return null;
   return (
-    <section className="event-section" aria-labelledby="venue-bookings-heading">
-      <h2 id="venue-bookings-heading">Venue bookings</h2>
+    <EventSection id="venue-bookings-heading" title="Venue bookings">
       {bookings.length === 0 ? (
-        <p className="event-detail-card event-detail-card--quiet">No venue has been requested for this event yet.</p>
+        <EmptyNote>No venue has been requested for this event yet.</EmptyNote>
       ) : (
-        <div className="event-detail-card event-detail-card--table">
-          <table>
-            <thead>
-              <tr>
-                <th>Venue</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Attendance</th>
-                <th>Status</th>
-                {canChange && <th><span className="visually-hidden">Actions</span></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((b) => (
-                <tr key={b.id}>
-                  <td><Link href={`/venue-bookings/${b.id}`}>{b.venueName}</Link></td>
-                  <td>{b.date}</td>
-                  <td>{b.startTime}–{b.endTime}</td>
-                  <td>
-                    {b.expectedAttendance ?? "Not specified"}
-                    {/* 98-S10: a warning, never a refusal; venue staff decide */}
-                    {b.exceedsCapacity && <span className="capacity-flag">More people than this venue holds</span>}
-                  </td>
-                  <td>
-                    <span className="status-badge">{bookingStatusLabel(b.status)}</span>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Venue</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Attendance</TableHead>
+              <TableHead>Status</TableHead>
+              {canChange && <TableHead><span className="visually-hidden">Actions</span></TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {bookings.map((b) => (
+              <TableRow key={b.id}>
+                <TableCell className="font-medium"><Link className="text-fg-primary underline-offset-4 hover:underline" href={`/venue-bookings/${b.id}`}>{b.venueName}</Link></TableCell>
+                <TableCell>{b.date}</TableCell>
+                <TableCell>{b.startTime}–{b.endTime}</TableCell>
+                <TableCell className="whitespace-normal">
+                  {b.expectedAttendance ?? "Not specified"}
+                  {/* 98-S10: a warning, never a refusal; venue staff decide */}
+                  {b.exceedsCapacity && <StatusBadge tone="warning" label="More people than this venue holds" className="mt-1 flex w-fit" />}
+                </TableCell>
+                <TableCell className="whitespace-normal">
+                  <div className="flex flex-col items-start gap-1">
+                    <StatusBadge {...BOOKING_STATUS_DISPLAY[b.status as BookingStatusKey]} label={bookingStatusLabel(b.status)} />
                     {b.flags.map((f) => (
-                      <span className="vb__note vb__flag" key={f.id}>{describeFlag(f, b.venueName)}</span>
+                      <span className="text-xs font-medium text-status-warning-fg" key={f.id}>{describeFlag(f, b.venueName)}</span>
                     ))}
                     {/* SCRUM-107/AC3: the original keeps its place, with where it went; the replacement says what it replaced */}
                     {b.replacedBy && (
-                      <span className="vb__note">
+                      <span className="text-xs text-muted-foreground">
                         {b.status === "REPLACED" ? "Replaced by " : "Replacement waiting: "}
-                        <Link href={`/venue-bookings/${b.replacedBy.id}`}>{b.replacedBy.venueName}</Link>
+                        <Link className="underline" href={`/venue-bookings/${b.replacedBy.id}`}>{b.replacedBy.venueName}</Link>
                       </span>
                     )}
                     {b.replaces && (
-                      <span className="vb__note">
-                        Replaces <Link href={`/venue-bookings/${b.replaces.id}`}>{b.replaces.venueName}</Link>
+                      <span className="text-xs text-muted-foreground">
+                        Replaces <Link className="underline" href={`/venue-bookings/${b.replaces.id}`}>{b.replaces.venueName}</Link>
                       </span>
                     )}
-                    {b.rejectionReason && <span className="vb__note">{b.rejectionReason}</span>}
-                    {b.cancellationReason && <span className="vb__note">{b.cancellationReason}</span>}
+                    {b.rejectionReason && <span className="text-xs text-muted-foreground">{b.rejectionReason}</span>}
+                    {b.cancellationReason && <span className="text-xs text-muted-foreground">{b.cancellationReason}</span>}
                     {/* SCRUM-113/AC1: back to Pending after an important change; venue staff decide again */}
-                    {b.sentBackForReview && <span className="vb__note">Waiting for review again after an event change</span>}
-                  </td>
-                  {canChange && (
-                    <td className="vb__row-actions">
-                      {isChangeableVenueBooking(b.status) && (
-                        <>
-                          <Link className="btn btn--secondary" href={`/venue-bookings/${b.id}/change`} aria-label={`Change the ${b.venueName} venue booking`}>
-                            Change
-                          </Link>{" "}
-                          <VenueBookingCancel booking={b} equipment={equipmentFor(equipment, b.id)} />
-                        </>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {b.sentBackForReview && <span className="text-xs text-muted-foreground">Waiting for review again after an event change</span>}
+                  </div>
+                </TableCell>
+                {canChange && (
+                  <TableCell>
+                    {isChangeableVenueBooking(b.status) && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/venue-bookings/${b.id}/change`} aria-label={`Change the ${b.venueName} venue booking`}>
+                          Change
+                        </Link>
+                        <VenueBookingCancel booking={b} equipment={equipmentFor(equipment, b.id)} />
+                      </div>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
-    </section>
+    </EventSection>
   );
 }

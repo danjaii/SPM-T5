@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ATTACHMENT_TYPES, attachmentProblem } from "@spm-t5/shared";
+import { EmptyNote, EventSection } from "@/components/event/EventSection";
+import { Button } from "@/components/ui/button";
 import {
   addEventComment,
   fetchAttachmentUrl,
@@ -345,10 +347,10 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
           </ul>
         )}
       </div>
-      <div className="event-buttons">
-        <button className="btn" type="submit" disabled={busy}>{busy ? "Posting…" : submitLabel}</button>
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" disabled={busy}>{busy ? "Posting…" : submitLabel}</Button>
         {onCancel && (
-          <button className="btn btn--secondary" type="button" disabled={busy} onClick={onCancel}>Cancel</button>
+          <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>Cancel</Button>
         )}
       </div>
     </form>
@@ -406,15 +408,13 @@ export function EventComments({ eventId }: { eventId: string }) {
   if (data === null) return null;
 
   return (
-    <section className="event-section" aria-labelledby="comments-heading">
-      <h2 id="comments-heading">Comments</h2>
-
+    <EventSection id="comments-heading" title="Comments">
       {data === undefined ? (
-        <p className="event-detail-card event-detail-card--quiet" role="status">Loading comments…</p>
+        <EmptyNote role="status">Loading comments…</EmptyNote>
       ) : (
-        <div className="event-detail-card">
+        <div className="flex flex-col gap-4">
           {data.comments.length === 0 ? (
-            <p className="event-detail-card--quiet">{NO_COMMENTS}</p>
+            <EmptyNote>{NO_COMMENTS}</EmptyNote>
           ) : (
             <ol className="comments">
               {toThreads(data.comments).map(({ comment, replies }) => (
@@ -439,7 +439,7 @@ export function EventComments({ eventId }: { eventId: string }) {
 
           {/* SCRUM-25/AC5: viewers who may read but not take part don't get the form */}
           {data.can_comment && (
-            <div className="event-detail-card__step">
+            <div className="border-t border-border pt-4">
               <CommentForm
                 id="new-comment"
                 eventId={eventId}
@@ -453,6 +453,6 @@ export function EventComments({ eventId }: { eventId: string }) {
           )}
         </div>
       )}
-    </section>
+    </EventSection>
   );
 }

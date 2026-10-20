@@ -1,5 +1,9 @@
-import { Fragment, type ReactNode } from "react";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { EventSection } from "@/components/event/EventSection";
+import { buttonVariants } from "@/components/ui/button";
 import type { EventDetailView } from "@/lib/events";
+import { cn } from "@/lib/utils";
 
 // SCRUM-23/AC3: what a field shows when the organiser left it blank, so it's never mistaken for real data.
 export const NOT_PROVIDED = "Not provided";
@@ -16,16 +20,14 @@ function preferredSlot(start: string | null, end: string | null): string | null 
 }
 
 function Value({ children }: { children: ReactNode }) {
-  return children == null || children === "" ? <span className="event__missing">{NOT_PROVIDED}</span> : <>{children}</>;
+  return children == null || children === "" ? <span className="text-muted-foreground">{NOT_PROVIDED}</span> : <>{children}</>;
 }
 
-// SCRUM-23/AC2: everything the organiser submitted, for the coordinator to assess the request.
-// Current status is shown by EventStatusPanel above this section.
+// SCRUM-23/AC2: everything the organiser submitted, for the coordinator to assess the request. SCRUM-127: Figma "Request
+// details" card, a two-column grid with the long fields across the full width and Edit details in the header (SCRUM-111/AC6).
 export function EventRequestDetails({ event }: { event: EventDetailView }) {
-  const rows: [string, ReactNode][] = [
+  const rows: [string, ReactNode, boolean?][] = [
     ["Organiser", event.organiser_name],
-    // SCRUM-111/AC5: details the coordinator can edit
-    ["Description", event.description],
     ["Category", event.category_name],
     ["Purpose", event.purpose],
     ["Preferred date and time", preferredSlot(event.preferred_start_datetime, event.preferred_end_datetime)],
@@ -35,21 +37,28 @@ export function EventRequestDetails({ event }: { event: EventDetailView }) {
     ["Venue requirements", event.venue_requirements],
     ["Equipment needs", event.equipment_requirements_notes],
     ["Submitted", event.submitted_at && formatDate(event.submitted_at)],
+    // SCRUM-111/AC5: details the coordinator can edit
+    ["Description", event.description, true],
   ];
 
   return (
-    <section className="event-section" aria-labelledby="request-details">
-      <h2 id="request-details">Request details</h2>
-      <dl className="venue__facts">
-        {rows.map(([label, value]) => (
-          <Fragment key={label}>
-            <dt>{label}</dt>
-            <dd>
+    <EventSection
+      id="request-details"
+      title="Request details"
+      action={event.canEdit && (
+        <Link className={cn(buttonVariants({ variant: "ghost", size: "sm" }))} href={`/events/${event.id}/edit`}>Edit event details</Link>
+      )}
+    >
+      <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+        {rows.map(([label, value, wide]) => (
+          <div key={label} className={cn("flex min-w-0 flex-col gap-1", wide && "sm:col-span-2")}>
+            <dt className="text-xs font-medium text-fg-primary">{label}</dt>
+            <dd className="text-sm break-words text-foreground">
               <Value>{value}</Value>
             </dd>
-          </Fragment>
+          </div>
         ))}
       </dl>
-    </section>
+    </EventSection>
   );
 }

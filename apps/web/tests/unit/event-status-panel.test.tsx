@@ -42,7 +42,7 @@ describe("Event status page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Status updated to Returned.")).toBeTruthy();
-    expect(screen.getByText("Returned", { selector: ".event__status [data-tone]" })).toBeTruthy(); // the shown status updates too
+    expect(screen.getByText("Returned", { selector: "header [data-tone]" })).toBeTruthy(); // the shown status updates too
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:4002/events/evt-1/status");
     expect(options).toMatchObject({ method: "PATCH", credentials: "include" });
@@ -57,7 +57,7 @@ describe("Event status page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Only the coordinator assigned to this event can change its status.")).toBeTruthy();
-    expect(screen.getByText("Under Review", { selector: ".event__status [data-tone]" })).toBeTruthy(); // the shown status stays the same
+    expect(screen.getByText("Under Review", { selector: "header [data-tone]" })).toBeTruthy(); // the shown status stays the same
   });
 });
 
@@ -71,7 +71,7 @@ describe("SCRUM-45 — Start reviewing an event request", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start review" }));
 
     expect(await screen.findByText("Status updated to Under review.")).toBeTruthy();
-    expect(screen.getByText("Under Review", { selector: ".event__status [data-tone]" })).toBeTruthy();
+    expect(screen.getByText("Under Review", { selector: "header [data-tone]" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Start review" })).toBeNull(); // AC3: no longer submitted
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:4002/events/evt-1/status");
@@ -98,7 +98,7 @@ describe("SCRUM-24 — Decision on the event page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes, approve" }));
 
     expect(await screen.findByText("Status updated to Approved.")).toBeTruthy();
-    expect(screen.getByText("Approved", { selector: ".event__status [data-tone]" })).toBeTruthy();
+    expect(screen.getByText("Approved", { selector: "header [data-tone]" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Approve request" })).toBeNull(); // no second decision
   });
 

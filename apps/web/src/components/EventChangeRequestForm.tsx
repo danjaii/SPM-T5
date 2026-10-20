@@ -3,7 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CHANGE_REQUEST_MESSAGES, parseEventChangeRequestInput, utcToSgt } from "@spm-t5/shared";
-import { Field } from "./Field";
+import { EventSection } from "@/components/event/EventSection";
+import { InlineMessage } from "@/components/event/InlineMessage";
+import { Button } from "@/components/ui/button";
+import { InputField } from "@/components/ui/input-field";
+import { Textarea } from "@/components/ui/textarea";
 import { submitChangeRequest, type EventDetailView } from "@/lib/events";
 
 // SCRUM-66/AC1, AC8: the organiser edits attendance, date, times and venue/equipment requirements, starting from
@@ -69,30 +73,27 @@ export function EventChangeRequestForm({ event }: { event: EventDetailView }) {
   }
 
   return (
-    <section className="event" aria-labelledby="change-request">
-      <h2 id="change-request">Request a change</h2>
-      <p className="field__hint">
+    <EventSection id="change-request" title="Request a change">
+      <p className="text-sm text-muted-foreground">
         The event keeps its current details until your request is approved.
       </p>
 
-      {message && (
-        <div className={`alert alert--${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
-          {message.text}
-        </div>
-      )}
+      {message && <InlineMessage kind={message.kind}>{message.text}</InlineMessage>}
 
-      <form className="event__form" onSubmit={onSubmit} noValidate>
-        <Field id="expectedAttendance" label="Expected attendance" type="text" inputMode="numeric"
-          value={attendance} error={fieldErrors.expectedAttendance}
-          onChange={(e) => setAttendance(e.target.value)} />
-        <Field id="date" label="Date" type="date" value={date} error={fieldErrors.date}
-          onChange={(e) => onDateChange(e.target.value)} />
-        <Field id="startTime" label="Start time" type="time" value={startTime} error={fieldErrors.startTime}
-          onChange={(e) => setStartTime(e.target.value)} />
-        <Field id="endDate" label="End date" type="date" value={endDate} error={fieldErrors.endDate}
-          onChange={(e) => setEndDate(e.target.value)} />
-        <Field id="endTime" label="End time" type="time" value={endTime} error={fieldErrors.endTime}
-          onChange={(e) => setEndTime(e.target.value)} />
+      <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <InputField id="expectedAttendance" label="Expected attendance" type="text" inputMode="numeric"
+            value={attendance} error={fieldErrors.expectedAttendance}
+            onChange={(e) => setAttendance(e.target.value)} />
+          <InputField id="date" label="Date" type="date" value={date} error={fieldErrors.date}
+            onChange={(e) => onDateChange(e.target.value)} />
+          <InputField id="startTime" label="Start time" type="time" value={startTime} error={fieldErrors.startTime}
+            onChange={(e) => setStartTime(e.target.value)} />
+          <InputField id="endDate" label="End date" type="date" value={endDate} error={fieldErrors.endDate}
+            onChange={(e) => setEndDate(e.target.value)} />
+          <InputField id="endTime" label="End time" type="time" value={endTime} error={fieldErrors.endTime}
+            onChange={(e) => setEndTime(e.target.value)} />
+        </div>
         <TextArea id="venueRequirements" label="Venue requirements" value={venue}
           error={fieldErrors.venueRequirements} onChange={setVenue} />
         <TextArea id="equipmentRequirements" label="Equipment requirements" value={equipment}
@@ -100,9 +101,9 @@ export function EventChangeRequestForm({ event }: { event: EventDetailView }) {
         <TextArea id="reason" label="Reason for the change (optional)" value={reason}
           error={fieldErrors.reason} onChange={setReason} />
 
-        <button className="btn" type="submit" disabled={saving}>{saving ? "Submitting…" : "Submit change request"}</button>
+        <Button className="self-start" type="submit" disabled={saving}>{saving ? "Submitting…" : "Submit change request"}</Button>
       </form>
-    </section>
+    </EventSection>
   );
 }
 
@@ -114,11 +115,11 @@ function TextArea({ id, label, value, error, onChange }: {
   onChange: (value: string) => void;
 }) {
   return (
-    <div className={`field${error ? " field--error" : ""}`}>
-      <label htmlFor={id}>{label}</label>
-      <textarea id={id} rows={3} value={value} aria-invalid={error ? true : undefined}
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-semibold">{label}</label>
+      <Textarea id={id} rows={3} value={value} aria-invalid={error ? true : undefined}
         onChange={(e) => onChange(e.target.value)} />
-      {error && <p className="field__error">{error}</p>}
+      {error && <p className="text-sm font-medium text-destructive">{error}</p>}
     </div>
   );
 }

@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { EmptyNote, EventSection } from "@/components/event/EventSection";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatSgt } from "@/lib/bookingQueue";
 import type { EventTechnicalAssignmentsView, TechnicalAssignmentView } from "@/lib/technicalAssignments";
 import { TechnicalAssignmentCancel } from "./TechnicalAssignmentCancel";
@@ -21,56 +26,56 @@ function statusText(a: TechnicalAssignmentView): string {
 export function EventTechnicalAssignments({ eventId, data }: { eventId: string; data: EventTechnicalAssignmentsView | null }) {
   if (!data) return null;
   return (
-    <section className="event-section" aria-labelledby="technical-assignments-heading">
-      <h2 id="technical-assignments-heading">On-site technical support</h2>
+    <EventSection
+      id="technical-assignments-heading"
+      title="On-site technical support"
+      action={data.canAssign && (
+        <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/events/${eventId}/technical-assignments/new`}>
+          Assign technical support staff
+        </Link>
+      )}
+    >
       {data.assignments.length === 0 ? (
-        <p className="empty">No technical support staff assigned yet.</p>
+        <EmptyNote>No technical support staff assigned yet.</EmptyNote>
       ) : (
-        <table className="detail-table">
-          <thead>
-            <tr>
-              <th>Technician</th>
-              <th>Venue</th>
-              <th>Date and time</th>
-              <th>Note</th>
-              <th>Status</th>
-              {data.canAssign && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Technician</TableHead>
+              <TableHead>Venue</TableHead>
+              <TableHead>Date and time</TableHead>
+              <TableHead>Note</TableHead>
+              <TableHead>Status</TableHead>
+              {data.canAssign && <TableHead>Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.assignments.map((a) => (
-              <tr key={a.id}>
-                <td>{a.staffName ?? "Unknown"}</td>
-                <td>{a.venueName ?? "No venue"}</td>
-                <td>{period(a)}</td>
-                <td>{a.note ?? "—"}</td>
-                <td>
-                  <span className="status-badge">{statusText(a)}</span>
-                </td>
+              <TableRow key={a.id}>
+                <TableCell className="font-medium">{a.staffName ?? "Unknown"}</TableCell>
+                <TableCell>{a.venueName ?? "No venue"}</TableCell>
+                <TableCell>{period(a)}</TableCell>
+                <TableCell className="whitespace-normal">{a.note ?? "—"}</TableCell>
+                <TableCell className="whitespace-normal">
+                  <StatusBadge tone={a.status === "ACKNOWLEDGED" ? "success" : a.status === "CANCELLED" ? "neutral" : "info"} label={statusText(a)} className="h-auto whitespace-normal" />
+                </TableCell>
                 {data.canAssign && (
-                  <td className="vb__row-actions">
+                  <TableCell>
                     {a.status !== "CANCELLED" && (
-                      <>
-                        <Link className="btn btn--secondary" href={`/events/${eventId}/technical-assignments/${a.id}/change`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/events/${eventId}/technical-assignments/${a.id}/change`}>
                           Change
                         </Link>
                         <TechnicalAssignmentCancel assignmentId={a.id} />
-                      </>
+                      </div>
                     )}
-                  </td>
+                  </TableCell>
                 )}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
-      {data.canAssign && (
-        <div className="event-buttons">
-          <Link className="btn btn--secondary" href={`/events/${eventId}/technical-assignments/new`}>
-            Assign technical support staff
-          </Link>
-        </div>
-      )}
-    </section>
+    </EventSection>
   );
 }

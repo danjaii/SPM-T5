@@ -215,7 +215,7 @@ describe("SCRUM-111/AC4 the change history on the event page (111-S13)", () => {
   it("111-S13 lists each save, newest first: when, who, Important or not, and each field's old and new value", () => {
     render(<EventChangeHistory entries={entries} />);
 
-    const [newest, oldest] = screen.getAllByRole("listitem").filter((li) => li.classList.contains("event-detail-card"));
+    const [newest, oldest] = screen.getAllByRole("listitem").filter((li) => li.textContent?.includes("Rachel Tan"));
     expect(newest.textContent).toContain("Rachel Tan");
     expect(within(newest).getByText("Important")).toBeTruthy();
     expect(newest.textContent).toContain("Expected attendance: 100 → 120");

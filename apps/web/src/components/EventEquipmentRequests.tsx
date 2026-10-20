@@ -1,5 +1,11 @@
 import Link from "next/link";
+import { EmptyNote, EventSection } from "@/components/event/EventSection";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { EventEquipmentRequestsView } from "@/lib/equipmentRequests";
+import { EQUIPMENT_STATUS_DISPLAY } from "@/lib/status";
 
 // SCRUM-86/AC2, AC3: the event's equipment requests, each with its own status. Shown to the assigned coordinator and
 // Technical Support Staff (equipment-service answers nobody else); null means no section. AC6, AC7: the Request
@@ -8,67 +14,68 @@ import type { EventEquipmentRequestsView } from "@/lib/equipmentRequests";
 // SCRUM-88/AC1: a Change link on each request the viewer may change; AC8: who last changed it, and when.
 export function EventEquipmentRequests({ eventId, data }: { eventId: string; data: EventEquipmentRequestsView | null }) {
   if (!data) return null;
+  const anyEditable = data.requests.some((r) => r.canEdit);
   return (
-    <section className="event-section" aria-labelledby="equipment-requests-heading">
-      <h2 id="equipment-requests-heading">Equipment requests</h2>
+    <EventSection
+      id="equipment-requests-heading"
+      title="Equipment requests"
+      action={data.canCreate && (
+        <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/events/${eventId}/equipment-request`}>Request equipment</Link>
+      )}
+    >
       {data.readinessLabel && (
-        <p className="event__status">
-          Equipment <span className="status-badge">{data.readinessLabel}</span>
+        <p className="flex items-center gap-2 text-sm">
+          Equipment <StatusBadge tone="info" label={data.readinessLabel} />
         </p>
       )}
       {data.requests.length === 0 ? (
-        <p className="event-detail-card event-detail-card--quiet">No equipment has been requested for this event yet.</p>
+        <EmptyNote>No equipment has been requested for this event yet.</EmptyNote>
       ) : (
-        <div className="event-detail-card event-detail-card--table">
-          <table>
-            <thead>
-              <tr>
-                <th>Equipment</th>
-                <th>Quantity</th>
-                <th>Venue</th>
-                <th>Notes</th>
-                <th>Status</th>
-                {data.requests.some((r) => r.canEdit) && <th><span className="visually-hidden">Actions</span></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {data.requests.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.equipment}</td>
-                  <td>{r.quantity}</td>
-                  <td>{r.venueName ?? "No venue"}</td>
-                  <td>{r.notes ?? "—"}</td>
-                  <td>
-                    {r.statusLabel}
-                    {r.reason && <span className="field__hint"><br />Reason: {r.reason}</span>}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Equipment</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead>Venue</TableHead>
+              <TableHead>Notes</TableHead>
+              <TableHead>Status</TableHead>
+              {anyEditable && <TableHead><span className="visually-hidden">Actions</span></TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.requests.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-medium">{r.equipment}</TableCell>
+                <TableCell>{r.quantity}</TableCell>
+                <TableCell>{r.venueName ?? "No venue"}</TableCell>
+                <TableCell className="whitespace-normal">{r.notes ?? "—"}</TableCell>
+                <TableCell className="whitespace-normal">
+                  <div className="flex flex-col items-start gap-1">
+                    <StatusBadge {...EQUIPMENT_STATUS_DISPLAY[r.status]} label={r.statusLabel} />
+                    {r.reason && <span className="text-xs text-muted-foreground">Reason: {r.reason}</span>}
                     {/* SCRUM-102/AC7: released with its venue booking, which says why */}
-                    {r.releasedReason && <span className="vb__note">Venue booking cancelled: {r.releasedReason}</span>}
+                    {r.releasedReason && <span className="text-xs text-muted-foreground">Venue booking cancelled: {r.releasedReason}</span>}
                     {r.lastChangedBy && (
-                      <span className="field__hint"><br />Last changed by {r.lastChangedBy}, {r.lastChangedAt}</span>
+                      <span className="text-xs text-muted-foreground">Last changed by {r.lastChangedBy}, {r.lastChangedAt}</span>
                     )}
                     {/* SCRUM-113/AC2: back to Submitted after an important change; technical support review it again */}
-                    {r.sentBackForReview && <span className="vb__note">Waiting for review again after an event change</span>}
-                  </td>
-                  {data.requests.some((x) => x.canEdit) && (
-                    <td>
-                      {r.canEdit && (
-                        <Link href={`/events/${eventId}/equipment-request/${r.id}`} aria-label={`Change the ${r.equipment} request`}>
-                          Change
-                        </Link>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {r.sentBackForReview && <span className="text-xs text-muted-foreground">Waiting for review again after an event change</span>}
+                  </div>
+                </TableCell>
+                {anyEditable && (
+                  <TableCell>
+                    {r.canEdit && (
+                      <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/events/${eventId}/equipment-request/${r.id}`} aria-label={`Change the ${r.equipment} request`}>
+                        Change
+                      </Link>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
-      {data.canCreate && (
-        <div className="event-buttons">
-          <Link className="btn btn--secondary" href={`/events/${eventId}/equipment-request`}>Request equipment</Link>
-        </div>
-      )}
-    </section>
+    </EventSection>
   );
 }

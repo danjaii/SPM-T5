@@ -27,7 +27,7 @@ export function StatusStepper({ status, hasCoordinator, previousStatus }: Props)
     box.current?.querySelector("[aria-current]")?.scrollIntoView?.({ inline: "center", block: "nearest" });
   }, [status]);
   return (
-    <div ref={box} className="overflow-x-auto rounded-xl border border-border bg-card px-5 py-4">
+    <div ref={box} className="relative overflow-x-auto rounded-xl border border-border bg-card px-5 py-4">
       <ol aria-label="Event progress" className="flex w-full min-w-max items-start">
         {steps.map((step, i) => {
           const marked = step.state === "current" || step.state === "stopped";

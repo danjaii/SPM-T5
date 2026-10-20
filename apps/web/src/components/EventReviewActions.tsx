@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { canDecideEvent } from "@spm-t5/shared";
+import { EventSection } from "@/components/event/EventSection";
+import { InlineMessage } from "@/components/event/InlineMessage";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { approveEvent, rejectEvent } from "@/lib/events";
 
 type Step = "idle" | "approve" | "reason" | "reject";
@@ -52,70 +56,67 @@ export function EventReviewActions({ eventId, status, canReview, onDecided }: Pr
   }
 
   return (
-    <section className="event-section" aria-labelledby="decision-heading">
-      <h2 id="decision-heading">Decision</h2>
-      {error && <div className="alert alert--error" role="alert">{error}</div>}
+    <EventSection id="decision-heading" title="Decision">
+      {error && <InlineMessage kind="error">{error}</InlineMessage>}
 
-      <div className="event-detail-card">
-        {step === "idle" && (
-          <>
-            <p>Review the request details below, then record your decision.</p>
-            <div className="event-buttons">
-              <button className="btn" type="button" onClick={() => setStep("approve")}>Approve request</button>
-              <button className="btn btn--secondary" type="button" onClick={() => setStep("reason")}>Reject request</button>
-            </div>
-          </>
-        )}
-
-        {step === "approve" && (
-          <div role="alertdialog" aria-label="Confirm approval">
-            <p>Approve this request?</p>
-            <div className="event-buttons">
-              <button className="btn" type="button" disabled={busy} onClick={() => run(() => approveEvent(eventId))}>
-                {busy ? "Approving…" : "Yes, approve"}
-              </button>
-              <button className="btn btn--secondary" type="button" disabled={busy} onClick={() => setStep("idle")}>
-                Cancel
-              </button>
-            </div>
+      {step === "idle" && (
+        <>
+          <p className="text-sm text-muted-foreground">Review the request details below, then record your decision.</p>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" onClick={() => setStep("approve")}>Approve request</Button>
+            <Button type="button" variant="destructive" onClick={() => setStep("reason")}>Reject request</Button>
           </div>
-        )}
+        </>
+      )}
 
-        {step === "reason" && (
-          <div className="field">
-            <label htmlFor="event-rejection-reason">Reason for rejection</label>
-            <textarea
-              id="event-rejection-reason"
-              rows={4}
-              value={reason}
-              aria-invalid={reasonError ? true : undefined}
-              onChange={(e) => setReason(e.target.value)}
-            />
-            {reasonError && <p className="field__error" role="alert">{reasonError}</p>}
-            <div className="event-buttons">
-              <button className="btn" type="button" onClick={checkReason}>Continue</button>
-              <button className="btn btn--secondary" type="button" onClick={() => { setStep("idle"); setReasonError(undefined); }}>
-                Cancel
-              </button>
-            </div>
+      {step === "approve" && (
+        <div role="alertdialog" aria-label="Confirm approval" className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Approve this request?</p>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" disabled={busy} onClick={() => run(() => approveEvent(eventId))}>
+              {busy ? "Approving…" : "Yes, approve"}
+            </Button>
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setStep("idle")}>
+              Cancel
+            </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        {step === "reject" && (
-          <div role="alertdialog" aria-label="Confirm rejection">
-            <p>Reject this request?</p>
-            <blockquote className="event-quote">{trimmed}</blockquote>
-            <div className="event-buttons">
-              <button className="btn" type="button" disabled={busy} onClick={() => run(() => rejectEvent(eventId, trimmed))}>
-                {busy ? "Rejecting…" : "Yes, reject"}
-              </button>
-              <button className="btn btn--secondary" type="button" disabled={busy} onClick={() => setStep("reason")}>
-                Edit reason
-              </button>
-            </div>
+      {step === "reason" && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="event-rejection-reason" className="text-sm font-semibold">Reason for rejection</label>
+          <Textarea
+            id="event-rejection-reason"
+            rows={4}
+            value={reason}
+            aria-invalid={reasonError ? true : undefined}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          {reasonError && <p className="text-sm font-medium text-destructive" role="alert">{reasonError}</p>}
+          <div className="mt-2 flex flex-wrap gap-3">
+            <Button type="button" onClick={checkReason}>Continue</Button>
+            <Button type="button" variant="outline" onClick={() => { setStep("idle"); setReasonError(undefined); }}>
+              Cancel
+            </Button>
           </div>
-        )}
-      </div>
-    </section>
+        </div>
+      )}
+
+      {step === "reject" && (
+        <div role="alertdialog" aria-label="Confirm rejection" className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Reject this request?</p>
+          <blockquote className="whitespace-pre-wrap rounded-lg border-l-4 border-border-strong bg-muted px-4 py-3 text-sm">{trimmed}</blockquote>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="destructive" disabled={busy} onClick={() => run(() => rejectEvent(eventId, trimmed))}>
+              {busy ? "Rejecting…" : "Yes, reject"}
+            </Button>
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setStep("reason")}>
+              Edit reason
+            </Button>
+          </div>
+        </div>
+      )}
+    </EventSection>
   );
 }
