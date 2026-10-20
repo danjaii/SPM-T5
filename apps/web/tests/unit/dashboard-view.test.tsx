@@ -193,3 +193,23 @@ describe("SCRUM-47/AC11 the dashboard's notification bell", () => {
     expect(screen.queryByRole("link", { name: /^Notifications/ })).toBeNull();
   });
 });
+
+describe("SCRUM-127/AC3 event status badge in dashboard lists", () => {
+  it("shows an event's status as a StatusBadge with an icon, in its link", () => {
+    render(
+      <DashboardView
+        data={{
+          ...data,
+          sections: [{
+            title: "Events I coordinate",
+            columns: [{ key: "name", label: "Event" }, { key: "status", label: "Status", linkKey: "statusHref", statusKey: "statusKey" }],
+            rows: [{ name: "Tech Summit", status: "under review", statusKey: "under_review", statusHref: "/events/evt-1" }],
+          }],
+        }}
+      />,
+    );
+    const link = screen.getByRole("link", { name: "Under Review" });
+    expect(link.getAttribute("href")).toBe("/events/evt-1");
+    expect(within(link).getByTestId("status-icon")).toBeTruthy();
+  });
+});
