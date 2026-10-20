@@ -306,3 +306,24 @@ describe("SCRUM-65/AC8 no match", () => {
     expect(res.body).toEqual({ venues: [] });
   });
 });
+
+describe("SCRUM-132/AC1 includeUnsuitable lists venues that miss a requirement", () => {
+  const small = venue({ id: "small", maxCapacity: 120 });
+  const big = venue({ id: "big", maxCapacity: 200 });
+
+  it("132-S1 leaves out a venue too small for the attendance by default", async () => {
+    const { search } = setup([small, big]);
+    expect(ids(await search(`${SLOT}&attendance=150`))).toEqual(["big"]);
+  });
+
+  it("132-S2 lists it too when asked, so its card can show Capacity 120 / need 150", async () => {
+    const { search } = setup([small, big]);
+    expect(ids(await search(`${SLOT}&attendance=150&includeUnsuitable=true`))).toEqual(["small", "big"]);
+  });
+
+  it("132-S3 still leaves out a venue that is booked for the period, and still honours the location", async () => {
+    const { search } = setup([small, big], ["big"]);
+    expect(ids(await search(`${SLOT}&attendance=150&includeUnsuitable=true`))).toEqual(["big"]);
+    expect(ids(await search(`${SLOT}&includeUnsuitable=true&location=nowhere`))).toEqual([]);
+  });
+});
