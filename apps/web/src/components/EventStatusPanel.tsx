@@ -57,7 +57,7 @@ export function EventStatusPanel({ event, children }: { event: EventStatusView; 
         </p>
       </header>
 
-      <div className="mb-4">
+      <div className="my-6">
         <StatusStepper status={status} hasCoordinator={Boolean(event.point_of_contact_name)} previousStatus={previousStatus} />
       </div>
 

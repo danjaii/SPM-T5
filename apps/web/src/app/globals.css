@@ -342,7 +342,7 @@ tr:last-child td { border-bottom: 0; }
 /* ---------- Event details page layout (SCRUM-23/24/42/43/45) ----------
    One centred column; every section is a heading + white card with the same spacing, so the page reads
    top to bottom: header, actions, request details, coordinator, history, venue, change status. */
-.event-page { max-width: 820px; margin: 0 auto; }
+.event-page { max-width: 1120px; margin: 0 auto; }
 .event-header h1 { font-size: 30px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .event-header .event__status { margin: 12px 0 0; }
 .event-panel > .alert { margin: 20px 0 0; }
