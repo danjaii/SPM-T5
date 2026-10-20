@@ -52,6 +52,7 @@ describe("SCRUM-104/AC1 the save shows what now conflicts (104-S1)", () => {
       affected: [{ summary: SUMMIT_SENTENCE, first: { bookingId: "a" }, second: { bookingId: "b" } }],
     });
     render(<VenueDetail venue={venue()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit venue" }));
 
     fireEvent.change(screen.getByLabelText("Setup time (minutes)"), { target: { value: "30" } });
     fireEvent.change(screen.getByLabelText("Turnaround time (minutes)"), { target: { value: "45" } });
@@ -68,6 +69,7 @@ describe("SCRUM-104/AC6 no conflicts, no flags (104-S6)", () => {
   it("104-S6: tells staff no existing bookings are affected and lists nothing", async () => {
     mockServer(200, { setup_minutes: 10, turnaround_minutes: 10, message: "No existing bookings are affected.", affected: [] });
     render(<VenueDetail venue={venue()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit venue" }));
 
     fireEvent.change(screen.getByLabelText("Setup time (minutes)"), { target: { value: "10" } });
     fireEvent.change(screen.getByLabelText("Turnaround time (minutes)"), { target: { value: "10" } });

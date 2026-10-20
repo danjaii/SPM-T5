@@ -1,16 +1,21 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { parseVenueTimingInput, type AffectedPairDto } from "@spm-t5/shared";
+import { AuthAlert } from "@/components/auth/AuthParts";
+import { Button } from "@/components/ui/button";
+import { InputField } from "@/components/ui/input-field";
 import { putVenueTiming } from "@/lib/venueTiming";
-import { Field } from "./Field";
 
 type Errors = { setupMinutes?: string; turnaroundMinutes?: string };
 
 // SCRUM-101: Venue Staff set a venue's setup and turnaround times. Shown only to them (the server says so with
 // can_edit_timing, and checks again). Validates with the same parser as venue-service, so a bad value never leaves
 // the browser and the saved values stay as they were (101-S3).
+// SCRUM-129/AC2: a saved edit is confirmed with a message in the form and a toast.
 export function VenueTimingForm({ venueId, setupMinutes, turnaroundMinutes }: { venueId: string; setupMinutes: number; turnaroundMinutes: number }) {
   const router = useRouter();
   const [setup, setSetup] = useState(String(setupMinutes));
@@ -41,6 +46,7 @@ export function VenueTimingForm({ venueId, setupMinutes, turnaroundMinutes }: { 
     if (ok) {
       setSaved(true);
       setImpact({ message: data.message, affected: data.affected ?? [] });
+      toast.success("Venue saved");
       router.refresh();
     } else if (data.fieldErrors) {
       setErrors(data.fieldErrors);
@@ -50,27 +56,34 @@ export function VenueTimingForm({ venueId, setupMinutes, turnaroundMinutes }: { 
   }
 
   return (
-    <form className="profile-form" onSubmit={onSubmit} noValidate aria-label="Setup and turnaround times">
-      <h2>Edit setup and turnaround times</h2>
-      {failure && <div className="alert alert--error" role="alert">{failure}</div>}
+    <form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate aria-label="Setup and turnaround times">
+      {failure && <AuthAlert tone="error">{failure}</AuthAlert>}
       {saved && (
-        <div className="alert alert--ok" role="status">
-          The times were saved.
+        <AuthAlert tone="ok">
           {/* 104-S1, 104-S6: which existing bookings now clash, or that none do */}
-          {impact && <p>{impact.message}</p>}
-        </div>
+          The times were saved. {impact?.message}
+        </AuthAlert>
       )}
       {saved && impact && impact.affected.length > 0 && (
-        <div className="alert alert--warning" aria-label="Bookings that now conflict">
-          <p>These bookings are flagged &ldquo;Buffer conflict&rdquo;. Nothing was cancelled or withdrawn: their coordinators can see the flag and resolve it.</p>
-          <ul>
-            {impact.affected.map((p) => (
-              <li key={`${p.first.bookingId}-${p.second.bookingId}`}>{p.summary}</li>
-            ))}
-          </ul>
+        <div
+          aria-label="Bookings that now conflict"
+          className="flex items-start gap-2 rounded-lg border border-status-warning-fg bg-status-warning p-3 text-sm text-status-warning-fg"
+        >
+          <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <div className="flex flex-col gap-2">
+            <p className="font-medium">
+              These bookings are flagged &ldquo;Buffer conflict&rdquo;. Nothing was cancelled or withdrawn: their coordinators can see the flag
+              and resolve it.
+            </p>
+            <ul className="list-disc pl-4">
+              {impact.affected.map((p) => (
+                <li key={`${p.first.bookingId}-${p.second.bookingId}`}>{p.summary}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
-      <Field
+      <InputField
         id="setupMinutes"
         label="Setup time (minutes)"
         type="text"
@@ -78,9 +91,9 @@ export function VenueTimingForm({ venueId, setupMinutes, turnaroundMinutes }: { 
         value={setup}
         onChange={(e) => setSetup(e.target.value)}
         error={errors.setupMinutes}
-        hint="Time the venue team needs before an event."
+        helper="Time the venue team needs before an event."
       />
-      <Field
+      <InputField
         id="turnaroundMinutes"
         label="Turnaround time (minutes)"
         type="text"
@@ -88,9 +101,11 @@ export function VenueTimingForm({ venueId, setupMinutes, turnaroundMinutes }: { 
         value={turnaround}
         onChange={(e) => setTurnaround(e.target.value)}
         error={errors.turnaroundMinutes}
-        hint="Time the venue team needs after an event."
+        helper="Time the venue team needs after an event."
       />
-      <button className="btn" type="submit" disabled={busy}>{busy ? "Saving…" : "Save times"}</button>
+      <Button type="submit" disabled={busy} className="self-start">
+        {busy ? "Saving…" : "Save times"}
+      </Button>
     </form>
   );
 }

@@ -54,6 +54,7 @@ describe("SCRUM-101/AC4 only Venue Staff see the form (101-S4)", () => {
 
   it("101-S4: venue staff get the form filled with the current times", () => {
     render(<VenueDetail venue={venue({ setup_minutes: 30, turnaround_minutes: 45, can_edit_timing: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit venue" }));
     expect((screen.getByLabelText("Setup time (minutes)") as HTMLInputElement).value).toBe("30");
     expect((screen.getByLabelText("Turnaround time (minutes)") as HTMLInputElement).value).toBe("45");
     expect(screen.getByRole("button", { name: "Save times" })).toBeTruthy();
@@ -64,6 +65,7 @@ describe("SCRUM-101/AC1 saving the times (101-S1)", () => {
   it("101-S1: PUTs both values, says saved and refreshes the page", async () => {
     const fetchMock = mockServer(200, { setup_minutes: 30, turnaround_minutes: 45 });
     render(<VenueDetail venue={venue({ can_edit_timing: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit venue" }));
 
     fireEvent.change(screen.getByLabelText("Setup time (minutes)"), { target: { value: "30" } });
     fireEvent.change(screen.getByLabelText("Turnaround time (minutes)"), { target: { value: "45" } });
@@ -83,6 +85,7 @@ describe("SCRUM-101/AC3 invalid values are rejected and the old ones kept (101-S
   it.each(["-15", "12.5", "abc", ""])("101-S3: %j shows a message and sends nothing", (value) => {
     const fetchMock = mockServer(200, {});
     render(<VenueDetail venue={venue({ setup_minutes: 30, turnaround_minutes: 45, can_edit_timing: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit venue" }));
 
     fireEvent.change(screen.getByLabelText("Setup time (minutes)"), { target: { value } });
     fireEvent.click(screen.getByRole("button", { name: "Save times" }));
@@ -98,6 +101,7 @@ describe("SCRUM-101/AC3 invalid values are rejected and the old ones kept (101-S
   it("101-S3: a server refusal is shown and the page is not refreshed", async () => {
     mockServer(422, { error: "Some fields are invalid.", fieldErrors: { turnaroundMinutes: "Turnaround time must be a whole number of minutes, 0 or more." } });
     render(<VenueDetail venue={venue({ can_edit_timing: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit venue" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Save times" }));
 
@@ -108,6 +112,7 @@ describe("SCRUM-101/AC3 invalid values are rejected and the old ones kept (101-S
   it("101-S4: a 403 message from the server is shown", async () => {
     mockServer(403, { error: "Only venue staff can change a venue's setup and turnaround times." });
     render(<VenueDetail venue={venue({ can_edit_timing: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit venue" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Save times" }));
 
