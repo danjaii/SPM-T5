@@ -1,9 +1,13 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
+import { AuthAlert, AuthHeader, AuthLink } from "@/components/auth/AuthParts";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { InputField } from "@/components/ui/input-field";
 import { postJson } from "@/lib/api";
-import { Field } from "./Field";
+import { cn } from "@/lib/utils";
 
 export function ResetPasswordForm() {
   // Supabase puts the recovery token in the URL hash of the emailed link.
@@ -28,30 +32,29 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate>
-      <h1>Choose a new password</h1>
-      <p className="auth__lede">Use the link from your reset email.</p>
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+      <AuthHeader title="Choose a new password" lede="Use the link from your reset email." />
 
-      {token === null && (
-        <div className="alert alert--error" role="alert">This reset link is invalid or has expired. Request a new one.</div>
-      )}
+      {token === null && <AuthAlert tone="error">This reset link is invalid or has expired. Request a new one.</AuthAlert>}
       {message ? (
         <>
-          <div className="alert alert--ok" role="status">{message}</div>
-          <Link className="btn" href="/login" style={{ textAlign: "center", textDecoration: "none" }}>Go to sign in</Link>
+          <AuthAlert tone="ok">{message}</AuthAlert>
+          <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "w-full")}>Go to sign in</Link>
         </>
       ) : (
         token && (
           <>
-            <Field id="password" label="New password" type="password" autoComplete="new-password"
-              hint="At least 8 characters, with a letter, a number and a symbol."
+            <InputField id="password" name="password" label="New password" type="password" autoComplete="new-password"
+              helper="At least 8 characters, with a letter, a number and a symbol."
               value={password} onChange={(e) => setPassword(e.target.value)} error={error} required />
-            <button className="btn" type="submit" disabled={submitting}>{submitting ? "Saving…" : "Update password"}</button>
+            <Button type="submit" size="lg" disabled={submitting} className="w-full">
+              {submitting ? (<><Loader2 aria-hidden="true" className="animate-spin" />Saving…</>) : "Update password"}
+            </Button>
           </>
         )
       )}
 
-      <div className="auth__links"><Link href="/login">Back to sign in</Link></div>
+      <AuthLink href="/login" className="text-sm">Back to sign in</AuthLink>
     </form>
   );
 }

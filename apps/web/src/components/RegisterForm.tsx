@@ -1,9 +1,13 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { AuthAlert, AuthHeader, AuthLink } from "@/components/auth/AuthParts";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { InputField } from "@/components/ui/input-field";
 import { postJson } from "@/lib/api";
-import { Field } from "./Field";
+import { cn } from "@/lib/utils";
 
 export function RegisterForm() {
   const [fullName, setFullName] = useState("");
@@ -32,37 +36,35 @@ export function RegisterForm() {
 
   if (success) {
     return (
-      <div>
-        <h1>Create account</h1>
-        <p className="auth__lede">Request access to ConnectSphere.</p>
-        <div className="alert alert--ok" role="status">{success}</div>
-        <Link className="btn" href="/login" style={{ textAlign: "center", textDecoration: "none" }}>Go to sign in</Link>
+      <div className="flex flex-col gap-5">
+        <AuthHeader title="Create account" lede="Request access to ConnectSphere." />
+        <AuthAlert tone="ok">{success}</AuthAlert>
+        <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "w-full")}>Go to sign in</Link>
       </div>
     );
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate>
-      <h1>Create account</h1>
-      <p className="auth__lede">Request access to ConnectSphere.</p>
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+      <AuthHeader title="Create account" lede="Request access to ConnectSphere." />
 
-      {formError && <div className="alert alert--error" role="alert">{formError}</div>}
+      {formError && <AuthAlert tone="error">{formError}</AuthAlert>}
 
-      <Field id="fullName" label="Full name" autoComplete="name" value={fullName}
+      <InputField id="fullName" name="fullName" label="Full name" autoComplete="name" value={fullName}
         onChange={(e) => setFullName(e.target.value)} error={errors.fullName} required />
-      <Field id="email" label="Work email" type="email" autoComplete="username" placeholder="name@company.com"
+      <InputField id="email" name="email" label="Work email" type="email" autoComplete="username" placeholder="name@company.com"
         value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} required />
-      <Field id="password" label="Password" type="password" autoComplete="new-password"
-        hint="At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol."
+      <InputField id="password" name="password" label="Password" type="password" autoComplete="new-password"
+        helper="At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol."
         value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} required />
-      <Field id="confirmPassword" label="Confirm password" type="password" autoComplete="new-password"
+      <InputField id="confirmPassword" name="confirmPassword" label="Confirm password" type="password" autoComplete="new-password"
         value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} error={errors.confirmPassword} required />
 
-      <button className="btn" type="submit" disabled={submitting}>{submitting ? "Creating account…" : "Create account"}</button>
+      <Button type="submit" size="lg" disabled={submitting} className="w-full">
+        {submitting ? (<><Loader2 aria-hidden="true" className="animate-spin" />Creating account…</>) : "Create account"}
+      </Button>
 
-      <div className="auth__links">
-        <span>Already registered? <Link href="/login">Sign in</Link></span>
-      </div>
+      <p className="text-sm text-muted-foreground">Already registered? <AuthLink href="/login">Sign in</AuthLink></p>
     </form>
   );
 }
