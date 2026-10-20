@@ -89,13 +89,11 @@ describe("Dashboard tables", () => {
   // if role is technical support staff, we can see the link. Else, no
   // end of SCRUM-18 dashboard link
 
-  // SCRUM-65: only event coordinators see the 'Search venues' link.
-  it.each(ROLES)("SCRUM-65: for a %s, shows the 'Search venues' link only if Event Coordinator", (role) => {
+  // SCRUM-131: the venue search moved into the catalogue, so no role gets a separate Search venues link.
+  it.each(ROLES)("SCRUM-131: for a %s, has no separate Search venues link", (role) => {
     render(<DashboardView data={{ ...data, user: { ...data.user, role } }} />);
 
-    const link = screen.queryByRole("link", { name: "Search venues" });
-    if (role === "event_coordinator") expect(link?.getAttribute("href")).toBe("/venues/search");
-    else expect(link).toBeNull();
+    expect(screen.queryByRole("link", { name: "Search venues" })).toBeNull();
   });
 
   // we want to test that if the person is technical support staff, they can see the link to reserve equipment

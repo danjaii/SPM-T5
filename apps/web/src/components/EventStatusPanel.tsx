@@ -67,7 +67,10 @@ export function EventStatusPanel({ event, children }: { event: EventStatusView; 
             </button>
           )}
           {showVenueLink && (
-            <Link className="btn btn--secondary" href={`/events/${event.id}/venue-request`}>Request a venue</Link>
+            <>
+              <Link className="btn btn--secondary" href={`/venues?eventId=${event.id}`}>Find a venue</Link>
+              <Link className="btn btn--secondary" href={`/events/${event.id}/venue-request`}>Request a venue</Link>
+            </>
           )}
         </div>
       )}

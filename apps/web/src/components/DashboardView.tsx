@@ -45,7 +45,6 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
           <nav className="dash__links">
             <Link href="/venues">Venue catalogue</Link>
             {/* SCRUM-65: searching venues for an event is for event coordinators */}
-            {user.role === "event_coordinator" && <Link href="/venues/search">Search venues</Link>}
             {/* SCRUM-104/AC3: the coordinator's venue bookings, where a Buffer conflict flag shows */}
             {user.role === "event_coordinator" && <Link href="/venue-bookings">My venue bookings</Link>}
             {/* SCRUM-37/AC7: the pending request queue is for venue staff only */}
