@@ -1,3 +1,5 @@
+import { EmptyNote, EventSection } from "@/components/event/EventSection";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { EventChangeHistoryEntry } from "@/lib/events";
 
 const TIMES = new Set(["preferred_start_datetime", "preferred_end_datetime"]);
@@ -17,19 +19,18 @@ export function changeValue(field: string, value: unknown): string {
 export function EventChangeHistory({ entries }: { entries: EventChangeHistoryEntry[] | null }) {
   if (!entries) return null;
   return (
-    <section className="event-section" aria-labelledby="change-history-heading">
-      <h2 id="change-history-heading">Change history</h2>
+    <EventSection id="change-history-heading" title="Change history">
       {entries.length === 0 ? (
-        <p className="event-detail-card event-detail-card--quiet">The event&apos;s details have not been changed.</p>
+        <EmptyNote>The event&apos;s details have not been changed.</EmptyNote>
       ) : (
-        <ol className="change-history">
+        <ol className="flex flex-col gap-3">
           {entries.map((entry) => (
-            <li key={entry.id} className="event-detail-card">
-              <p className="change-history__who">
+            <li key={entry.id} className="flex flex-col gap-2 rounded-lg border border-border p-4">
+              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                 {formatWhen(entry.changedAt)} by {entry.changedBy ?? "Unknown"}
-                {entry.important && <span className="status-badge change-history__important">Important</span>}
+                {entry.important && <StatusBadge tone="warning" label="Important" />}
               </p>
-              <ul>
+              <ul className="flex flex-col gap-1 text-sm">
                 {entry.changes.map((c) => (
                   <li key={c.field}>
                     <strong>{c.label}:</strong> {changeValue(c.field, c.from)} → {changeValue(c.field, c.to)}
@@ -40,6 +41,6 @@ export function EventChangeHistory({ entries }: { entries: EventChangeHistoryEnt
           ))}
         </ol>
       )}
-    </section>
+    </EventSection>
   );
 }

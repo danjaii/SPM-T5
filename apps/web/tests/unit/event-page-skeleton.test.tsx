@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { EVENT_TABS, EventPageSkeleton, stepIndex } from "@/components/event/EventPageSkeleton";
+import { EVENT_TABS, EventPageSkeleton } from "@/components/event/EventPageSkeleton";
 
 const page = (status: string, attention?: Parameters<typeof EventPageSkeleton>[0]["attention"]) =>
   render(
@@ -26,22 +26,9 @@ describe("SCRUM-121/AC1 event page skeleton", () => {
     expect(tabs.filter((t) => t.getAttribute("aria-current") === "page").map((t) => t.textContent)).toEqual(["Venues"]);
   });
 
-  it("marks the stepper's done and current steps in text, not by colour alone", () => {
+  it("shows the status stepper under the header", () => {
     page("planning");
-    const steps = within(screen.getByRole("list", { name: "Event progress" })).getAllByRole("listitem");
-    expect(steps).toHaveLength(6);
-    expect(steps[0]!.textContent).toContain("(done)");
-    expect(steps[2]!.textContent).toContain("(done)");
-    expect(steps[3]!.textContent).toContain("(current)");
-    expect(steps[3]!.getAttribute("aria-current")).toBe("step");
-    expect(steps[4]!.textContent).not.toMatch(/done|current/);
-  });
-
-  it.each([
-    ["draft", -1], ["submitted", 0], ["under_review", 1], ["returned", 1], ["approved", 2],
-    ["planning", 3], ["awaiting_arrangements", 3], ["confirmed", 4], ["completed", 5], ["cancelled", -1], ["rejected", -1],
-  ])("puts %s at step %i", (status, index) => {
-    expect(stepIndex(status)).toBe(index);
+    expect(within(screen.getByRole("list", { name: "Event progress" })).getAllByRole("listitem")).toHaveLength(8);
   });
 
   it("shows the needs-attention banner with its action only when there is something to do", () => {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { canMakeSafetyDecision, canViewVenueCatalogue, isLead, isRole } from "@spm-t5/shared";
 import { roleLabel } from "@/lib/roles";
+import EventStatusBadge from "./EventStatusBadge";
 import { AppHeader } from "./AppHeader";
 import { BfcacheGuard } from "./BfcacheGuard";
 import { NeedsAction } from "./shell/NeedsAction";
@@ -10,8 +11,9 @@ export interface DashboardData {
   user: { fullName: string; email: string; role: string };
   sections: {
     title: string;
-    /** linkKey: the row field holding a link for this column's value (set by auth-service, e.g. an event's status page). */
-    columns: { key: string; label: string; linkKey?: string }[];
+    /** linkKey: the row field holding a link for this column's value (set by auth-service, e.g. an event's status page).
+     *  statusKey (SCRUM-127/AC3): the row field holding an event's raw status, shown as a StatusBadge instead of the text. */
+    columns: { key: string; label: string; linkKey?: string; statusKey?: string }[];
     rows: Record<string, string | number>[];
   }[];
 }
@@ -91,7 +93,8 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
                       <tr key={i}>
                         {section.columns.map((c) => {
                           const href = c.linkKey ? row[c.linkKey] : undefined;
-                          return <td key={c.key}>{href ? <Link href={String(href)}>{row[c.key]}</Link> : row[c.key]}</td>;
+                          const shown = c.statusKey ? <EventStatusBadge status={String(row[c.statusKey])} /> : row[c.key];
+                          return <td key={c.key}>{href ? <Link href={String(href)}>{shown}</Link> : shown}</td>;
                         })}
                       </tr>
                     ))}

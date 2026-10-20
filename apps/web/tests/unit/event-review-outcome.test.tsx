@@ -10,7 +10,7 @@ describe("SCRUM-44 — review outcome card", () => {
   it("AC1, AC4: shows an approval with when (Singapore time) and by whom", () => {
     render(<EventReviewOutcome decision={APPROVED} showAwaiting />);
 
-    expect(screen.getByText("Approved").className).toContain("outcome-badge--approved");
+    expect(screen.getByText("Approved").getAttribute("data-tone")).toBe("success");
     expect(screen.getByText(/2 Sept? 2026, 11:00 am · by Rachel Tan/)).toBeTruthy();
     expect(screen.queryByText("Reason for rejection")).toBeNull();
   });
@@ -18,7 +18,7 @@ describe("SCRUM-44 — review outcome card", () => {
   it("AC2, AC3: shows a rejection and the coordinator's reason", () => {
     render(<EventReviewOutcome decision={REJECTED} showAwaiting />);
 
-    expect(screen.getByText("Rejected").className).toContain("outcome-badge--rejected");
+    expect(screen.getByText("Rejected").getAttribute("data-tone")).toBe("danger");
     expect(screen.getByRole("heading", { name: "Reason for rejection" })).toBeTruthy();
     expect(screen.getByText("Venue too small.")).toBeTruthy();
   });

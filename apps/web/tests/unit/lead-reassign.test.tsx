@@ -48,10 +48,22 @@ function mockFetch(status: number, body: unknown) {
   return fetchMock;
 }
 
-// Picks a coordinator from the dropdown by the option text the Lead sees
-function choose(name: string) {
-  const option = screen.getByRole("option", { name }) as HTMLOptionElement;
-  fireEvent.change(screen.getByLabelText("Event Coordinator"), { target: { value: option.value } });
+/** SCRUM-126/AC2: opens the coordinator dropdown, as the Lead does by clicking it. */
+function openList() {
+  fireEvent.click(screen.getByRole("combobox", { name: "Event Coordinator" }));
+}
+
+// Picks a coordinator from the dropdown by the text the Lead sees (name, then workload)
+async function choose(label: string) {
+  openList();
+  const option = await screen.findByRole("option", { name: new RegExp(label.split(" — ")[0]) });
+  // Base UI ignores a click that follows opening too quickly, as a stray double click would
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  fireEvent.pointerDown(option);
+  fireEvent.mouseDown(option);
+  fireEvent.pointerUp(option);
+  fireEvent.mouseUp(option);
+  fireEvent.click(option);
 }
 
 const renderForm = (coordinators = [marcus, siti]) =>
@@ -61,6 +73,7 @@ const renderForm = (coordinators = [marcus, siti]) =>
       eventId="evt-1"
       eventName="Tech Summit"
       coordinators={coordinators}
+      currentName="Rachel Tan"
       cancelHref="/lead/coordinators/c-1"
     />,
   );
@@ -85,26 +98,28 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
   // end of AC1
 
   // AC2: who is assigned now; the other eligible coordinators with their workload; the current one can't be chosen
-  it("SCRUM-79/AC2 offers only the other coordinators, each with their workload count", () => {
+  it("SCRUM-79/AC2 SCRUM-126/AC2 offers only the other coordinators, each with their workload count", async () => {
     renderForm();
+    openList();
 
-    expect(screen.getAllByRole("option").filter((o) => (o as HTMLOptionElement).value).map((o) => o.textContent)).toEqual([
-      "Marcus Lim — 1 active event",
-      "Siti Aminah — 0 active events",
+    await screen.findAllByRole("option");
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Marcus Lim1 active event",
+      "Siti Aminah0 active events",
     ]);
     expect(screen.queryByRole("option", { name: /Rachel Tan/ })).toBeNull();
   });
   // end of AC2
 
   // AC3: confirming makes the new coordinator the only one
-  it("SCRUM-79/AC3 reassigns to the chosen coordinator on confirm", async () => {
+  it("SCRUM-79/AC3 SCRUM-126/AC3 reassigns to the chosen coordinator on confirm and tells both coordinators", async () => {
     const fetchMock = mockFetch(200, { assigned_coordinator_id: "c-3" });
     renderForm();
 
-    choose("Siti Aminah — 0 active events");
+    await choose("Siti Aminah — 0 active events");
     fireEvent.click(screen.getByRole("button", { name: "Confirm reassignment" }));
 
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Tech Summit is now assigned to Siti Aminah."));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Tech Summit is now assigned to Siti Aminah. Siti Aminah and Rachel Tan have been notified."));
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:4002/lead/events/evt-1/reassign",
       expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ coordinator_id: "c-3" }) }),
@@ -115,7 +130,7 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
     mockFetch(409, { error: "This coordinator is already assigned to the event." });
     renderForm();
 
-    choose("Marcus Lim — 1 active event");
+    await choose("Marcus Lim — 1 active event");
     fireEvent.click(screen.getByRole("button", { name: "Confirm reassignment" }));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("This coordinator is already assigned to the event."));
@@ -133,11 +148,11 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
   // end of AC6
 
   // AC7: cancelling before confirming sends nothing; the assignment is unchanged
-  it("SCRUM-79/AC7 cancelling before confirming sends nothing and returns to the coordinator's events", () => {
+  it("SCRUM-79/AC7 cancelling before confirming sends nothing and returns to the coordinator's events", async () => {
     const fetchMock = mockFetch(200, {});
     renderForm();
 
-    choose("Marcus Lim — 1 active event");
+    await choose("Marcus Lim — 1 active event");
     const cancel = screen.getByRole("link", { name: "Cancel" });
 
     expect(cancel.getAttribute("href")).toBe("/lead/coordinators/c-1");
@@ -162,7 +177,7 @@ describe("SCRUM-79 — The reassign page", () => {
     expect(screen.getByRole("heading", { name: "Reassign Tech Summit" })).toBeTruthy();
     // SCRUM-79/AC2: who holds the event now is shown with its details
     expect(screen.getByRole("row", { name: "Current coordinator Rachel Tan" })).toBeTruthy();
-    expect(screen.getByRole("option", { name: "Marcus Lim — 1 active event" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Event Coordinator" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Cancel" }).getAttribute("href")).toBe("/lead/coordinators/c-1");
   });
 

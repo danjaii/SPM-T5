@@ -41,10 +41,22 @@ function mockPost(status: number, body: unknown) {
   return fetchMock;
 }
 
-// Picks a coordinator from the dropdown by the option text the Lead sees
-function choose(name: string) {
-  const option = screen.getByRole("option", { name }) as HTMLOptionElement;
-  fireEvent.change(screen.getByLabelText("Event Coordinator"), { target: { value: option.value } });
+/** SCRUM-126/AC2: opens the coordinator dropdown, as the Lead does by clicking it. */
+function openList() {
+  fireEvent.click(screen.getByRole("combobox", { name: "Event Coordinator" }));
+}
+
+// Picks a coordinator from the dropdown by the text the Lead sees (name, then workload)
+async function choose(label: string) {
+  openList();
+  const option = await screen.findByRole("option", { name: new RegExp(label.split(" — ")[0]) });
+  // Base UI ignores a click that follows opening too quickly, as a stray double click would
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  fireEvent.pointerDown(option);
+  fireEvent.mouseDown(option);
+  fireEvent.pointerUp(option);
+  fireEvent.mouseUp(option);
+  fireEvent.click(option);
 }
 
 const renderForm = (coordinators = [rachel, marcus]) =>
@@ -69,11 +81,12 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
   });
 
   // AC1: the eligible coordinators are listed, each with their workload count
-  it("SCRUM-78/AC1 lists the eligible coordinators, each with their workload count", () => {
+  it("SCRUM-78/AC1 SCRUM-126/AC2 lists the eligible coordinators, each with their workload count", async () => {
     renderForm();
+    openList();
 
-    expect(screen.getByRole("option", { name: "Rachel Tan — 2 active events" })).toBeTruthy();
-    expect(screen.getByRole("option", { name: "Marcus Lim — 0 active events" })).toBeTruthy();
+    expect((await screen.findByRole("option", { name: /Rachel Tan/ })).textContent).toContain("2 active events");
+    expect(screen.getByRole("option", { name: /Marcus Lim/ }).textContent).toContain("0 active events");
   });
   // end of AC1
 
@@ -82,10 +95,10 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
     const fetchMock = mockPost(200, { assigned_coordinator_id: "c-2" });
     renderForm();
 
-    choose("Marcus Lim — 0 active events");
+    await choose("Marcus Lim — 0 active events");
     fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
 
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Tech Summit is now assigned to Marcus Lim."));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Tech Summit is now assigned to Marcus Lim. Marcus Lim has been notified."));
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:4002/lead/events/evt-1/assign",
       expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ coordinator_id: "c-2" }) }),
@@ -109,7 +122,7 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
     mockPost(409, { error: "This event has already been assigned to a coordinator." });
     renderForm();
 
-    choose("Rachel Tan — 2 active events");
+    await choose("Rachel Tan — 2 active events");
     fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("This event has already been assigned to a coordinator."));
@@ -127,11 +140,11 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
   // end of AC7
 
   // AC8: cancelling before confirming leaves the event unassigned (nothing is sent)
-  it("SCRUM-78/AC8 cancelling before confirming sends nothing and returns to the queue", () => {
+  it("SCRUM-78/AC8 cancelling before confirming sends nothing and returns to the queue", async () => {
     const fetchMock = mockPost(200, {});
     renderForm();
 
-    choose("Rachel Tan — 2 active events");
+    await choose("Rachel Tan — 2 active events");
     const cancel = screen.getByRole("link", { name: "Cancel" });
 
     expect(cancel.getAttribute("href")).toBe("/lead/queue");
@@ -163,7 +176,7 @@ describe("SCRUM-78 — The assign page", () => {
     );
     expect(screen.getByRole("heading", { name: "Assign a coordinator to Tech Summit" })).toBeTruthy();
     expect(screen.getByText("Jason Chua")).toBeTruthy();
-    expect(screen.getByRole("option", { name: "Rachel Tan — 2 active events" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Event Coordinator" })).toBeTruthy();
   });
 
   // AC6: a closed event has no assign action

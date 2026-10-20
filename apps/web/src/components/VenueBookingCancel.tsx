@@ -5,6 +5,7 @@ import { useState } from "react";
 import { parseCancellationInput, REJECTION_REASON_MAX_LENGTH } from "@spm-t5/shared";
 import type { EquipmentRequestView } from "@/lib/equipmentRequests";
 import { cancelVenueBooking, type EventVenueBookingItem } from "@/lib/venueBookings";
+import { Button } from "@/components/ui/button";
 
 // SCRUM-102/AC2, AC4: cancel one venue booking of the event, after a confirmation that asks for a reason; going back sends
 // nothing. AC7: the confirmation lists the equipment requested for this venue booking, which is released with it. There is
@@ -45,9 +46,9 @@ export function VenueBookingCancel({ booking, equipment }: { booking: EventVenue
 
   if (!open) {
     return (
-      <button className="btn btn--secondary" type="button" onClick={() => setOpen(true)} aria-label={`Cancel the ${booking.venueName} venue booking`}>
+      <Button variant="outline" size="sm" type="button" onClick={() => setOpen(true)} aria-label={`Cancel the ${booking.venueName} venue booking`}>
         Cancel
-      </button>
+      </Button>
     );
   }
 
@@ -83,12 +84,12 @@ export function VenueBookingCancel({ booking, equipment }: { booking: EventVenue
         {reasonError && <p className="field__error" role="alert">{reasonError}</p>}
       </div>
       <p>
-        <button className="btn" type="button" disabled={busy} onClick={confirm}>
+        <Button variant="destructive" size="sm" type="button" disabled={busy} onClick={confirm}>
           {busy ? "Cancelling…" : equipment.length > 0 ? "Cancel venue booking and release equipment" : "Cancel venue booking"}
-        </button>{" "}
-        <button className="btn btn--secondary" type="button" disabled={busy} onClick={goBack}>
+        </Button>{" "}
+        <Button variant="outline" size="sm" type="button" disabled={busy} onClick={goBack}>
           Go back
-        </button>
+        </Button>
       </p>
     </div>
   );

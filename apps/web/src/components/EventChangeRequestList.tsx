@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { CHANGE_REQUEST_REVIEW_MESSAGES } from "@spm-t5/shared";
+import { EmptyNote, EventSection } from "@/components/event/EventSection";
+import { InlineMessage } from "@/components/event/InlineMessage";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { ChangeRequestView } from "@/lib/events";
 
 const STATUS_LABELS: Record<ChangeRequestView["status"], string> = {
@@ -16,32 +21,34 @@ const formatRequestedAt = (iso: string) =>
 // review each.
 export function EventChangeRequestList({ requests, reviewable = false }: { requests: ChangeRequestView[]; reviewable?: boolean }) {
   return (
-    <section className="event" aria-labelledby="change-requests">
-      <h2 id="change-requests">Change requests</h2>
+    <EventSection id="change-requests" title="Change requests">
       {reviewable && requests.some((r) => r.status === "pending") && (
-        <div className="alert alert--warning" role="status">
-          {CHANGE_REQUEST_REVIEW_MESSAGES.awaitingReview}
-        </div>
+        <InlineMessage kind="warning">{CHANGE_REQUEST_REVIEW_MESSAGES.awaitingReview}</InlineMessage>
       )}
       {requests.length === 0 ? (
-        <p className="field__hint">No change requests yet.</p>
+        <EmptyNote>No change requests yet.</EmptyNote>
       ) : (
-        <ul className="vb__list">
+        <ul className="flex flex-col gap-3">
           {requests.map((r) => (
-            <li key={r.id}>
-              <span className="status-badge">{STATUS_LABELS[r.status] ?? r.status}</span>{" "}
-              {r.change_description} <span className="field__hint">({formatRequestedAt(r.requested_at)})</span>
-              {reviewable && (
-                <>
-                  {" "}
-                  <Link href={`/change-requests/${r.id}`}>Review</Link>
-                </>
-              )}
-              {r.status === "rejected" && r.review_notes && <p className="field__hint">{r.review_notes}</p>}
+            <li key={r.id} className="flex flex-col gap-2 rounded-lg border border-border p-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <EventChangeRequestBadge status={r.status} />
+                <span className="text-xs text-muted-foreground">({formatRequestedAt(r.requested_at)})</span>
+                {reviewable && (
+                  <Link className={cn(buttonVariants({ variant: "outline", size: "xs" }))} href={`/change-requests/${r.id}`}>Review</Link>
+                )}
+              </div>
+              <p>{r.change_description}</p>
+              {r.status === "rejected" && r.review_notes && <p className="text-muted-foreground">{r.review_notes}</p>}
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </EventSection>
   );
+}
+
+function EventChangeRequestBadge({ status }: { status: ChangeRequestView["status"] }) {
+  const tone = status === "approved" ? "success" : status === "rejected" ? "danger" : "info";
+  return <StatusBadge tone={tone} label={STATUS_LABELS[status] ?? status} />;
 }

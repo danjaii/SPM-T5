@@ -14,8 +14,14 @@ import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBookings } from "@/components/EventVenueBookings";
 import { EventSafetyDecisions } from "@/components/EventSafetyDecisions";
+import { EventSection, Unavailable } from "@/components/event/EventSection";
+import { InlineMessage } from "@/components/event/InlineMessage";
+import { tabFrom } from "@/components/event/EventTabs";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { getEventTechnicalAssignments } from "@/lib/technicalAssignmentsServer";
+import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
 import { getEventVenueBookings } from "@/lib/venueBookingsServer";
 
@@ -34,10 +40,14 @@ export default async function EventPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ saved?: string }>;
+  searchParams?: Promise<{ saved?: string; submitted?: string; tab?: string }>;
 }) {
   const { id } = await params;
-  const saved = (await searchParams)?.saved === "1";
+  const query = await searchParams;
+  const saved = query?.saved === "1";
+  // SCRUM-123/AC4: arriving from the new request form
+  const justSubmitted = query?.submitted === "1";
+  const tab = tabFrom(query?.tab);
   const result = await getEvent(id);
   // SCRUM-38/AC4, SCRUM-98/AC5: every venue booking of the event, when the viewer may see them (else null).
   // SCRUM-44: the coordinator's decision, when there is one and the viewer may see it (else null).
@@ -60,65 +70,89 @@ export default async function EventPage({
   const seesChangeRequests = "event" in result && (result.event.isOrganiser || result.event.canChangeStatus);
   const changeRequests = seesChangeRequests ? await getChangeRequests(id) : [];
 
+  const view = "event" in result ? result.event : null;
+  // SCRUM-127: the line under the title (Figma frame 05): who, when and how many
+  const meta = view
+    ? [
+        view.organiser_name && `Organiser ${view.organiser_name}`,
+        view.point_of_contact_name && `Coordinator ${view.point_of_contact_name}`,
+        view.preferred_start_datetime && new Date(view.preferred_start_datetime).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" }),
+        view.expected_attendance !== null && `${view.expected_attendance} expected`,
+      ].filter(Boolean).join(" · ")
+    : undefined;
+
   return (
     <>
       <AppHeader />
       <main className="dash__main">
-        <div className="event-page">
-          <Link className="back-link" href="/dashboard">← Back to dashboard</Link>
-          {"event" in result ? (
-            <EventStatusPanel event={result.event}>
-              {/* SCRUM-44/AC5: "still being reviewed" only while it really is (Submitted / Under review), and only
-                  for viewers who can't act on it themselves */}
-              <EventReviewOutcome
-                decision={outcome}
-                showAwaiting={canDecideEvent(result.event.status) && !result.event.canReview && !result.event.canChangeStatus}
-              />
-              {/* SCRUM-111/AC5: back from the edit form */}
-              {saved && <div className="alert alert--ok" role="status">Event details saved.</div>}
-              <EventRequestDetails event={result.event} />
-              {/* SCRUM-111/AC6, AC7: only the assigned coordinator, while the event is not finished */}
-              {result.event.canEdit && (
-                <div className="event-buttons">
-                  <Link className="btn btn--secondary" href={`/events/${result.event.id}/edit`}>Edit event details</Link>
+        <Link className="mb-4 inline-block text-sm font-medium text-fg-primary hover:underline" href="/dashboard">← Back to dashboard</Link>
+        {view ? (
+          <EventStatusPanel event={view} activeTab={tab} meta={meta}>
+            {tab === "overview" && (
+              <>
+                {/* SCRUM-44/AC5: "still being reviewed" only while it really is (Submitted / Under review), and only
+                    for viewers who can't act on it themselves */}
+                <EventReviewOutcome
+                  decision={outcome}
+                  showAwaiting={canDecideEvent(view.status) && !view.canReview && !view.canChangeStatus}
+                />
+                {/* SCRUM-123/AC4, SCRUM-49/AC6: confirmation with the submission time; the status is the panel above */}
+                {justSubmitted && (
+                  <InlineMessage kind="ok">
+                    Your event request was submitted
+                    {view.submitted_at ? ` on ${formatEventDateTime(view.submitted_at, null)}` : ""}.
+                  </InlineMessage>
+                )}
+                {/* SCRUM-111/AC5: back from the edit form */}
+                {saved && <InlineMessage kind="ok">Event details saved.</InlineMessage>}
+                <EventRequestDetails event={view} />
+                <EventComments eventId={view.id} />
+              </>
+            )}
+            {tab === "venues" && (
+              /* SCRUM-102: venue bookings can be changed or cancelled while the event can still have venues */
+              venueBookings
+                ? <EventVenueBookings bookings={venueBookings} canChange={canRequestVenue(view.status)} equipment={equipmentRequests?.requests ?? []} />
+                : <Unavailable id="venue-bookings-heading" title="Venue bookings" />
+            )}
+            {tab === "equipment" && (
+              <>
+                {/* SCRUM-86/AC2, AC3: the event's equipment requests; AC6, AC7: Request equipment only when allowed */}
+                {equipmentRequests ? <EventEquipmentRequests eventId={view.id} data={equipmentRequests} /> : <Unavailable id="equipment-requests-heading" title="Equipment requests" />}
+                {/* SCRUM-20: assign, change and cancel on-site technical support; the technician is notified each time */}
+                <EventTechnicalAssignments eventId={view.id} data={technicalAssignments} />
+              </>
+            )}
+            {tab === "safety" && (
+              safetyDecisions
+                ? <EventSafetyDecisions decisions={safetyDecisions} />
+                : <Unavailable id="safety-decisions-heading" title="Safety check" />
+            )}
+            {tab === "registrations" && (
+              /* SCRUM-83/AC15: the registration information page (only this page's viewers, organisers and
+                 coordinators, can open it; RLS decides whose registrations they see) */
+              <EventSection id="registrations-heading" title="Registrations">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">See who has registered for this event.</p>
+                  <Link className={cn(buttonVariants({ variant: "outline" }))} href={`/events/${id}/registrations`}>View registrations</Link>
                 </div>
-              )}
-              <EventChangeHistory entries={changeHistory} />
-              <EventSafetyDecisions decisions={safetyDecisions} />
-              <CoordinatorAssignment
-                eventId={result.event.id}
-                coordinatorName={result.event.point_of_contact_name}
-              />
-              <EventComments eventId={result.event.id} />
-              {/* SCRUM-102: venue bookings can be changed or cancelled while the event can still have venues */}
-              <EventVenueBookings
-                bookings={venueBookings}
-                canChange={canRequestVenue(result.event.status)}
-                equipment={equipmentRequests?.requests ?? []}
-              />
-              {/* SCRUM-86/AC2, AC3: the event's equipment requests; AC6, AC7: Request equipment only when allowed */}
-              <EventEquipmentRequests eventId={result.event.id} data={equipmentRequests} />
-              {/* SCRUM-20: assign, change and cancel on-site technical support; the technician is notified each time */}
-              <EventTechnicalAssignments eventId={result.event.id} data={technicalAssignments} />
-              {/* SCRUM-66: organisers see their change requests (AC7) and, while the status allows it, can make one (AC1-AC3) */}
-              {(result.event.isOrganiser || result.event.canChangeStatus) && (
-                <EventChangeRequestList requests={changeRequests} reviewable={result.event.canChangeStatus} />
-              )}
-              {result.event.canRequestChange && <EventChangeRequestForm event={result.event} />}
-              {/* SCRUM-83/AC15: the registration information page (only this page's viewers, organisers and
-                  coordinators, can open it; RLS decides whose registrations they see) */}
-              <section className="event-section" aria-labelledby="registrations-heading">
-                <h2 id="registrations-heading">Registrations</h2>
-                <div className="event-detail-card event-detail-card--row">
-                  <p>See who has registered for this event.</p>
-                  <Link className="btn btn--secondary" href={`/events/${id}/registrations`}>View registrations</Link>
-                </div>
-              </section>
-            </EventStatusPanel>
-          ) : (
-            <div className="alert alert--error" role="alert">{result.error}</div>
-          )}
-        </div>
+              </EventSection>
+            )}
+            {tab === "changes" && (
+              <>
+                <CoordinatorAssignment eventId={view.id} coordinatorName={view.point_of_contact_name} />
+                <EventChangeHistory entries={changeHistory} />
+                {/* SCRUM-66: organisers see their change requests (AC7) and, while the status allows it, can make one (AC1-AC3) */}
+                {(view.isOrganiser || view.canChangeStatus) && (
+                  <EventChangeRequestList requests={changeRequests} reviewable={view.canChangeStatus} />
+                )}
+                {view.canRequestChange && <EventChangeRequestForm event={view} />}
+              </>
+            )}
+          </EventStatusPanel>
+        ) : (
+          <InlineMessage kind="error">{"error" in result ? result.error : "We couldn't load this event."}</InlineMessage>
+        )}
       </main>
     </>
   );

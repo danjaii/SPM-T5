@@ -43,7 +43,7 @@ describe("SCRUM-32/AC3 event page venue request link (32-S2, 32-S3)", () => {
   });
 
   it("32-S3: an event that isn't approved yet shows the not-eligible message and no link", () => {
-    render(<EventStatusPanel event={panelEvent("under_review")} />);
+    render(<EventStatusPanel event={panelEvent("under_review")} activeTab="venues" />);
 
     expect(screen.getByText(NOT_ELIGIBLE)).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Request a venue" })).toBeNull();
