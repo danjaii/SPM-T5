@@ -1,7 +1,7 @@
 "use client";
 
 import { parseVenueSearchInput, utcToSgt } from "@spm-t5/shared";
-import { AlertCircle, CalendarClock, Check, SearchX, X } from "lucide-react";
+import { AlertCircle, CalendarClock, Check, ChevronDown, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { VenueCard, VenueList, type VenueSummary } from "@/components/VenueList";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,6 @@ import { InputField } from "@/components/ui/input-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { emptyVenueQuery, filterChips, relaxHint, withoutFilter } from "@/lib/venueFilters";
 import { searchVenues, type VenueSearchOptions, type VenueSearchQuery, type VenueSearchResultView } from "@/lib/venueSearch";
-import { cn } from "@/lib/utils";
 
 interface Props {
   /** The whole catalogue, shown while no search is applied. */
@@ -35,6 +34,7 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [searching, setSearching] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const run = useCallback(
     async (query: VenueSearchQuery) => {
@@ -116,32 +116,37 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
         </div>
       )}
 
-      <div className={cn("grid gap-6", options && "lg:grid-cols-[18rem_1fr]")}>
+      <div className="flex flex-col gap-4">
         {options && (
-          <Card className="h-fit px-4">
-            <form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate aria-label="Venue filters">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-foreground">Filters</h2>
-                <Button type="button" variant="ghost" size="sm" onClick={reset}>Reset</Button>
-              </div>
+          <Card className="px-4">
+            <div className="flex items-center justify-between gap-2">
+              <Button type="button" variant="ghost" size="sm" aria-expanded={open} aria-controls="venue-filters" onClick={() => setOpen((o) => !o)}>
+                <SlidersHorizontal aria-hidden="true" />
+                Filters
+                <ChevronDown aria-hidden="true" className={open ? "rotate-180" : undefined} />
+              </Button>
+              {open && <Button type="button" variant="ghost" size="sm" onClick={reset}>Reset</Button>}
+            </div>
+            <form id="venue-filters" hidden={!open} className="flex flex-col gap-4" onSubmit={onSubmit} noValidate aria-label="Venue filters">
               {error && (
                 <p role="alert" className="flex items-center gap-1.5 text-sm font-medium text-destructive">
                   <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
                   {error}
                 </p>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                 <InputField id="startDate" label="Start date" type="date" min={today} value={draft.startDate} onChange={setStartDate} error={fieldErrors.startDate} />
                 <InputField id="endDate" label="End date" type="date" min={draft.startDate || undefined} value={draft.endDate} onChange={set("endDate")} error={fieldErrors.endDate} />
                 <InputField id="startTime" label="Start time" type="time" value={draft.startTime} onChange={set("startTime")} error={fieldErrors.startTime} />
                 <InputField id="endTime" label="End time" type="time" value={draft.endTime} onChange={set("endTime")} error={fieldErrors.endTime} />
+                <InputField id="attendance" label="People (optional)" type="number" min={1} step={1} inputMode="numeric" value={draft.attendance} onChange={set("attendance")} error={fieldErrors.attendance} />
+                <InputField id="location" label="Location (optional)" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
               </div>
-              <InputField id="attendance" label="People (optional)" type="number" min={1} step={1} inputMode="numeric" value={draft.attendance} onChange={set("attendance")} error={fieldErrors.attendance} />
-              <InputField id="location" label="Location (optional)" autoComplete="off" value={draft.location} onChange={set("location")} error={fieldErrors.location} />
 
+              <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
               {options.layouts.length > 0 && (
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="text-sm font-semibold text-foreground">Layout (optional)</legend>
+                  <legend className="mb-2 text-sm font-semibold text-foreground">Layout (optional)</legend>
                   <div className="flex flex-wrap gap-2">
                     {options.layouts.map((l) => {
                       const on = draft.layoutId === l.id;
@@ -158,7 +163,8 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
               )}
 
               <fieldset className="flex flex-col gap-2">
-                <legend className="text-sm font-semibold text-foreground">Must have (optional)</legend>
+                <legend className="mb-2 text-sm font-semibold text-foreground">Must have (optional)</legend>
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
                 <label className="flex items-center gap-2 text-sm text-foreground">
                   <Checkbox checked={draft.accessible} onCheckedChange={(c) => setDraft((q) => ({ ...q, accessible: c }))} />
                   Accessible venue
@@ -169,9 +175,11 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                     {f.name}
                   </label>
                 ))}
+                </div>
               </fieldset>
+              </div>
 
-              <Button type="submit" disabled={searching}>{searching ? "Searching…" : "Apply filters"}</Button>
+              <Button type="submit" className="self-start" disabled={searching}>{searching ? "Searching…" : "Apply filters"}</Button>
             </form>
           </Card>
         )}

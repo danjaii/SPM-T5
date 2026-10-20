@@ -159,6 +159,20 @@ describe("SCRUM-131 the search is part of the catalogue", () => {
     expect(screen.getByRole("link", { name: "Lotus Room" })).toBeTruthy();
   });
 
+  it("the filters collapse and open again like an accordion, keeping what was typed", () => {
+    render(<VenueCatalogue venues={catalogue} options={options} search={found([])} />);
+    const toggle = screen.getByRole("button", { name: "Filters" });
+    fireEvent.change(screen.getByLabelText("People (optional)"), { target: { value: "30" } });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("button", { name: "Apply filters" })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect((screen.getByLabelText("People (optional)") as HTMLInputElement).value).toBe("30");
+  });
+
   it("shows no filters for a role that may not search", () => {
     render(<VenueCatalogue venues={catalogue} />);
     expect(screen.queryByRole("form", { name: "Venue filters" })).toBeNull();

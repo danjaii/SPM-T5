@@ -67,7 +67,7 @@ export function VenueList({ venues }: { venues: VenueSummary[] }) {
           placeholder="Filter venues by name or location"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="pl-9"
+          className="pl-9!" /* the cn package doesn't merge conflicting classes, so the Input's own px would win */
         />
       </div>
       <p className="text-sm text-muted-foreground" role="status">
