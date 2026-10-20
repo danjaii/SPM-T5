@@ -11,7 +11,7 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", () => ({ redirect }));
 
 import LeadQueuePage from "@/app/lead/queue/page";
-import { LeadQueueList } from "@/components/LeadQueueList";
+import { LeadQueueList, waitingLabel } from "@/components/LeadQueueList";
 import { getLeadQueue, type LeadQueueItem } from "@/lib/leadServer";
 
 const item = (over: Partial<LeadQueueItem> = {}): LeadQueueItem => ({
@@ -46,7 +46,7 @@ describe("SCRUM-77 — Unassigned event queue page", () => {
     render(<LeadQueueList requests={[item()]} />);
 
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(headers).toEqual(["Event", "Event Organiser", "Preferred date and time", "Expected attendance", "Submitted"]);
+    expect(headers).toEqual(["Event", "Event Organiser", "Preferred date and time", "Expected attendance", "Submitted", "Waiting", "Assign to"]);
     const cells = [...screen.getAllByRole("row")[1].querySelectorAll("td")].map((c) => c.textContent);
     expect(cells[0]).toBe("Tech Summit");
     expect(cells[1]).toBe("Jason Chua");
@@ -91,7 +91,7 @@ describe("SCRUM-77 — Unassigned event queue page", () => {
       "http://localhost:4002/lead/queue",
       expect.objectContaining({ headers: { cookie: "cs_session=token-lead" }, cache: "no-store" }),
     );
-    expect(screen.getByRole("heading", { name: "Unassigned event requests" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Unassigned queue" })).toBeTruthy();
     expect(screen.getByText("Tech Summit")).toBeTruthy();
   });
 
@@ -112,3 +112,43 @@ describe("SCRUM-77 — Unassigned event queue page", () => {
   // end of AC7
 });
 // end of SCRUM-77
+
+// ---------------------------------------------------------------------------
+// SCRUM-126 — Redesigned unassigned queue
+// ---------------------------------------------------------------------------
+describe("SCRUM-126/AC1 unassigned queue order and waiting time", () => {
+  const now = new Date("2031-01-05T03:04:00Z");
+
+  it("SCRUM-126/AC1 shows how many whole days each request has waited, oldest first", () => {
+    render(
+      <LeadQueueList
+        now={now}
+        requests={[
+          item({ id: "a", name: "Oldest", submitted_at: "2031-01-02T03:04:00Z" }),
+          item({ id: "b", name: "Newer", submitted_at: "2031-01-04T03:04:00Z" }),
+          item({ id: "c", name: "Newest", submitted_at: "2031-01-05T01:00:00Z" }),
+        ]}
+      />,
+    );
+
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows.map((r) => r.querySelector("td")!.textContent)).toEqual(["Oldest", "Newer", "Newest"]);
+    expect(rows.map((r) => r.querySelectorAll("td")[5].textContent)).toEqual(["3 days", "1 day", "Today"]);
+  });
+
+  it("SCRUM-126/AC1 never shows a negative wait, and says so when there is no submission time", () => {
+    expect(waitingLabel("2031-01-06T00:00:00Z", now)).toBe("Today");
+    expect(waitingLabel(null, now)).toBe("Not specified");
+  });
+
+  it("SCRUM-126/AC1 the nav item for the queue shows the count of waiting requests", async () => {
+    const { NAV_ITEMS } = await import("@/lib/nav");
+    expect(NAV_ITEMS.event_coordinator_lead.find((n) => n.href === "/lead/queue")?.queue).toBe("leadQueue");
+  });
+
+  it("SCRUM-126/AC11 shows a designed empty state and, on failure, an alert instead of a table", async () => {
+    render(<LeadQueueList requests={[]} />);
+    expect(screen.getByText("No event requests are awaiting coordinator assignment.")).toBeTruthy();
+  });
+});
+// end of SCRUM-126
