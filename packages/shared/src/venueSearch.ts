@@ -14,7 +14,7 @@ function isRealDate(date: string): boolean {
 }
 
 /** A checked, cleaned-up search, ready to work with. Optional filters are absent (or empty/false) when not set. */
-export interface VenueSearchInput {
+export interface VenueSearchPeriod {
   startDate: string;
   startTime: string;
   endDate: string;
@@ -22,6 +22,11 @@ export interface VenueSearchInput {
   /** The period as the instants the database uses (UTC); the form's date and times are Singapore time. */
   start: Date;
   end: Date;
+}
+
+export interface VenueSearchInput {
+  /** Absent when the search gives no date or time at all: availability is then not checked. */
+  period?: VenueSearchPeriod;
   attendance?: number;
   location?: string;
   layoutId?: string;
@@ -59,31 +64,38 @@ export function parseVenueSearchInput(body: unknown, now: Date): ParsedVenueSear
   const endDate = text(query.endDate);
   const endTime = text(query.endTime);
 
+  // No date or time at all is a search without a period. A half-filled period still prompts (AC4).
+  const hasPeriod = [startDate, startTime, endDate, endTime].some((v) => v !== "");
+
   // AC4: prompt for every missing field at once.
   const missing: Record<string, string> = {};
-  if (startDate === "") missing.startDate = "Please enter a start date.";
-  if (startTime === "") missing.startTime = "Please enter a start time.";
-  if (endDate === "") missing.endDate = "Please enter an end date.";
-  if (endTime === "") missing.endTime = "Please enter an end time.";
+  if (hasPeriod) {
+    if (startDate === "") missing.startDate = "Please enter a start date.";
+    if (startTime === "") missing.startTime = "Please enter a start time.";
+    if (endDate === "") missing.endDate = "Please enter an end date.";
+    if (endTime === "") missing.endTime = "Please enter an end time.";
+  }
   if (Object.keys(missing).length > 0) return { ok: false, fieldErrors: missing };
 
   const invalid: Record<string, string> = {};
-  if (!DATE_FORMAT.test(startDate)) invalid.startDate = "Please enter the start date as YYYY-MM-DD.";
-  else if (!isRealDate(startDate)) invalid.startDate = "Please enter a real start date.";
-  // AC5: a day before today (Singapore time) cannot be searched. Today itself is fine.
-  else if (startDate < utcToSgt(now).date) invalid.startDate = "The start date must not be in the past.";
-  if (!DATE_FORMAT.test(endDate)) invalid.endDate = "Please enter the end date as YYYY-MM-DD.";
-  else if (!isRealDate(endDate)) invalid.endDate = "Please enter a real end date.";
-  if (!TIME_FORMAT.test(startTime)) invalid.startTime = "Please enter the start time as HH:MM.";
-  if (!TIME_FORMAT.test(endTime)) invalid.endTime = "Please enter the end time as HH:MM.";
+  if (hasPeriod) {
+    if (!DATE_FORMAT.test(startDate)) invalid.startDate = "Please enter the start date as YYYY-MM-DD.";
+    else if (!isRealDate(startDate)) invalid.startDate = "Please enter a real start date.";
+    // AC5: a day before today (Singapore time) cannot be searched. Today itself is fine.
+    else if (startDate < utcToSgt(now).date) invalid.startDate = "The start date must not be in the past.";
+    if (!DATE_FORMAT.test(endDate)) invalid.endDate = "Please enter the end date as YYYY-MM-DD.";
+    else if (!isRealDate(endDate)) invalid.endDate = "Please enter a real end date.";
+    if (!TIME_FORMAT.test(startTime)) invalid.startTime = "Please enter the start time as HH:MM.";
+    if (!TIME_FORMAT.test(endTime)) invalid.endTime = "Please enter the end time as HH:MM.";
 
-  // AC6: the end must be after the start. An earlier end date is reported on the end date; the same day with
-  // an end time that is not later is reported on the end time. (Dates and times are valid by this point, so
-  // comparing YYYY-MM-DD and HH:MM text is enough.)
-  if (!invalid.startDate && !invalid.endDate) {
-    if (endDate < startDate) invalid.endDate = "The end date must not be before the start date.";
-    else if (endDate === startDate && !invalid.startTime && !invalid.endTime && endTime <= startTime) {
-      invalid.endTime = "The end time must be after the start time.";
+    // AC6: the end must be after the start. An earlier end date is reported on the end date; the same day with
+    // an end time that is not later is reported on the end time. (Dates and times are valid by this point, so
+    // comparing YYYY-MM-DD and HH:MM text is enough.)
+    if (!invalid.startDate && !invalid.endDate) {
+      if (endDate < startDate) invalid.endDate = "The end date must not be before the start date.";
+      else if (endDate === startDate && !invalid.startTime && !invalid.endTime && endTime <= startTime) {
+        invalid.endTime = "The end time must be after the start time.";
+      }
     }
   }
 
@@ -99,12 +111,9 @@ export function parseVenueSearchInput(body: unknown, now: Date): ParsedVenueSear
   return {
     ok: true,
     data: {
-      startDate,
-      startTime,
-      endDate,
-      endTime,
-      start: sgtToUtc(startDate, startTime),
-      end: sgtToUtc(endDate, endTime),
+      ...(hasPeriod
+        ? { period: { startDate, startTime, endDate, endTime, start: sgtToUtc(startDate, startTime), end: sgtToUtc(endDate, endTime) } }
+        : {}),
       ...(attendanceText !== "" ? { attendance: Number(attendanceText) } : {}),
       ...(location !== "" ? { location } : {}),
       ...(layoutId !== "" ? { layoutId } : {}),

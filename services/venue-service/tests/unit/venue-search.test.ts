@@ -222,17 +222,24 @@ describe("SCRUM-65/AC3 capacity at least the expected attendance", () => {
 describe("SCRUM-65/AC4 missing date or time", () => {
   it("65-S7 answers 422 with a prompt for each missing field", async () => {
     const { search } = setup([]);
-    const res = await search("");
+    const res = await search("startDate=2026-10-15");
     expect(res.status).toBe(422);
     expect(res.body).toMatchObject({
       code: "VALIDATION_FAILED",
       fieldErrors: {
-        startDate: "Please enter a start date.",
         startTime: "Please enter a start time.",
         endDate: "Please enter an end date.",
         endTime: "Please enter an end time.",
       },
     });
+  });
+
+  it("with no date or time at all, skips the availability check and filters on the rest", async () => {
+    const { search, reader } = setup([venue({ id: "small", maxCapacity: 10 }), venue({ id: "big", maxCapacity: 100 })]);
+    const res = await search("attendance=50");
+    expect(res.status).toBe(200);
+    expect(ids(res)).toEqual(["big"]);
+    expect(reader.calls).toHaveLength(0);
   });
 });
 
