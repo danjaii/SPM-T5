@@ -89,7 +89,8 @@ Tests written so far: backend AC1, AC5 and AC7. AC5's 422 response copies `chang
 | AC3 | — | not yet written (apps/web, shared schema) |
 | AC4 | — | not yet written (event-service) |
 | AC5 | — | apps/web form display of the field errors not yet written |
-| AC6 | — | not yet written (event-service, apps/web) |
+| AC6 | `services/event-service/tests/unit/event-request-create.test.ts` | `SCRUM-49/AC6 — Confirmation of submission` / returns the date and time of submission in the 201 response |
+| AC6 | — | apps/web confirmation display not yet written |
 
 ## Affected workspaces
 

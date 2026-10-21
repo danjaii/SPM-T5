@@ -310,6 +310,25 @@ describe("SCRUM-49/AC5 — Prevent incomplete submission", () => {
 });
 // end of AC5
 
+describe("SCRUM-49/AC6 — Confirmation of submission", () => {
+  it("returns the date and time of submission in the 201 response", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const before = Date.now();
+
+    const res = await request(createApp(fake.deps)).post("/events").set("Cookie", organiser.cookie).send(validRequest());
+
+    expect(res.status).toBe(201);
+    expect(typeof res.body.submitted_at).toBe("string");
+    const submittedAt = new Date(res.body.submitted_at).getTime();
+    expect(Number.isNaN(submittedAt)).toBe(false);
+    expect(submittedAt).toBeGreaterThanOrEqual(before);
+    expect(submittedAt).toBeLessThanOrEqual(Date.now());
+    expect(res.body.submitted_at).toBe(fake.tables.events[0].submitted_at);
+  });
+});
+// end of AC6
+
 describe("SCRUM-49/AC7 — Record ownership", () => {
   it("records the signed-in organiser as the request's event organiser", async () => {
     const fake = createFake();
