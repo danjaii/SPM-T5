@@ -77,7 +77,10 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, children
               </Button>
             )}
             {showVenueLink && (
-              <Link className={cn(buttonVariants({ variant: "outline" }))} href={`/events/${event.id}/venue-request`}>Request a venue</Link>
+              <>
+                <Link className={cn(buttonVariants({ variant: "outline" }))} href={`/venues?eventId=${event.id}`}>Find a venue</Link>
+                <Link className={cn(buttonVariants({ variant: "outline" }))} href={`/events/${event.id}/venue-request`}>Request a venue</Link>
+              </>
             )}
           </div>
         )}

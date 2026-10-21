@@ -1,4 +1,4 @@
-import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, Search, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { Role } from "@spm-t5/shared";
 
 /** The queues whose size is shown beside a nav item (SCRUM-121/AC2). */
@@ -24,7 +24,6 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
   event_coordinator: [
     dashboard("event_coordinator"),
     { label: "Event requests", href: "/events/review", icon: ClipboardList },
-    { label: "Search venues", href: "/venues/search", icon: Search },
     { label: "My venue bookings", href: "/venue-bookings", icon: CalendarCheck },
     { label: "Venue catalogue", href: "/venues", icon: BedDouble },
     { label: "Event registrations", href: "/registrations-overview", icon: Users },
@@ -55,7 +54,7 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
   ],
 };
 
-/** The one item that is "current": the longest href the path is on or under, so /venues/search wins over /venues. */
+/** The one item that is "current": the longest href the path is on or under, so the most specific item wins. */
 export function currentHref(items: NavEntry[], pathname: string): string | undefined {
   const matches = items.filter((i) => pathname === i.href || pathname.startsWith(`${i.href}/`));
   return matches.sort((a, b) => b.href.length - a.href.length)[0]?.href;

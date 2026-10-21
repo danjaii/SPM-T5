@@ -21,11 +21,16 @@ export interface VenueSearchResult {
  * capacity (AC3), location, accessibility, layout and every requested facility.
  */
 export async function searchVenues(reader: VenueSearchReader, input: VenueSearchInput): Promise<VenueSearchResult[]> {
-  const [freeIds, venues] = await Promise.all([reader.availableVenueIds(input.start, input.end), reader.activeVenues()]);
-  const free = new Set(freeIds);
+  const { period } = input;
+  // With no period there is nothing to be free for, so the availability check is skipped.
+  const [freeIds, venues] = await Promise.all([
+    period ? reader.availableVenueIds(period.start, period.end) : undefined,
+    reader.activeVenues(),
+  ]);
+  const free = freeIds && new Set(freeIds);
 
   return venues
-    .filter((v) => free.has(v.id) && meetsCriteria(v, input))
+    .filter((v) => (!free || free.has(v.id)) && meetsCriteria(v, input))
     .map((v) => ({
       id: v.id,
       name: v.name,
@@ -42,7 +47,8 @@ export async function searchVenues(reader: VenueSearchReader, input: VenueSearch
 
 function meetsCriteria(venue: SearchableVenue, input: VenueSearchInput): boolean {
   // AC1: open for the whole period (rule shared with the suitability check, SCRUM-109).
-  if (!isOpenDuring(venue.openingTime, venue.closingTime, input.startTime, input.endTime)) return false;
+  const { period } = input;
+  if (period && !isOpenDuring(venue.openingTime, venue.closingTime, period.startTime, period.endTime)) return false;
 
   // AC2: location is a case-insensitive "contains" match on the venue's name or its address.
   const location = input.location?.toLowerCase();

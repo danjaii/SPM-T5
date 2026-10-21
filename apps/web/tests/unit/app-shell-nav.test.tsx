@@ -39,11 +39,11 @@ describe("SCRUM-121/AC1 role navigation", () => {
     expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["Home"]);
   });
 
-  it("highlights the item for the page the user is on, and only the most specific one", () => {
+  it("SCRUM-131: has no separate Search venues item; the old search address highlights the catalogue", () => {
     nav.pathname = "/venues/search";
     renderShell("event_coordinator");
     const links = within(screen.getByRole("navigation", { name: "Main" })).getAllByRole("link");
-    expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["Search venues"]);
+    expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["Venue catalogue"]);
   });
 
   it("matches a nested page to its section, and an unknown page to nothing", () => {

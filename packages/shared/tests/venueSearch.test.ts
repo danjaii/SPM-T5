@@ -15,12 +15,14 @@ describe("SCRUM-65/AC1 parseVenueSearchInput accepts a date and time", () => {
     expect(parseVenueSearchInput(valid, now)).toEqual({
       ok: true,
       data: {
-        startDate: "2026-10-15",
-        startTime: "09:00",
-        endDate: "2026-10-15",
-        endTime: "17:00",
-        start: new Date("2026-10-15T01:00:00Z"),
-        end: new Date("2026-10-15T09:00:00Z"),
+        period: {
+          startDate: "2026-10-15",
+          startTime: "09:00",
+          endDate: "2026-10-15",
+          endTime: "17:00",
+          start: new Date("2026-10-15T01:00:00Z"),
+          end: new Date("2026-10-15T09:00:00Z"),
+        },
         accessible: false,
         facilityIds: [],
       },
@@ -35,7 +37,7 @@ describe("SCRUM-65/AC1 parseVenueSearchInput accepts a date and time", () => {
     const r = parseVenueSearchInput({ ...valid, endDate: "2026-10-17", startTime: "18:00", endTime: "09:00" }, now);
     expect(r).toMatchObject({
       ok: true,
-      data: { start: new Date("2026-10-15T10:00:00Z"), end: new Date("2026-10-17T01:00:00Z") },
+      data: { period: { start: new Date("2026-10-15T10:00:00Z"), end: new Date("2026-10-17T01:00:00Z") } },
     });
   });
 });
@@ -66,9 +68,16 @@ describe("SCRUM-65/AC3 expected attendance", () => {
 });
 
 describe("SCRUM-65/AC4 missing date or time", () => {
-  it("prompts for every missing field at once", () => {
-    expect(errorsOf({})).toEqual({
-      startDate: "Please enter a start date.",
+  it("accepts a search with no date or time at all, as a search without a period", () => {
+    expect(parseVenueSearchInput({}, now)).toEqual({ ok: true, data: { accessible: false, facilityIds: [] } });
+    expect(parseVenueSearchInput({ startDate: " ", attendance: "20" }, now)).toEqual({
+      ok: true,
+      data: { attendance: 20, accessible: false, facilityIds: [] },
+    });
+  });
+
+  it("prompts for every missing field at once when only a date or time is given", () => {
+    expect(errorsOf({ startDate: "2026-10-15" })).toEqual({
       startTime: "Please enter a start time.",
       endDate: "Please enter an end date.",
       endTime: "Please enter an end time.",
@@ -81,8 +90,8 @@ describe("SCRUM-65/AC4 missing date or time", () => {
   });
 
   it("treats a non-object body as an empty search", () => {
-    expect(errorsOf(null)).toHaveProperty("startDate");
-    expect(errorsOf("nope")).toHaveProperty("startTime");
+    expect(parseVenueSearchInput(null, now).ok).toBe(true);
+    expect(parseVenueSearchInput("nope", now).ok).toBe(true);
   });
 
   it("rejects malformed values", () => {

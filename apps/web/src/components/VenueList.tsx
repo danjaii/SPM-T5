@@ -2,7 +2,7 @@
 
 import { Building2, Search, Users } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
@@ -11,6 +11,32 @@ export interface VenueSummary {
   name: string;
   address: string;
   max_capacity: number;
+}
+
+// SCRUM-129: one venue as a card. SCRUM-131: search results add their details as children.
+export function VenueCard({ venue: v, children }: { venue: VenueSummary; children?: ReactNode }) {
+  return (
+    <Card className="h-full flex-row items-start gap-3 px-4">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-fg-primary">
+        <Building2 aria-hidden="true" className="size-5" />
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <Link
+          href={`/venues/${v.id}`}
+          className="font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {v.name}
+        </Link>
+        <span className="text-sm text-muted-foreground">{v.address}</span>
+        <span className="flex items-center gap-1.5 text-sm text-foreground">
+          <Users aria-hidden="true" className="size-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Max capacity</span>
+          <span className="font-semibold">{v.max_capacity}</span>
+        </span>
+        {children}
+      </div>
+    </Card>
+  );
 }
 
 // SCRUM-29 AC1: the venue catalogue — each venue's name (linking to its details), location and maximum capacity.
@@ -41,7 +67,7 @@ export function VenueList({ venues }: { venues: VenueSummary[] }) {
           placeholder="Filter venues by name or location"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="pl-9"
+          className="pl-9!" /* the cn package doesn't merge conflicting classes, so the Input's own px would win */
         />
       </div>
       <p className="text-sm text-muted-foreground" role="status">
@@ -55,25 +81,7 @@ export function VenueList({ venues }: { venues: VenueSummary[] }) {
         <ul className="grid gap-3 md:grid-cols-2">
           {shown.map((v) => (
             <li key={v.id}>
-              <Card className="h-full flex-row items-start gap-3 px-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-fg-primary">
-                  <Building2 aria-hidden="true" className="size-5" />
-                </span>
-                <div className="flex min-w-0 flex-col gap-1">
-                  <Link
-                    href={`/venues/${v.id}`}
-                    className="font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {v.name}
-                  </Link>
-                  <span className="text-sm text-muted-foreground">{v.address}</span>
-                  <span className="flex items-center gap-1.5 text-sm text-foreground">
-                    <Users aria-hidden="true" className="size-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Max capacity</span>
-                    <span className="font-semibold">{v.max_capacity}</span>
-                  </span>
-                </div>
-              </Card>
+              <VenueCard venue={v} />
             </li>
           ))}
         </ul>
