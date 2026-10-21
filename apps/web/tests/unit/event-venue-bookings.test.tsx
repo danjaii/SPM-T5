@@ -47,7 +47,8 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const rows = () => within(screen.getByRole("table")).getAllByRole("row").slice(1); // without the header row
+// SCRUM-133/AC1: each venue booking is its own card
+const rows = () => screen.getAllByTestId("venue-booking-card");
 
 // end of test setup
 
@@ -69,7 +70,7 @@ describe("SCRUM-98/AC5 the event's venue bookings section (98-S24)", () => {
     expect(screen.getByRole("heading", { name: "Venue bookings" })).toBeTruthy();
     const [first, second] = rows();
     expect(first.textContent).toContain("Orchid Hall");
-    expect(first.textContent).toContain("2030-11-14");
+    expect(first.textContent).toContain("14 Nov 2030");
     expect(first.textContent).toContain("09:00–17:00");
     expect(first.textContent).toContain("Approved");
     expect(second.textContent).toContain("Lotus Room");
@@ -87,8 +88,8 @@ describe("SCRUM-98/AC5 the event's venue bookings section (98-S24)", () => {
     render(<EventVenueBookings bookings={[aBooking({ expectedAttendance: 80 }), aBooking({ id: "b-2", expectedAttendance: null })]} />);
 
     const [first, second] = rows();
-    expect(first.textContent).toContain("80");
-    expect(second.textContent).toContain("Not specified");
+    expect(first.textContent).toContain("80 people");
+    expect(second.textContent).toContain("Attendance not specified");
   });
 
   // the warning, not a refusal: the venue booking was made, and the coordinator should see that it may not fit
@@ -221,3 +222,102 @@ describe("SCRUM-102/AC1, AC2 changing and cancelling from the event's list (102-
   });
 });
 // end of SCRUM-102
+
+// ----------------------------------------------------------------------------
+// SCRUM-133 one card per venue booking, hold countdown and expired holds
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-133/AC1 a separate card for each venue booking, with its own status", () => {
+  it("133-S1 requesting a second venue gives two cards, each with its own status", () => {
+    render(
+      <EventVenueBookings
+        bookings={[aBooking(), aBooking({ id: "b-2", venueName: "Lotus Room", status: "PENDING", decidedAt: null })]}
+      />,
+    );
+
+    const [first, second] = screen.getAllByTestId("venue-booking-card");
+    expect(within(first).getByText("Orchid Hall")).toBeTruthy();
+    expect(within(first).getByText("Approved")).toBeTruthy();
+    expect(within(second).getByText("Lotus Room")).toBeTruthy();
+    expect(within(second).getByText("Pending")).toBeTruthy();
+  });
+
+  it("133-S2 the Venues tab offers + Add venue only when it is given somewhere to go", () => {
+    const { rerender } = render(<EventVenueBookings bookings={[aBooking()]} requestHref="/events/evt-1/venue-request" />);
+    expect(screen.getByRole("link", { name: "+ Add venue" }).getAttribute("href")).toBe("/events/evt-1/venue-request");
+
+    rerender(<EventVenueBookings bookings={[aBooking()]} />);
+    expect(screen.queryByRole("link", { name: "+ Add venue" })).toBeNull();
+  });
+});
+
+describe("SCRUM-133/AC2 a hold shows a countdown that turns to a warning within 24 hours", () => {
+  const now = new Date("2030-11-10T12:00:00");
+  const hold = (expires: string) => aBooking({ status: "PENDING", decidedAt: null, holdExpiresAt: expires });
+
+  it("133-S3 a hold more than 24 hours from expiry shows Hold and a calm countdown", () => {
+    render(<EventVenueBookings bookings={[hold("2030-11-13T18:00:00")]} now={now} />);
+
+    const card = screen.getByTestId("venue-booking-card");
+    expect(within(card).getByText("Hold")).toBeTruthy();
+    expect(within(card).getByTestId("hold-countdown").getAttribute("data-state")).toBe("active");
+    expect(within(card).getByTestId("hold-countdown").textContent).toContain("in 3 days");
+  });
+
+  it("133-S4 within 24 hours it turns to the warning tone and says Hold expiring", () => {
+    render(<EventVenueBookings bookings={[hold("2030-11-10T18:00:00")]} now={now} />);
+
+    const card = screen.getByTestId("venue-booking-card");
+    expect(within(card).getByText("Hold expiring")).toBeTruthy();
+    expect(within(card).getByTestId("hold-countdown").getAttribute("data-state")).toBe("expiring");
+    expect(within(card).getByTestId("hold-countdown").textContent).toContain("in 6 hours");
+  });
+
+  it("133-S5 a booking that is not on hold shows no countdown", () => {
+    render(<EventVenueBookings bookings={[aBooking({ status: "PENDING" })]} now={now} />);
+
+    expect(screen.queryByTestId("hold-countdown")).toBeNull();
+  });
+});
+
+describe("SCRUM-133/AC3 an expired hold shows Expired and is never shown as confirmed", () => {
+  const now = new Date("2030-11-10T12:00:00");
+
+  it("133-S6 a lapsed hold is an Expired row, not a card, with no actions", () => {
+    render(
+      <EventVenueBookings
+        bookings={[aBooking({ status: "PENDING", decidedAt: null, holdExpiresAt: "2030-11-09T18:00:00" })]}
+        now={now}
+        canChange
+      />,
+    );
+
+    expect(screen.queryByTestId("venue-booking-card")).toBeNull();
+    const row = screen.getByTestId("expired-hold");
+    expect(within(row).getByText("Expired")).toBeTruthy();
+    expect(row.textContent).toContain("not a booking");
+    expect(within(row).queryByText("Approved")).toBeNull();
+    expect(within(row).queryByRole("button")).toBeNull();
+    expect(within(row).queryByRole("link")).toBeNull();
+  });
+});
+
+describe("SCRUM-133/AC4 cancelling one venue booking leaves the others unchanged", () => {
+  it("133-S7 after one is cancelled, the other cards keep their status and actions", () => {
+    render(
+      <EventVenueBookings
+        bookings={[
+          aBooking({ id: "b-1", venueName: "Orchid Hall", status: "CANCELLED", cancellationReason: "Moved online" }),
+          aBooking({ id: "b-2", venueName: "Lotus Room", status: "APPROVED" }),
+        ]}
+        canChange
+      />,
+    );
+
+    const [cancelled, other] = screen.getAllByTestId("venue-booking-card");
+    expect(within(cancelled).getByText("Cancelled")).toBeTruthy();
+    expect(within(other).getByText("Approved")).toBeTruthy();
+    expect(within(other).getByRole("link", { name: "Change the Lotus Room venue booking" })).toBeTruthy();
+    expect(within(other).getByRole("button", { name: "Cancel the Lotus Room venue booking" })).toBeTruthy();
+  });
+});
