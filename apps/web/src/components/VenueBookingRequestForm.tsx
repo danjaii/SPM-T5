@@ -102,7 +102,7 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
   const tooSmall = chosen && exceedsCapacity(attendance, chosen.max_capacity) ? chosen : undefined;
 
   return (
-    <section className="mx-auto w-full max-w-xl">
+    <section className="w-full">
       <h1 className="text-3xl font-bold tracking-tight text-foreground">{heading ?? "Request a venue"}</h1>
       <p className="mt-1 mb-4 text-sm text-muted-foreground">{form.eventName}</p>
 
@@ -137,11 +137,12 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
               {`${tooSmall.name} holds ${tooSmall.max_capacity} people, but ${attendance} are expected. You can still submit: venue staff will see this when they decide.`}
             </p>
           )}
-          <InputField id="date" name="date" label="Date" type="date" value={date} error={fieldErrors.date} onChange={(e) => setDate(e.target.value)} />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <InputField id="date" name="date" label="Date" type="date" value={date} error={fieldErrors.date} onChange={(e) => setDate(e.target.value)} />
             <InputField id="startTime" name="startTime" label="Start time" type="time" value={startTime} error={fieldErrors.startTime} onChange={(e) => setStartTime(e.target.value)} />
             <InputField id="endTime" name="endTime" label="End time" type="time" value={endTime} error={fieldErrors.endTime} onChange={(e) => setEndTime(e.target.value)} />
           </div>
+          <div className="grid items-start gap-4 md:grid-cols-2">
           <InputField id="expectedAttendance" name="expectedAttendance" label="Expected attendance for this venue" type="number" min={1} step={1}
             value={ownAttendance} error={fieldErrors.expectedAttendance}
             helper={`Leave blank to use the event's: ${form.expectedAttendance ?? "not specified"}`}
@@ -150,6 +151,7 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
             value={ownRequirements} error={fieldErrors.venueRequirements}
             helper={`Leave blank to use the event's: ${form.venueRequirements || "none specified"}`}
             onChange={(e) => setOwnRequirements(e.target.value)} />
+          </div>
 
           {/* SCRUM-109: information before requesting; it does not stop the request. */}
           <SuitabilityCheck eventId={form.eventId} venueId={venueId} date={date} startTime={startTime} endTime={endTime}
