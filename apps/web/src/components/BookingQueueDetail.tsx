@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { unavailabilityFlagText } from "@spm-t5/shared";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { SentBackNotice } from "./SentBackNotice";
 import { formatSgt, suitabilityLabel, type QueueDetailView } from "@/lib/bookingQueue";
+import { BOOKING_STATUS_DISPLAY, type BookingStatusKey } from "@/lib/status";
 import { bookingStatusLabel } from "@/lib/venueBookings";
 
 // SCRUM-37/AC6: one request, whatever its status. A decided one also shows who decided it, when, and why.
@@ -10,7 +12,8 @@ export function BookingQueueDetail({ booking }: { booking: QueueDetailView }) {
     <section className="vb">
       <h1>{booking.eventName}</h1>
       <p className="event__status">
-        Status <span className="status-badge">{bookingStatusLabel(booking.status)}</span>
+        Status{" "}
+        <StatusBadge {...(booking.status ? BOOKING_STATUS_DISPLAY[booking.status as BookingStatusKey] : undefined)} label={bookingStatusLabel(booking.status)} />
       </p>
       <SentBackNotice note={booking.sentBack} />
 
@@ -88,7 +91,7 @@ export function BookingQueueDetail({ booking }: { booking: QueueDetailView }) {
 
       {booking.amendsRequestId && (
         <p>
-          <span className="status-badge">Amends an earlier request</span>{" "}
+          <StatusBadge tone="info" label="Amends an earlier request" />{" "}
           <Link href={`/booking-queue/${booking.amendsRequestId}`}>View the earlier request</Link>
         </p>
       )}

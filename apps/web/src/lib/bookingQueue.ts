@@ -10,6 +10,9 @@ export interface QueueItemView {
   eventId: string;
   venueId: string;
   venueName: string;
+  /** SCRUM-134/AC1: whole minutes the venue needs before and after the event. */
+  setupMinutes: number;
+  turnaroundMinutes: number;
   date: string;
   startTime: string;
   endTime: string;
@@ -48,4 +51,21 @@ export const suitabilityLabel = (s: "suitable" | "not_suitable" | null) =>
 export function formatSgt(iso: string): string {
   const { date, time } = utcToSgt(new Date(iso));
   return `${date} ${time}`;
+}
+
+const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+const clock = (minutes: number) => {
+  const m = ((minutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+};
+
+/** SCRUM-134/AC1: the whole time the venue is taken, setup before the event and turnaround after it, as "08:30–17:45". */
+export function occupiedWindow(r: Pick<QueueItemView, "startTime" | "endTime" | "setupMinutes" | "turnaroundMinutes">): string {
+  return `${clock(minutesOf(r.startTime) - r.setupMinutes)}–${clock(minutesOf(r.endTime) + r.turnaroundMinutes)}`;
+}
+
+/** "30 min setup, 45 min reset", or null when the venue needs neither. */
+export function timingNote(r: Pick<QueueItemView, "setupMinutes" | "turnaroundMinutes">): string | null {
+  if (r.setupMinutes === 0 && r.turnaroundMinutes === 0) return null;
+  return `${r.setupMinutes} min setup, ${r.turnaroundMinutes} min reset`;
 }

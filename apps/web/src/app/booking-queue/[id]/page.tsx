@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
+import { ArrowLeft } from "lucide-react";
+import { AuthAlert } from "@/components/auth/AuthParts";
 import { BookingQueueDetail } from "@/components/BookingQueueDetail";
 import { VenueStaffDecision } from "@/components/VenueStaffDecision";
 import { SuitabilityReport } from "@/components/SuitabilityReport";
@@ -31,10 +32,13 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
       : null;
 
   return (
-    <>
-      <AppHeader />
-      <main className="dash__main">
-        <Link className="back-link" href="/booking-queue">← Back to pending booking requests</Link>
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8">
+      <Link
+        href="/booking-queue"
+        className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" /> Back to booking requests
+      </Link>
         {"booking" in result ? (
           <>
             <BookingQueueDetail booking={result.booking} />
@@ -48,9 +52,8 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
             <VenueStaffDecision booking={{ id: result.booking.id, status: result.booking.status, flagged: result.booking.flags.length > 0 }} />
           </>
         ) : (
-          <div className="alert alert--error" role="alert">{result.error}</div>
+          <AuthAlert tone="error">{result.error}</AuthAlert>
         )}
-      </main>
-    </>
+    </main>
   );
 }
