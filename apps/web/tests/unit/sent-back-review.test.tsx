@@ -135,7 +135,7 @@ describe("SCRUM-113/AC1, AC2 the coordinator's event page (113-S14)", () => {
   it("113-S14: a venue booking sent back says it is waiting for review again; the others do not", () => {
     render(<EventVenueBookings bookings={[venueBooking({ sentBackForReview: true }), venueBooking({ id: "b-2", venueName: "Lotus Room" })]} />);
 
-    const rows = screen.getAllByRole("row").slice(1);
+    const rows = screen.getAllByTestId("venue-booking-card");
     expect(rows[0].textContent).toContain(WAITING);
     expect(rows[1].textContent).not.toContain(WAITING);
   });

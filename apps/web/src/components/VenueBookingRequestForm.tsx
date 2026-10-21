@@ -3,7 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { exceedsCapacity, parseVenueBookingInput, VENUE_REQUIREMENTS_MAX_LENGTH, type UnmetRequirement } from "@spm-t5/shared";
-import { Field } from "./Field";
+import { AlertTriangle } from "lucide-react";
+import { AuthAlert } from "@/components/auth/AuthParts";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
+import { InputField } from "@/components/ui/input-field";
 import { SuitabilityCheck } from "./SuitabilityCheck";
 import { UnsuitableConfirm } from "./UnsuitableConfirm";
 import {
@@ -12,6 +17,10 @@ import {
   type VenueBookingInputBody,
   type VenueOption,
 } from "@/lib/venueBookings";
+
+// The native select keeps its keyboard and mobile pickers; the classes match the shadcn Input beside it.
+const SELECT_CLASS =
+  "h-10 w-full rounded-lg border border-input bg-card px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive";
 
 type Slot = Omit<VenueBookingInputBody, "eventId">;
 
@@ -93,70 +102,76 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
   const tooSmall = chosen && exceedsCapacity(attendance, chosen.max_capacity) ? chosen : undefined;
 
   return (
-    <section className="event">
-      <h1>{heading ?? "Request a venue"}</h1>
-      <p className="event__status">{form.eventName}</p>
+    <section className="w-full">
+      <h1 className="text-3xl font-bold tracking-tight text-foreground">{heading ?? "Request a venue"}</h1>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">{form.eventName}</p>
 
-      {error && <div className="alert alert--error" role="alert">{error}</div>}
+      {error && <div className="mb-4"><AuthAlert tone="error">{error}</AuthAlert></div>}
 
-      <form className="event__form" onSubmit={onSubmit} noValidate>
-        <dl className="vb__facts">
-          <dt>Expected attendance</dt>
-          <dd>{form.expectedAttendance ?? "Not specified"}</dd>
-          <dt>Venue requirements</dt>
-          <dd>{form.venueRequirements || "None specified"}</dd>
-          <dt>Accessibility needs</dt>
-          <dd>{form.accessibilityNeeds || "None specified"}</dd>
-        </dl>
+      <Card className="p-6">
+        <form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg bg-status-info p-3 text-sm text-status-info-fg">
+            <dt className="font-semibold">Expected attendance</dt>
+            <dd>{form.expectedAttendance ?? "Not specified"}</dd>
+            <dt className="font-semibold">Venue requirements</dt>
+            <dd>{form.venueRequirements || "None specified"}</dd>
+            <dt className="font-semibold">Accessibility needs</dt>
+            <dd>{form.accessibilityNeeds || "None specified"}</dd>
+          </dl>
 
-        <div className={`field${fieldErrors.venueId ? " field--error" : ""}`}>
-          <label htmlFor="venueId">Venue</label>
-          <select id="venueId" value={venueId} onChange={(e) => setVenueId(e.target.value)}>
-            <option value="">Choose a venue</option>
-            {venues.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}{v.max_capacity != null ? ` (capacity ${v.max_capacity})` : ""}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.venueId && <p className="field__error">{fieldErrors.venueId}</p>}
-        </div>
-        {tooSmall && (
-          <p className="alert alert--warning" role="status">
-            {`${tooSmall.name} holds ${tooSmall.max_capacity} people, but ${attendance} are expected. You can still submit: venue staff will see this when they decide.`}
-          </p>
-        )}
-        <Field id="date" label="Date" type="date" value={date} error={fieldErrors.date}
-          onChange={(e) => setDate(e.target.value)} />
-        <Field id="startTime" label="Start time" type="time" value={startTime} error={fieldErrors.startTime}
-          onChange={(e) => setStartTime(e.target.value)} />
-        <Field id="endTime" label="End time" type="time" value={endTime} error={fieldErrors.endTime}
-          onChange={(e) => setEndTime(e.target.value)} />
-        <Field id="expectedAttendance" label="Expected attendance for this venue" type="number" min={1} step={1}
-          value={ownAttendance} error={fieldErrors.expectedAttendance}
-          hint={`Leave blank to use the event's: ${form.expectedAttendance ?? "not specified"}`}
-          onChange={(e) => setOwnAttendance(e.target.value)} />
-        <Field id="venueRequirements" label="Venue requirements for this venue" maxLength={VENUE_REQUIREMENTS_MAX_LENGTH}
-          value={ownRequirements} error={fieldErrors.venueRequirements}
-          hint={`Leave blank to use the event's: ${form.venueRequirements || "none specified"}`}
-          onChange={(e) => setOwnRequirements(e.target.value)} />
+          <FormField id="venueId" label="Venue" error={fieldErrors.venueId}>
+            {(control) => (
+              <select {...control} className={SELECT_CLASS} value={venueId} onChange={(e) => setVenueId(e.target.value)}>
+                <option value="">Choose a venue</option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}{v.max_capacity != null ? ` (capacity ${v.max_capacity})` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+          {tooSmall && (
+            <p className="flex items-start gap-2 rounded-lg bg-status-warning p-3 text-sm font-medium text-status-warning-fg" role="status">
+              <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              {`${tooSmall.name} holds ${tooSmall.max_capacity} people, but ${attendance} are expected. You can still submit: venue staff will see this when they decide.`}
+            </p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <InputField id="date" name="date" label="Date" type="date" value={date} error={fieldErrors.date} onChange={(e) => setDate(e.target.value)} />
+            <InputField id="startTime" name="startTime" label="Start time" type="time" value={startTime} error={fieldErrors.startTime} onChange={(e) => setStartTime(e.target.value)} />
+            <InputField id="endTime" name="endTime" label="End time" type="time" value={endTime} error={fieldErrors.endTime} onChange={(e) => setEndTime(e.target.value)} />
+          </div>
+          <div className="grid items-start gap-4 md:grid-cols-2">
+          <InputField id="expectedAttendance" name="expectedAttendance" label="Expected attendance for this venue" type="number" min={1} step={1}
+            value={ownAttendance} error={fieldErrors.expectedAttendance}
+            helper={`Leave blank to use the event's: ${form.expectedAttendance ?? "not specified"}`}
+            onChange={(e) => setOwnAttendance(e.target.value)} />
+          <InputField id="venueRequirements" name="venueRequirements" label="Venue requirements for this venue" maxLength={VENUE_REQUIREMENTS_MAX_LENGTH}
+            value={ownRequirements} error={fieldErrors.venueRequirements}
+            helper={`Leave blank to use the event's: ${form.venueRequirements || "none specified"}`}
+            onChange={(e) => setOwnRequirements(e.target.value)} />
+          </div>
 
-        {/* SCRUM-109: information before requesting; it does not stop the request. */}
-        <SuitabilityCheck eventId={form.eventId} venueId={venueId} date={date} startTime={startTime} endTime={endTime}
-          attendance={ownAttendance.trim() !== "" && Number.isInteger(typed) && typed >= 1 ? typed : undefined}
-          venueRequirements={ownRequirements.trim() || undefined} />
+          {/* SCRUM-109: information before requesting; it does not stop the request. */}
+          <SuitabilityCheck eventId={form.eventId} venueId={venueId} date={date} startTime={startTime} endTime={endTime}
+            attendance={ownAttendance.trim() !== "" && Number.isInteger(typed) && typed >= 1 ? typed : undefined}
+            venueRequirements={ownRequirements.trim() || undefined} />
 
-        {unsuitable ? (
-          <UnsuitableConfirm
-            unmet={unsuitable.unmet}
-            busy={saving}
-            onCancel={() => setUnsuitable(undefined)}
-            onConfirm={(overrideReason) => send({ ...unsuitable.input, overrideReason })}
-          />
-        ) : (
-          <button className="btn" type="submit" disabled={saving}>{saving ? "Submitting…" : (submitLabel ?? "Submit request")}</button>
-        )}
-      </form>
+          {unsuitable ? (
+            <UnsuitableConfirm
+              unmet={unsuitable.unmet}
+              busy={saving}
+              onCancel={() => setUnsuitable(undefined)}
+              onConfirm={(overrideReason) => send({ ...unsuitable.input, overrideReason })}
+            />
+          ) : (
+            <div className="flex justify-end">
+              <Button type="submit" disabled={saving}>{saving ? "Submitting…" : (submitLabel ?? "Submit request")}</Button>
+            </div>
+          )}
+        </form>
+      </Card>
     </section>
   );
 }

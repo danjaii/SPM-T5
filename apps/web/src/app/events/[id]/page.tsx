@@ -112,7 +112,7 @@ export default async function EventPage({
             {tab === "venues" && (
               /* SCRUM-102: venue bookings can be changed or cancelled while the event can still have venues */
               venueBookings
-                ? <EventVenueBookings bookings={venueBookings} canChange={canRequestVenue(view.status)} equipment={equipmentRequests?.requests ?? []} />
+                ? <EventVenueBookings bookings={venueBookings} canChange={canRequestVenue(view.status)} equipment={equipmentRequests?.requests ?? []} requestHref={canRequestVenue(view.status) ? `/events/${view.id}/venue-request` : undefined} />
                 : <Unavailable id="venue-bookings-heading" title="Venue bookings" />
             )}
             {tab === "equipment" && (

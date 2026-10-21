@@ -161,6 +161,8 @@ export interface EventVenueBookingItem extends VenueBookingChainItem {
   exceedsCapacity: boolean;
   /** SCRUM-113/AC1: sent back to Pending for review after an important event change. */
   sentBackForReview?: boolean;
+  /** SCRUM-133/AC2, AC3: when a hold on this venue lapses (ISO). venue-service does not send it yet, so no booking is a hold today. */
+  holdExpiresAt?: string | null;
   /** SCRUM-107 (107-S3): "Replaced by Lotus Room" / "Replaces Orchid Hall". */
   replacedBy?: ReplacementRefDto | null;
   replaces?: ReplacementRefDto | null;
