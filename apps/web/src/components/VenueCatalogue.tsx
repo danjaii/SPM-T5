@@ -10,7 +10,9 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InputField } from "@/components/ui/input-field";
 import { Skeleton } from "@/components/ui/skeleton";
+import { VenueChecksList } from "@/components/VenueChecksList";
 import { emptyVenueQuery, filterChips, relaxHint, withoutFilter } from "@/lib/venueFilters";
+import { venueChecks } from "@/lib/venueChecks";
 import { searchVenues, type VenueSearchOptions, type VenueSearchQuery, type VenueSearchResultView } from "@/lib/venueSearch";
 
 interface Props {
@@ -89,6 +91,14 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
       setResults(undefined);
       return;
     }
+    void run(next);
+  };
+
+  // SCRUM-132: listing venues that miss a requirement is a search option, so changing it searches again.
+  const toggleUnsuitable = (on: boolean) => {
+    if (!applied) return;
+    const next = { ...applied, includeUnsuitable: on };
+    setDraft((q) => ({ ...q, includeUnsuitable: on }));
     void run(next);
   };
 
@@ -217,6 +227,12 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                   ))}
                 </ul>
               )}
+              {options && (
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <Checkbox checked={Boolean(applied.includeUnsuitable)} onCheckedChange={toggleUnsuitable} />
+                  Show unsuitable venues
+                </label>
+              )}
               {results.length === 0 ? (
                 <Card className="items-center py-10 text-center" role="status">
                   <SearchX aria-hidden="true" className="size-8 text-muted-foreground" />
@@ -232,6 +248,7 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
                       <li key={r.id}>
                         <VenueCard venue={byId.get(r.id) ?? r}>
                           <ResultDetails venue={r} />
+                          {options && <ChecksFor venue={r} query={applied} options={options} />}
                         </VenueCard>
                       </li>
                     ))}
@@ -246,6 +263,12 @@ export function VenueCatalogue({ venues, options, prefill, search = searchVenues
       </div>
     </div>
   );
+}
+
+// SCRUM-132: the per-requirement checks; a search with no requirements has nothing to judge.
+function ChecksFor({ venue, query, options }: { venue: VenueSearchResultView; query: VenueSearchQuery; options: VenueSearchOptions }) {
+  const result = venueChecks(venue, query, options);
+  return result.checks.length > 0 ? <VenueChecksList result={result} /> : null;
 }
 
 // SCRUM-65/AC7: what a result adds to the catalogue card.

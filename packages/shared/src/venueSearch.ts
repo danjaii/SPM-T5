@@ -33,6 +33,8 @@ export interface VenueSearchInput {
   /** True only when the accessibility filter is switched on; false means "do not filter". */
   accessible: boolean;
   facilityIds: string[];
+  /** SCRUM-132: list venues that miss a requirement too, so their cards can show what is missing. Absent when off. */
+  includeUnsuitable?: boolean;
 }
 
 export type ParsedVenueSearchInput =
@@ -119,6 +121,7 @@ export function parseVenueSearchInput(body: unknown, now: Date): ParsedVenueSear
       ...(layoutId !== "" ? { layoutId } : {}),
       accessible: isOn(query.accessible),
       facilityIds: toList(query.facilityIds),
+      ...(isOn(query.includeUnsuitable) ? { includeUnsuitable: true } : {}),
     },
   };
 }

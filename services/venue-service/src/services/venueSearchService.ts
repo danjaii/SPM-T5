@@ -46,15 +46,18 @@ export async function searchVenues(reader: VenueSearchReader, input: VenueSearch
 }
 
 function meetsCriteria(venue: SearchableVenue, input: VenueSearchInput): boolean {
-  // AC1: open for the whole period (rule shared with the suitability check, SCRUM-109).
-  const { period } = input;
-  if (period && !isOpenDuring(venue.openingTime, venue.closingTime, period.startTime, period.endTime)) return false;
-
   // AC2: location is a case-insensitive "contains" match on the venue's name or its address.
   const location = input.location?.toLowerCase();
   if (location && !venue.name.toLowerCase().includes(location) && !venue.address.toLowerCase().includes(location)) {
     return false;
   }
+  // SCRUM-132: asked to include unsuitable venues, the rest are shown with their checks rather than filtered out.
+  if (input.includeUnsuitable) return true;
+
+  // AC1: open for the whole period (rule shared with the suitability check, SCRUM-109).
+  const { period } = input;
+  if (period && !isOpenDuring(venue.openingTime, venue.closingTime, period.startTime, period.endTime)) return false;
+
   if (input.accessible && !venue.isAccessible) return false;
 
   // AC2: the venue must support the chosen layout.

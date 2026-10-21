@@ -137,3 +137,11 @@ describe("SCRUM-65/AC6 end before start", () => {
     });
   });
 });
+
+describe("SCRUM-132/AC1 includeUnsuitable", () => {
+  it("is set only when asked for, so a venue that misses a requirement can be listed with its checks", () => {
+    expect(parseVenueSearchInput({ ...valid, includeUnsuitable: "true" }, now)).toMatchObject({ ok: true, data: { includeUnsuitable: true } });
+    const off = parseVenueSearchInput(valid, now);
+    expect(off.ok && "includeUnsuitable" in off.data).toBe(false);
+  });
+});

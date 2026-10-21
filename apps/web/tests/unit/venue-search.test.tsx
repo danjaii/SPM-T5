@@ -80,7 +80,7 @@ describe("SCRUM-131/AC1 filters pre-filled from an event", () => {
     expect((screen.getByLabelText("People") as HTMLInputElement).value).toBe("60");
     expect(screen.getByRole("button", { name: "Classroom" }).getAttribute("aria-pressed")).toBe("true");
     await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText("Open 08:00–20:00")).toBeTruthy();
+    expect((await screen.findAllByText("Open 08:00–20:00")).length).toBeGreaterThan(0); // SCRUM-132: the details line and the hours check
   });
 });
 

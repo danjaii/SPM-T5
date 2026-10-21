@@ -35,6 +35,8 @@ export interface VenueSearchQuery {
   layoutId: string;
   accessible: boolean;
   facilityIds: string[];
+  /** SCRUM-132: also list venues that miss a requirement. */
+  includeUnsuitable?: boolean;
 }
 
 /** Asks venue-service from the browser, sending the login cookie. Only filled-in filters are sent. */
@@ -50,6 +52,7 @@ export async function searchVenues(query: VenueSearchQuery): Promise<ApiResult<{
   if (query.layoutId) params.set("layoutId", query.layoutId);
   if (query.accessible) params.set("accessible", "true");
   if (query.facilityIds.length > 0) params.set("facilityIds", query.facilityIds.join(","));
+  if (query.includeUnsuitable) params.set("includeUnsuitable", "true");
 
   try {
     const res = await fetch(`${VENUE_URL}/venues/search?${params.toString()}`, { credentials: "include", cache: "no-store" });
