@@ -33,7 +33,7 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
       : null;
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
       <Link
         href="/booking-queue"
         className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
