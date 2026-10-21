@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AuthAlert } from "@/components/auth/AuthParts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingQueueDetail } from "@/components/BookingQueueDetail";
 import { VenueStaffDecision } from "@/components/VenueStaffDecision";
 import { SuitabilityReport } from "@/components/SuitabilityReport";
@@ -43,10 +44,14 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
           <>
             <BookingQueueDetail booking={result.booking} />
             {suitability && (
-              <section>
-                <h2>Suitability</h2>
-                <SuitabilityReport report={suitability} />
-              </section>
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle className="text-base font-bold">Suitability</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SuitabilityReport report={suitability} />
+                </CardContent>
+              </Card>
             )}
             {/* SCRUM-38/39: renders only while the request is PENDING; the server checks again. */}
             <VenueStaffDecision booking={{ id: result.booking.id, status: result.booking.status, flagged: result.booking.flags.length > 0 }} />
