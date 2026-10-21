@@ -4,7 +4,7 @@ import { toFlagDto } from "../domain/dto";
 import { toQueueDetail, toQueueItem, type QueueDetail, type QueueItem } from "../domain/queueDto";
 import type { BookingRecord } from "../domain/types";
 import type { UserReader } from "../readers/userReader";
-import type { VenueReader } from "../readers/venueReader";
+import type { VenueInfo, VenueReader } from "../readers/venueReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
 import type { Caller } from "./bookingService";
 
@@ -22,9 +22,9 @@ export class QueueService {
     if (caller.role !== "venue_staff") throw forbidden();
   }
 
-  private async venueNames(bookings: BookingRecord[]): Promise<Map<string, string>> {
+  private async venuesOf(bookings: BookingRecord[]): Promise<Map<string, VenueInfo>> {
     const venues = await this.deps.venues.getByIds([...new Set(bookings.map((b) => b.venueId))]);
-    return new Map(venues.map((v) => [v.id, v.name]));
+    return new Map(venues.map((v) => [v.id, v]));
   }
 
   /** SCRUM-113: the names of the room layouts that sent-back notes mention. */
@@ -54,13 +54,14 @@ export class QueueService {
   async list(caller: Caller): Promise<QueueItem[]> {
     this.requireVenueStaff(caller);
     const pending = await this.deps.bookings.listPending();
-    const venues = await this.venueNames(pending);
+    const venues = await this.venuesOf(pending);
     const people = await this.deps.users.namesOf([...new Set(pending.flatMap((b) => (b.requestedBy ? [b.requestedBy] : [])))]);
     const flags = await this.flagDtos(pending);
     const layouts = await this.layoutNames(pending);
-    return pending.map((b) =>
-      toQueueItem(b, venues.get(b.venueId) ?? "Unknown venue", (b.requestedBy && people.get(b.requestedBy)) || null, flags.get(b.id), layouts),
-    );
+    return pending.map((b) => {
+      const venue = venues.get(b.venueId);
+      return toQueueItem(b, venue?.name ?? "Unknown venue", (b.requestedBy && people.get(b.requestedBy)) || null, flags.get(b.id), layouts, venue);
+    });
   }
 
   /** 37-S6: one request in any status, with who decided it and when. */
@@ -68,15 +69,16 @@ export class QueueService {
     this.requireVenueStaff(caller);
     const booking = await this.deps.bookings.getById(id);
     if (!booking) throw notFound("Venue booking request not found.");
-    const venues = await this.venueNames([booking]);
+    const venue = (await this.venuesOf([booking])).get(booking.venueId);
     const ids = [booking.requestedBy, booking.reviewedBy].filter((x): x is string => Boolean(x));
     const people = await this.deps.users.namesOf(ids);
     return toQueueDetail(
       booking,
-      venues.get(booking.venueId) ?? "Unknown venue",
+      venue?.name ?? "Unknown venue",
       people,
       (await this.flagDtos([booking])).get(booking.id),
       await this.layoutNames([booking]),
+      venue,
     );
   }
 }
