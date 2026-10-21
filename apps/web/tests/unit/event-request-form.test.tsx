@@ -168,6 +168,129 @@ describe("SCRUM-49/AC3 field flagged when the organiser moves away from it", () 
   });
 });
 
+describe("SCRUM-49/AC3 room layout flagged when its select closes with nothing chosen", () => {
+  const MESSAGE = "Choose a room layout.";
+
+  function toVenueStep() {
+    render(<EventRequestForm layouts={layouts} />);
+    type(/Event name/, complete.name);
+    type(/^Purpose/, complete.purpose);
+    type(/^Description/, complete.description);
+    next();
+    type(/Starts/, complete.start);
+    type(/Ends/, complete.end);
+    type(/Expected attendance/, complete.attendance);
+    next();
+    expect(screen.getByText(/Step 3 of 6/)).toBeTruthy();
+  }
+  const openSelect = () => fireEvent.click(screen.getByRole("combobox"));
+  const closeSelect = async () => {
+    fireEvent.keyDown(await screen.findByRole("listbox"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+  };
+
+  it("does not flag the layout while the select is open", async () => {
+    toVenueStep();
+    openSelect();
+    await screen.findByRole("listbox");
+    expect(screen.queryByText(MESSAGE)).toBeNull();
+  });
+
+  it("flags the layout when the select closes with no value chosen", async () => {
+    toVenueStep();
+    openSelect();
+    await closeSelect();
+
+    expect(screen.getByText(MESSAGE)).toBeTruthy();
+    expect(screen.getByRole("combobox").getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("does not flag the other fields of the step that were not touched", async () => {
+    toVenueStep();
+    openSelect();
+    await closeSelect();
+    expect(screen.queryByText("Enter the venue requirements.")).toBeNull();
+  });
+
+  it("does not flag the layout when an option is chosen and the select closes", async () => {
+    toVenueStep();
+    openSelect();
+    fireEvent.click(await screen.findByRole("option", { name: "Theatre" }));
+    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+
+    expect(screen.queryByText(MESSAGE)).toBeNull();
+  });
+
+  it("clears the flag once an option is chosen", async () => {
+    toVenueStep();
+    openSelect();
+    await closeSelect();
+    expect(screen.getByText(MESSAGE)).toBeTruthy();
+
+    openSelect();
+    fireEvent.click(await screen.findByRole("option", { name: "Theatre" }));
+    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+
+    expect(screen.queryByText(MESSAGE)).toBeNull();
+  });
+
+  it("keeps Continue blocking when the layout is still empty", async () => {
+    toVenueStep();
+    type(/Venue requirements/, complete.venueRequirements);
+    next();
+    expect(screen.getByText(MESSAGE)).toBeTruthy();
+    expect(screen.getByText(/Step 3 of 6/)).toBeTruthy();
+  });
+});
+
+describe("SCRUM-49/AC3 registration details flagged on blur", () => {
+  async function toRegistrationYes() {
+    render(<EventRequestForm layouts={layouts} />);
+    type(/Event name/, complete.name);
+    type(/^Purpose/, complete.purpose);
+    type(/^Description/, complete.description);
+    next();
+    type(/Starts/, complete.start);
+    type(/Ends/, complete.end);
+    type(/Expected attendance/, complete.attendance);
+    next();
+    type(/Venue requirements/, complete.venueRequirements);
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(await screen.findByRole("option", { name: "Theatre" }));
+    next();
+    type(/Equipment requirements/, complete.equipment);
+    next();
+    fireEvent.click(screen.getByRole("button", { name: "Yes, registration needed" }));
+    expect(screen.getByText(/Step 5 of 6/)).toBeTruthy();
+  }
+  const blur = (label: RegExp) => fireEvent.blur(screen.getByLabelText(label));
+
+  it.each([
+    [/Registration capacity/, "Enter the registration capacity."],
+    [/Registration opens/, "Enter the registration opening date and time."],
+    [/Registration closes/, "Enter the registration closing date and time."],
+  ])("flags an empty %s when it is left, and not the other two", async (label, message) => {
+    await toRegistrationYes();
+    for (const other of ["Enter the registration capacity.", "Enter the registration opening date and time.", "Enter the registration closing date and time."]) {
+      expect(screen.queryByText(other)).toBeNull();
+    }
+
+    blur(label);
+
+    expect(screen.getByText(message)).toBeTruthy();
+    expect(screen.getAllByText(/^Enter the registration/)).toHaveLength(1);
+  });
+
+  it("flags a registration that closes after the event starts, on the closing box only", async () => {
+    await toRegistrationYes();
+    type(/Registration closes/, future(61, 9)); // after the start (60 days out, 09:00)
+    blur(/Registration closes/);
+
+    expect(screen.getByLabelText(/Registration closes/).getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText(/Registration opens/).getAttribute("aria-invalid")).toBeNull();
+  });
+});
+
 describe("SCRUM-123/AC3 review step", () => {
   async function toReview() {
     render(<EventRequestForm layouts={layouts} />);

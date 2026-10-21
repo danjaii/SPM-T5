@@ -59,6 +59,7 @@ export function StepFields({ step, values: v, errors, layouts, onChange, onBlurF
           <FormField id="layout" label="Room layout" required helper="How the room should be set out." error={errors.preferred_room_layout_id}>
             {(c) => (
               <Select value={v.layoutId || null} onValueChange={(id) => onChange({ layoutId: id ?? "" })}
+                onOpenChange={(open) => { if (!open) onBlurField("preferred_room_layout_id"); }}
                 items={layouts.map((l) => ({ value: l.id, label: l.name }))}>
                 <SelectTrigger {...c} className="w-full sm:w-72">
                   <SelectValue placeholder="Choose a layout" />

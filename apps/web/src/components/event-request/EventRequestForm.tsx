@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,13 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
   const [message, setMessage] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
 
-  const change = (patch: Partial<EventRequestFormValues>) => setValues((v) => ({ ...v, ...patch }));
+  // The newest values, kept in step with every change as it happens: a select closes in the same event that picks its
+  // option, before React re-renders, so onBlurField reads these rather than the `values` of the render it was made in.
+  const latest = useRef(values);
+  const change = (patch: Partial<EventRequestFormValues>) => {
+    latest.current = { ...latest.current, ...patch };
+    setValues(latest.current);
+  };
 
   function goTo(next: number) {
     setErrors({});
@@ -35,7 +41,7 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
   // SCRUM-49/AC3: flag a required field when the organiser leaves it. Only that field's error is touched, so fields not yet
   // visited stay quiet; the rule is the same shared one Continue uses, and a fixed field loses its error.
   function onBlurField(field: string) {
-    const found = validateStep(step, values);
+    const found = validateStep(step, latest.current);
     setErrors((current) => {
       const next = { ...current };
       if (field in found) next[field] = found[field];

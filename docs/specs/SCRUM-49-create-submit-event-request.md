@@ -87,7 +87,9 @@ Tests written so far: backend AC1, AC5 and AC7. AC5's 422 response copies `chang
 | AC5 | `services/event-service/tests/unit/event-request-create.test.ts` | `SCRUM-49/AC5 — Prevent incomplete submission` / refuses a missing or bad field with 422 `VALIDATION_FAILED` listing each field, and stores nothing |
 | AC2 | — | not yet written (apps/web) |
 | AC3 | `apps/web/tests/unit/event-request-form.test.tsx` | `SCRUM-49/AC3 field flagged when the organiser moves away from it` / flags an empty required input or textarea on blur; leaves untouched fields alone; clears the error once fixed; uses the shared rules; Continue still blocks on every empty field |
-| AC3 | — | blur on the room layout select and the registration Yes/No chips not written (see Open questions) |
+| AC3 | same | `SCRUM-49/AC3 room layout flagged when its select closes with nothing chosen` / not flagged while open; flagged when it closes with no value; not flagged when an option is chosen; the flag clears once one is chosen; Continue still blocks |
+| AC3 | same | `SCRUM-49/AC3 registration details flagged on blur` / capacity, opens and closes each flagged alone; a closing time after the start is flagged on the closing box only |
+| AC3 | — | blur on the registration Yes/No chips not flagged (see Open questions) |
 | AC4 | `services/event-service/tests/integration/eventRequestSubmitDb.test.ts` | `SCRUM-49/AC4 create_event_request submits into the Lead's unassigned queue` / stores the request as submitted, not as a draft; writes one status history row; assigns no coordinator; appears in the Lead's unassigned queue (SCRUM-77) |
 | AC5 | — | apps/web form display of the field errors not yet written |
 | AC6 | `services/event-service/tests/unit/event-request-create.test.ts` | `SCRUM-49/AC6 — Confirmation of submission` / returns the date and time of submission in the 201 response |
@@ -141,7 +143,6 @@ Tests written so far: backend AC1, AC5 and AC7. AC5's 422 response copies `chang
 ## Open questions
 
 - **Date lead time.** Is any minimum notice period needed beyond a future start? For the customer.
-- **Blur on non-text controls (AC3).** The room layout select and the registration Yes/No chips are not flagged on blur: a
-  select's focus moves into its popup while the organiser is choosing, and a chip is a button, so "leaving" it before
-  choosing would flag a field the organiser has not had a chance to answer. They are still flagged on Continue and Submit.
-  For the team to decide whether to flag them when the popup closes empty.
+- **Blur on the registration Yes/No chips (AC3).** The room layout select is flagged when its popup closes with no value
+  (not while it is open). The chips are buttons with no popup to close, so "leaving" one before answering would flag a
+  question the organiser has not had a chance to answer; they are flagged on Continue and Submit only. For the team to decide.
