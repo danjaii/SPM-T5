@@ -32,6 +32,18 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
     setStep(next);
   }
 
+  // SCRUM-49/AC3: flag a required field when the organiser leaves it. Only that field's error is touched, so fields not yet
+  // visited stay quiet; the rule is the same shared one Continue uses, and a fixed field loses its error.
+  function onBlurField(field: string) {
+    const found = validateStep(step, values);
+    setErrors((current) => {
+      const next = { ...current };
+      if (field in found) next[field] = found[field];
+      else delete next[field];
+      return next;
+    });
+  }
+
   function onContinue() {
     const found = validateStep(step, values);
     setErrors(found);
@@ -82,7 +94,7 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
         ) : null}
 
         {last ? <ReviewStep values={values} layouts={layouts} onEdit={goTo} />
-          : <StepFields step={step} values={values} errors={errors} layouts={layouts} onChange={change} />}
+          : <StepFields step={step} values={values} errors={errors} layouts={layouts} onChange={change} onBlurField={onBlurField} />}
 
         <div className="flex flex-wrap justify-between gap-3 border-t border-border pt-5">
           <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => goTo(step - 1)}>Back</Button>

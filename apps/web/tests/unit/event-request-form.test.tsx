@@ -94,6 +94,80 @@ describe("SCRUM-123/AC2 required field validation", () => {
   });
 });
 
+describe("SCRUM-49/AC3 field flagged when the organiser moves away from it", () => {
+  const blur = (label: RegExp | string) => fireEvent.blur(screen.getByLabelText(label));
+
+  it("shows the inline error beside an empty required field on blur, before Continue is pressed", () => {
+    render(<EventRequestForm layouts={layouts} />);
+    expect(screen.queryByText("Enter the event name.")).toBeNull();
+
+    blur(/Event name/);
+
+    expect(screen.getByText("Enter the event name.")).toBeTruthy();
+    expect(screen.getByLabelText(/Event name/).getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("flags a textarea the same way", () => {
+    render(<EventRequestForm layouts={layouts} />);
+    blur(/^Purpose/);
+    expect(screen.getByText("Enter the purpose.")).toBeTruthy();
+  });
+
+  it("does not flag fields the organiser has not touched", () => {
+    render(<EventRequestForm layouts={layouts} />);
+    blur(/Event name/);
+    expect(screen.queryByText("Enter the purpose.")).toBeNull();
+    expect(screen.queryByText("Enter the description.")).toBeNull();
+    expect(screen.getByLabelText(/^Purpose/).getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("does not flag a field that has been filled in", () => {
+    render(<EventRequestForm layouts={layouts} />);
+    type(/Event name/, "Tech Summit");
+    blur(/Event name/);
+    expect(screen.queryByText("Enter the event name.")).toBeNull();
+    expect(screen.getByText("The name attendees will see.")).toBeTruthy();
+  });
+
+  it("clears the error once the field is filled in and left again", () => {
+    render(<EventRequestForm layouts={layouts} />);
+    blur(/Event name/);
+    expect(screen.getByText("Enter the event name.")).toBeTruthy();
+
+    type(/Event name/, "Tech Summit");
+    blur(/Event name/);
+
+    expect(screen.queryByText("Enter the event name.")).toBeNull();
+  });
+
+  it("flags fields on later steps too, using the shared rules (a start in the past)", () => {
+    render(<EventRequestForm layouts={layouts} />);
+    type(/Event name/, "Tech Summit");
+    type(/^Purpose/, "Showcase");
+    type(/^Description/, "A day of demos");
+    next();
+
+    blur(/Expected attendance/);
+    expect(screen.getByText("Enter the expected attendance.")).toBeTruthy();
+    expect(screen.getByLabelText(/Starts/).getAttribute("aria-invalid")).toBeNull(); // untouched
+
+    type(/Starts/, future(-2, 9));
+    blur(/Starts/);
+    expect(screen.getByText("The preferred start must be in the future.")).toBeTruthy();
+    expect(screen.getByLabelText(/Ends/).getAttribute("aria-invalid")).toBeNull(); // untouched
+  });
+
+  it("keeps Continue blocking on every empty field of the step, touched or not", () => {
+    render(<EventRequestForm layouts={layouts} />);
+    blur(/Event name/);
+    next();
+    expect(screen.getByText("Enter the event name.")).toBeTruthy();
+    expect(screen.getByText("Enter the purpose.")).toBeTruthy();
+    expect(screen.getByText("Enter the description.")).toBeTruthy();
+    expect(screen.getByText(/Step 1 of 6/)).toBeTruthy();
+  });
+});
+
 describe("SCRUM-123/AC3 review step", () => {
   async function toReview() {
     render(<EventRequestForm layouts={layouts} />);
