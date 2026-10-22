@@ -7,24 +7,22 @@ import { adminClient, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./suppo
  * SCRUM-81: a Lead's coordinator overview (lead_coordinator_overview()) and one coordinator's non-closed events
  * (lead_coordinator_events()), migration 22. Both are called as the signed-in user, so RLS applies.
  *
- * Seeded coordinators already hold events, so exact counts use accounts made here: this suite's own Lead with two
- * coordinators ("zero" holds nothing, "busy" holds the fixtures), and a Lead with no coordinators. Other test files link
- * their own coordinators to the seeded Leads while they run (SCRUM-143), so the exact checks never use a seeded Lead.
+ * Every Lead and coordinator the checks look at is made here, because other test files link and relink seeded ones while
+ * they run (SCRUM-143): this suite's own Lead with two active coordinators ("zero" holds nothing, "busy" holds the
+ * fixtures) and a deactivated one ("retired"), a second Lead with a coordinator of their own ("stranger"), a coordinator
+ * linked to no Lead ("unlinked"), and a Lead with no coordinators.
  * Everything made here is removed afterwards; fixture events are named "IT-81-" and dated 2031.
  */
 const EMAILS = {
-  leadA: "helen.ong@connectsphere.example.com",
-  leadB: "samuel.tay@connectsphere.example.com",
-  rachel: "rachel.tan@connectsphere.example.com", // active, linked to Lead A
-  marcus: "marcus.lim@connectsphere.example.com", // active, linked to Lead A
-  kelvin: "kelvin.ho@connectsphere.example.com", // deactivated, linked to Lead A
-  priya: "priya.nair@connectsphere.example.com", // linked to Lead B
-  siti: "siti.aminah@connectsphere.example.com", // not linked
+  rachel: "rachel.tan@connectsphere.example.com", // a coordinator, refused the Lead's views (AC7)
   venueStaff: "kenneth.wong@connectsphere.example.com",
   organiser: "jason.chua@techconnect.example.com",
 };
 
 const DENIED = "42501";
+
+/** The accounts made for this suite. */
+type Made = "ownLead" | "otherLead" | "loneLead" | "zero" | "busy" | "retired" | "stranger" | "unlinked";
 
 type OverviewRow = { id: string; full_name: string; workload: number };
 type EventRow = {
@@ -38,13 +36,13 @@ type EventRow = {
 
 describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migration 22)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
-  const who = {} as Record<keyof typeof EMAILS | "ownLead" | "zero" | "busy" | "loneLead", Actor>;
+  const who = {} as Record<keyof typeof EMAILS | Made, Actor>;
   const madeUsers: string[] = [];
   const eventIds: string[] = [];
   const ev = {} as Record<string, string>;
 
   /** An account made for this suite (removed afterwards), signed in so it can be used as an actor. */
-  async function newAccount(key: "ownLead" | "zero" | "busy" | "loneLead", role: string, lead: string | null) {
+  async function newAccount(key: Made, role: string, lead: string | null, isActive = true) {
     const email = `it-81-${key.toLowerCase()}-${randomUUID().slice(0, 8)}@connectsphere.example.com`;
     const { data, error } = await admin.auth.admin.createUser({ email, password: SEED_PASSWORD, email_confirm: true });
     if (error || !data.user) throw new Error(error?.message);
@@ -54,7 +52,7 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
       role,
       full_name: `IT-81 ${key}`,
       email,
-      is_active: true,
+      is_active: isActive,
       supervising_lead_id: lead,
     });
     if (profile.error) throw new Error(profile.error.message);
@@ -95,8 +93,12 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
   beforeAll(async () => {
     for (const key of Object.keys(EMAILS) as Array<keyof typeof EMAILS>) who[key] = await signInAs(EMAILS[key]);
     await newAccount("ownLead", "event_coordinator_lead", null);
+    await newAccount("otherLead", "event_coordinator_lead", null);
     await newAccount("zero", "event_coordinator", who.ownLead.userId);
     await newAccount("busy", "event_coordinator", who.ownLead.userId);
+    await newAccount("retired", "event_coordinator", who.ownLead.userId, false);
+    await newAccount("stranger", "event_coordinator", who.otherLead.userId);
+    await newAccount("unlinked", "event_coordinator", null);
     await newAccount("loneLead", "event_coordinator_lead", null);
     for (const status of ["submitted", "approved", "returned"]) await newEvent(status, who.busy.userId, status);
     for (const status of CLOSED_EVENT_STATUSES) await newEvent(status, who.busy.userId, status);
@@ -116,9 +118,9 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
 
   it("SCRUM-81/AC1 does not show a deactivated, unlinked or other Lead's coordinator", async () => {
     const ids = (await overviewAs(who.ownLead)).rows.map((r) => r.id);
-    expect(ids).not.toContain(who.kelvin.userId);
-    expect(ids).not.toContain(who.siti.userId);
-    expect(ids).not.toContain(who.priya.userId);
+    expect(ids).not.toContain(who.retired.userId);
+    expect(ids).not.toContain(who.unlinked.userId);
+    expect(ids).not.toContain(who.stranger.userId);
   });
 
   // Only this suite's coordinators: other suites give the seeded ones events in parallel, so their counts can change
@@ -133,7 +135,7 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
   });
 
   it("SCRUM-81/AC1 a Lead cannot list another Lead's coordinator's events, an unlinked one's, or a deactivated one's", async () => {
-    for (const coordinator of [who.priya, who.siti, who.kelvin]) {
+    for (const coordinator of [who.stranger, who.unlinked, who.retired]) {
       const { rows, error } = await eventsAs(who.ownLead, coordinator.userId);
       expect(error?.code).toBe(DENIED);
       expect(rows).toEqual([]);
@@ -209,7 +211,7 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
 
   it("SCRUM-81/AC7 a Lead reads their own coordinators' events directly, but not another Lead's team's", async () => {
     const mine = await who.ownLead.client.from("events").select("id").eq("id", ev.approved);
-    const theirs = await who.leadB.client.from("events").select("id").eq("id", ev.approved);
+    const theirs = await who.otherLead.client.from("events").select("id").eq("id", ev.approved);
     expect((mine.data ?? []).map((r) => r.id)).toEqual([ev.approved]);
     expect(theirs.data ?? []).toEqual([]);
   });
