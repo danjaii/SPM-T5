@@ -120,15 +120,34 @@ describe.skipIf(!hasDb)("SCRUM-33/SCRUM-32/SCRUM-35 venue_bookings row level sec
     });
 
     // SCRUM-87 (migration 32): Technical Support Staff read only the bookings an equipment request names, so the
-    // request queue can show the venue. The equipment-service integration tests cover a booking that is named.
+    // request queue can show the venue. Only this suite's own bookings are checked: comparing every booking with every
+    // equipment request failed whenever another test file added or removed a request between the two reads (SCRUM-143).
     it("SCRUM-87 Technical Support Staff read only the bookings an equipment request names", async () => {
       expect(await visibleIds(who.technicalSupport, [bookingA, bookingB])).toEqual([]);
-      const { data: named } = await admin.from("equipment_reservations").select("venue_booking_id").not("venue_booking_id", "is", null);
-      const { data, error } = await who.technicalSupport.client.from("venue_bookings").select("id");
-      expect(error).toBeNull();
-      expect((data ?? []).map((r) => r.id as string).sort()).toEqual(
-        [...new Set((named ?? []).map((r) => r.venue_booking_id as string))].sort(),
-      );
+
+      // name booking A in an equipment request of this suite's own; booking B stays unnamed
+      const item = await admin.from("equipment").insert({ name: "IT-143 Projector", total_quantity: 1 }).select("id").single();
+      if (item.error) throw new Error(item.error.message);
+      const request = await admin
+        .from("equipment_reservations")
+        .insert({
+          event_id: eventA,
+          equipment_id: item.data.id,
+          venue_booking_id: bookingA,
+          quantity_requested: 1,
+          status: "requested",
+          start_datetime: "2030-10-01T01:00:00Z",
+          end_datetime: "2030-10-01T09:00:00Z",
+        })
+        .select("id")
+        .single();
+      try {
+        if (request.error) throw new Error(request.error.message);
+        expect(await visibleIds(who.technicalSupport, [bookingA, bookingB])).toEqual([bookingA]);
+      } finally {
+        if (request.data) await admin.from("equipment_reservations").delete().eq("id", request.data.id);
+        await admin.from("equipment").delete().eq("id", item.data.id);
+      }
     });
 
     it("a request row is not exposed through a join to someone who cannot see it", async () => {
