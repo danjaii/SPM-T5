@@ -641,48 +641,7 @@ tr:last-child td { border-bottom: 0; }
 .sent-back__changes { margin: 6px 0 0; padding-left: 18px; }
 .status-badge--sent-back { margin-left: 6px; background: var(--warn-bg); color: var(--warn); }
 
-/* SCRUM-46: the notification list; an unread row is highlighted, and also carries the word "Unread" */
-.notifications { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: #fff; }
-.notification { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
-.notification:last-child { border-bottom: 0; }
-.notification--unread { background: var(--warn-bg); border-left: 3px solid var(--warn); font-weight: 600; }
-.notification__open { flex: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
-.notification__message, .notification__related, .notification__time { font-weight: 400; font-size: 14px; color: var(--subtle); }
-/* the shared .btn is full width; here it sits beside the text, so keep it to its own width */
-.notification .btn { width: auto; flex: none; white-space: nowrap; }
-
-/* SCRUM-47/AC11: the notification bell in the page header, its unread number, and its dropdown list. The list shows
-   about 8 rows, then scrolls (less on a short screen). */
-.bell-wrap { position: relative; }
-.bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; background: none; border: 0; color: #fff; cursor: pointer; }
-.bell svg { width: 20px; height: 20px; }
-.bell:hover { color: var(--sky-text); }
-.bell:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
-.bell__count { position: absolute; top: 0; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
-.bell-menu { position: absolute; top: calc(100% + 10px); right: 0; z-index: 50; width: min(380px, calc(100vw - 32px)); background: #fff; color: var(--ink); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); text-align: left; }
-.bell-menu__list { list-style: none; margin: 0; padding: 0; max-height: min(calc(8 * 84px), 70vh); overflow-y: auto; }
-.bell-menu__item { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
-.bell-menu__item--unread { background: var(--warn-bg); border-left: 3px solid var(--warn); }
-/* the whole row, Mark as read included, turns blue on hover (after --unread, so it wins over the unread colour) */
-.bell-menu__item:hover { background: var(--selected); }
-.bell-menu__open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
-.bell-menu__open:focus-visible { outline: 2px solid var(--steel); outline-offset: -2px; }
-/* the title wraps with its badges, which are smaller here than on the full page so they fit the dropdown */
-.bell-menu__title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 14px; font-weight: 600; }
-.bell-menu .status-badge { padding: 1px 7px; font-size: 10px; letter-spacing: 0.04em; line-height: 1.4; border-radius: 999px; }
-.bell-menu__read { flex: none; margin: 0 12px 0 0; padding: 3px 10px; border-radius: 999px; font: inherit; font-size: 12px; white-space: nowrap; color: var(--steel-dark); background: #fff; border: 1px solid var(--steel); cursor: pointer; }
-.bell-menu__read:hover { background: var(--selected); }
-.bell-menu__read:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
-.bell-menu__related, .bell-menu__time { font-size: 12px; color: var(--subtle); }
-.bell-menu__empty { margin: 0; padding: 14px; font-size: 14px; color: var(--subtle); }
-.bell-menu__all { display: block; padding: 10px 14px; font-size: 14px; color: var(--steel-dark); }
-
-/* SCRUM-121: inside the shell the sidebar replaces each page's own top bar, and the notification menu opens beside it. */
+/* SCRUM-121: inside the shell the sidebar replaces each page's own top bar. */
 @layer components {
   .app-shell .dash__bar { display: none; }
-  .shell-bell .bell { color: var(--nav-text); }
-  .shell-bell .bell-menu { top: 0; right: auto; left: calc(100% + 8px); }
-  @media (max-width: 767px) {
-    .shell-bell .bell-menu { position: fixed; top: 64px; left: 16px; right: 16px; width: auto; }
-  }
 }

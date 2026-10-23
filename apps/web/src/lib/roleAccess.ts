@@ -8,6 +8,8 @@ const ROLE_ONLY: { prefix: string; role: string }[] = [
   { prefix: "/equipment-requests", role: "technical_support_staff" },
   { prefix: "/equipment-availability", role: "technical_support_staff" },
   { prefix: "/equipment-reservation", role: "technical_support_staff" },
+  // SCRUM-52/AC2: an organiser's own requests
+  { prefix: "/my-event-requests", role: "event_organiser" },
 ];
 
 const under = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);

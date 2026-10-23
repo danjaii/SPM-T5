@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Building2, History } from "lucide-react";
-import { describeFlag } from "@spm-t5/shared";
 import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -9,6 +8,7 @@ import { holdCountdown } from "@/lib/holds";
 import { BOOKING_STATUS_DISPLAY, type BookingStatusKey } from "@/lib/status";
 import type { EquipmentRequestView } from "@/lib/equipmentRequests";
 import { bookingStatusLabel, equipmentFor, isChangeableVenueBooking, type EventVenueBookingItem } from "@/lib/venueBookings";
+import { FlagBadges } from "./FlagBadges";
 import { VenueBookingCancel } from "./VenueBookingCancel";
 
 const longDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -98,9 +98,7 @@ export function VenueBookingCard({
 
       {(flagged || b.replacedBy || b.replaces || b.rejectionReason || b.cancellationReason || b.sentBackForReview) && (
         <div className="flex flex-col gap-1">
-          {b.flags.map((f) => (
-            <span className="text-xs font-medium text-status-warning-fg" key={f.id}>{describeFlag(f, b.venueName)}</span>
-          ))}
+          <FlagBadges flags={b.flags} venueName={b.venueName} />
           {/* SCRUM-107/AC3: the original keeps its place, with where it went; the replacement says what it replaced */}
           {b.replacedBy && (
             <span className="text-xs text-muted-foreground">
