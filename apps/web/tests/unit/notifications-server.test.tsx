@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { cookieValue, redirect } = vi.hoisted(() => ({
@@ -77,12 +77,13 @@ describe("SCRUM-46/AC1 loading the notifications (46-S1)", () => {
   });
 });
 
-describe("SCRUM-47/AC11 every signed-in page has the notification bell in its header", () => {
-  it("the Notifications page's header has the bell", async () => {
+describe("SCRUM-141/AC4 the Notifications page uses the shared app shell", () => {
+  it("has no top bar of its own (the shell's sidebar carries the bell), and a heading", async () => {
     mockFetch(() => ({ status: 200, body: { items: [], unreadCount: 0 } }));
 
     const { container } = render(await NotificationsPage());
 
-    expect(await within(container.querySelector("header")!).findByRole("button", { name: "Notifications" })).toBeTruthy();
+    expect(container.querySelector("header")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Notifications" })).toBeTruthy();
   });
 });

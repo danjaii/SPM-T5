@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
+import { AuthAlert } from "@/components/auth/AuthParts";
 import { NotificationList } from "@/components/NotificationList";
 import { getNotifications } from "@/lib/notificationsServer";
 
@@ -9,22 +8,15 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Notifications · ConnectSphere" };
 
-// SCRUM-46: every signed-in user's own notifications.
+// SCRUM-46: every signed-in user's own notifications. SCRUM-141: inside the shared app shell, which has the way back.
 export default async function NotificationsPage() {
   const result = await getNotifications();
 
   return (
-    <>
-      <AppHeader />
-      <main className="dash__main">
-        <Link className="back-link" href="/dashboard">← Back to dashboard</Link>
-        <h1>Notifications</h1>
-        {"items" in result ? (
-          <NotificationList items={result.items} />
-        ) : (
-          <div className="alert alert--error" role="alert">{result.error}</div>
-        )}
-      </main>
-    </>
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
+      <h1 className="mb-1 text-3xl font-bold tracking-tight text-foreground">Notifications</h1>
+      <p className="mb-6 text-sm text-muted-foreground">Open one to mark it read and go to where you can act on it.</p>
+      {"items" in result ? <NotificationList items={result.items} /> : <AuthAlert tone="error">{result.error}</AuthAlert>}
+    </main>
   );
 }
