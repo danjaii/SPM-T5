@@ -142,7 +142,7 @@ describe("SCRUM-113/AC1, AC2 the coordinator's event page (113-S14)", () => {
 
   it("113-S14: an equipment request sent back says it is waiting for review again; the others do not", () => {
     const requests = [equipmentRequest({ sentBackForReview: true }), equipmentRequest({ id: "req-2", equipment: "Audio: Microphone" })];
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests, canCreate: false, readiness: null, readinessLabel: null }} />);
+    render(<EventEquipmentRequests data={{ requests, canCreate: false, readiness: null, readinessLabel: null }} />);
 
     const rows = screen.getAllByRole("row").slice(1);
     expect(rows[0].textContent).toContain(WAITING);

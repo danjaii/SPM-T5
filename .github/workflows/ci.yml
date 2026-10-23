@@ -142,6 +142,9 @@ jobs:
   e2e:
     needs: test
     runs-on: ubuntu-latest
+    # A normal run takes about 2 minutes. The browser install once hung on a slow apt mirror for up to an hour; fail
+    # instead so the run can be re-run.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -155,8 +158,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Chromium only, the one project in apps/web/playwright.config.ts. No --with-deps: ubuntu-latest already has Chromium's
+      # system libraries, and --with-deps runs apt, which hung when the runner's mirror was slow. If an image update drops a
+      # library, Chromium fails to launch naming it; add --with-deps back then.
       - name: Install Playwright browsers
-        run: pnpm --filter @spm-t5/web exec playwright install --with-deps
+        run: pnpm --filter @spm-t5/web exec playwright install chromium
 
       - name: Run E2E tests
         run: pnpm --filter @spm-t5/web run test:e2e

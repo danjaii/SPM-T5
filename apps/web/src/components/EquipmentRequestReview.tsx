@@ -9,13 +9,25 @@ import {
   parseEquipmentRequestReviewInput,
   type EquipmentRequestReviewStatus,
 } from "@spm-t5/shared";
+import { AuthAlert } from "@/components/auth/AuthParts";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TextareaField } from "@/components/ui/textarea-field";
 import { reviewEquipmentRequest, type EquipmentRequestDetailView } from "@/lib/equipmentRequests";
 
 // SCRUM-87/AC4: Technical Support Staff move a waiting request to Under Review, Arranged or Cannot Fulfil.
 // AC5: Cannot Fulfil asks for a reason. Validation is the shared parseEquipmentRequestReviewInput, so the form and
 // equipment-service agree. Shown only while the request can be changed; the server checks again, so a stale screen
 // just gets a clear refusal (for example, too few units free to mark it Arranged).
-export function EquipmentRequestReview({ request }: { request: Pick<EquipmentRequestDetailView, "id" | "status" | "canReview"> }) {
+// SCRUM-136: shadcn fields, on the request's page and in the queue's Update status dialog, which `onDone` closes.
+export function EquipmentRequestReview({
+  request,
+  onDone,
+}: {
+  request: Pick<EquipmentRequestDetailView, "id" | "status" | "canReview">;
+  onDone?: () => void;
+}) {
   const router = useRouter();
   const [status, setStatus] = useState<EquipmentRequestReviewStatus | "">("");
   const [reason, setReason] = useState("");
@@ -45,6 +57,7 @@ export function EquipmentRequestReview({ request }: { request: Pick<EquipmentReq
       setStatus("");
       setReason("");
       router.refresh();
+      onDone?.();
       return;
     }
     if (data.fieldErrors) setFieldErrors(data.fieldErrors);
@@ -52,48 +65,36 @@ export function EquipmentRequestReview({ request }: { request: Pick<EquipmentReq
   }
 
   return (
-    <section className="vb__actions">
-      <h2>Update status</h2>
-      {error && <div className="alert alert--error" role="alert">{error}</div>}
+    <form aria-label="Update status" className="flex flex-col gap-4" onSubmit={onSubmit} noValidate>
+      {error && <AuthAlert tone="error">{error}</AuthAlert>}
 
-      <form className="event__form" onSubmit={onSubmit} noValidate>
-        <div className={`field${fieldErrors.status ? " field--error" : ""}`}>
-          <label htmlFor="review-status">New status</label>
-          <select
-            id="review-status"
-            value={status}
-            aria-invalid={fieldErrors.status ? true : undefined}
-            aria-describedby={fieldErrors.status ? "review-status-error" : undefined}
-            onChange={(e) => setStatus(e.target.value as EquipmentRequestReviewStatus | "")}
-          >
-            <option value="">Choose the new status</option>
-            {choices.map((s) => (
-              <option key={s} value={s}>{EQUIPMENT_REQUEST_STATUS_LABELS[s]}</option>
-            ))}
-          </select>
-          {fieldErrors.status && <p id="review-status-error" className="field__error">{fieldErrors.status}</p>}
-        </div>
-
-        {status === "CANNOT_FULFIL" && (
-          <div className={`field${fieldErrors.reason ? " field--error" : ""}`}>
-            <label htmlFor="review-reason">Why it cannot be fulfilled</label>
-            <textarea
-              id="review-reason"
-              rows={4}
-              value={reason}
-              aria-invalid={fieldErrors.reason ? true : undefined}
-              aria-describedby="review-reason-count"
-              onChange={(e) => setReason(e.target.value)}
-            />
-            <span id="review-reason-count" className="field__hint">
-              {reason.trim().length}/{EQUIPMENT_REQUEST_REASON_MAX_LENGTH}. The Event Coordinator will see this.
-            </span>
-            {fieldErrors.reason && <p className="field__error" role="alert">{fieldErrors.reason}</p>}
-          </div>
+      <FormField id="review-status" label="New status" error={fieldErrors.status}>
+        {(c) => (
+          <Select value={status || null} onValueChange={(v) => setStatus((v ?? "") as EquipmentRequestReviewStatus | "")}
+            items={choices.map((s) => ({ value: s, label: EQUIPMENT_REQUEST_STATUS_LABELS[s] }))}>
+            <SelectTrigger {...c} className="w-full">
+              <SelectValue placeholder="Choose the new status" />
+            </SelectTrigger>
+            <SelectContent>
+              {choices.map((s) => <SelectItem key={s} value={s}>{EQUIPMENT_REQUEST_STATUS_LABELS[s]}</SelectItem>)}
+            </SelectContent>
+          </Select>
         )}
+      </FormField>
 
-        <button className="btn" type="submit" disabled={saving}>{saving ? "Saving…" : "Save status"}</button>
-      </form>
-    </section>
+      {status === "CANNOT_FULFIL" && (
+        <TextareaField
+          id="review-reason"
+          label="Why it cannot be fulfilled"
+          rows={4}
+          value={reason}
+          error={fieldErrors.reason}
+          helper={`${reason.trim().length}/${EQUIPMENT_REQUEST_REASON_MAX_LENGTH}. The Event Coordinator will see this.`}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      )}
+
+      <Button type="submit" className="self-start" disabled={saving}>{saving ? "Saving…" : "Save status"}</Button>
+    </form>
   );
 }

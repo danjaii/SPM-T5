@@ -10,8 +10,12 @@ const { getChangeRequests } = vi.hoisted(() => ({ getChangeRequests: vi.fn(async
 const { getEventSafetyDecisions } = vi.hoisted(() => ({ getEventSafetyDecisions: vi.fn(async () => null as unknown) }));
 vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome, getEventChangeHistory, getChangeRequests, getEventSafetyDecisions }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getEventVenueBookings }));
-const { getEventEquipmentRequests } = vi.hoisted(() => ({ getEventEquipmentRequests: vi.fn() }));
-vi.mock("@/lib/equipmentRequestsServer", () => ({ getEventEquipmentRequests }));
+const { getEventEquipmentRequests, getEquipmentRequestForm } = vi.hoisted(() => ({
+  getEventEquipmentRequests: vi.fn(),
+  // SCRUM-136/AC1: the choices for the Equipment tab's add and change row
+  getEquipmentRequestForm: vi.fn(),
+}));
+vi.mock("@/lib/equipmentRequestsServer", () => ({ getEventEquipmentRequests, getEquipmentRequestForm }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 
 import EventPage from "@/app/events/[id]/page";
@@ -34,6 +38,7 @@ describe("Event status page route (/events/[id])", () => {
     getEventVenueBookings.mockReset().mockResolvedValue(null);
     getEventOutcome.mockReset().mockResolvedValue(null);
     getEventEquipmentRequests.mockReset().mockResolvedValue(null);
+    getEquipmentRequestForm.mockReset().mockResolvedValue({ error: "Forbidden" });
     stubEventService();
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -77,6 +82,30 @@ describe("Event status page route (/events/[id])", () => {
     expect(getEventEquipmentRequests).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Equipment requests" })).toBeTruthy();
     expect(screen.getByRole("cell", { name: "Audio: Wireless Microphone Set" })).toBeTruthy();
+  });
+
+  it("SCRUM-136/AC1 gives a coordinator who may add equipment the Add item row, with the request form's choices", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: true } });
+    getEventEquipmentRequests.mockResolvedValue({ requests: [], canCreate: true, readiness: null, readinessLabel: null });
+    getEquipmentRequestForm.mockResolvedValue({
+      form: { event: { id: "evt-1", name: "Tech Summit" }, equipment: [{ id: "eq-mic", label: "Audio: Wireless Microphone Set" }], venues: [] },
+    });
+
+    await open("evt-1", "equipment");
+    fireEvent.click(screen.getByRole("button", { name: "Add item" }));
+
+    expect(getEquipmentRequestForm).toHaveBeenCalledWith("evt-1");
+    expect(screen.getByRole("form", { name: "Add equipment item" })).toBeTruthy();
+  });
+
+  it("SCRUM-136/AC1 does not load the form for a viewer who may not add equipment", async () => {
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: false } });
+    getEventEquipmentRequests.mockResolvedValue({ requests: [], canCreate: false, readiness: null, readinessLabel: null });
+
+    await open("evt-1", "equipment");
+
+    expect(getEquipmentRequestForm).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Add item" })).toBeNull();
   });
 
   it("SCRUM-86/AC7 shows no equipment section to a viewer equipment-service answers nothing for", async () => {

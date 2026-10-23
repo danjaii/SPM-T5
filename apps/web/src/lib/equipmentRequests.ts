@@ -38,19 +38,6 @@ export interface EquipmentRequestView {
   lastChangedAt: string | null;
 }
 
-/** SCRUM-88/AC1: GET /events/:id/equipment-requests/:requestId/edit-form, the form starting on the current details. */
-export interface EquipmentRequestEditFormData extends EquipmentRequestFormData {
-  request: {
-    id: string;
-    equipmentId: string;
-    quantity: number;
-    venueBookingId: string | null;
-    notes: string | null;
-    status: EquipmentRequestStatus;
-    statusLabel: string;
-  };
-}
-
 /** GET /events/:id/equipment-requests: the event's requests, and whether the viewer may add one (AC6, AC7). */
 export interface EventEquipmentRequestsView {
   requests: EquipmentRequestView[];

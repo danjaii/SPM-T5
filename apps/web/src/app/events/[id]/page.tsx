@@ -20,7 +20,7 @@ import { InlineMessage } from "@/components/event/InlineMessage";
 import { tabFrom } from "@/components/event/EventTabs";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
+import { getEquipmentRequestForm, getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { getEventTechnicalAssignments } from "@/lib/technicalAssignmentsServer";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
@@ -66,6 +66,9 @@ export default async function EventPage({
         getEventSafetyDecisions(id),
       ])
     : [null, null, null, null, null, null];
+
+  // SCRUM-136/AC1: the choices for the Equipment tab's add and change row, only for a viewer who may add or change one
+  const equipmentForm = tab === "equipment" && equipmentRequests?.canCreate ? await getEquipmentRequestForm(id) : null;
 
   // SCRUM-66: the organiser's own requests; SCRUM-67: the assigned coordinator reviews them
   const seesChangeRequests = "event" in result && (result.event.isOrganiser || result.event.canChangeStatus);
@@ -118,8 +121,10 @@ export default async function EventPage({
             )}
             {tab === "equipment" && (
               <>
-                {/* SCRUM-86/AC2, AC3: the event's equipment requests; AC6, AC7: Request equipment only when allowed */}
-                {equipmentRequests ? <EventEquipmentRequests eventId={view.id} data={equipmentRequests} /> : <Unavailable id="equipment-requests-heading" title="Equipment requests" />}
+                {/* SCRUM-86/AC2, AC3: the event's equipment requests; AC6, AC7, SCRUM-136/AC1: Add item only when allowed */}
+                {equipmentRequests
+                  ? <EventEquipmentRequests data={equipmentRequests} form={equipmentForm && "form" in equipmentForm ? equipmentForm.form : null} />
+                  : <Unavailable id="equipment-requests-heading" title="Equipment requests" />}
                 {/* SCRUM-20: assign, change and cancel on-site technical support; the technician is notified each time */}
                 <EventTechnicalAssignments eventId={view.id} data={technicalAssignments} />
               </>
