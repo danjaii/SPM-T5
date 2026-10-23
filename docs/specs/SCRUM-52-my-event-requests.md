@@ -49,7 +49,9 @@ Scenarios:
 | AC1 | `apps/web/tests/unit/my-event-requests-server.test.ts` | `SCRUM-52/AC1 loading my event requests` |
 | AC2 | `services/event-service/tests/unit/my-event-requests.test.ts` | `SCRUM-52/AC2 …` |
 | AC2 | `services/event-service/tests/integration/myEventRequestsDb.test.ts` | `SCRUM-52/AC2 …` |
-| AC3 | `apps/web/tests/unit/my-event-requests-details.test.tsx` | `SCRUM-52/AC3 …` |
+| AC3 | `apps/web/tests/unit/my-event-requests-details.test.tsx` | `SCRUM-52/AC3 opening a request from My event requests` |
+
+AC3 needed no new code: the event page, `GET /events/:id` and `GET /events/:id/change-history` already serve the organiser (tested under SCRUM-7 and SCRUM-111). The AC3 tests are page-level and trace it to this story.
 
 ## Affected workspaces
 
