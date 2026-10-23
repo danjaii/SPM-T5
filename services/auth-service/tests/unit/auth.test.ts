@@ -355,24 +355,23 @@ describe("SCRUM-15 — Role based access", () => {
 });
 
 // ---------------------------------------------------------------------------
-// US4 — Logout of ConnectSphere
+// SCRUM-17 — Logout of ConnectSphere (US4)
 // ---------------------------------------------------------------------------
-describe("US4 — Logout", () => {
-  it("invalidates the session on Supabase, so the old token no longer works", async () => {
+describe("SCRUM-17 — Logout", () => {
+  // AC2: logout invalidates the current session
+  it("SCRUM-17/AC2 invalidates the session on Supabase, so the old token no longer works", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const cookie = await signInAs("rachel@example.com", "event_coordinator");
-    expect((await request(app).get("/dashboard").set("Cookie", cookie)).status).toBe(200);
+    expect((await request(app).get("/auth/me").set("Cookie", cookie)).status).toBe(200);
 
     const res = await request(app).post("/auth/logout").set("Cookie", cookie);
 
     expect(res.status).toBe(200);
     expect(fake.calls.signedOut).toContain(cookie.replace("cs_session=", ""));
-    // Re-using the previous page's request (what the back button would do) is refused.
-    expect((await request(app).get("/dashboard").set("Cookie", cookie)).status).toBe(401);
     expect((await request(app).get("/auth/me").set("Cookie", cookie)).status).toBe(401);
   });
 
-  it("clears the session cookie", async () => {
+  it("SCRUM-17/AC2 clears the session cookie", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const cookie = await signInAs("rachel@example.com", "event_coordinator");
     const res = await request(app).post("/auth/logout").set("Cookie", cookie);
@@ -382,11 +381,25 @@ describe("US4 — Logout", () => {
     expect(setCookie).toMatch(/Expires=Thu, 01 Jan 1970/);
   });
 
-  it("still succeeds when there is no active session", async () => {
+  it("SCRUM-17/AC2 still succeeds when there is no active session", async () => {
     const res = await request(app).post("/auth/logout");
     expect(res.status).toBe(200);
   });
+  // end of AC2
+
+  // AC4: Back re-sends the previous page's request with the old cookie; the data behind it is refused
+  it("SCRUM-17/AC4 refuses the previous page's data when it is requested again after logout", async () => {
+    fake.seedUser("rachel@example.com", "event_coordinator");
+    const cookie = await signInAs("rachel@example.com", "event_coordinator");
+    expect((await request(app).get("/dashboard").set("Cookie", cookie)).status).toBe(200);
+
+    await request(app).post("/auth/logout").set("Cookie", cookie);
+
+    expect((await request(app).get("/dashboard").set("Cookie", cookie)).status).toBe(401);
+  });
+  // end of AC4
 });
+// end of SCRUM-17
 
 // ---------------------------------------------------------------------------
 // Web app <-> auth-service (cookies across origins)
