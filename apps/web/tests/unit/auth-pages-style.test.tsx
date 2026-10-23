@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
+
 import { ForgotPasswordForm } from "@/components/ForgotPasswordForm";
 import { ResetPasswordForm } from "@/components/ResetPasswordForm";
 
