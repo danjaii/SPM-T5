@@ -15,8 +15,9 @@ import {
 } from "@spm-t5/shared";
 import { eventLocked, forbidden, notFound, notWaiting, tooFewToArrange, validationFailed } from "../domain/errors";
 import type { Ports } from "../ports";
+import type { EquipmentInfo } from "../readers/equipmentReader";
 import type { EquipmentRequestInfo } from "../readers/equipmentRequestReader";
-import type { Caller } from "./availabilityService";
+import { heldBy, outOfService, unitsFree, type Caller, type Holder } from "./availabilityService";
 import { sgtMoment } from "./equipmentRequestService";
 
 /** SCRUM-87/AC1: one row of the queue. Dates are Singapore time. */
@@ -50,6 +51,19 @@ export interface EquipmentRequestDetail extends EquipmentQueueItem {
   /** SCRUM-88/AC8: who last changed it, and when (Singapore time); null if never changed. */
   lastChangedBy: string | null;
   lastChangedAt: string | null;
+  /** SCRUM-137/AC1: how many units are free in the request's period against how many it needs. */
+  availability: RequestAvailability | null;
+}
+
+/** SCRUM-137/AC1: "Available 4 / need 6". */
+export interface RequestAvailability {
+  available: number;
+  needed: number;
+  sufficient: boolean;
+  /** The other events holding units in that period, so the shortfall has a reason. */
+  heldBy: Holder[];
+  /** Why none can be used (damaged, under maintenance, retired); null for working equipment. */
+  outOfService: Exclude<EquipmentInfo["operationalStatus"], "available"> | null;
 }
 
 /** The status a row shows as; the reader only returns rows that have one, apart from cancelled ones. */
@@ -120,16 +134,34 @@ export class EquipmentReviewService {
     return { r, status };
   }
 
-  private toDetail(r: EquipmentRequestInfo, status: EquipmentRequestStatus): EquipmentRequestDetail {
+  /** SCRUM-137/AC1: the item's free units in the request's period, by SCRUM-18's rule; null if the item is gone. */
+  private async availability(r: EquipmentRequestInfo): Promise<RequestAvailability | null> {
+    const item = (await this.ports.equipment.list()).find((e) => e.id === r.equipmentId);
+    if (!item) return null;
+    const bookings = await this.ports.reservations.overlapping(item.id, r.start, r.end);
+    const available = unitsFree(item, bookings, r.start, r.end);
+    return {
+      available,
+      needed: r.quantity,
+      sufficient: available >= r.quantity,
+      heldBy: heldBy(bookings),
+      outOfService: outOfService(item),
+    };
+  }
+
+  private async toDetail(r: EquipmentRequestInfo, status: EquipmentRequestStatus): Promise<EquipmentRequestDetail> {
+    const canReview = isWaitingEquipmentRequest(status) && canRequestEquipment(r.eventStatus);
     return {
       ...toQueueItem(r, status),
       startTime: utcToSgt(r.start).time,
       endTime: utcToSgt(r.end).time,
       notes: r.notes,
       reason: r.reviewReason,
-      canReview: isWaitingEquipmentRequest(status) && canRequestEquipment(r.eventStatus),
+      canReview,
       lastChangedBy: r.lastChangedBy,
       lastChangedAt: sgtMoment(r.lastChangedAt),
+      // Only while staff still decide: once Arranged, the request's own units are held and would count against it.
+      availability: canReview ? await this.availability(r) : null,
     };
   }
 

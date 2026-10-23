@@ -82,6 +82,7 @@ describe("SCRUM-18 Supabase readers", () => {
           status: "approved",
           quantity_requested: 4,
           quantity_reserved: null,
+          event: { name: "Robotics Meetup" },
         },
       ],
       error: null,
@@ -95,6 +96,7 @@ describe("SCRUM-18 Supabase readers", () => {
         status: "approved",
         quantityRequested: 4,
         quantityReserved: null,
+        eventName: "Robotics Meetup", // SCRUM-137: whose booking it is
       },
     ]);
     expect(calls).toContainEqual(["from", "equipment_reservations"]);

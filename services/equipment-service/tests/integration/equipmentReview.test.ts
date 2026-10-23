@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SupabaseEquipmentRequestReader } from "../../src/readers/equipmentRequestReader";
+import { SupabaseReservationReader } from "../../src/readers/reservationReader";
 import { SupabaseEquipmentRequestReviewer } from "../../src/writers/equipmentRequestWriter";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
@@ -125,6 +126,12 @@ describe.skipIf(!hasDb)("SCRUM-87 reviewing equipment requests (migrations 31, 3
       start: at(r.day, 1),
       end: at(r.day, 9),
     });
+  });
+
+  it("SCRUM-137/AC1,AC2 Technical Support Staff see which event holds reserved units", async () => {
+    const r = await newRequest({ status: "approved" });
+    const held = await new SupabaseReservationReader(aaron.client).overlapping(r.equipmentId, at(r.day, 1), at(r.day, 9));
+    expect(held).toEqual([expect.objectContaining({ status: "approved", eventName: `IT-87 event ${r.day}` })]);
   });
 
   it("SCRUM-87/AC4 Under Review is saved with who reviewed it and when", async () => {

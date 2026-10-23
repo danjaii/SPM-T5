@@ -145,6 +145,7 @@ describe("SCRUM-87/AC3 see request details", () => {
       lastChangedBy: null, // SCRUM-88/AC8
       lastChangedAt: null,
       sentBack: null, // SCRUM-113: not sent back for review
+      availability: null, // SCRUM-137/AC1: this setup's catalogue is empty, so there is nothing to count
     });
   });
 

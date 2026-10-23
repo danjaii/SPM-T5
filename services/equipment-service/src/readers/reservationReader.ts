@@ -9,6 +9,8 @@ export interface ReservationInfo {
   quantityRequested: number;
   /** Set when staff approved a (possibly smaller) amount. */
   quantityReserved: number | null;
+  /** SCRUM-137: the event the units are held for, to say where they are. */
+  eventName: string;
 }
 
 export interface ReservationReader {
@@ -25,6 +27,7 @@ const toReservation = (r: Row): ReservationInfo => ({
   status: r.status as string,
   quantityRequested: r.quantity_requested as number,
   quantityReserved: (r.quantity_reserved as number | null) ?? null,
+  eventName: ((r.event as Row | null)?.name as string | undefined) ?? "Unknown event",
 });
 
 export class SupabaseReservationReader implements ReservationReader {
@@ -34,7 +37,7 @@ export class SupabaseReservationReader implements ReservationReader {
     // Overlap: the reservation starts before the period ends and ends after it starts.
     const { data, error } = await this.db
       .from("equipment_reservations")
-      .select("equipment_id, start_datetime, end_datetime, status, quantity_requested, quantity_reserved")
+      .select("equipment_id, start_datetime, end_datetime, status, quantity_requested, quantity_reserved, event:events(name)")
       .eq("equipment_id", equipmentId)
       .lt("start_datetime", end.toISOString())
       .gt("end_datetime", start.toISOString());

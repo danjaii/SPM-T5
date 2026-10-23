@@ -123,6 +123,36 @@ export function periodFormatErrors({ date, startTime, endTime }: PeriodFields): 
   return invalid;
 }
 
+/** SCRUM-137: the period the inventory is shown for, as typed and as UTC instants. */
+export interface InventoryPeriod {
+  date: string;
+  startTime: string;
+  endTime: string;
+  start: Date;
+  end: Date;
+}
+
+/**
+ * SCRUM-137/AC2: checks the inventory's period with the same stages and messages as SCRUM-18's check, except that a
+ * period already under way is allowed: the inventory only shows what is free, it books nothing.
+ */
+export function parseInventoryPeriod(
+  body: unknown,
+): { ok: true; data: InventoryPeriod } | { ok: false; fieldErrors: Record<string, string> } {
+  const query = (body !== null && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const text = (value: unknown) => String(value ?? "").trim();
+  const period = { date: text(query.date), startTime: text(query.startTime), endTime: text(query.endTime) };
+
+  const missing = periodMissing(period);
+  if (Object.keys(missing).length > 0) return { ok: false, fieldErrors: missing };
+  const invalid = periodFormatErrors(period);
+  if (Object.keys(invalid).length > 0) return { ok: false, fieldErrors: invalid };
+  // Any moment counts as "now" here: only the end-after-start rule applies.
+  const timing = periodTimingError(period, new Date(-8.64e15));
+  if (!timing.ok) return { ok: false, fieldErrors: timing.fieldErrors };
+  return { ok: true, data: { ...period, start: timing.start, end: timing.end } };
+}
+
 /**
  * Stage 3 (only for a period that passed stages 1 and 2): the end must be after the start, and the start must not
  * be before `now`. On success, the period as the UTC instants the database uses.
