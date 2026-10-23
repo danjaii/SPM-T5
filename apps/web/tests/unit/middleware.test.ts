@@ -21,6 +21,42 @@ describe("SCRUM-71 — Dashboard route guard", () => {
 // end of SCRUM-71
 
 // ---------------------------------------------------------------------------
+// SCRUM-17 — After logging out, Back can't bring a signed-in page back
+// ---------------------------------------------------------------------------
+describe("SCRUM-17 — Route guard after logout", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  // AC4: Back may re-send a stale session cookie; auth-service no longer knows it, so the guard sends the user to log in
+  it("SCRUM-17/AC4 sends a logged-out session back to the login page and drops its cookie", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) }));
+    const request = new NextRequest("http://localhost:3000/dashboard/event_coordinator", {
+      headers: { cookie: "cs_session=token-logged-out" },
+    });
+
+    const res = await middleware(request);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("http://localhost:3000/login");
+    expect(res.headers.get("set-cookie")).toMatch(/^cs_session=;.*Expires=Thu, 01 Jan 1970/);
+  });
+
+  // AC4: a signed-in page is never stored by the browser, so Back has to ask the guard again instead of showing a copy
+  it("SCRUM-17/AC4 marks a signed-in page as not to be cached", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ role: "event_coordinator" }) }));
+    const request = new NextRequest("http://localhost:3000/dashboard/event_coordinator", {
+      headers: { cookie: "cs_session=token-coordinator" },
+    });
+
+    const res = await middleware(request);
+
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+  // end of AC4
+});
+// end of SCRUM-17
+
+// ---------------------------------------------------------------------------
 // SCRUM-83 — The registration form is behind the route guard too, and remembers where the guest was going
 // ---------------------------------------------------------------------------
 describe("SCRUM-83 — Registration form route guard", () => {
