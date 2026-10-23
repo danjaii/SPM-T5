@@ -35,6 +35,12 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
         <nav className="dash__links">
           <Link href="/profile">My profile</Link>
         </nav>
+        {/* SCRUM-52/AC1: the full list behind the dashboard's capped "My event requests" table */}
+        {user.role === "event_organiser" && (
+          <nav className="dash__links">
+            <Link href="/my-event-requests">My event requests</Link>
+          </nav>
+        )}
         {/* SCRUM-74/AC2: organisers and coordinators both see the registrations of the events they manage */}
         {(user.role === "event_organiser" || user.role === "event_coordinator") && (
           <nav className="dash__links">

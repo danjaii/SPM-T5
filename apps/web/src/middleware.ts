@@ -56,5 +56,6 @@ export const config = {
     "/equipment-requests/:path*",
     "/equipment-availability/:path*",
     "/equipment-reservation/:path*",
+    "/my-event-requests/:path*",
   ],
 };
