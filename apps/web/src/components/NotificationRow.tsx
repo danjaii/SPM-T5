@@ -15,11 +15,13 @@ export function NotificationRow({ item, detailed = false }: { item: Notification
       </span>
       <span className={cn("min-w-0 flex-1", detailed ? "space-y-1.5" : "space-y-0.5")}>
         <span className={cn("block text-foreground", detailed ? "text-base" : "text-sm", item.isRead ? "font-medium" : "font-bold")}>{item.title}</span>
-        {detailed && <span className="block text-sm leading-relaxed text-foreground">{item.message}</span>}
+        {detailed && item.message !== item.title && item.message !== item.related?.label && (
+          <span className="block text-sm leading-relaxed text-foreground">{item.message}</span>
+        )}
         {/* which event or booking it is about, or the no-access wording (SCRUM-46/AC7) */}
         {item.related && (
           <span className={cn("block text-muted-foreground", detailed ? "text-sm" : "text-xs")}>
-            {detailed && item.related.href ? `Related: ${item.related.label}` : item.related.label}
+            {item.related.label}
           </span>
         )}
         <span className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground", detailed ? "pt-0.5 text-sm" : "text-xs")}>

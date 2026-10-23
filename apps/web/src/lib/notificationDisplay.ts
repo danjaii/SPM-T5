@@ -70,3 +70,23 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
   if (days < 7) return `${days} days ago`;
   return new Date(iso).toLocaleDateString("en-SG", { dateStyle: "medium", timeZone: "Asia/Singapore" });
 }
+
+export type DayGroup<T> = { label: "Today" | "Yesterday" | "Earlier"; items: T[] };
+
+const day = (ms: number) => new Date(ms).toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+
+/** SCRUM-141: splits a newest-first list into Today, Yesterday and Earlier (Singapore days), keeping the order and dropping empty groups. */
+export function groupByDay<T extends { createdAt: string }>(items: T[], now: number = Date.now()): DayGroup<T>[] {
+  const today = day(now);
+  const yesterday = day(now - 24 * 60 * 60 * 1000);
+  const groups: DayGroup<T>[] = [
+    { label: "Today", items: [] },
+    { label: "Yesterday", items: [] },
+    { label: "Earlier", items: [] },
+  ];
+  for (const item of items) {
+    const d = day(new Date(item.createdAt).getTime());
+    groups[d === today ? 0 : d === yesterday ? 1 : 2].items.push(item);
+  }
+  return groups.filter((g) => g.items.length > 0);
+}

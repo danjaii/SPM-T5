@@ -30,31 +30,38 @@ type Report = Pick<SuitabilityView, "overall" | "criteria" | "manualChecks"> & {
 export function SuitabilityReport({ report }: { report: Report }) {
   const suitable = report.overall === "suitable";
   return (
-    <section className="suitability" aria-label="Venue suitability">
+    <section className="suitability flex flex-col gap-4" aria-label="Venue suitability">
       <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground" role="status">
         {report.venue ? `${report.venue.name}:` : null}
         <StatusBadge tone={suitable ? "success" : "danger"} label={suitable ? "Suitable" : "Not suitable"} />
       </p>
-      <ul className="mt-2 flex flex-col gap-2">
+      {/* Laid out like the request details: one labelled block per criterion in a two-column grid. */}
+      <dl className="grid gap-4 sm:grid-cols-2">
         {report.criteria.map((c) => (
-          <li key={c.key} data-status={c.status} className="text-sm">
-            <span className="flex items-center gap-1.5">
-              <StatusIcon status={c.status} />
-              <strong>{c.label}</strong> <span>{STATUS_LABEL[c.status]}</span>
-            </span>
-            <div className="text-muted-foreground">{c.message}</div>
-          </li>
+          <div key={c.key} data-status={c.status} className="flex flex-col gap-0.5">
+            <dt className="text-xs font-semibold text-muted-foreground">{c.label}</dt>
+            <dd className="flex flex-col gap-0.5 text-sm text-foreground">
+              <span className="flex items-center gap-1.5 font-semibold">
+                <StatusIcon status={c.status} />
+                <span>{STATUS_LABEL[c.status]}</span>
+              </span>
+              <span className="text-muted-foreground">{c.message}</span>
+            </dd>
+          </div>
         ))}
-      </ul>
+      </dl>
       {report.manualChecks.length > 0 && (
-        <>
-          <h3>Check manually</h3>
-          <ul>
+        <div className="rounded-lg border border-status-warning-fg bg-status-warning p-3 text-sm text-status-warning-fg">
+          <h3 className="flex items-center gap-1.5 font-semibold">
+            <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+            Check manually
+          </h3>
+          <ul className="mt-1 list-disc pl-4">
             {report.manualChecks.map((note) => (
               <li key={note}>{note}</li>
             ))}
           </ul>
-        </>
+        </div>
       )}
     </section>
   );

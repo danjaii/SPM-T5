@@ -13,6 +13,9 @@ function mockServer(status: number, body: unknown) {
   return fetchMock;
 }
 
+/** how many rows are marked Unread (the sr-only word beside the dot), apart from the Unread tab */
+const unreadMarks = () => [...document.querySelectorAll("ul .sr-only")].filter((e) => e.textContent === "Unread").length;
+
 afterEach(() => {
   vi.unstubAllGlobals();
   push.mockClear();
@@ -43,7 +46,7 @@ describe("SCRUM-46/AC2 notification details (46-S2)", () => {
     render(<NotificationList items={[unread]} />);
     expect(screen.getByText("Event request submitted")).toBeTruthy();
     expect(screen.getByText("Your request for Tech Summit has been submitted.")).toBeTruthy();
-    expect(screen.getByText("Related: Tech Summit")).toBeTruthy();
+    expect(screen.getByText("Tech Summit")).toBeTruthy();
     expect(screen.getByText(/1 Oct 2026/)).toBeTruthy();
     expect(screen.getByText(/9:00/)).toBeTruthy();
   });
@@ -86,7 +89,7 @@ describe("SCRUM-46/AC4 + AC5 selecting a notification (46-S4, 46-S5)", () => {
     expect(fetchMock.mock.calls[0][1].method).toBe("POST");
     expect(fetchMock.mock.calls[0][1].credentials).toBe("include");
     expect(fetchMock.mock.invocationCallOrder[0]).toBeLessThan(push.mock.invocationCallOrder[0]);
-    expect(screen.queryByText("Unread")).toBeNull();
+    expect(unreadMarks()).toBe(0);
   });
 
   it("46-S4: the unread count above the list follows the rows as they are marked read", async () => {
@@ -105,7 +108,7 @@ describe("SCRUM-46/AC4 + AC5 selecting a notification (46-S4, 46-S5)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Mark as read" }));
 
-    await waitFor(() => expect(screen.queryByText("Unread")).toBeNull());
+    await waitFor(() => expect(unreadMarks()).toBe(0));
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(push).not.toHaveBeenCalled();
     expect(refresh).toHaveBeenCalled();
@@ -129,7 +132,7 @@ describe("SCRUM-46/AC4 + AC5 selecting a notification (46-S4, 46-S5)", () => {
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Something went wrong."));
     expect(push).not.toHaveBeenCalled();
-    expect(screen.getByText("Unread")).toBeTruthy();
+    expect(unreadMarks()).toBe(1);
   });
 
   it("46-S4: a network failure is reported", async () => {
@@ -176,7 +179,7 @@ describe("SCRUM-141/AC3 unread items are marked by more than colour", () => {
 describe("SCRUM-141/AC6 status uses StatusBadge", () => {
   it("Action needed is a StatusBadge with an icon and the words", () => {
     render(<NotificationList items={[{ ...unread, actionRequired: true }]} />);
-    const badge = screen.getByText("Action needed");
+    const badge = screen.getAllByText("Action needed").find((el) => el.getAttribute("data-tone"))!;
     expect(badge.getAttribute("data-tone")).toBe("warning");
     expect(badge.querySelector('[data-testid="status-icon"]')).not.toBeNull();
   });
@@ -187,5 +190,57 @@ describe("SCRUM-141/AC10 empty state", () => {
     render(<NotificationList items={[]} />);
     expect(screen.getByText("You have no notifications.")).toBeTruthy();
     expect(screen.getByText(/will show up here/)).toBeTruthy();
+  });
+});
+
+describe("SCRUM-141 the Notifications page groups and filters", () => {
+  const today = new Date().toISOString();
+  const old = "2026-01-05T01:00:00Z";
+  const mk = (id: string, over: Partial<NotificationItem>): NotificationItem => ({ ...unread, id, ...over });
+
+  it("groups rows under Today and Earlier headings, newest first", () => {
+    render(<NotificationList items={[mk("a", { title: "Fresh one", createdAt: today }), mk("b", { title: "Old one", createdAt: old, isRead: true })]} />);
+    const sections = screen.getAllByRole("region");
+    expect(sections.map((s) => s.getAttribute("aria-label"))).toEqual(["Today", "Earlier"]);
+    expect(sections[0].textContent).toContain("Fresh one");
+    expect(sections[1].textContent).toContain("Old one");
+  });
+
+  it("the Unread tab lists only unread rows, and Action needed only those that need action", () => {
+    const items = [
+      mk("a", { title: "Needs you", actionRequired: true }),
+      mk("b", { title: "Just news", actionRequired: false }),
+      mk("c", { title: "Done", isRead: true, actionRequired: true }),
+    ];
+    render(<NotificationList items={items} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: /^Unread/ }));
+    expect(screen.getByText("Needs you")).toBeTruthy();
+    expect(screen.getByText("Just news")).toBeTruthy();
+    expect(screen.queryByText("Done")).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: /^Action needed/ }));
+    expect(screen.getByText("Needs you")).toBeTruthy();
+    expect(screen.queryByText("Just news")).toBeNull();
+  });
+
+  it("says so when a tab has nothing in it", () => {
+    render(<NotificationList items={[read]} />);
+    fireEvent.click(screen.getByRole("tab", { name: /^Unread/ }));
+    expect(screen.getByText("You're all caught up.")).toBeTruthy();
+  });
+
+  it("a row that needs action has an Open button that marks it read and opens its page", async () => {
+    mockServer(200, { ...unread, isRead: true });
+    render(<NotificationList items={[mk("a", { actionRequired: true })]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/events/e-1"));
+  });
+
+  it("shows the message only when it says more than the title or the related item", () => {
+    render(<NotificationList items={[mk("a", { title: "Assigned", message: "Tech Summit", related: { kind: "event", id: "e-1", label: "Tech Summit", href: "/events/e-1" } })]} />);
+    expect(screen.getAllByText("Tech Summit")).toHaveLength(1);
   });
 });
