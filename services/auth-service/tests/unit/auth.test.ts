@@ -86,8 +86,13 @@ describe("US1 — Login", () => {
     const res = await request(app).post("/auth/login").send({ email: "a@b.com" });
     expect(res.status).toBe(400);
   });
+});
 
-  it("offers a password reset: sends a reset email pointing at the web app's reset page", async () => {
+// ---------------------------------------------------------------------------
+// SCRUM-14 — Password reset
+// ---------------------------------------------------------------------------
+describe("SCRUM-14 password reset", () => {
+  it("SCRUM-14/AC2 sends a reset email pointing at the web app's reset page", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const res = await request(app).post("/auth/forgot-password").send({ email: "rachel@example.com" });
 
@@ -95,7 +100,7 @@ describe("US1 — Login", () => {
     expect(fake.calls.resetEmails).toEqual([{ email: "rachel@example.com", redirectTo: "http://localhost:3000/reset-password" }]);
   });
 
-  it("gives the same reset reply whether or not the email has an account", async () => {
+  it("SCRUM-14/AC2 gives the same reset reply whether or not the email has an account", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const known = await request(app).post("/auth/forgot-password").send({ email: "rachel@example.com" });
     const unknown = await request(app).post("/auth/forgot-password").send({ email: "nobody@example.com" });
@@ -104,13 +109,13 @@ describe("US1 — Login", () => {
     expect(unknown.body).toEqual(known.body);
   });
 
-  it("rejects a malformed email on the reset form", async () => {
+  it("SCRUM-14/AC2 rejects a malformed email on the reset form", async () => {
     const res = await request(app).post("/auth/forgot-password").send({ email: "not-an-email" });
     expect(res.status).toBe(400);
     expect(res.body.fieldErrors.email).toBe("Enter a valid email address.");
   });
 
-  it("sets a new password from a valid reset link, so the user can log in with it", async () => {
+  it("SCRUM-14/AC4 sets a new password that meets the rules from a valid reset link, so the user can log in with it", async () => {
     const id = fake.seedUser("rachel@example.com", "event_coordinator");
     const res = await request(app).post("/auth/reset-password").send({ accessToken: `reset-${id}`, password: "N3wPassw0rd!" });
 
@@ -118,14 +123,32 @@ describe("US1 — Login", () => {
     expect((await login("rachel@example.com", "N3wPassw0rd!", "event_coordinator")).status).toBe(200);
   });
 
-  it("refuses an invalid reset link, and a new password that breaks the complexity rules", async () => {
+  it("SCRUM-14/AC3 refuses an invalid or expired reset link", async () => {
+    const res = await request(app).post("/auth/reset-password").send({ accessToken: "junk", password: "N3wPassw0rd!" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("This reset link is invalid or has expired.");
+  });
+
+  it("SCRUM-14/AC4 refuses a new password that breaks the complexity rules", async () => {
     const id = fake.seedUser("rachel@example.com", "event_coordinator");
-    const badLink = await request(app).post("/auth/reset-password").send({ accessToken: "junk", password: "N3wPassw0rd!" });
     const weak = await request(app).post("/auth/reset-password").send({ accessToken: `reset-${id}`, password: "weak" });
 
-    expect(badLink.status).toBe(400);
     expect(weak.status).toBe(400);
     expect(weak.body.fieldErrors.password).toBe("Password must be at least 8 characters.");
+  });
+
+  it.each([
+    ["n3wpassw0rd!", "Password must include an uppercase letter."],
+    ["N3WPASSW0RD!", "Password must include a lowercase letter."],
+    ["NewPassword!", "Password must include a number."],
+    ["N3wPassw0rd", "Password must include a symbol."],
+  ])("SCRUM-14/AC4 refuses %s, which breaks one complexity rule", async (password, message) => {
+    const id = fake.seedUser("rachel@example.com", "event_coordinator");
+    const res = await request(app).post("/auth/reset-password").send({ accessToken: `reset-${id}`, password });
+
+    expect(res.status).toBe(400);
+    expect(res.body.fieldErrors.password).toBe(message);
   });
 });
 
