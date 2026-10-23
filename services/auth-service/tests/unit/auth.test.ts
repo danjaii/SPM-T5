@@ -1,3 +1,4 @@
+import { ROLES } from "@spm-t5/shared";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
@@ -22,10 +23,10 @@ async function signInAs(email: string, role: string) {
 }
 
 // ---------------------------------------------------------------------------
-// US1 — Login to ConnectSphere
+// SCRUM-13 — Login with email and password
 // ---------------------------------------------------------------------------
-describe("US1 — Login", () => {
-  it("logs in with a verified email, password and matching role, and redirects to that role's dashboard", async () => {
+describe("SCRUM-13 login", () => {
+  it("SCRUM-13/AC1,AC4 logs in with a verified email, password and matching role, and redirects to that role's dashboard", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const res = await login("rachel@example.com", "Passw0rd!", "event_coordinator");
 
@@ -34,7 +35,7 @@ describe("US1 — Login", () => {
     expect(res.body.user).toMatchObject({ email: "rachel@example.com", role: "event_coordinator" });
   });
 
-  it("stores the session in an httpOnly cookie, not in the response body", async () => {
+  it("SCRUM-13/AC1 stores the session in an httpOnly cookie, not in the response body", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const res = await login("rachel@example.com", "Passw0rd!", "event_coordinator");
 
@@ -44,7 +45,7 @@ describe("US1 — Login", () => {
     expect(JSON.stringify(res.body)).not.toContain("token-");
   });
 
-  it("shows the same generic error for a wrong password and an unknown email", async () => {
+  it("SCRUM-13/AC2 shows the same generic error for a wrong password and an unknown email", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const wrongPassword = await login("rachel@example.com", "WrongPass1!", "event_coordinator");
     const unknownEmail = await login("nobody@example.com", "Passw0rd!", "event_coordinator");
@@ -56,7 +57,7 @@ describe("US1 — Login", () => {
     expect(wrongPassword.headers["set-cookie"]).toBeUndefined();
   });
 
-  it("rejects an email that hasn't been verified, with the same generic error", async () => {
+  it("SCRUM-13/AC1,AC2 rejects an email that hasn't been verified, with the same generic error", async () => {
     fake.seedUser("new@example.com", "attendee", { confirmed: false });
     const res = await login("new@example.com", "Passw0rd!", "attendee");
 
@@ -64,7 +65,7 @@ describe("US1 — Login", () => {
     expect(res.body).toEqual({ error: INVALID_LOGIN_MESSAGE });
   });
 
-  it("rejects a role that doesn't match the account, with the same generic error, and ends the session it opened", async () => {
+  it("SCRUM-13/AC2 rejects a role that doesn't match the account, with the same generic error, and ends the session it opened", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const res = await login("rachel@example.com", "Passw0rd!", "venue_staff");
 
@@ -74,7 +75,7 @@ describe("US1 — Login", () => {
     expect(fake.sessions.size).toBe(0);
   });
 
-  it("rejects a deactivated account with the same generic error", async () => {
+  it("SCRUM-13/AC2 rejects a deactivated account with the same generic error", async () => {
     fake.seedUser("old@example.com", "attendee", { isActive: false });
     const res = await login("old@example.com", "Passw0rd!", "attendee");
 
@@ -82,9 +83,17 @@ describe("US1 — Login", () => {
     expect(res.body).toEqual({ error: INVALID_LOGIN_MESSAGE });
   });
 
-  it("asks for all fields when email, password or role is missing", async () => {
+  it("SCRUM-13/AC1 asks for all fields when email, password or role is missing", async () => {
     const res = await request(app).post("/auth/login").send({ email: "a@b.com" });
     expect(res.status).toBe(400);
+  });
+
+  it.each(ROLES)("SCRUM-13/AC4 sends a %s to their own dashboard after logging in", async (role) => {
+    fake.seedUser("user@example.com", role);
+    const res = await login("user@example.com", "Passw0rd!", role);
+
+    expect(res.status).toBe(200);
+    expect(res.body.redirectTo).toBe(`/dashboard/${role}`);
   });
 
   it("offers a password reset: sends a reset email pointing at the web app's reset page", async () => {

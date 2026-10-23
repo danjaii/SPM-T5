@@ -1,4 +1,4 @@
-// this test file checks where the sign-in form takes the user once they've signed in
+// this test file checks the sign-in form: where it takes the user once they have signed in, and the reset password link
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -107,3 +107,16 @@ describe("SCRUM-122 — Sign-in form", () => {
   });
 });
 // end of SCRUM-122
+
+// ---------------------------------------------------------------------------
+// SCRUM-13 — Login: an option to reset the password is on the sign-in form
+// ---------------------------------------------------------------------------
+describe("SCRUM-13 — Login form", () => {
+  // AC3: a user who has forgotten their password can reach the reset page from the sign-in form
+  it("SCRUM-13/AC3 offers a reset password link on the sign-in form", () => {
+    render(<LoginForm />);
+
+    expect(screen.getByRole("link", { name: /forgot password/i }).getAttribute("href")).toBe("/forgot-password");
+  });
+});
+// end of SCRUM-13
