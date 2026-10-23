@@ -3,6 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ReplacementCandidateDto, UnmetRequirement } from "@spm-t5/shared";
+import { SearchX } from "lucide-react";
+import { AuthAlert } from "@/components/auth/AuthParts";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UnsuitableConfirm } from "./UnsuitableConfirm";
 import { requestReplacementVenue } from "@/lib/venueBookings";
 
@@ -28,13 +32,20 @@ export function ReplacementPicker({ originalId, candidates }: { originalId: stri
     setBusyId(undefined);
   }
 
+  // SCRUM-135/AC10: a designed empty state, not a bare sentence.
   if (candidates.length === 0) {
-    return <p className="event-detail-card event-detail-card--quiet">No other venue is free for that period and big enough.</p>;
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border-strong px-6 py-12 text-center">
+        <SearchX aria-hidden="true" className="size-8 text-muted-foreground" />
+        <p className="font-semibold text-foreground">No other venue is free for that period and big enough.</p>
+        <p className="text-sm text-muted-foreground">Try the venue catalogue to search other dates, or change the event&apos;s requirements.</p>
+      </div>
+    );
   }
 
   return (
-    <section>
-      {error && <div className="alert alert--error" role="alert">{error}</div>}
+    <section className="flex flex-col gap-4">
+      {error && <AuthAlert tone="error">{error}</AuthAlert>}
       {unsuitable && (
         <UnsuitableConfirm
           unmet={unsuitable.unmet}
@@ -50,38 +61,36 @@ export function ReplacementPicker({ originalId, candidates }: { originalId: stri
           }}
         />
       )}
-      <div className="event-detail-card event-detail-card--table">
-        <table>
-          <thead>
-            <tr>
-              <th>Venue</th>
-              <th>Location</th>
-              <th>Capacity</th>
-              <th><span className="visually-hidden">Action</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {candidates.map((v) => (
-              <tr key={v.venueId}>
-                <td>{v.name}</td>
-                <td>{v.address}</td>
-                <td>{v.maxCapacity}</td>
-                <td>
-                  <button
-                    className="btn btn--secondary"
-                    type="button"
-                    disabled={busyId !== undefined}
-                    aria-label={`Request ${v.name}`}
-                    onClick={() => request(v)}
-                  >
-                    {busyId === v.venueId ? "Requesting…" : "Request this venue"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table>
+        <TableHeader className="max-md:sr-only">
+          <TableRow>
+            <TableHead>Venue</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>Capacity</TableHead>
+            <TableHead><span className="sr-only">Action</span></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {candidates.map((v) => (
+            <TableRow key={v.venueId} className="max-md:flex max-md:flex-col max-md:gap-1 max-md:p-3">
+              <TableCell className="font-semibold whitespace-normal max-md:p-0">{v.name}</TableCell>
+              <TableCell className="whitespace-normal max-md:p-0">{v.address}</TableCell>
+              <TableCell className="max-md:p-0">{v.maxCapacity}</TableCell>
+              <TableCell className="text-right max-md:p-0 max-md:text-left">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busyId !== undefined}
+                  aria-label={`Request ${v.name}`}
+                  onClick={() => request(v)}
+                >
+                  {busyId === v.venueId ? "Requesting…" : "Request this venue"}
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   );
 }

@@ -198,7 +198,7 @@ describe("SCRUM-110/AC2 the same warning when changing a booking or accepting a 
 
 describe("SCRUM-110/AC4 venue staff see the result (110-S4)", () => {
   const item = (over: Partial<QueueItemView> = {}): QueueItemView => ({
-    id: "b-1", eventId: "evt-1", venueId: "ven-2", venueName: "Lotus Room", date: "2099-01-01", startTime: "09:00", endTime: "12:00",
+    id: "b-1", eventId: "evt-1", venueId: "ven-2", venueName: "Lotus Room", setupMinutes: 0, turnaroundMinutes: 0, date: "2099-01-01", startTime: "09:00", endTime: "12:00",
     eventName: "TechConf 2026", expectedAttendance: 120, venueRequirements: "Theatre", accessibilityNeeds: null,
     requestedByName: "Rachel Tan", submittedAt: "2098-12-01T02:30:00.000Z", amendsRequestId: null, flags: [],
     suitability: "not_suitable", suitabilityUnmet: unmet, suitabilityOverrideReason: REASON, ...over,
@@ -207,9 +207,9 @@ describe("SCRUM-110/AC4 venue staff see the result (110-S4)", () => {
     ...item(), status: "PENDING", decidedByName: null, decidedAt: null, rejectionReason: null, suggestion: null, ...over,
   });
 
-  it("110-S4: the queue has a Suitability column saying Not suitable, Suitable or Not checked", () => {
+  it("110-S4: the queue has a Check column saying Not suitable, Suitable or Not checked", () => {
     render(<BookingQueueList requests={[item(), item({ id: "b-2", suitability: "suitable", suitabilityUnmet: [], suitabilityOverrideReason: null }), item({ id: "b-3", suitability: null })]} />);
-    expect(screen.getByRole("columnheader", { name: "Suitability" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Check" })).toBeTruthy();
     expect(screen.getByText("Not suitable")).toBeTruthy();
     expect(screen.getByText("Suitable")).toBeTruthy();
     expect(screen.getByText("Not checked")).toBeTruthy();

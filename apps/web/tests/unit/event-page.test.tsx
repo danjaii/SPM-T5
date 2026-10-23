@@ -374,3 +374,57 @@ describe("SCRUM-100/AC7 the event page shows the Safety Officer's requested chan
     expect(screen.getByText("Move the stage clear of fire exit B")).toBeTruthy();
   });
 });
+
+// ----------------------------------------------------------------------------
+// SCRUM-49/AC6 the confirmation after submitting a new event request
+// ----------------------------------------------------------------------------
+
+describe("SCRUM-49/AC6 the event page confirms a submission with its date and time", () => {
+  beforeEach(() => {
+    getEventVenueBookings.mockReset().mockResolvedValue(null);
+    getEventOutcome.mockReset().mockResolvedValue(null);
+    getEventEquipmentRequests.mockReset().mockResolvedValue(null);
+    getEventChangeHistory.mockReset().mockResolvedValue(null);
+    stubEventService();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const withSubmittedAt = (submitted_at: string | null) =>
+    getEvent.mockResolvedValue({ event: { id: "evt-1", name: "Tech Summit", status: "submitted", canChangeStatus: false, submitted_at } });
+  const openWith = async (searchParams: { submitted?: string }) =>
+    render(await EventPage({ params: Promise.resolve({ id: "evt-1" }), searchParams: Promise.resolve(searchParams) }));
+  const confirmation = () => screen.queryAllByRole("status").find((el) => el.textContent?.startsWith("Your event request was submitted"));
+
+  it("says when the request was submitted, in Singapore time, after arriving from the form (?submitted=1)", async () => {
+    withSubmittedAt("2026-10-01T02:00:00Z"); // 10:00 AM in Singapore
+
+    await openWith({ submitted: "1" });
+
+    expect(confirmation()?.textContent).toBe("Your event request was submitted on Thu, 1 Oct 2026, 10:00 AM.");
+  });
+
+  it("still confirms, without a date, when the request has no submission time", async () => {
+    withSubmittedAt(null);
+
+    await openWith({ submitted: "1" });
+
+    expect(confirmation()?.textContent).toBe("Your event request was submitted.");
+  });
+
+  it("shows no confirmation when the page is opened any other way", async () => {
+    withSubmittedAt("2026-10-01T02:00:00Z");
+
+    await openWith({});
+
+    expect(confirmation()).toBeUndefined();
+  });
+
+  it("shows no confirmation for any other value of submitted", async () => {
+    withSubmittedAt("2026-10-01T02:00:00Z");
+
+    await openWith({ submitted: "0" });
+
+    expect(confirmation()).toBeUndefined();
+  });
+});
+

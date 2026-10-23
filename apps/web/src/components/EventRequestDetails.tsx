@@ -11,9 +11,6 @@ export const NOT_PROVIDED = "Not provided";
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" });
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-SG", { dateStyle: "medium", timeZone: "Asia/Singapore" });
-
 function preferredSlot(start: string | null, end: string | null): string | null {
   if (!start) return null;
   return end ? `${formatDateTime(start)} – ${formatDateTime(end)}` : formatDateTime(start);
@@ -36,7 +33,8 @@ export function EventRequestDetails({ event }: { event: EventDetailView }) {
     ["Accessibility needs", event.accessibility_requirements],
     ["Venue requirements", event.venue_requirements],
     ["Equipment needs", event.equipment_requirements_notes],
-    ["Submitted", event.submitted_at && formatDate(event.submitted_at)],
+    // SCRUM-49/AC6: the time as well as the date, so the confirmation is still there once the banner has gone
+    ["Submitted", event.submitted_at && formatDateTime(event.submitted_at)],
     // SCRUM-111/AC5: details the coordinator can edit
     ["Description", event.description, true],
   ];
