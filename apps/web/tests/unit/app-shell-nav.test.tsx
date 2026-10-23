@@ -167,3 +167,53 @@ describe("SCRUM-122/AC12 profile reached from the user's name", () => {
     expect(screen.queryByRole("dialog", { name: "Menu" })).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-15 — Each role's sidebar offers the pages its acceptance criterion names, and none from another role's work
+// ---------------------------------------------------------------------------
+describe("SCRUM-15 — What each role sees in the sidebar", () => {
+  const sidebarLinks = (role: Role) => {
+    nav.pathname = `/dashboard/${role}`;
+    renderShell(role);
+    return Object.fromEntries(
+      within(screen.getByRole("navigation", { name: "Main" })).getAllByRole("link").map((a) => [a.textContent!.replace(/\d+$/, ""), a.getAttribute("href")]),
+    );
+  };
+  const EQUIPMENT_PAGES = ["/equipment-requests", "/equipment-availability", "/equipment-reservation"];
+
+  // AC1: the organiser manages events: creating requests and following their registrations
+  it("SCRUM-15/AC1 offers an event organiser event management", () => {
+    const links = sidebarLinks("event_organiser");
+    expect(links).toMatchObject({ "New event request": "/events/new", "Event registrations": "/registrations-overview" });
+    expect(Object.values(links)).not.toContain("/booking-queue");
+  });
+
+  // AC2: the coordinator handles logistics and scheduling: reviewing event requests, venue bookings and the venue catalogue
+  it("SCRUM-15/AC2 offers an event coordinator logistics and scheduling", () => {
+    const links = sidebarLinks("event_coordinator");
+    expect(links).toMatchObject({ "Event requests": "/events/review", "My venue bookings": "/venue-bookings", "Venue catalogue": "/venues" });
+    for (const href of ["/booking-queue", ...EQUIPMENT_PAGES]) expect(Object.values(links)).not.toContain(href);
+  });
+
+  // AC3: venue staff see venue details and the venue bookings waiting for them
+  it("SCRUM-15/AC3 offers venue staff venue details and booking information", () => {
+    const links = sidebarLinks("venue_staff");
+    expect(links).toMatchObject({ "Venue catalogue": "/venues", "Booking requests": "/booking-queue" });
+    for (const href of EQUIPMENT_PAGES) expect(Object.values(links)).not.toContain(href);
+  });
+
+  // AC4: Technical Support Staff see every equipment page
+  it("SCRUM-15/AC4 offers Technical Support Staff all equipment and technical information", () => {
+    const links = sidebarLinks("technical_support_staff");
+    expect(Object.values(links)).toEqual(expect.arrayContaining(EQUIPMENT_PAGES));
+    expect(Object.values(links)).not.toContain("/booking-queue");
+  });
+
+  // AC5: the attendee sees their registrations, and Home is the List of events open for booking (SCRUM-71)
+  it("SCRUM-15/AC5 offers an attendee their registrations and the events open for booking", () => {
+    const links = sidebarLinks("attendee");
+    expect(links).toMatchObject({ Home: "/dashboard/attendee", "My registrations": "/registrations" });
+    for (const href of ["/events/new", "/events/review", "/booking-queue", ...EQUIPMENT_PAGES]) expect(Object.values(links)).not.toContain(href);
+  });
+});
+// end of SCRUM-15
