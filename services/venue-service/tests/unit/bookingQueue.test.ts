@@ -21,7 +21,7 @@ function setup() {
   let clock = at(0);
   const bookings = new FakeBookingRepository(() => clock);
   const events = new FakeEventReader([anEvent({ id: "event-1" })]);
-  const venues = new FakeVenueReader([aVenue(), aVenue({ id: "venue-2", name: "Lotus Room" })]);
+  const venues = new FakeVenueReader([aVenue(), aVenue({ id: "venue-2", name: "Lotus Room", setupMinutes: 30, turnaroundMinutes: 45 })]);
   const roles = new FakeRoleReader({
     "staff-1": "venue_staff",
     "coordinator-1": "event_coordinator",
@@ -61,6 +61,8 @@ describe("SCRUM-37/AC1 the queue lists pending requests with their event details
       eventId: "event-1",
       venueId: "venue-1",
       venueName: "Orchid Hall",
+      setupMinutes: 0,
+      turnaroundMinutes: 0,
       date: "2030-11-14",
       startTime: "09:00",
       endTime: "17:00",
@@ -79,6 +81,18 @@ describe("SCRUM-37/AC1 the queue lists pending requests with their event details
     });
     expect(res.body.map((r: { venueName: string }) => r.venueName)).toEqual(["Orchid Hall", "Lotus Room", "Lotus Room"]);
     expect(res.body[2].requestedByName).toBeNull();
+  });
+});
+
+describe("SCRUM-134/AC1 each request carries its venue's setup and turnaround", () => {
+  it("lists them on the queue and on the detail, so the whole occupied time can be shown", async () => {
+    const { bookings, get } = setup();
+    bookings.seed({ id: "padded", eventId: "event-1", venueId: "venue-2", ...slot(14) });
+
+    const list = await get("/booking-queue");
+    expect(list.body[0]).toMatchObject({ id: "padded", setupMinutes: 30, turnaroundMinutes: 45 });
+    const detail = await get("/booking-queue/padded");
+    expect(detail.body).toMatchObject({ setupMinutes: 30, turnaroundMinutes: 45 });
   });
 });
 

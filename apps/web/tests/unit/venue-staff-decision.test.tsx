@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { push, refresh } = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
@@ -41,9 +41,9 @@ describe("SCRUM-38/AC1 approving (38-S1)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Approve request" }));
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByRole("alertdialog").textContent).toContain("Approve this request?");
+    expect(screen.getByRole("dialog").textContent).toContain("Approve this request?");
 
-    fireEvent.click(screen.getByRole("button", { name: "Yes, approve" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, approve" }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:4003/venue-bookings/b-1/approve");
     expect(fetchMock.mock.calls[0][1].method).toBe("POST");
@@ -66,7 +66,7 @@ describe("SCRUM-38/AC3 and AC8 the server's refusal is shown (38-S3, 38-S8)", ()
     mockServer(409, { code: "NOT_PENDING", error: "This request is no longer pending." });
     render(<VenueStaffDecision booking={{ id: "b-1", status: "PENDING" }} />);
     fireEvent.click(screen.getByRole("button", { name: "Approve request" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes, approve" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, approve" }));
 
     expect((await screen.findByRole("alert")).textContent).toBe("This request is no longer pending.");
     expect(refresh).not.toHaveBeenCalled();
@@ -76,7 +76,7 @@ describe("SCRUM-38/AC3 and AC8 the server's refusal is shown (38-S3, 38-S8)", ()
     mockServer(409, { code: "SLOT_IN_PAST", error: "The requested time has already passed." });
     render(<VenueStaffDecision booking={{ id: "b-1", status: "PENDING" }} />);
     fireEvent.click(screen.getByRole("button", { name: "Approve request" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes, approve" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, approve" }));
     expect((await screen.findByRole("alert")).textContent).toBe("The requested time has already passed.");
   });
 
@@ -84,7 +84,7 @@ describe("SCRUM-38/AC3 and AC8 the server's refusal is shown (38-S3, 38-S8)", ()
     mockServer(500, {});
     render(<VenueStaffDecision booking={{ id: "b-1", status: "PENDING" }} />);
     fireEvent.click(screen.getByRole("button", { name: "Approve request" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes, approve" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, approve" }));
     expect((await screen.findByRole("alert")).textContent).toBe("We couldn't complete that. Please try again.");
   });
 });
@@ -107,71 +107,69 @@ describe("SCRUM-39/AC1 rejecting with a reason (39-S1)", () => {
   const open = () => {
     render(<VenueStaffDecision booking={{ id: "b-1", status: "PENDING" }} />);
     fireEvent.click(screen.getByRole("button", { name: "Reject request" }));
+    return within(screen.getByRole("dialog"));
   };
   const type = (text: string) => fireEvent.change(screen.getByLabelText("Reason for rejection"), { target: { value: text } });
 
-  it("39-S1: takes a reason, asks to confirm, then rejects with the trimmed reason and refreshes", async () => {
+  it("39-S1: takes a reason, then rejects with the trimmed reason and refreshes", async () => {
     const fetchMock = mockServer(200, { id: "b-1", status: "REJECTED" });
-    open();
+    const dialog = open();
+    expect(screen.getByRole("dialog").textContent).toContain("Reject this request?");
     type("  Room under renovation  ");
     expect(screen.getByText("21/500")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByRole("alertdialog").textContent).toContain("Reject this request?");
-    expect(screen.getByRole("alertdialog").textContent).toContain("Room under renovation");
 
-    fireEvent.click(screen.getByRole("button", { name: "Yes, reject" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Reject request" }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:4003/venue-bookings/b-1/reject");
     expect(fetchMock.mock.calls[0][1].method).toBe("POST");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ reason: "Room under renovation" });
   });
 
-  it("editing the reason from the confirmation goes back to the form with the text kept", () => {
-    mockServer(200, {});
-    open();
-    type("Because");
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Edit reason" }));
-    expect((screen.getByLabelText("Reason for rejection") as HTMLTextAreaElement).value).toBe("Because");
-  });
-
-  it("cancelling closes the form without calling the server", () => {
+  it("cancelling closes the dialog without calling the server", () => {
     const fetchMock = mockServer(200, {});
-    open();
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = open();
+    fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByLabelText("Reason for rejection")).toBeNull();
     expect(screen.getByRole("button", { name: "Reject request" })).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
-describe("SCRUM-39/AC2 a reason is required (39-S2)", () => {
+describe("SCRUM-134/AC2 a reason is required before the rejection can be confirmed (39-S2)", () => {
   const attempt = (text: string) => {
     render(<VenueStaffDecision booking={{ id: "b-1", status: "PENDING" }} />);
     fireEvent.click(screen.getByRole("button", { name: "Reject request" }));
     fireEvent.change(screen.getByLabelText("Reason for rejection"), { target: { value: text } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    return within(screen.getByRole("dialog")).getByRole("button", { name: "Reject request" }) as HTMLButtonElement;
   };
 
   it.each([
-    ["empty", "", "Enter a reason for the rejection."],
-    ["only spaces", "    ", "Enter a reason for the rejection."],
-    ["501 characters", "x".repeat(501), "The reason must be 500 characters or fewer."],
-  ])("39-S2: %s shows a validation message and never calls the server", (_name, text, message) => {
+    ["empty", ""],
+    ["only spaces", "    "],
+  ])("SCRUM-134/AC2: %s leaves the confirm button disabled and never calls the server", (_name, text) => {
     const fetchMock = mockServer(200, {});
-    attempt(text);
-    expect(screen.getByRole("alert").textContent).toBe(message);
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    const confirm = attempt(text);
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("SCRUM-134/AC2: a reason enables the confirm button", () => {
+    mockServer(200, {});
+    expect(attempt("No room").disabled).toBe(false);
+  });
+
+  it("39-S2: 501 characters shows a validation message and never calls the server", () => {
+    const fetchMock = mockServer(200, {});
+    fireEvent.click(attempt("x".repeat(501)));
+    expect(screen.getByRole("alert").textContent).toBe("The reason must be 500 characters or fewer.");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("39-S2: 500 characters is accepted and the counter shows the limit", () => {
     mockServer(200, {});
-    attempt("x".repeat(500));
-    expect(screen.getByRole("alertdialog")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Edit reason" }));
+    expect(attempt("x".repeat(500)).disabled).toBe(false);
     expect(screen.getByText("500/500")).toBeTruthy();
   });
 
@@ -181,8 +179,7 @@ describe("SCRUM-39/AC2 a reason is required (39-S2)", () => {
       error: "Some fields are invalid.",
       fieldErrors: { reason: "Enter a reason for the rejection." },
     });
-    attempt("Fine");
-    fireEvent.click(screen.getByRole("button", { name: "Yes, reject" }));
+    fireEvent.click(attempt("Fine"));
     expect((await screen.findByRole("alert")).textContent).toBe("Enter a reason for the rejection.");
     expect(refresh).not.toHaveBeenCalled();
   });
@@ -194,8 +191,7 @@ describe("SCRUM-39/AC5 the server refusal is shown (39-S5)", () => {
     render(<VenueStaffDecision booking={{ id: "b-1", status: "PENDING" }} />);
     fireEvent.click(screen.getByRole("button", { name: "Reject request" }));
     fireEvent.change(screen.getByLabelText("Reason for rejection"), { target: { value: "No room" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes, reject" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reject request" }));
 
     expect((await screen.findByRole("alert")).textContent).toBe("This request is no longer pending.");
     expect(refresh).not.toHaveBeenCalled();

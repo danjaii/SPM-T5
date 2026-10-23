@@ -12,12 +12,13 @@ vi.mock("next/navigation", () => ({ redirect }));
 
 import { BookingQueueDetail } from "@/components/BookingQueueDetail";
 import { BookingQueueList } from "@/components/BookingQueueList";
+import { occupiedWindow, timingNote } from "@/lib/bookingQueue";
 import { DashboardView, type DashboardData } from "@/components/DashboardView";
 import type { QueueDetailView, QueueItemView } from "@/lib/bookingQueue";
 import { getBookingQueue, getQueuedBooking } from "@/lib/bookingQueueServer";
 
 const item = (over: Partial<QueueItemView> = {}): QueueItemView => ({
-  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", venueName: "Grand Hall", date: "2099-01-01", startTime: "09:00", endTime: "12:00",
+  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", venueName: "Grand Hall", setupMinutes: 0, turnaroundMinutes: 0, date: "2099-01-01", startTime: "09:00", endTime: "12:00",
   eventName: "Tech Summit", expectedAttendance: 120, venueRequirements: "Projector", accessibilityNeeds: "Step-free access",
   requestedByName: "Rachel Tan", submittedAt: "2098-12-01T02:30:00.000Z", amendsRequestId: null, flags: [], ...over,
 });
@@ -41,35 +42,44 @@ afterEach(() => {
 });
 
 describe("SCRUM-37/AC1 queue contents (37-S1)", () => {
-  it("37-S1: lists each request with its venue, slot, event details, coordinator and submission time (SGT)", () => {
+  it("37-S1: lists each request with its venue, slot, coordinator and check", () => {
     render(<BookingQueueList requests={[item()]} />);
 
     const cells = screen.getAllByRole("row")[1].querySelectorAll("td");
-    expect(cells[0].textContent).toBe("Tech Summit");
     expect(screen.getByRole("link", { name: "Tech Summit" }).getAttribute("href")).toBe("/booking-queue/b-1");
+    expect(cells[0].textContent).toContain("Requested by Rachel Tan");
     expect(cells[1].textContent).toBe("Grand Hall");
-    expect(cells[2].textContent).toBe("2099-01-01");
-    expect(cells[3].textContent).toBe("09:00–12:00");
-    expect(cells[4].textContent).toBe("120");
-    expect(cells[5].textContent).toBe("Projector");
-    expect(cells[6].textContent).toBe("Step-free access");
-    expect(cells[7].textContent).toBe("Not checked"); // SCRUM-110: no stored result on this request
-    expect(cells[8].textContent).toBe("Rachel Tan");
-    expect(cells[9].textContent).toBe("2098-12-01 10:30"); // 02:30 UTC is 10:30 in Singapore
+    expect(cells[2].textContent).toContain("2099-01-01");
+    expect(cells[2].textContent).toContain("Event 09:00–12:00");
+    expect(cells[3].textContent).toBe("Not checked"); // SCRUM-110: no stored result on this request
   });
 
-  it("shows placeholders for details the request did not have", () => {
-    render(
-      <BookingQueueList
-        requests={[item({ expectedAttendance: null, venueRequirements: null, accessibilityNeeds: null, requestedByName: null })]}
-      />,
-    );
+  it("SCRUM-134/AC6: a flagged request shows a Conflict badge, with an icon as well as the label", () => {
+    render(<BookingQueueList requests={[item({ flags: [{ id: "f", label: "Buffer conflict" } as never] })]} />);
+    expect(screen.getByText("Conflict")).toBeTruthy();
+    expect(screen.getAllByTestId("status-icon").length).toBeGreaterThan(0);
+  });
+});
 
-    const cells = screen.getAllByRole("row")[1].querySelectorAll("td");
-    expect(cells[4].textContent).toBe("Not specified");
-    expect(cells[5].textContent).toBe("None specified");
-    expect(cells[6].textContent).toBe("None specified");
-    expect(cells[8].textContent).toBe("Unknown");
+describe("SCRUM-134/AC1 the time window includes setup and turnaround", () => {
+  it("shows the event time and the whole time the venue is occupied", () => {
+    render(<BookingQueueList requests={[item({ setupMinutes: 30, turnaroundMinutes: 45 })]} />);
+    expect(screen.getByText(/Venue occupied 08:30–12:45/).textContent).toContain("30 min setup, 45 min reset");
+  });
+
+  it("a venue with no setup or turnaround has the same window and no note", () => {
+    render(<BookingQueueList requests={[item()]} />);
+    expect(screen.getByText(/Venue occupied 09:00–12:00/).textContent).not.toContain("setup");
+  });
+
+  it("occupiedWindow wraps past midnight and timingNote is empty when both are zero", () => {
+    expect(occupiedWindow({ startTime: "00:10", endTime: "23:50", setupMinutes: 30, turnaroundMinutes: 30 })).toBe("23:40–00:20");
+    expect(timingNote({ setupMinutes: 0, turnaroundMinutes: 0 })).toBeNull();
+  });
+
+  it("lists requests in the order the server sends them, which is oldest first", () => {
+    render(<BookingQueueList requests={[item({ id: "old", eventName: "First" }), item({ id: "new", eventName: "Second" })]} />);
+    expect(screen.getAllByRole("link").map((a) => a.textContent)).toEqual(["First", "Second"]);
   });
 });
 
@@ -81,7 +91,7 @@ describe("SCRUM-37/AC4 amended requests (37-S4)", () => {
   });
 });
 
-describe("SCRUM-37/AC5 empty queue (37-S5)", () => {
+describe("SCRUM-134/AC10 empty queue (37-S5)", () => {
   it("37-S5: shows a message rather than an empty table", () => {
     render(<BookingQueueList requests={[]} />);
 
@@ -95,9 +105,9 @@ describe("SCRUM-37/AC6 request detail (37-S6)", () => {
     render(<BookingQueueDetail booking={detail()} />);
 
     expect(screen.getByRole("heading", { name: "Tech Summit" })).toBeTruthy();
-    expect(screen.getByText("Pending", { selector: ".event__status .status-badge" })).toBeTruthy();
+    expect(screen.getByText("Pending", { selector: "span" })).toBeTruthy();
     for (const text of ["Grand Hall", "2099-01-01", "09:00–12:00", "120", "Projector", "Step-free access", "Rachel Tan"]) {
-      expect(screen.getByText(text)).toBeTruthy();
+      expect(screen.getAllByText(text).length).toBeGreaterThan(0); // the event time also appears as the occupied window when there is no setup
     }
     expect(screen.getByText("2098-12-01 10:30")).toBeTruthy();
     expect(screen.queryByText("Decided by")).toBeNull();
@@ -113,7 +123,7 @@ describe("SCRUM-37/AC6 request detail (37-S6)", () => {
       />,
     );
 
-    expect(screen.getByText("Rejected", { selector: ".event__status .status-badge" })).toBeTruthy();
+    expect(screen.getByText("Rejected", { selector: "span" })).toBeTruthy();
     expect(screen.getByText("Kenneth Wong")).toBeTruthy();
     expect(screen.getByText("2099-01-05 14:15")).toBeTruthy();
     expect(screen.getByText("Reason for rejection")).toBeTruthy();
