@@ -85,7 +85,8 @@ describe("SCRUM-33/AC4 venue booking detail (33-S2, 33-S5)", () => {
     render(<VenueBookingDetail booking={detail} />);
 
     expect(screen.getByRole("heading", { name: "Tech Summit" })).toBeTruthy();
-    expect(screen.getByText("Rejected", { selector: ".event__status .status-badge" })).toBeTruthy();
+    // the page status comes first; the amendment history below repeats it for each step
+    expect(screen.getAllByText("Rejected", { selector: "[data-tone]" })[0]).toBeTruthy();
     expect(screen.getAllByText("Under renovation.").length).toBeGreaterThan(0);
     expect(screen.getByText(/Small Hall on 2099-01-02/)).toBeTruthy();
     expect(screen.getByText("Projector")).toBeTruthy();
