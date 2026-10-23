@@ -9,7 +9,6 @@ import { NotificationRow } from "@/components/NotificationRow";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchNotifications, fetchUnreadCount, markNotificationRead } from "@/lib/notifications";
@@ -100,7 +99,7 @@ export function NotificationBell() {
     rows.length === 0 ? (
       <Empty unreadTab={unreadTab} />
     ) : (
-      <ScrollArea className="max-h-[min(28rem,60vh)]">
+      <div className="max-h-96 overflow-y-auto">
         <ul aria-label={unreadTab ? "Unread notifications" : "Notifications"} className="divide-y divide-border">
           {rows.map((item) => (
             <li key={item.id}>
@@ -114,7 +113,7 @@ export function NotificationBell() {
             </li>
           ))}
         </ul>
-      </ScrollArea>
+      </div>
     );
 
   return (
