@@ -3,6 +3,7 @@ import {
   EQUIPMENT_REQUEST_STATUS_LABELS,
   EVENT_STATUSES,
   VENUE_BOOKING_STATUSES,
+  type VenueBookingFlagKind,
   type EquipmentRequestStatus,
   type EventStatus,
   type VenueBookingStatus,
@@ -77,3 +78,9 @@ export const ALL_STATUS_DISPLAYS: { group: string; key: string; display: StatusD
 export function unknownStatusDisplay(status: string): StatusDisplay {
   return display("neutral", status);
 }
+
+/** SCRUM-135/AC1: how a booking flag looks. A clash with another booking is a Conflict (danger); a blocked venue is Venue unavailable (warning). */
+export const FLAG_DISPLAY: Record<VenueBookingFlagKind, StatusDisplay> = {
+  buffer_conflict: display("danger", "Conflict", "alert"),
+  venue_unavailable: display("warning", "Venue unavailable", "timer-off"),
+};

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { describeFlag } from "@spm-t5/shared";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FlagBadges } from "./FlagBadges";
 import { bookingStatusLabel, type VenueBookingDetailView } from "@/lib/venueBookings";
 
 const resolvedReasonLabel = (reason: string | null) =>
@@ -16,12 +18,10 @@ export function VenueBookingDetail({ booking }: { booking: VenueBookingDetailVie
 
       {/* SCRUM-104/AC3: raised when the venue's setup or turnaround time was raised; change or cancel one booking to clear it */}
       {booking.flags.length > 0 && (
-        <div className="alert alert--warning" aria-label="Flags">
-          {booking.flags.map((f) => (
-            <p key={f.id}>{describeFlag(f, booking.venueName)}</p>
-          ))}
-          <p>Change or cancel this booking to resolve it.</p>
-        </div>
+        <Alert aria-label="Flags">
+          <FlagBadges flags={booking.flags} venueName={booking.venueName} label="" />
+          <AlertDescription>Change or cancel this booking to resolve it.</AlertDescription>
+        </Alert>
       )}
 
       <dl className="vb__facts">
