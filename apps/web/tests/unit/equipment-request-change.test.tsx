@@ -1,35 +1,24 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { cookieValue, push, redirect, refresh } = vi.hoisted(() => ({
-  cookieValue: { current: "token-coord" as string | undefined },
-  push: vi.fn(),
-  refresh: vi.fn(),
-  redirect: vi.fn((url: string) => {
-    throw new Error(`redirect:${url}`);
-  }),
-}));
-vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: () => (cookieValue.current ? { value: cookieValue.current } : undefined) }),
-}));
-vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ push, refresh }) }));
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
-import ChangeEquipmentRequestPage from "@/app/events/[id]/equipment-request/[requestId]/page";
 import { EquipmentQueueList } from "@/components/EquipmentQueueList";
 import { EquipmentRequestDetail } from "@/components/EquipmentRequestDetail";
-import { EquipmentRequestForm } from "@/components/EquipmentRequestForm";
 import { EventEquipmentRequests } from "@/components/EventEquipmentRequests";
 import type {
   EquipmentQueueItemView,
   EquipmentRequestDetailView,
-  EquipmentRequestEditFormData,
+  EquipmentRequestFormData,
   EquipmentRequestView,
 } from "@/lib/equipmentRequests";
-import { getEquipmentRequestEditForm } from "@/lib/equipmentRequestsServer";
 
-// SCRUM-88: the assigned coordinator changes an equipment request (docs/specs/equipment-requests.md).
+// SCRUM-88: the assigned coordinator changes an equipment request (docs/specs/equipment-requests.md). Since SCRUM-136 the
+// change is made in the request's row on the event's Equipment tab.
 
-const editForm = (request: Partial<EquipmentRequestEditFormData["request"]> = {}): EquipmentRequestEditFormData => ({
+const form: EquipmentRequestFormData = {
   event: { id: "evt-1", name: "Tech Summit" },
   equipment: [
     { id: "eq-mic", label: "Audio: Wireless Microphone Set" },
@@ -39,17 +28,7 @@ const editForm = (request: Partial<EquipmentRequestEditFormData["request"]> = {}
     { id: "vb-hall", venueName: "Grand Hall", date: "2026-10-15", startTime: "09:00", endTime: "17:00" },
     { id: "vb-annex", venueName: "Annex", date: "2026-10-16", startTime: "09:00", endTime: "13:00" },
   ],
-  request: {
-    id: "req-1",
-    equipmentId: "eq-projector",
-    quantity: 2,
-    venueBookingId: "vb-hall",
-    notes: "Front row",
-    status: "SUBMITTED",
-    statusLabel: "Submitted",
-    ...request,
-  },
-});
+};
 
 const aRequest = (over: Partial<EquipmentRequestView> = {}): EquipmentRequestView => ({
   id: "req-1",
@@ -75,61 +54,18 @@ function mockServer(status: number, body: unknown) {
   return fetchMock;
 }
 
-const renderForm = (form = editForm()) => render(<EquipmentRequestForm form={form} existing={form.request} />);
-const equipment = () => screen.getByLabelText("Equipment") as HTMLSelectElement;
-const quantity = () => screen.getByLabelText("Quantity") as HTMLInputElement;
-const venue = () => screen.getByLabelText("Venue") as HTMLSelectElement;
-const notes = () => screen.getByLabelText("Technical notes (optional)") as HTMLTextAreaElement;
-const save = () => fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+const views = (requests: EquipmentRequestView[], canCreate = true) => ({ requests, canCreate, readiness: null, readinessLabel: null });
 
-beforeEach(() => {
-  push.mockClear();
-  refresh.mockClear();
-  cookieValue.current = "token-coord";
-});
+/** Opens the request's row for changing, as the coordinator does with its Change button. */
+const openChange = (over: Partial<EquipmentRequestView> = {}) => {
+  render(<EventEquipmentRequests data={views([aRequest(over)])} form={form} />);
+  fireEvent.click(screen.getByRole("button", { name: "Change the AV: Projector Unit request" }));
+};
+const quantity = () => screen.getByRole("textbox", { name: "Quantity" }) as HTMLInputElement;
+const save = () => fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+beforeEach(() => refresh.mockClear());
 afterEach(() => vi.unstubAllGlobals());
-
-describe("SCRUM-88/AC1 edit a request", () => {
-  it("the form starts on the request's current details", () => {
-    renderForm();
-    expect(screen.getByRole("heading", { name: "Change equipment request" })).toBeTruthy();
-    expect(equipment().value).toBe("eq-projector");
-    expect(quantity().value).toBe("2");
-    expect(venue().value).toBe("vb-hall");
-    expect(notes().value).toBe("Front row");
-  });
-
-  it("an item or venue no longer offered starts unchosen, so the coordinator picks again", () => {
-    renderForm(editForm({ equipmentId: "eq-retired", venueBookingId: "vb-gone", notes: null }));
-    expect(equipment().value).toBe("");
-    expect(venue().value).toBe("");
-    expect(notes().value).toBe("");
-  });
-
-  it("saves the new details to equipment-service and returns to the event", async () => {
-    const fetchMock = mockServer(200, aRequest({ status: "SUBMITTED" }));
-    renderForm();
-
-    fireEvent.change(equipment(), { target: { value: "eq-mic" } });
-    fireEvent.change(quantity(), { target: { value: "6" } });
-    fireEvent.change(venue(), { target: { value: "vb-annex" } });
-    fireEvent.change(notes(), { target: { value: "Two more on stage" } });
-    save();
-
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/events/evt-1"));
-    expect(refresh).toHaveBeenCalled();
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:4004/events/evt-1/equipment-requests/req-1",
-      expect.objectContaining({ method: "PATCH", credentials: "include" }),
-    );
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-      equipmentId: "eq-mic",
-      quantity: "6",
-      venueBookingId: "vb-annex",
-      notes: "Two more on stage",
-    });
-  });
-});
 
 describe("SCRUM-88/AC2 send it back for review", () => {
   it.each([
@@ -137,12 +73,12 @@ describe("SCRUM-88/AC2 send it back for review", () => {
     ["ARRANGED", "Arranged"],
     ["CANNOT_FULFIL", "Cannot Fulfil"],
   ] as const)("a %s request: the form says saving sends it back to Technical Support Staff", (status, statusLabel) => {
-    renderForm(editForm({ status, statusLabel }));
+    openChange({ status, statusLabel });
     expect(screen.getByRole("status").textContent).toContain(`This request is ${statusLabel}. Saving a change sends it back`);
   });
 
   it("a Submitted request: nothing to warn about", () => {
-    renderForm();
+    openChange({ status: "SUBMITTED", statusLabel: "Submitted" });
     expect(screen.queryByRole("status")).toBeNull();
   });
 
@@ -183,35 +119,33 @@ describe("SCRUM-88/AC2 send it back for review", () => {
 describe("SCRUM-88/AC3 wrong information", () => {
   it("nothing is sent when a field is wrong, and what was typed is kept", () => {
     const fetchMock = mockServer(200, {});
-    renderForm();
+    openChange();
 
-    fireEvent.change(equipment(), { target: { value: "" } });
     fireEvent.change(quantity(), { target: { value: "1.5" } });
     save();
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByText("Choose the equipment.")).toBeTruthy();
     expect(screen.getByText("Quantity must be a whole number of 1 or more")).toBeTruthy();
     expect(quantity().value).toBe("1.5");
   });
 
-  it("a refusal from equipment-service is shown and the form stays, as typed", async () => {
+  it("a refusal from equipment-service is shown and the row stays, as typed", async () => {
     mockServer(422, { error: "Some fields are invalid.", fieldErrors: { venueBookingId: "Choose the venue." } });
-    renderForm();
+    openChange();
     fireEvent.change(quantity(), { target: { value: "6" } });
     save();
 
     expect((await screen.findByRole("alert")).textContent).toBe("Some fields are invalid.");
     expect(screen.getByText("Choose the venue.")).toBeTruthy();
     expect(quantity().value).toBe("6");
-    expect(push).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("a general message when the refusal has none, or the server cannot be reached", async () => {
     mockServer(500, {});
-    renderForm();
+    openChange();
     save();
-    expect((await screen.findByRole("alert")).textContent).toBe("We couldn't save your changes. Please try again.");
+    expect((await screen.findByRole("alert")).textContent).toBe("We couldn't save the item. Please try again.");
 
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
     save();
@@ -219,32 +153,21 @@ describe("SCRUM-88/AC3 wrong information", () => {
   });
 });
 
-describe("SCRUM-88/AC1, AC4, AC6 the Change link on the event page", () => {
+describe("SCRUM-88/AC1, AC4, AC6 the Change button on the event page", () => {
   it("shows Change on each request the viewer may change, and no column when none", () => {
     const { unmount } = render(
       <EventEquipmentRequests
-        eventId="evt-1"
-        data={{
-          requests: [aRequest(), aRequest({ id: "req-2", canEdit: false, status: "RELEASED", statusLabel: "Released" })],
-          canCreate: true,
-          readiness: null,
-          readinessLabel: null,
-        }}
+        data={views([aRequest(), aRequest({ id: "req-2", canEdit: false, status: "RELEASED", statusLabel: "Released" })])}
+        form={form}
       />,
     );
-    const link = screen.getByRole("link", { name: "Change the AV: Projector Unit request" });
-    expect(link.getAttribute("href")).toBe("/events/evt-1/equipment-request/req-1");
-    expect(screen.getAllByRole("link", { name: /^Change the/ })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Change the/ })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Change the AV: Projector Unit request" })).toBeTruthy();
     unmount();
 
     // AC4, AC6: a finished event, or someone other than the assigned coordinator
-    render(
-      <EventEquipmentRequests
-        eventId="evt-1"
-        data={{ requests: [aRequest({ canEdit: false })], canCreate: false, readiness: null, readinessLabel: null }}
-      />,
-    );
-    expect(screen.queryByRole("link", { name: /Change the/ })).toBeNull();
+    render(<EventEquipmentRequests data={views([aRequest({ canEdit: false })], false)} form={null} />);
+    expect(screen.queryByRole("button", { name: /Change the/ })).toBeNull();
     expect(screen.queryByRole("columnheader", { name: "Actions" })).toBeNull();
   });
 });
@@ -253,13 +176,8 @@ describe("SCRUM-88/AC8 who changed it", () => {
   it("the event page shows who last changed a request, and when", () => {
     render(
       <EventEquipmentRequests
-        eventId="evt-1"
-        data={{
-          requests: [aRequest({ lastChangedBy: "Rachel Tan", lastChangedAt: "2026-10-15 17:40" }), aRequest({ id: "req-2" })],
-          canCreate: true,
-          readiness: null,
-          readinessLabel: null,
-        }}
+        data={views([aRequest({ lastChangedBy: "Rachel Tan", lastChangedAt: "2026-10-15 17:40" }), aRequest({ id: "req-2" })])}
+        form={form}
       />,
     );
     expect(screen.getAllByText(/Last changed by/)).toHaveLength(1);
@@ -294,47 +212,5 @@ describe("SCRUM-88/AC8 who changed it", () => {
 
     render(<EquipmentRequestDetail request={{ ...detail, lastChangedBy: null, lastChangedAt: null }} />);
     expect(screen.queryByText("Last changed")).toBeNull();
-  });
-});
-
-describe("SCRUM-88 the change page (/events/[id]/equipment-request/[requestId])", () => {
-  const open = async () =>
-    render(await ChangeEquipmentRequestPage({ params: Promise.resolve({ id: "evt-1", requestId: "req-1" }) }));
-
-  it("SCRUM-88/AC1 shows the form on the current details, loaded as the signed-in user", async () => {
-    const fetchMock = mockServer(200, editForm());
-    await open();
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:4004/events/evt-1/equipment-requests/req-1/edit-form",
-      expect.objectContaining({ headers: { cookie: "cs_session=token-coord" }, cache: "no-store" }),
-    );
-    expect(screen.getByRole("heading", { name: "Change equipment request" })).toBeTruthy();
-    expect(quantity().value).toBe("2");
-    expect(screen.getByRole("link", { name: "← Back to event" }).getAttribute("href")).toBe("/events/evt-1");
-  });
-
-  it.each([
-    [403, "You are not allowed to do that."],
-    [409, "Equipment requests for a completed, cancelled or rejected event can't be changed."],
-    [409, "Released equipment can't be changed. Request it again for another venue booking."],
-  ])("SCRUM-88/AC4, AC6 shows equipment-service's %s refusal instead of the form", async (status, error) => {
-    mockServer(status, { error });
-    await open();
-    expect(screen.getByRole("alert").textContent).toBe(error);
-    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
-  });
-
-  it("a general message when the refusal has none, and a message when unreachable", async () => {
-    mockServer(500, {});
-    expect(await getEquipmentRequestEditForm("evt-1", "req-1")).toEqual({ error: "We couldn't load the equipment request." });
-
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
-    expect(await getEquipmentRequestEditForm("evt-1", "req-1")).toEqual({ error: "We couldn't reach the server. Please try again." });
-  });
-
-  it("not signed in goes to the sign-in page", async () => {
-    cookieValue.current = undefined;
-    await expect(getEquipmentRequestEditForm("evt-1", "req-1")).rejects.toThrow("redirect:/login");
   });
 });

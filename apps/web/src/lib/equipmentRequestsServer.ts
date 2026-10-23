@@ -4,7 +4,6 @@ import { SERVER_EQUIPMENT_URL, SESSION_COOKIE } from "./api";
 import type {
   EquipmentQueueItemView,
   EquipmentRequestDetailView,
-  EquipmentRequestEditFormData,
   EquipmentRequestFormData,
   EventEquipmentRequestsView,
 } from "./equipmentRequests";
@@ -12,7 +11,10 @@ import type {
 // Server-only: reads equipment-service with the login cookie via next/headers. Client components must not
 // import this file; the browser-safe types and the submit call live in ./equipmentRequests.
 
-/** SCRUM-86/AC1: the request form's data. AC6, AC7: equipment-service refuses, and its message is shown instead. */
+/**
+ * SCRUM-86/AC1: the request form's data, which the Equipment tab's add and change row offer (SCRUM-136/AC1). AC6, AC7:
+ * equipment-service refuses anyone else.
+ */
 export async function getEquipmentRequestForm(eventId: string): Promise<{ form: EquipmentRequestFormData } | { error: string }> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) redirect("/login");
@@ -29,22 +31,6 @@ export async function getEquipmentRequestForm(eventId: string): Promise<{ form: 
   if (res.status === 401) redirect("/login");
   const data = await res.json();
   return res.ok ? { form: data } : { error: data.error ?? "We couldn't load the equipment request form." };
-}
-
-/**
- * SCRUM-88/AC1: the change form's data, starting on the request's current details. AC4, AC6 and Released requests:
- * equipment-service refuses, and its message is shown instead.
- */
-export async function getEquipmentRequestEditForm(
-  eventId: string,
-  requestId: string,
-): Promise<{ form: EquipmentRequestEditFormData } | { error: string }> {
-  const res = await fromEquipmentService(
-    `/events/${encodeURIComponent(eventId)}/equipment-requests/${encodeURIComponent(requestId)}/edit-form`,
-  );
-  if (!res) return { error: UNREACHABLE };
-  const data = await res.json();
-  return res.ok ? { form: data } : { error: data.error ?? "We couldn't load the equipment request." };
 }
 
 /**
