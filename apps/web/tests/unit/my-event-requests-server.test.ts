@@ -66,4 +66,28 @@ describe("SCRUM-52/AC1 loading my event requests", () => {
 
     await expect(getMyEventRequests()).resolves.toEqual({ error: "We couldn't reach the server. Please try again." });
   });
+
+  // A body that is not JSON (an HTML error page from a proxy, say) must read as a failed load, never as a list the page then
+  // calls .map on
+  const NOT_LOADED = { error: "We couldn't load your event requests. Please try again." };
+  const answerWithBadBody = (status: number) =>
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => { throw new SyntaxError("Unexpected token <"); } }));
+
+  it("SCRUM-52/AC1 treats a 200 whose body is not JSON as a failed load, not as a list", async () => {
+    answerWithBadBody(200);
+
+    await expect(getMyEventRequests()).resolves.toEqual(NOT_LOADED);
+  });
+
+  it("SCRUM-52/AC1 treats a 200 whose JSON is not a list as a failed load", async () => {
+    mockServer(200, { unexpected: true });
+
+    await expect(getMyEventRequests()).resolves.toEqual(NOT_LOADED);
+  });
+
+  it("SCRUM-52/AC1 treats an error page that is not JSON as a failed load", async () => {
+    answerWithBadBody(502);
+
+    await expect(getMyEventRequests()).resolves.toEqual(NOT_LOADED);
+  });
 });

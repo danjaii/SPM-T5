@@ -20,6 +20,8 @@ export async function getMyEventRequests(): Promise<{ requests: MyEventRequest[]
     return { error: "We couldn't reach the server. Please try again." };
   }
   if (res.status === 401) redirect("/login");
-  const data = await res.json().catch(() => ({}));
-  return res.ok ? { requests: data as MyEventRequest[] } : { error: data.error ?? "We couldn't load your event requests. Please try again." };
+  // A body that is not JSON, or a 200 that is not a list, is a failed load: the page maps over `requests`
+  const data = await res.json().catch(() => undefined);
+  if (res.ok && Array.isArray(data)) return { requests: data as MyEventRequest[] };
+  return { error: data?.error ?? "We couldn't load your event requests. Please try again." };
 }
