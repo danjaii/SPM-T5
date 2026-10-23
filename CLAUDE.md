@@ -147,6 +147,11 @@ venue 4003, equipment 4004, notification 4005).
   migration history and the next `db push` then re-runs or skips files.
 - **Tests live in `tests/unit` and `tests/integration` per workspace**, not colocated with source.
   The CI template runs the two separately, and only `test:unit` gets `--coverage`.
+- **Integration tests only assert on data they create.** Vitest runs test files at the same time, all against one
+  shared database, so another file may be adding, changing or deleting rows while yours runs. An exact count or list must
+  come from rows and accounts the test made itself (its own Lead, its own venue bookings), never from seeded data or
+  from a read of a whole table; checks on seeded data should say what is included or left out, not "exactly these". Two
+  tests that broke this rule failed at random in CI (SCRUM-143).
 - **Export the Express app separately from `listen()`** so integration tests can mount it without
   binding a port.
 - **`src/app/` in `apps/web` is routes only** — every folder is a URL segment. Components go in
