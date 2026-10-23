@@ -321,3 +321,22 @@ describe("SCRUM-133/AC4 cancelling one venue booking leaves the others unchanged
     expect(within(other).getByRole("button", { name: "Cancel the Lotus Room venue booking" })).toBeTruthy();
   });
 });
+
+// SCRUM-134/AC3: the reason Venue Staff give shows on that venue's card, and only on that one.
+describe("SCRUM-134/AC3 the rejection reason shows on that venue's booking card", () => {
+  it("shows the reason, with the Rejected badge, on the rejected booking's card and not on the others", () => {
+    render(
+      <EventVenueBookings
+        bookings={[
+          aBooking({ id: "b-1", venueName: "Orchid Hall", status: "REJECTED", rejectionReason: "Room 3.2 is booked from 16:30." }),
+          aBooking({ id: "b-2", venueName: "Lotus Room" }),
+        ]}
+      />,
+    );
+
+    const [rejected, other] = rows();
+    expect(within(rejected).getByText("Rejected")).toBeTruthy();
+    expect(within(rejected).getByText("Room 3.2 is booked from 16:30.")).toBeTruthy();
+    expect(other.textContent).not.toContain("Room 3.2 is booked");
+  });
+});

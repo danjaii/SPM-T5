@@ -31,7 +31,7 @@ const NOTE: SentBackNote = {
 };
 
 const queueItem = (over: Partial<QueueItemView> = {}): QueueItemView => ({
-  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1",
+  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", setupMinutes: 0, turnaroundMinutes: 0,
   venueName: "Orchid Hall", date: "2026-12-12", startTime: "10:00", endTime: "12:00", eventName: "Tech Summit",
   expectedAttendance: 480, venueRequirements: null, accessibilityNeeds: null, requestedByName: "Rachel Tan",
   submittedAt: "2026-10-01T02:30:00.000Z", amendsRequestId: null, flags: [], sentBack: null, ...over,

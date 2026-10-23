@@ -6,6 +6,7 @@ import {
   type SentBackNote,
   type UnmetRequirement,
   type VenueBookingStatus,
+  type VenueTiming,
 } from "@spm-t5/shared";
 import { rejectionReasonOf } from "./dto";
 import type { BookingRecord } from "./types";
@@ -17,6 +18,9 @@ export interface QueueItem {
   eventId: string;
   venueId: string;
   venueName: string;
+  /** SCRUM-134/AC1: the venue's setup and turnaround, so the queue can show the whole time the request occupies. */
+  setupMinutes: number;
+  turnaroundMinutes: number;
   date: string;
   startTime: string;
   endTime: string;
@@ -56,12 +60,15 @@ export function toQueueItem(
   requestedByName: string | null,
   flags: FlagDto[] = [],
   layoutNames: ReadonlyMap<string, string> = new Map(),
+  timing: VenueTiming = { setupMinutes: 0, turnaroundMinutes: 0 },
 ): QueueItem {
   return {
     id: b.id,
     eventId: b.eventId,
     venueId: b.venueId,
     venueName,
+    setupMinutes: timing.setupMinutes,
+    turnaroundMinutes: timing.turnaroundMinutes,
     date: utcToSgt(b.start).date,
     startTime: utcToSgt(b.start).time,
     endTime: utcToSgt(b.end).time,
@@ -86,11 +93,12 @@ export function toQueueDetail(
   names: Map<string, string>,
   flags: FlagDto[] = [],
   layoutNames: ReadonlyMap<string, string> = new Map(),
+  timing: VenueTiming = { setupMinutes: 0, turnaroundMinutes: 0 },
 ): QueueDetail {
   const status = dbStatusToApi(b.status);
   const decided = status === "APPROVED" || status === "REJECTED";
   return {
-    ...toQueueItem(b, venueName, (b.requestedBy && names.get(b.requestedBy)) || null, flags, layoutNames),
+    ...toQueueItem(b, venueName, (b.requestedBy && names.get(b.requestedBy)) || null, flags, layoutNames, timing),
     status,
     decidedByName: decided && b.reviewedBy ? (names.get(b.reviewedBy) ?? null) : null,
     decidedAt: decided && b.reviewedAt ? b.reviewedAt.toISOString() : null,
