@@ -131,8 +131,33 @@ export interface EquipmentQueueItemView {
   sentBack?: SentBackNote | null;
 }
 
+/** SCRUM-137: an event holding some of the units during the period. */
+export interface EquipmentHolderView {
+  eventName: string;
+  units: number;
+}
+
+/** SCRUM-137: why none of an item can be used; equipment-service sends null for working equipment. */
+export type OutOfServiceReason = "damaged" | "under_maintenance" | "retired";
+
+/** SCRUM-137/AC1: free units in the request's period against how many it needs, and why the rest are not free. */
+export interface RequestAvailabilityView {
+  available: number;
+  needed: number;
+  sufficient: boolean;
+  heldBy: EquipmentHolderView[];
+  outOfService: OutOfServiceReason | null;
+}
+
+/** SCRUM-137: where held units are, as the mock-up words it: "4 with Robotics Meetup, 1 with Film Society". */
+export function holdersText(heldBy: EquipmentHolderView[]): string {
+  return heldBy.map((h) => `${h.units} with ${h.eventName}`).join(", ");
+}
+
 /** SCRUM-87/AC3: GET /equipment-requests/:id, one request in full. Times are Singapore time. */
 export interface EquipmentRequestDetailView extends EquipmentQueueItemView {
+  /** SCRUM-137/AC1: only while the request can be reviewed; null (or missing) otherwise. */
+  availability?: RequestAvailabilityView | null;
   startTime: string;
   endTime: string;
   notes: string | null;
