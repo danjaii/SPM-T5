@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 // SCRUM-6/7: shows an event's current status. SCRUM-8: the assigned coordinator can also change it.
 // SCRUM-45: the assigned coordinator starts the review. SCRUM-24: they also approve or reject it.
 /** SCRUM-127: `activeTab` is the page's tab (the review actions and Change status belong to the overview), `meta` the line under the title. */
-export function EventStatusPanel({ event, activeTab = "overview", meta, children }: { event: EventStatusView; activeTab?: EventTabId; meta?: string; children?: ReactNode }) {
+export function EventStatusPanel({ event, activeTab = "overview", meta, notice, children }: { event: EventStatusView; activeTab?: EventTabId; meta?: string; notice?: ReactNode; children?: ReactNode }) {
   const [status, setStatus] = useState(event.status);
   // SCRUM-127/AC2: the status before the latest change, so a rejection or cancellation made here lands on the right stage
   const [previousStatus, setPreviousStatus] = useState(event.previous_status);
@@ -85,6 +85,9 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, children
           </div>
         )}
       </header>
+
+      {/* SCRUM-135: a venue booking that needs attention is said at the top of every tab */}
+      {notice}
 
       <StatusStepper status={status} hasCoordinator={Boolean(event.point_of_contact_name)} previousStatus={previousStatus} />
 
