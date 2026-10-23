@@ -46,6 +46,8 @@ interface Seen {
   asToken?: string;
   /** Make the events read fail */
   fail?: boolean;
+  /** Make the events read answer with neither rows nor an error (Supabase does not do this for a list, but the types allow it) */
+  noData?: boolean;
 }
 
 /** Pretends to be Supabase: .eq() narrows, .order() sorts, .limit() caps; awaiting gives the rows. */
@@ -64,7 +66,14 @@ function createFake(events: Row[], seen: Seen = {}) {
       return query(rows.slice(0, n));
     },
     maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
-    then: (resolve: (result: unknown) => void) => resolve(seen.fail && seen.columns ? { data: null, error: { message: "boom" } } : { data: project(rows), error: null }),
+    then: (resolve: (result: unknown) => void) =>
+      resolve(
+        seen.fail && seen.columns
+          ? { data: null, error: { message: "boom" } }
+          : seen.noData && seen.columns
+            ? { data: null, error: null }
+            : { data: project(rows), error: null },
+      ),
   });
   return {
     anon: {
@@ -160,6 +169,13 @@ describe("SCRUM-52/AC1 — an organiser lists their event requests (GET /events/
 
   it("SCRUM-52/AC1 answers 500, not an empty list, when the requests cannot be read", async () => {
     const res = await get(createFake([eventRow()], { fail: true }), ORGANISER);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/couldn't load/i);
+  });
+
+  it("SCRUM-52/AC1 answers 500, not an empty list, when the read returns neither rows nor an error", async () => {
+    const res = await get(createFake([eventRow()], { noData: true }), ORGANISER);
 
     expect(res.status).toBe(500);
     expect(res.body.error).toMatch(/couldn't load/i);

@@ -25,9 +25,9 @@ export function myEventRequestRoutes(deps: SupabaseDeps) {
       .eq("organiser_id", user.id)
       .order("created_at", { ascending: false })
       .limit(MY_REQUESTS_LIMIT);
-    // "No requests" must mean there are none, so a failed read is an error, not []
-    if (error) return res.status(500).json({ error: "We couldn't load your event requests. Please try again." });
-    return res.json(data ?? []);
+    // "No requests" must mean there are none, so a failed read, or one that gave back nothing at all, is an error, not []
+    if (error || !data) return res.status(500).json({ error: "We couldn't load your event requests. Please try again." });
+    return res.json(data);
   });
 
   return router;
