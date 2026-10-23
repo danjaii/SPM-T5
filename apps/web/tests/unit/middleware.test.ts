@@ -21,50 +21,6 @@ describe("SCRUM-71 — Dashboard route guard", () => {
 // end of SCRUM-71
 
 // ---------------------------------------------------------------------------
-// SCRUM-15 — Each role only reaches the pages authorised for it
-// ---------------------------------------------------------------------------
-describe("SCRUM-15 — Role-based route guard", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  const signedInAs = (role: string) => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ role }) }));
-    return { headers: { cookie: `cs_session=token-${role}` } };
-  };
-  const open = (path: string, role: string) => middleware(new NextRequest(`http://localhost:3000${path}`, signedInAs(role)));
-  const isDenied = (res: Response) => res.headers.get("location") === "http://localhost:3000/access-denied";
-
-  const STORY_ROLES = [
-    ["AC1", "event_organiser"],
-    ["AC2", "event_coordinator"],
-    ["AC3", "venue_staff"],
-    ["AC4", "technical_support_staff"],
-    ["AC5", "attendee"],
-  ] as const;
-
-  // AC1-AC5: each role opens its own dashboard, and every other role's dashboard shows the access-denied page
-  it.each(STORY_ROLES)("SCRUM-15/%s %s opens its own dashboard and no one else's", async (_ac, role) => {
-    expect(isDenied(await open(`/dashboard/${role}`, role))).toBe(false);
-    for (const [, other] of STORY_ROLES.filter(([, r]) => r !== role)) {
-      expect(isDenied(await open(`/dashboard/${other}`, role)), `${role} opening /dashboard/${other}`).toBe(true);
-    }
-  });
-
-  // AC3: the venue booking queue is for venue staff; AC4: the equipment pages are for Technical Support Staff
-  it.each([
-    ["AC3", "/booking-queue", "venue_staff"],
-    ["AC4", "/equipment-requests", "technical_support_staff"],
-    ["AC4", "/equipment-availability", "technical_support_staff"],
-    ["AC4", "/equipment-reservation", "technical_support_staff"],
-  ])("SCRUM-15/%s %s opens only for %s", async (_ac, path, owner) => {
-    expect(isDenied(await open(path, owner))).toBe(false);
-    for (const [, other] of STORY_ROLES.filter(([, r]) => r !== owner)) {
-      expect(isDenied(await open(path, other)), `${other} opening ${path}`).toBe(true);
-    }
-  });
-});
-// end of SCRUM-15
-
-// ---------------------------------------------------------------------------
 // SCRUM-83 — The registration form is behind the route guard too, and remembers where the guest was going
 // ---------------------------------------------------------------------------
 describe("SCRUM-83 — Registration form route guard", () => {
@@ -177,3 +133,47 @@ describe("SCRUM-122 — Access-denied route guard", () => {
   });
 });
 // end of SCRUM-122
+
+// ---------------------------------------------------------------------------
+// SCRUM-15 — Each role only reaches the pages authorised for it
+// ---------------------------------------------------------------------------
+describe("SCRUM-15 — Role-based route guard", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const signedInAs = (role: string) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ role }) }));
+    return { headers: { cookie: `cs_session=token-${role}` } };
+  };
+  const open = (path: string, role: string) => middleware(new NextRequest(`http://localhost:3000${path}`, signedInAs(role)));
+  const isDenied = (res: Response) => res.headers.get("location") === "http://localhost:3000/access-denied";
+
+  const STORY_ROLES = [
+    ["AC1", "event_organiser"],
+    ["AC2", "event_coordinator"],
+    ["AC3", "venue_staff"],
+    ["AC4", "technical_support_staff"],
+    ["AC5", "attendee"],
+  ] as const;
+
+  // AC1-AC5: each role opens its own dashboard, and every other role's dashboard shows the access-denied page
+  it.each(STORY_ROLES)("SCRUM-15/%s %s opens its own dashboard and no one else's", async (_ac, role) => {
+    expect(isDenied(await open(`/dashboard/${role}`, role))).toBe(false);
+    for (const [, other] of STORY_ROLES.filter(([, r]) => r !== role)) {
+      expect(isDenied(await open(`/dashboard/${other}`, role)), `${role} opening /dashboard/${other}`).toBe(true);
+    }
+  });
+
+  // AC3: the venue booking queue is for venue staff; AC4: the equipment pages are for Technical Support Staff
+  it.each([
+    ["AC3", "/booking-queue", "venue_staff"],
+    ["AC4", "/equipment-requests", "technical_support_staff"],
+    ["AC4", "/equipment-availability", "technical_support_staff"],
+    ["AC4", "/equipment-reservation", "technical_support_staff"],
+  ])("SCRUM-15/%s %s opens only for %s", async (_ac, path, owner) => {
+    expect(isDenied(await open(path, owner))).toBe(false);
+    for (const [, other] of STORY_ROLES.filter(([, r]) => r !== owner)) {
+      expect(isDenied(await open(path, other)), `${other} opening ${path}`).toBe(true);
+    }
+  });
+});
+// end of SCRUM-15
