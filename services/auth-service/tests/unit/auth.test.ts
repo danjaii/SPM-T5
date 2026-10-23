@@ -219,9 +219,9 @@ describe("US2 — Register", () => {
 });
 
 // ---------------------------------------------------------------------------
-// US3 — Role based access control
+// SCRUM-15 — Role based access control (US3)
 // ---------------------------------------------------------------------------
-describe("US3 — Role based access", () => {
+describe("SCRUM-15 — Role based access", () => {
   const sectionTitles = async (email: string, role: string) => {
     const cookie = await signInAs(email, role);
     const res = await request(app).get("/dashboard").set("Cookie", cookie);
@@ -229,23 +229,28 @@ describe("US3 — Role based access", () => {
     return (res.body.sections as { title: string }[]).map((s) => s.title);
   };
 
+  // AC1-AC5: each role's dashboard has its own sections and nothing from another role's
   it.each([
-    ["event_organiser", ["My event requests"]],
-    ["event_coordinator", ["Events I coordinate", "My venue booking requests"]],
-    ["venue_staff", ["Venues", "Booking requests awaiting review"]],
-    ["technical_support_staff", ["Equipment", "Technical support requests"]],
+    ["AC1", "event_organiser", ["My event requests"]],
+    ["AC2", "event_coordinator", ["Events I coordinate", "My venue booking requests"]],
+    ["AC3", "venue_staff", ["Venues", "Booking requests awaiting review"]],
+    ["AC4", "technical_support_staff", ["Equipment", "Technical support requests"]],
     // SCRUM-71/AC1: the attendee's List of events comes from event-service now, not this endpoint
-    ["attendee", ["My registrations & tickets"]],
-    // SCRUM-69 / week 7 changes: two new internal roles. Their real dashboards (the Lead's queue, the Safety Officer's checks)
-    // come with their own stories, so for now they get an empty one, and not an error.
-    ["event_coordinator_lead", []],
-    ["safety_officer", []],
-  ])("%s only sees its own dashboard sections", async (role, expected) => {
+    ["AC5", "attendee", ["My registrations & tickets"]],
+  ])("SCRUM-15/%s %s only sees its own dashboard sections", async (_ac, role, expected) => {
     fake.seedUser(`${role}@example.com`, role);
     expect(await sectionTitles(`${role}@example.com`, role)).toEqual(expected);
   });
 
-  it("shows an event organiser only their own events", async () => {
+  // SCRUM-69 / week 7 changes: two new internal roles. Their real dashboards (the Lead's queue, the Safety Officer's checks)
+  // come with their own stories, so for now they get an empty one, and not an error.
+  it.each(["event_coordinator_lead", "safety_officer"])("%s gets an empty dashboard, not an error", async (role) => {
+    fake.seedUser(`${role}@example.com`, role);
+    expect(await sectionTitles(`${role}@example.com`, role)).toEqual([]);
+  });
+
+  // AC1: an organiser manages their own events, not other organisers'
+  it("SCRUM-15/AC1 shows an event organiser only their own events", async () => {
     const mine = fake.seedUser("org@example.com", "event_organiser");
     const other = fake.seedUser("org2@example.com", "event_organiser");
     fake.tables.events.push(
