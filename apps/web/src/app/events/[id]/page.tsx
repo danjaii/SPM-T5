@@ -13,6 +13,7 @@ import { EventRequestDetails } from "@/components/EventRequestDetails";
 import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBookings } from "@/components/EventVenueBookings";
+import { NeedsAttentionBanner } from "@/components/NeedsAttentionBanner";
 import { EventSafetyDecisions } from "@/components/EventSafetyDecisions";
 import { EventSection, Unavailable } from "@/components/event/EventSection";
 import { InlineMessage } from "@/components/event/InlineMessage";
@@ -87,7 +88,7 @@ export default async function EventPage({
       <main className="dash__main">
         <Link className="mb-4 inline-block text-sm font-medium text-fg-primary hover:underline" href="/dashboard">← Back to dashboard</Link>
         {view ? (
-          <EventStatusPanel event={view} activeTab={tab} meta={meta}>
+          <EventStatusPanel event={view} activeTab={tab} meta={meta} notice={venueBookings && <NeedsAttentionBanner bookings={venueBookings} />}>
             {tab === "overview" && (
               <>
                 {/* SCRUM-44/AC5: "still being reviewed" only while it really is (Submitted / Under review), and only
