@@ -1,4 +1,4 @@
-import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, ListChecks, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, ListChecks, Package, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { Role } from "@spm-t5/shared";
 
 /** The queues whose size is shown beside a nav item (SCRUM-121/AC2). */
@@ -43,6 +43,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
   technical_support_staff: [
     dashboard("technical_support_staff"),
     { label: "Equipment requests", href: "/equipment-requests", icon: Wrench, queue: "equipmentQueue" },
+    // SCRUM-137/AC2: every item's free, working units for a period
+    { label: "Inventory", href: "/equipment-inventory", icon: Package },
     { label: "Equipment availability", href: "/equipment-availability", icon: CalendarDays },
     { label: "Reserve equipment", href: "/equipment-reservation", icon: ClipboardList },
   ],

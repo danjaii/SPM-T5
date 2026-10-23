@@ -7,6 +7,7 @@ const ROLE_ONLY: { prefix: string; role: string }[] = [
   { prefix: "/safety-checks", role: "safety_officer" },
   { prefix: "/equipment-requests", role: "technical_support_staff" },
   { prefix: "/equipment-availability", role: "technical_support_staff" },
+  { prefix: "/equipment-inventory", role: "technical_support_staff" }, // SCRUM-137/AC2
   { prefix: "/equipment-reservation", role: "technical_support_staff" },
   // SCRUM-52/AC2: an organiser's own requests
   { prefix: "/my-event-requests", role: "event_organiser" },

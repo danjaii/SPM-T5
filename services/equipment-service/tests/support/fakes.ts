@@ -39,7 +39,7 @@ export class FakeEquipmentReader implements EquipmentReader {
   }
 }
 
-/** One reservation. Defaults to 4 approved Projector Units, 15 Oct 2026, 09:00 to 17:00 Singapore time. */
+/** One reservation. Defaults to 4 approved Projector Units for Robotics Meetup, 15 Oct 2026, 09:00 to 17:00 Singapore time. */
 export const aReservation = (overrides: Partial<ReservationInfo> = {}): ReservationInfo => ({
   equipmentId: "eq-projector",
   start: new Date("2026-10-15T01:00:00Z"),
@@ -47,6 +47,7 @@ export const aReservation = (overrides: Partial<ReservationInfo> = {}): Reservat
   status: "approved",
   quantityRequested: 4,
   quantityReserved: null,
+  eventName: "Robotics Meetup",
   ...overrides,
 });
 

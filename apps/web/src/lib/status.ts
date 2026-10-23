@@ -8,6 +8,7 @@ import {
   type EventStatus,
   type VenueBookingStatus,
 } from "@spm-t5/shared";
+import type { OutOfServiceReason } from "./equipmentRequests";
 
 // SCRUM-120/AC2: the one place that decides how a status looks. Every event, venue booking and equipment request status maps
 // to a tone, an icon and a label; StatusBadge renders them. A status never uses the primary (button) colour, and the icon
@@ -78,6 +79,26 @@ export const ALL_STATUS_DISPLAYS: { group: string; key: string; display: StatusD
 export function unknownStatusDisplay(status: string): StatusDisplay {
   return display("neutral", status);
 }
+
+/**
+ * SCRUM-137/AC1: whether enough units are free, as the mock-up's labels. Any shortfall is a fail, so both short states
+ * use the cross icon: Partial (some free) keeps the mock-up's amber, Unavailable (none free) is danger.
+ */
+export function availabilityDisplay(available: number, needed: number): StatusDisplay {
+  if (available >= needed) return display("success", "Enough");
+  if (available > 0) return display("warning", "Partial", "x");
+  return display("danger", "Unavailable");
+}
+
+/** SCRUM-137/AC2: why none of an item can be used. */
+export const OUT_OF_SERVICE_DISPLAY: Record<OutOfServiceReason, StatusDisplay> = {
+  damaged: display("danger", "Damaged", "x"),
+  under_maintenance: display("warning", "Under maintenance", "pause"),
+  retired: display("neutral", "Retired", "timer-off"),
+};
+
+/** SCRUM-137/AC2: units held by other events during the period. */
+export const RESERVED_DISPLAY: StatusDisplay = display("info", "Reserved", "pause");
 
 /** SCRUM-135/AC1: how a booking flag looks. A clash with another booking is a Conflict (danger); a blocked venue is Venue unavailable (warning). */
 export const FLAG_DISPLAY: Record<VenueBookingFlagKind, StatusDisplay> = {

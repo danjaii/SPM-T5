@@ -6,7 +6,7 @@ import { AvailabilityService } from "../services/availabilityService";
 import { ReservationService } from "../services/reservationService";
 
 /**
- * SCRUM-18: the availability check and the names it suggests. SCRUM-19: reservations.
+ * SCRUM-18: the availability check and the names it suggests. SCRUM-19: reservations. SCRUM-137: the inventory.
  * Session middleware is mounted by the caller.
  */
 export function equipmentRoutes(portsFor: PortsFactory, now: () => Date) {
@@ -38,6 +38,15 @@ export function equipmentRoutes(portsFor: PortsFactory, now: () => Date) {
     asyncHandler(async (req, res) => {
       const { caller, availability } = await context(res.locals.user as SessionUser);
       res.set("Cache-Control", "no-store").json(await availability.check(caller, req.query));
+    }),
+  );
+
+  // SCRUM-137/AC2: the inventory for a period. No caching, like the check above.
+  router.get(
+    "/equipment-inventory",
+    asyncHandler(async (req, res) => {
+      const { caller, availability } = await context(res.locals.user as SessionUser);
+      res.set("Cache-Control", "no-store").json(await availability.inventory(caller, req.query));
     }),
   );
 
