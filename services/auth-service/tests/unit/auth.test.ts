@@ -130,18 +130,18 @@ describe("US1 — Login", () => {
 });
 
 // ---------------------------------------------------------------------------
-// US2 — Register for ConnectSphere
+// SCRUM-12 — Account Registration (US2)
 // ---------------------------------------------------------------------------
-describe("US2 — Register", () => {
+describe("SCRUM-12 — Account Registration", () => {
   const valid = { fullName: "Jamie Lee", email: "jamie@example.com", password: "Passw0rd!", confirmPassword: "Passw0rd!", role: "attendee" };
   const register = (body: Record<string, unknown>) => request(app).post("/auth/register").send({ ...valid, ...body });
 
-  it("does not log the user in after registering", async () => {
+  it("SCRUM-12/AC9 does not log the user in after registering, so they go on to the login page", async () => {
     const res = await register({});
     expect(res.headers["set-cookie"]).toBeUndefined();
   });
 
-  it("shows a clear message for an invalid email", async () => {
+  it("SCRUM-12/AC2,AC6 shows a clear message next to an invalid email, and creates no account", async () => {
     const res = await register({ email: "not-an-email" });
 
     expect(res.status).toBe(400);
@@ -149,13 +149,13 @@ describe("US2 — Register", () => {
     expect(fake.tables.users).toHaveLength(0);
   });
 
-  it("requires a full name", async () => {
+  it("SCRUM-12/AC1 requires a full name", async () => {
     const noName = await register({ fullName: " " });
 
     expect(noName.body.fieldErrors.fullName).toBeDefined();
   });
 
-  it("rejects an email that is already registered", async () => {
+  it("SCRUM-12/AC4 rejects an email that is already registered, with the agreed message", async () => {
     fake.seedUser("jamie@example.com", "attendee");
     const res = await register({});
 
@@ -163,13 +163,13 @@ describe("US2 — Register", () => {
     expect(res.body.fieldErrors.email).toBe("An account with this email already exists.");
   });
 
-  it("treats emails case-insensitively when checking for duplicates", async () => {
+  it("SCRUM-12/AC3 treats emails case-insensitively when checking for duplicates", async () => {
     fake.seedUser("jamie@example.com", "attendee");
     const res = await register({ email: "Jamie@Example.com" });
     expect(res.status).toBe(409);
   });
 
-  it("rejects an email Supabase already knows about even if it has no profile row yet", async () => {
+  it("SCRUM-12/AC3 rejects an email Supabase already knows about even if it has no profile row yet", async () => {
     fake.authUsers.push({ id: "orphan", email: "jamie@example.com", password: "x", confirmed: true });
     const res = await register({});
 
@@ -177,7 +177,7 @@ describe("US2 — Register", () => {
     expect(fake.tables.users).toHaveLength(0);
   });
 
-  it("tells the user to wait, rather than to retry, when Supabase's email rate limit is hit", async () => {
+  it("SCRUM-12/AC13 tells the user to wait, rather than to retry, when Supabase's email rate limit is hit", async () => {
     fake.signUpError.value = { status: 429, code: "over_email_send_rate_limit", message: "email rate limit exceeded" };
     const res = await register({});
 
@@ -186,7 +186,7 @@ describe("US2 — Register", () => {
     expect(fake.tables.users).toHaveLength(0);
   });
 
-  it("removes the auth account again if the profile can't be saved, so the email isn't stuck", async () => {
+  it("SCRUM-12/AC13 removes the auth account again if the profile can't be saved, so the email isn't stuck", async () => {
     fake.failProfileInsert.value = true;
     const res = await register({});
 
