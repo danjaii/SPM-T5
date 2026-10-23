@@ -30,6 +30,7 @@ Scenarios:
 Scenarios:
 - S1: with another organiser's events in the data, `GET /events/my-requests` returns only the caller's.
 - S2: the query is made as the caller (RLS policy `events_select`, migration 14, is the real boundary) and also filters on `organiser_id`.
+- S3: the page is for Event Organisers only. Any other signed-in role who opens `/my-event-requests` (or a path under it) is sent to the access-denied page by the route guard, like the other role-only pages (SCRUM-122/AC3); a guest is sent to sign in. The API's 403 for non-organisers stays as the second line.
 
 ### AC3 — Access request details
 - **Given** I select a specific request from my list
@@ -49,6 +50,8 @@ Scenarios:
 | AC1 | `apps/web/tests/unit/my-event-requests-server.test.ts` | `SCRUM-52/AC1 loading my event requests` |
 | AC2 | `services/event-service/tests/unit/my-event-requests.test.ts` | `SCRUM-52/AC2 …` |
 | AC2 | `services/event-service/tests/integration/myEventRequestsDb.test.ts` | `SCRUM-52/AC2 …` |
+| AC2 | `apps/web/tests/unit/role-access.test.ts` | `SCRUM-52/AC2 role access for My event requests` (S3: the rule, look-alike paths, matcher in sync) |
+| AC2 | `apps/web/tests/unit/middleware.test.ts` | `SCRUM-52/AC2 — My event requests route guard` (S3: each non-organiser role goes to access-denied, the organiser passes, a guest goes to sign in) |
 | AC3 | `apps/web/tests/unit/my-event-requests-details.test.tsx` | `SCRUM-52/AC3 opening a request from My event requests` |
 
 AC3 needed no new code: the event page, `GET /events/:id` and `GET /events/:id/change-history` already serve the organiser (tested under SCRUM-7 and SCRUM-111). The AC3 tests are page-level and trace it to this story.
@@ -56,14 +59,13 @@ AC3 needed no new code: the event page, `GET /events/:id` and `GET /events/:id/c
 ## Affected workspaces
 
 - `services/event-service`: new route `routes/myEventRequests.ts`, mounted before `eventRoutes` in `app.ts` (so `my-requests` is not read as an `:id`).
-- `apps/web`: new page `app/my-event-requests`, server helper `lib/myEventRequestsServer.ts`, nav entry in `lib/nav.ts`, a "View all" link on the dashboard section.
+- `apps/web`: new page `app/my-event-requests`, server helper `lib/myEventRequestsServer.ts`, nav entry in `lib/nav.ts`, a "View all" link on the dashboard section, and the role guard: one `ROLE_ONLY` entry in `lib/roleAccess.ts` and its matcher in `middleware.ts` (the existing `roleAccess` test that pins the number of role-only routes goes from 5 to 6).
 - No migration. No `packages/shared` change. No C4 or ADR change.
 
 ## Out of scope
 
 - Draft behaviour, filters or grouping (SCRUM-53/55).
 - Search, sorting controls and pagination.
-- A role-only route guard: the API's 403 message is shown instead.
 
 ## Open questions
 
