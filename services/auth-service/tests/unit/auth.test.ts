@@ -95,8 +95,13 @@ describe("SCRUM-13 login", () => {
     expect(res.status).toBe(200);
     expect(res.body.redirectTo).toBe(`/dashboard/${role}`);
   });
+});
 
-  it("offers a password reset: sends a reset email pointing at the web app's reset page", async () => {
+// ---------------------------------------------------------------------------
+// SCRUM-14 — Password reset
+// ---------------------------------------------------------------------------
+describe("SCRUM-14 password reset", () => {
+  it("SCRUM-14/AC2 sends a reset email pointing at the web app's reset page", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const res = await request(app).post("/auth/forgot-password").send({ email: "rachel@example.com" });
 
@@ -104,7 +109,7 @@ describe("SCRUM-13 login", () => {
     expect(fake.calls.resetEmails).toEqual([{ email: "rachel@example.com", redirectTo: "http://localhost:3000/reset-password" }]);
   });
 
-  it("gives the same reset reply whether or not the email has an account", async () => {
+  it("SCRUM-14/AC2 gives the same reset reply whether or not the email has an account", async () => {
     fake.seedUser("rachel@example.com", "event_coordinator");
     const known = await request(app).post("/auth/forgot-password").send({ email: "rachel@example.com" });
     const unknown = await request(app).post("/auth/forgot-password").send({ email: "nobody@example.com" });
@@ -113,13 +118,13 @@ describe("SCRUM-13 login", () => {
     expect(unknown.body).toEqual(known.body);
   });
 
-  it("rejects a malformed email on the reset form", async () => {
+  it("SCRUM-14/AC2 rejects a malformed email on the reset form", async () => {
     const res = await request(app).post("/auth/forgot-password").send({ email: "not-an-email" });
     expect(res.status).toBe(400);
     expect(res.body.fieldErrors.email).toBe("Enter a valid email address.");
   });
 
-  it("sets a new password from a valid reset link, so the user can log in with it", async () => {
+  it("SCRUM-14/AC4 sets a new password that meets the rules from a valid reset link, so the user can log in with it", async () => {
     const id = fake.seedUser("rachel@example.com", "event_coordinator");
     const res = await request(app).post("/auth/reset-password").send({ accessToken: `reset-${id}`, password: "N3wPassw0rd!" });
 
@@ -127,14 +132,32 @@ describe("SCRUM-13 login", () => {
     expect((await login("rachel@example.com", "N3wPassw0rd!", "event_coordinator")).status).toBe(200);
   });
 
-  it("refuses an invalid reset link, and a new password that breaks the complexity rules", async () => {
+  it("SCRUM-14/AC3 refuses an invalid or expired reset link", async () => {
+    const res = await request(app).post("/auth/reset-password").send({ accessToken: "junk", password: "N3wPassw0rd!" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("This reset link is invalid or has expired.");
+  });
+
+  it("SCRUM-14/AC4 refuses a new password that breaks the complexity rules", async () => {
     const id = fake.seedUser("rachel@example.com", "event_coordinator");
-    const badLink = await request(app).post("/auth/reset-password").send({ accessToken: "junk", password: "N3wPassw0rd!" });
     const weak = await request(app).post("/auth/reset-password").send({ accessToken: `reset-${id}`, password: "weak" });
 
-    expect(badLink.status).toBe(400);
     expect(weak.status).toBe(400);
     expect(weak.body.fieldErrors.password).toBe("Password must be at least 8 characters.");
+  });
+
+  it.each([
+    ["n3wpassw0rd!", "Password must include an uppercase letter."],
+    ["N3WPASSW0RD!", "Password must include a lowercase letter."],
+    ["NewPassword!", "Password must include a number."],
+    ["N3wPassw0rd", "Password must include a symbol."],
+  ])("SCRUM-14/AC4 refuses %s, which breaks one complexity rule", async (password, message) => {
+    const id = fake.seedUser("rachel@example.com", "event_coordinator");
+    const res = await request(app).post("/auth/reset-password").send({ accessToken: `reset-${id}`, password });
+
+    expect(res.status).toBe(400);
+    expect(res.body.fieldErrors.password).toBe(message);
   });
 });
 
@@ -205,9 +228,9 @@ describe("US2 — Register", () => {
 });
 
 // ---------------------------------------------------------------------------
-// US3 — Role based access control
+// SCRUM-15 — Role based access control (US3)
 // ---------------------------------------------------------------------------
-describe("US3 — Role based access", () => {
+describe("SCRUM-15 — Role based access", () => {
   const sectionTitles = async (email: string, role: string) => {
     const cookie = await signInAs(email, role);
     const res = await request(app).get("/dashboard").set("Cookie", cookie);
@@ -215,23 +238,28 @@ describe("US3 — Role based access", () => {
     return (res.body.sections as { title: string }[]).map((s) => s.title);
   };
 
+  // AC1-AC5: each role's dashboard has its own sections and nothing from another role's
   it.each([
-    ["event_organiser", ["My event requests"]],
-    ["event_coordinator", ["Events I coordinate", "My venue booking requests"]],
-    ["venue_staff", ["Venues", "Booking requests awaiting review"]],
-    ["technical_support_staff", ["Equipment", "Technical support requests"]],
+    ["AC1", "event_organiser", ["My event requests"]],
+    ["AC2", "event_coordinator", ["Events I coordinate", "My venue booking requests"]],
+    ["AC3", "venue_staff", ["Venues", "Booking requests awaiting review"]],
+    ["AC4", "technical_support_staff", ["Equipment", "Technical support requests"]],
     // SCRUM-71/AC1: the attendee's List of events comes from event-service now, not this endpoint
-    ["attendee", ["My registrations & tickets"]],
-    // SCRUM-69 / week 7 changes: two new internal roles. Their real dashboards (the Lead's queue, the Safety Officer's checks)
-    // come with their own stories, so for now they get an empty one, and not an error.
-    ["event_coordinator_lead", []],
-    ["safety_officer", []],
-  ])("%s only sees its own dashboard sections", async (role, expected) => {
+    ["AC5", "attendee", ["My registrations & tickets"]],
+  ])("SCRUM-15/%s %s only sees its own dashboard sections", async (_ac, role, expected) => {
     fake.seedUser(`${role}@example.com`, role);
     expect(await sectionTitles(`${role}@example.com`, role)).toEqual(expected);
   });
 
-  it("shows an event organiser only their own events", async () => {
+  // SCRUM-69 / week 7 changes: two new internal roles. Their real dashboards (the Lead's queue, the Safety Officer's checks)
+  // come with their own stories, so for now they get an empty one, and not an error.
+  it.each(["event_coordinator_lead", "safety_officer"])("%s gets an empty dashboard, not an error", async (role) => {
+    fake.seedUser(`${role}@example.com`, role);
+    expect(await sectionTitles(`${role}@example.com`, role)).toEqual([]);
+  });
+
+  // AC1: an organiser manages their own events, not other organisers'
+  it("SCRUM-15/AC1 shows an event organiser only their own events", async () => {
     const mine = fake.seedUser("org@example.com", "event_organiser");
     const other = fake.seedUser("org2@example.com", "event_organiser");
     fake.tables.events.push(

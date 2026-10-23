@@ -19,11 +19,13 @@ function isSafePath(path: string | undefined): path is string {
 interface Props {
   /** SCRUM-83/AC2: where to go after signing in (e.g. the registration form a guest selected), instead of the dashboard. */
   next?: string;
+  /** SCRUM-14/AC6: the user just saved a new password, so confirm it above the form. */
+  passwordReset?: boolean;
 }
 
 const ROLE_ITEMS = ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
 
-export function LoginForm({ next }: Props = {}) {
+export function LoginForm({ next, passwordReset }: Props = {}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,7 +53,7 @@ export function LoginForm({ next }: Props = {}) {
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
       <AuthHeader title="Sign in" lede="Use your ConnectSphere or organisation account." />
 
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
+      {error ? <AuthAlert tone="error">{error}</AuthAlert> : passwordReset && <AuthAlert tone="ok">Password updated. You can now sign in.</AuthAlert>}
 
       <div className="relative">
         <Mail aria-hidden="true" className="pointer-events-none absolute bottom-3 left-3 size-4 text-muted-foreground" />
