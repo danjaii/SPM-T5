@@ -62,20 +62,19 @@ afterEach(() => {
 });
 
 describe("SCRUM-87/AC1 see the list of requests", () => {
-  it("shows event, event date, venue, equipment, quantity and status, linking to each request", () => {
+  it("shows the event and its date, then each request's equipment, quantity, venue and status, linking to it", () => {
     render(<EquipmentQueueList requests={[aQueueItem(), aQueueItem({ id: "req-2", venueName: null, statusLabel: "Under Review" })]} />);
 
+    expect(screen.getByRole("link", { name: /Tech Summit.*2026-10-15/ })).toBeTruthy();
     const rows = screen.getAllByRole("row").slice(1);
-    expect(within(rows[0]).getAllByRole("cell").map((c) => c.textContent)).toEqual([
-      "Tech Summit",
-      "2026-10-15",
-      "Grand Hall",
+    expect(within(rows[0]).getAllByRole("cell").slice(0, 4).map((c) => c.textContent)).toEqual([
       "AV: Projector Unit",
       "2",
+      "Grand Hall",
       "Submitted",
     ]);
     expect(within(rows[1]).getAllByRole("cell")[2].textContent).toBe("No venue");
-    expect(within(rows[1]).getByRole("link", { name: "Tech Summit" }).getAttribute("href")).toBe("/equipment-requests/req-2");
+    expect(within(rows[1]).getByRole("link", { name: "AV: Projector Unit" }).getAttribute("href")).toBe("/equipment-requests/req-2");
   });
 });
 
@@ -107,17 +106,37 @@ describe("SCRUM-87/AC3 see request details", () => {
   });
 });
 
+/** Opens the New status list and gives the choices it offers. */
+async function statusChoices() {
+  fireEvent.click(screen.getByRole("combobox", { name: "New status" }));
+  return (await screen.findAllByRole("option")).map((o) => o.textContent);
+}
+
+/** Picks a new status from the list, as Technical Support Staff do. */
+async function pickStatus(label: string) {
+  fireEvent.click(screen.getByRole("combobox", { name: "New status" }));
+  const option = await screen.findByRole("option", { name: label });
+  // Base UI ignores a click that follows opening too quickly, as a stray double click would
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  fireEvent.pointerDown(option);
+  fireEvent.mouseDown(option);
+  fireEvent.pointerUp(option);
+  fireEvent.mouseUp(option);
+  fireEvent.click(option);
+}
+
 describe("SCRUM-87/AC4 update the status", () => {
-  const statusSelect = () => screen.getByLabelText("New status") as HTMLSelectElement;
+  const statusSelect = () => screen.getByRole("combobox", { name: "New status" });
   const save = () => fireEvent.click(screen.getByRole("button", { name: "Save status" }));
 
-  it("offers Under Review, Arranged and Cannot Fulfil, leaving out the status it already has", () => {
+  it("offers Under Review, Arranged and Cannot Fulfil, leaving out the status it already has", async () => {
     const { unmount } = render(<EquipmentRequestReview request={aDetail()} />);
-    expect([...statusSelect().options].map((o) => o.text)).toEqual(["Choose the new status", "Under Review", "Arranged", "Cannot Fulfil"]);
+    expect(statusSelect().textContent).toContain("Choose the new status");
+    expect(await statusChoices()).toEqual(["Under Review", "Arranged", "Cannot Fulfil"]);
     unmount();
 
     render(<EquipmentRequestReview request={aDetail({ status: "UNDER_REVIEW" })} />);
-    expect([...statusSelect().options].map((o) => o.text)).toEqual(["Choose the new status", "Arranged", "Cannot Fulfil"]);
+    expect(await statusChoices()).toEqual(["Arranged", "Cannot Fulfil"]);
   });
 
   it("is not shown once the request can no longer be changed", () => {
@@ -138,7 +157,7 @@ describe("SCRUM-87/AC4 update the status", () => {
   it("sends the new status to equipment-service and refreshes the page, where it shows", async () => {
     const fetchMock = mockServer(200, aDetail({ status: "ARRANGED", statusLabel: "Arranged", canReview: false }));
     render(<EquipmentRequestReview request={aDetail({ id: "req 1" })} />);
-    fireEvent.change(statusSelect(), { target: { value: "ARRANGED" } });
+    await pickStatus("Arranged");
     save();
 
     await waitFor(() => expect(refresh).toHaveBeenCalled());
@@ -154,7 +173,7 @@ describe("SCRUM-87/AC4 update the status", () => {
     const error = "Only 1 available for that period, but this request needs 2. It has not been marked Arranged.";
     mockServer(409, { code: "INSUFFICIENT", error, available: 1 });
     render(<EquipmentRequestReview request={aDetail()} />);
-    fireEvent.change(statusSelect(), { target: { value: "ARRANGED" } });
+    await pickStatus("Arranged");
     save();
 
     expect((await screen.findByRole("alert")).textContent).toBe(error);
@@ -164,7 +183,7 @@ describe("SCRUM-87/AC4 update the status", () => {
   it("shows a general message when the refusal has none, and a message when the server is unreachable", async () => {
     mockServer(500, {});
     render(<EquipmentRequestReview request={aDetail()} />);
-    fireEvent.change(statusSelect(), { target: { value: "UNDER_REVIEW" } });
+    await pickStatus("Under Review");
     save();
     expect((await screen.findByRole("alert")).textContent).toBe("We couldn't save the status. Please try again.");
 
@@ -175,22 +194,21 @@ describe("SCRUM-87/AC4 update the status", () => {
 });
 
 describe("SCRUM-87/AC5 give a reason for Cannot Fulfil", () => {
-  const statusSelect = () => screen.getByLabelText("New status") as HTMLSelectElement;
   const reason = () => screen.getByLabelText("Why it cannot be fulfilled") as HTMLTextAreaElement;
   const save = () => fireEvent.click(screen.getByRole("button", { name: "Save status" }));
 
-  it("asks for the reason only for Cannot Fulfil", () => {
+  it("asks for the reason only for Cannot Fulfil", async () => {
     render(<EquipmentRequestReview request={aDetail()} />);
     expect(screen.queryByLabelText("Why it cannot be fulfilled")).toBeNull();
-    fireEvent.change(statusSelect(), { target: { value: "CANNOT_FULFIL" } });
+    await pickStatus("Cannot Fulfil");
     expect(reason()).toBeTruthy();
     expect(screen.getByText("0/500. The Event Coordinator will see this.")).toBeTruthy();
   });
 
-  it("does not send without a reason, and asks for one", () => {
+  it("does not send without a reason, and asks for one", async () => {
     const fetchMock = mockServer(200, {});
     render(<EquipmentRequestReview request={aDetail()} />);
-    fireEvent.change(statusSelect(), { target: { value: "CANNOT_FULFIL" } });
+    await pickStatus("Cannot Fulfil");
     fireEvent.change(reason(), { target: { value: "   " } });
     save();
 
@@ -202,7 +220,7 @@ describe("SCRUM-87/AC5 give a reason for Cannot Fulfil", () => {
   it("sends the reason with the status", async () => {
     const fetchMock = mockServer(200, aDetail({ status: "CANNOT_FULFIL", statusLabel: "Cannot Fulfil", canReview: false }));
     render(<EquipmentRequestReview request={aDetail()} />);
-    fireEvent.change(statusSelect(), { target: { value: "CANNOT_FULFIL" } });
+    await pickStatus("Cannot Fulfil");
     fireEvent.change(reason(), { target: { value: "All out on loan" } });
     save();
 
@@ -213,7 +231,7 @@ describe("SCRUM-87/AC5 give a reason for Cannot Fulfil", () => {
   it("highlights a field equipment-service refused", async () => {
     mockServer(422, { code: "VALIDATION_FAILED", error: "Some fields are invalid.", fieldErrors: { reason: "Keep the reason short." } });
     render(<EquipmentRequestReview request={aDetail()} />);
-    fireEvent.change(statusSelect(), { target: { value: "CANNOT_FULFIL" } });
+    await pickStatus("Cannot Fulfil");
     fireEvent.change(reason(), { target: { value: "All out on loan" } });
     save();
 
@@ -237,7 +255,7 @@ describe("SCRUM-87/AC5 give a reason for Cannot Fulfil", () => {
       lastChangedBy: null,
       lastChangedAt: null,
     };
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [request], canCreate: false, readiness: "INCOMPLETE", readinessLabel: "Incomplete" }} />);
+    render(<EventEquipmentRequests data={{ requests: [request], canCreate: false, readiness: "INCOMPLETE", readinessLabel: "Incomplete" }} />);
     const statusCell = within(screen.getAllByRole("row")[1]).getAllByRole("cell")[4];
     expect(statusCell.textContent).toBe("Cannot FulfilReason: All out on loan");
   });
@@ -248,12 +266,12 @@ describe("SCRUM-87/AC6 equipment ready for the event", () => {
     ["COMPLETE", "Complete"],
     ["INCOMPLETE", "Incomplete"],
   ] as const)("shows equipment as %s on the event", (readiness, readinessLabel) => {
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [], canCreate: false, readiness, readinessLabel }} />);
+    render(<EventEquipmentRequests data={{ requests: [], canCreate: false, readiness, readinessLabel }} />);
     expect(screen.getByText(readinessLabel).closest("p")?.textContent).toBe(`Equipment ${readinessLabel}`);
   });
 
   it("says nothing about readiness when no equipment was requested", () => {
-    render(<EventEquipmentRequests eventId="evt-1" data={{ requests: [], canCreate: false, readiness: null, readinessLabel: null }} />);
+    render(<EventEquipmentRequests data={{ requests: [], canCreate: false, readiness: null, readinessLabel: null }} />);
     expect(screen.queryByText("Complete")).toBeNull();
     expect(screen.queryByText("Incomplete")).toBeNull();
   });
@@ -262,19 +280,28 @@ describe("SCRUM-87/AC6 equipment ready for the event", () => {
 describe("SCRUM-87 the queue and request pages", () => {
   it("/equipment-requests lists the waiting requests, loaded as the signed-in user", async () => {
     const fetchMock = mockServer(200, [aQueueItem()]);
-    render(await EquipmentQueuePage());
+    render(await EquipmentQueuePage({}));
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:4004/equipment-requests",
       expect.objectContaining({ headers: { cookie: "cs_session=token-tech" }, cache: "no-store" }),
     );
     expect(screen.getByRole("heading", { name: "Equipment requests" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Tech Summit" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Tech Summit/ })).toBeTruthy();
+  });
+
+  it("SCRUM-136/AC2 /equipment-requests says how many are pending and opens the event named in the address", async () => {
+    mockServer(200, [aQueueItem(), aQueueItem({ id: "req-2", eventId: "evt-2", eventName: "Pitch Day" })]);
+    render(await EquipmentQueuePage({ searchParams: Promise.resolve({ event: "evt-2" }) }));
+
+    expect(screen.getByText("2 pending")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Pitch Day" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /back to dashboard/i })).toBeNull();
   });
 
   it("SCRUM-87/AC7 /equipment-requests shows equipment-service's refusal to anyone but Technical Support Staff", async () => {
     mockServer(403, { code: "FORBIDDEN", error: "You are not allowed to do that." });
-    render(await EquipmentQueuePage());
+    render(await EquipmentQueuePage({}));
     expect(screen.getByRole("alert").textContent).toBe("You are not allowed to do that.");
   });
 
