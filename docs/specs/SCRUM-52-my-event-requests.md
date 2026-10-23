@@ -45,8 +45,8 @@ Scenarios:
 | AC | Test file | `describe` / `it` |
 | ----- | ----- | ----- |
 | AC1 | `services/event-service/tests/unit/my-event-requests.test.ts` | `SCRUM-52/AC1 …` |
-| AC1 | `apps/web/tests/unit/my-event-requests-page.test.tsx` | `SCRUM-52/AC1 …` |
-| AC1 | `apps/web/tests/unit/app-shell-nav.test.tsx` is generic; nav entry checked in `my-event-requests-page.test.tsx` | `SCRUM-52/AC1 …` |
+| AC1 | `apps/web/tests/unit/my-event-requests-page.test.tsx` | `SCRUM-52/AC1 My event requests page`, `SCRUM-52/AC1 reaching the page` (nav entry, dashboard link) |
+| AC1 | `apps/web/tests/unit/my-event-requests-server.test.ts` | `SCRUM-52/AC1 loading my event requests` |
 | AC2 | `services/event-service/tests/unit/my-event-requests.test.ts` | `SCRUM-52/AC2 …` |
 | AC2 | `services/event-service/tests/integration/myEventRequestsDb.test.ts` | `SCRUM-52/AC2 …` |
 | AC3 | `apps/web/tests/unit/my-event-requests-details.test.tsx` | `SCRUM-52/AC3 …` |
