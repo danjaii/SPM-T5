@@ -33,7 +33,32 @@ describe("SCRUM-122/AC3 role access", () => {
 
   it("SCRUM-122/AC3 gives the route guard a matcher for each role-only route", async () => {
     const { config } = await import("@/middleware");
-    expect(ROLE_ONLY_MATCHERS).toHaveLength(5);
+    expect(ROLE_ONLY_MATCHERS).toHaveLength(6); // SCRUM-52/AC2 added /my-event-requests
     for (const matcher of ROLE_ONLY_MATCHERS) expect(config.matcher).toContain(matcher);
   });
 });
+
+// SCRUM-52/AC2: My event requests belongs to the Event Organiser, like the other role-only pages above
+describe("SCRUM-52/AC2 role access for My event requests", () => {
+  const NON_ORGANISERS = ["attendee", "event_coordinator", "event_coordinator_lead", "venue_staff", "technical_support_staff", "safety_officer"];
+
+  it("SCRUM-52/AC2 lets an event organiser open /my-event-requests", () => {
+    expect(canOpen("event_organiser", "/my-event-requests")).toBe(true);
+  });
+
+  it.each(NON_ORGANISERS)("SCRUM-52/AC2 refuses a %s", (role) => {
+    expect(canOpen(role, "/my-event-requests")).toBe(false);
+  });
+
+  it("SCRUM-52/AC2 keeps the guard on anything under the page, and not on look-alike paths", () => {
+    expect(canOpen("attendee", "/my-event-requests/anything")).toBe(false);
+    expect(canOpen("attendee", "/my-event-requestsx")).toBe(true);
+  });
+
+  it("SCRUM-52/AC2 gives the route guard a matcher for it", async () => {
+    const { config } = await import("@/middleware");
+    expect(ROLE_ONLY_MATCHERS).toContain("/my-event-requests/:path*");
+    expect(config.matcher).toContain("/my-event-requests/:path*");
+  });
+});
+

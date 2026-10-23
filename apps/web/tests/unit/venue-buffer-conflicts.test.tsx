@@ -81,7 +81,7 @@ describe("SCRUM-104/AC6 no conflicts, no flags (104-S6)", () => {
 });
 
 const queueItem = (flags: FlagDto[]): QueueItemView => ({
-  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", venueName: "Orchid Hall",
+  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", setupMinutes: 0, turnaroundMinutes: 0, venueName: "Orchid Hall",
   date: "2030-11-14", startTime: "12:30", endTime: "14:00", eventName: "Summit B", expectedAttendance: 10, venueRequirements: null,
   accessibilityNeeds: null, requestedByName: "Rachel Tan", submittedAt: "2026-10-01T02:30:00.000Z", amendsRequestId: null, flags,
 });

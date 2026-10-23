@@ -70,6 +70,26 @@ describe("SCRUM-23/AC2 — coordinator views the full event request", () => {
   });
 });
 
+describe("SCRUM-49/AC6 — Submitted shows the date and time, so the confirmation outlasts the banner", () => {
+  it("shows the submission date and time in Singapore time", () => {
+    render(<EventRequestDetails event={{ ...FULL, submitted_at: "2026-10-23T01:45:00Z" }} />); // 9:45 am in Singapore
+
+    expect(valueOf("Submitted").textContent).toBe("23 Oct 2026, 9:45 am");
+  });
+
+  it("uses the Singapore date, which can be the next day in UTC", () => {
+    render(<EventRequestDetails event={{ ...FULL, submitted_at: "2026-10-22T17:30:00Z" }} />); // 1:30 am on 23 Oct in Singapore
+
+    expect(valueOf("Submitted").textContent).toBe("23 Oct 2026, 1:30 am");
+  });
+
+  it("says not provided when there is no submission time", () => {
+    render(<EventRequestDetails event={{ ...FULL, submitted_at: null }} />);
+
+    expect(valueOf("Submitted").textContent).toBe(NOT_PROVIDED);
+  });
+});
+
 describe("SCRUM-23/AC3 — missing optional information", () => {
   it("says a field was not provided instead of showing blank or misleading values", () => {
     const { container } = render(<EventRequestDetails event={EMPTY} />);

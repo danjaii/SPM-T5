@@ -41,7 +41,7 @@ const listItem = (flags: FlagDto[]): VenueBookingListItem => ({
 });
 
 const queueItem = (flags: FlagDto[]): QueueItemView => ({
-  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", venueName: "Orchid Hall",
+  id: "b-1", eventId: "evt-1", suitability: null, suitabilityUnmet: [], suitabilityOverrideReason: null, venueId: "ven-1", setupMinutes: 0, turnaroundMinutes: 0, venueName: "Orchid Hall",
   date: "2026-11-15", startTime: "09:00", endTime: "12:00", eventName: "Summit C", expectedAttendance: 10, venueRequirements: null,
   accessibilityNeeds: null, requestedByName: "Rachel Tan", submittedAt: "2026-10-01T02:30:00.000Z", amendsRequestId: null, flags,
 });

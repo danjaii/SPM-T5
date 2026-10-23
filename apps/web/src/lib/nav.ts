@@ -1,4 +1,4 @@
-import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, ListChecks, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { Role } from "@spm-t5/shared";
 
 /** The queues whose size is shown beside a nav item (SCRUM-121/AC2). */
@@ -19,6 +19,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
   event_organiser: [
     dashboard("event_organiser"),
     { label: "New event request", href: "/events/new", icon: FilePlus2 },
+    // SCRUM-52/AC1: every request the organiser created, with its status
+    { label: "My event requests", href: "/my-event-requests", icon: ListChecks },
     { label: "Event registrations", href: "/registrations-overview", icon: ClipboardList },
   ],
   event_coordinator: [
