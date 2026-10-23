@@ -72,11 +72,11 @@ export function NotificationList({ items: initial }: { items: NotificationItem[]
       {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {items.map((item) => (
-          <li key={item.id} className={cn("flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap", !item.isRead && "bg-secondary")}>
+          <li key={item.id} className={cn("flex flex-wrap items-start gap-4 p-5 sm:flex-nowrap sm:gap-6 sm:p-6", !item.isRead && "bg-secondary")}>
             <button
               type="button"
               onClick={() => open(item)}
-              className="flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-w-0 flex-1 items-start gap-4 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <NotificationRow item={item} detailed />
             </button>

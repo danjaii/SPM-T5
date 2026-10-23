@@ -10,19 +10,19 @@ export function NotificationRow({ item, detailed = false }: { item: Notification
   const { icon: Icon, tone } = notificationDisplay(item.type);
   return (
     <>
-      <span aria-hidden="true" className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", TONE_BUBBLE[tone])}>
-        <Icon className="size-4" />
+      <span aria-hidden="true" className={cn("flex shrink-0 items-center justify-center rounded-full", detailed ? "size-11" : "size-9", TONE_BUBBLE[tone])}>
+        <Icon className={detailed ? "size-5" : "size-4"} />
       </span>
-      <span className="min-w-0 flex-1 space-y-0.5">
-        <span className={cn("block text-sm text-foreground", item.isRead ? "font-medium" : "font-bold")}>{item.title}</span>
-        {detailed && <span className="block text-sm text-muted-foreground">{item.message}</span>}
+      <span className={cn("min-w-0 flex-1", detailed ? "space-y-1.5" : "space-y-0.5")}>
+        <span className={cn("block text-foreground", detailed ? "text-base" : "text-sm", item.isRead ? "font-medium" : "font-bold")}>{item.title}</span>
+        {detailed && <span className="block text-sm leading-relaxed text-foreground">{item.message}</span>}
         {/* which event or booking it is about, or the no-access wording (SCRUM-46/AC7) */}
         {item.related && (
-          <span className="block text-xs text-muted-foreground">
+          <span className={cn("block text-muted-foreground", detailed ? "text-sm" : "text-xs")}>
             {detailed && item.related.href ? `Related: ${item.related.label}` : item.related.label}
           </span>
         )}
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <span className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground", detailed ? "pt-0.5 text-sm" : "text-xs")}>
           <time dateTime={item.createdAt} title={formatWhen(item.createdAt)}>
             {detailed ? formatWhen(item.createdAt) : relativeTime(item.createdAt)}
           </time>
