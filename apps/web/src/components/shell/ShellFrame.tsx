@@ -27,7 +27,7 @@ function SidebarBody({ shell, onNavigate, onClose }: { shell: ShellState; onNavi
           <Logo />
         </span>
         <span className="flex items-center gap-1">
-          <span className="shell-bell relative"><NotificationBell /></span>
+          <NotificationBell />
           {onClose && (
             <button type="button" aria-label="Close menu" onClick={onClose} className="flex size-9 items-center justify-center rounded-lg text-nav-text hover:bg-nav-chip focus-visible:ring-2 focus-visible:ring-ring">
               <X aria-hidden="true" className="size-4" />

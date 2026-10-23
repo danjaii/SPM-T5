@@ -57,10 +57,8 @@ describe("SCRUM-46/AC2 notification details (46-S2)", () => {
 describe("SCRUM-46/AC3 unread notifications look different (46-S3)", () => {
   it("46-S3: an unread row has the unread class and the visible word Unread; a read row has neither", () => {
     const { container } = render(<NotificationList items={[unread, read]} />);
-    const rows = container.querySelectorAll("li.notification");
-    expect(rows[0].classList.contains("notification--unread")).toBe(true);
+    const rows = container.querySelectorAll("ul > li");
     expect(rows[0].textContent).toContain("Unread");
-    expect(rows[1].classList.contains("notification--unread")).toBe(false);
     expect(rows[1].textContent).not.toContain("Unread");
     expect(screen.getAllByRole("button", { name: "Mark as read" })).toHaveLength(1);
   });
@@ -70,7 +68,7 @@ describe("SCRUM-47/AC11 a notification that needs action says so (47-S11)", () =
   it("47-S11: a row that needs action shows the words Action needed; one that does not, does not", () => {
     const assigned: NotificationItem = { ...unread, id: "n-4", type: "coordinator_assigned", actionRequired: true };
     const { container } = render(<NotificationList items={[assigned, unread]} />);
-    const rows = container.querySelectorAll("li.notification");
+    const rows = container.querySelectorAll("ul > li");
     expect(rows[0].textContent).toContain("Action needed");
     expect(rows[1].textContent).not.toContain("Action needed");
   });
@@ -79,7 +77,7 @@ describe("SCRUM-47/AC11 a notification that needs action says so (47-S11)", () =
 describe("SCRUM-46/AC4 + AC5 selecting a notification (46-S4, 46-S5)", () => {
   it("46-S4 + 46-S5: clicking a row marks it read, then opens its page", async () => {
     const fetchMock = mockServer(200, { ...unread, isRead: true, readAt: "2026-10-15T01:00:00Z" });
-    const { container } = render(<NotificationList items={[unread]} />);
+    render(<NotificationList items={[unread]} />);
 
     fireEvent.click(screen.getByText("Event request submitted"));
 
@@ -88,7 +86,7 @@ describe("SCRUM-46/AC4 + AC5 selecting a notification (46-S4, 46-S5)", () => {
     expect(fetchMock.mock.calls[0][1].method).toBe("POST");
     expect(fetchMock.mock.calls[0][1].credentials).toBe("include");
     expect(fetchMock.mock.invocationCallOrder[0]).toBeLessThan(push.mock.invocationCallOrder[0]);
-    expect(container.querySelector(".notification--unread")).toBeNull();
+    expect(screen.queryByText("Unread")).toBeNull();
   });
 
   it("46-S4: the unread count above the list follows the rows as they are marked read", async () => {
@@ -103,11 +101,11 @@ describe("SCRUM-46/AC4 + AC5 selecting a notification (46-S4, 46-S5)", () => {
 
   it("46-S4: Mark as read marks it without leaving the page", async () => {
     const fetchMock = mockServer(200, { ...unread, isRead: true });
-    const { container } = render(<NotificationList items={[unread]} />);
+    render(<NotificationList items={[unread]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Mark as read" }));
 
-    await waitFor(() => expect(container.querySelector(".notification--unread")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Unread")).toBeNull());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(push).not.toHaveBeenCalled();
     expect(refresh).toHaveBeenCalled();
@@ -125,13 +123,13 @@ describe("SCRUM-46/AC4 + AC5 selecting a notification (46-S4, 46-S5)", () => {
 
   it("46-S4: if marking read fails, it says so, stays unread and does not navigate", async () => {
     mockServer(500, { error: "Something went wrong." });
-    const { container } = render(<NotificationList items={[unread]} />);
+    render(<NotificationList items={[unread]} />);
 
     fireEvent.click(screen.getByText("Event request submitted"));
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Something went wrong."));
     expect(push).not.toHaveBeenCalled();
-    expect(container.querySelector(".notification--unread")).not.toBeNull();
+    expect(screen.getByText("Unread")).toBeTruthy();
   });
 
   it("46-S4: a network failure is reported", async () => {
@@ -160,5 +158,34 @@ describe("SCRUM-46/AC7 restricted destination (46-S7)", () => {
     fireEvent.click(screen.getByText("Event request submitted"));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe("SCRUM-141/AC3 unread items are marked by more than colour", () => {
+  it("an unread row has a bold title and a dot and says Unread to screen readers; a read row has none of them", () => {
+    const { container } = render(<NotificationList items={[unread, read]} />);
+    const rows = container.querySelectorAll("ul > li");
+    expect(screen.getByText("Event request submitted").className).toContain("font-bold");
+    expect(screen.getByText("Registration is open").className).not.toContain("font-bold");
+    expect(rows[0].querySelector('[aria-hidden="true"].rounded-full.size-2')).not.toBeNull();
+    expect(rows[1].querySelector('[aria-hidden="true"].rounded-full.size-2')).toBeNull();
+    expect(rows[0].querySelector(".sr-only")?.textContent).toBe("Unread");
+  });
+});
+
+describe("SCRUM-141/AC6 status uses StatusBadge", () => {
+  it("Action needed is a StatusBadge with an icon and the words", () => {
+    render(<NotificationList items={[{ ...unread, actionRequired: true }]} />);
+    const badge = screen.getByText("Action needed");
+    expect(badge.getAttribute("data-tone")).toBe("warning");
+    expect(badge.querySelector('[data-testid="status-icon"]')).not.toBeNull();
+  });
+});
+
+describe("SCRUM-141/AC10 empty state", () => {
+  it("a person with no notifications sees a designed empty state, not a blank page", () => {
+    render(<NotificationList items={[]} />);
+    expect(screen.getByText("You have no notifications.")).toBeTruthy();
+    expect(screen.getByText(/will show up here/)).toBeTruthy();
   });
 });

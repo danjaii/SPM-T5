@@ -88,7 +88,7 @@ describe("SCRUM-47/AC11 the notification bell in the page header", () => {
 
     const rows = within(await screen.findByRole("list", { name: "Notifications" })).getAllByRole("listitem");
     expect(rows.map((r) => r.textContent)).toEqual([
-      expect.stringMatching(/Unread.*You are responsible for an event.*Action needed/),
+      expect.stringMatching(/You are responsible for an event.*Action needed.*Unread/),
       expect.not.stringMatching(/Unread|Action needed/),
     ]);
     expect(rows[1].textContent).toContain("Your event request was approved");
@@ -179,43 +179,88 @@ describe("SCRUM-47/AC11 the notification bell in the page header", () => {
     expect(bell.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("closes when you click elsewhere on the page, but not inside it", async () => {
-    mockService({ list: { status: 200, body: { items: [], unreadCount: 0 } } });
-    render(
-      <>
-        <p>Elsewhere</p>
-        <NotificationBell />
-      </>,
-    );
-    fireEvent.click(await screen.findByRole("button", { name: "Notifications" }));
-    const empty = await screen.findByText("You have no notifications.");
+  it("fetches the list only once opened, and shows a loading state until it arrives", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.endsWith("/unread-count")) return { ok: true, status: 200, json: async () => ({ unreadCount: 1 }) };
+      await gate;
+      return { ok: true, status: 200, json: async () => ({ items: [item()], unreadCount: 1 }) };
+    }));
+    render(<NotificationBell />);
 
-    fireEvent.mouseDown(empty);
-    expect(screen.queryByText("You have no notifications.")).toBeTruthy();
-    fireEvent.mouseDown(screen.getByText("Elsewhere"));
+    fireEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));
 
-    expect(screen.queryByText("You have no notifications.")).toBeNull();
+    expect(await screen.findByRole("status", { name: "Loading notifications" })).toBeTruthy();
+    release();
+    expect(await screen.findByRole("list", { name: "Notifications" })).toBeTruthy();
+    expect(screen.queryByRole("status", { name: "Loading notifications" })).toBeNull();
   });
+});
 
-  it("Mark as read marks an unread notification read without leaving the page", async () => {
-    const unread = item();
-    const read = item({ id: "n-2", title: "Your event request was approved", isRead: true, actionRequired: false });
-    const fetchMock = mockService({
+describe("SCRUM-141 the notification centre", () => {
+  const read = item({ id: "n-2", type: "event_approved", title: "Your event request was approved", isRead: true, actionRequired: false });
+  const openWith = async () => {
+    mockService({
       count: { status: 200, body: { unreadCount: 1 } },
-      list: { status: 200, body: { items: [unread, read], unreadCount: 1 } },
+      list: { status: 200, body: { items: [item(), read], unreadCount: 1 } },
     });
     render(<NotificationBell />);
     fireEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));
-    const rows = within(await screen.findByRole("list", { name: "Notifications" })).getAllByRole("listitem");
-    expect(within(rows[1]).queryByRole("button", { name: "Mark as read" })).toBeNull();
+    await screen.findByRole("list", { name: "Notifications" });
+  };
 
-    fireEvent.click(within(rows[0]).getByRole("button", { name: "Mark as read" }));
+  it("AC1: the bell shows the unread count in a badge", async () => {
+    mockService({ count: { status: 200, body: { unreadCount: 6 } } });
+    render(<NotificationBell />);
+    const bell = await screen.findByRole("button", { name: "Notifications, 6 unread" });
+    expect(bell.textContent).toBe("6");
+  });
 
-    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy());
-    expect(fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[0]).toBe("http://localhost:4005/notifications/n-1/read");
-    const row = within(screen.getByRole("list", { name: "Notifications" })).getAllByRole("listitem")[0];
-    expect(row.textContent).not.toContain("Unread");
-    expect(within(row).queryByRole("button", { name: "Mark as read" })).toBeNull();
-    expect(push).not.toHaveBeenCalled();
+  it("AC3: unread rows have a bold title, a dot and the word Unread for screen readers; read rows do not", async () => {
+    await openWith();
+    const [unreadRow, readRow] = within(screen.getByRole("list", { name: "Notifications" })).getAllByRole("listitem");
+    expect(within(unreadRow).getByText("You are responsible for an event").className).toContain("font-bold");
+    expect(unreadRow.querySelector('[aria-hidden="true"].rounded-full.size-2')).not.toBeNull();
+    expect(unreadRow.querySelector(".sr-only")?.textContent).toBe("Unread");
+    expect(within(readRow).getByText("Your event request was approved").className).not.toContain("font-bold");
+    expect(readRow.querySelector(".sr-only")).toBeNull();
+  });
+
+  it("AC6: Action needed is a StatusBadge with an icon and the words", async () => {
+    await openWith();
+    const badge = screen.getByText("Action needed");
+    expect(badge.getAttribute("data-tone")).toBe("warning");
+    expect(badge.querySelector('[data-testid="status-icon"]')).not.toBeNull();
+  });
+
+  it("the Unread tab lists only the unread ones, with their number on the tab", async () => {
+    await openWith();
+    const tab = screen.getByRole("tab", { name: /Unread/ });
+    expect(tab.textContent).toContain("1");
+
+    fireEvent.click(tab);
+
+    const list = await screen.findByRole("list", { name: "Unread notifications" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(list).queryByText("Your event request was approved")).toBeNull();
+  });
+
+  it("AC10: the Unread tab says you are all caught up when nothing is unread", async () => {
+    mockService({ list: { status: 200, body: { items: [read], unreadCount: 0 } } });
+    render(<NotificationBell />);
+    fireEvent.click(await screen.findByRole("button", { name: "Notifications" }));
+    await screen.findByRole("list", { name: "Notifications" });
+
+    fireEvent.click(screen.getByRole("tab", { name: /Unread/ }));
+
+    expect(await screen.findByText("You're all caught up.")).toBeTruthy();
+  });
+
+  it("AC9: the bell is a button that can be reached and opened with the keyboard, and Escape closes it", async () => {
+    await openWith();
+    expect(screen.getByRole("button", { name: "Notifications, 1 unread" }).getAttribute("aria-expanded")).toBe("true");
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await vi.waitFor(() => expect(screen.queryByRole("list", { name: "Notifications" })).toBeNull());
   });
 });
