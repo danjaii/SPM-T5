@@ -181,3 +181,22 @@ describe("SCRUM-52/AC1 — an organiser lists their event requests (GET /events/
     expect(res.status).toBe(401);
   });
 });
+
+describe("SCRUM-52/AC2 — an organiser never sees another organiser's requests", () => {
+  const events = [
+    eventRow({ id: "mine", name: "Mine" }),
+    eventRow({ id: "theirs", name: "Theirs", organiser_id: "organiser-2" }),
+  ];
+
+  it("SCRUM-52/AC2 returns only the requests the caller created", async () => {
+    const res = await get(createFake(events), ORGANISER);
+
+    expect(res.body.map((e: Row) => e.id)).toEqual(["mine"]);
+  });
+
+  it("SCRUM-52/AC2 returns the other organiser only their own", async () => {
+    const res = await get(createFake(events), OTHER_ORGANISER);
+
+    expect(res.body.map((e: Row) => e.id)).toEqual(["theirs"]);
+  });
+});
