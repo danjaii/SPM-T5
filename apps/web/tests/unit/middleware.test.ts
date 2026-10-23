@@ -133,3 +133,41 @@ describe("SCRUM-122 — Access-denied route guard", () => {
   });
 });
 // end of SCRUM-122
+
+// ---------------------------------------------------------------------------
+// SCRUM-52/AC2 — My event requests is for Event Organisers: anyone else is shown the access-denied page
+// ---------------------------------------------------------------------------
+describe("SCRUM-52/AC2 — My event requests route guard", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const signedInAs = (role: string) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ role }) }));
+    return { headers: { cookie: `cs_session=token-${role}` } };
+  };
+
+  it.each(["attendee", "event_coordinator", "event_coordinator_lead", "venue_staff", "technical_support_staff", "safety_officer"])(
+    "SCRUM-52/AC2 sends a %s who opens /my-event-requests to the access-denied page",
+    async (role) => {
+      const res = await middleware(new NextRequest("http://localhost:3000/my-event-requests", signedInAs(role)));
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("http://localhost:3000/access-denied");
+    },
+  );
+
+  it("SCRUM-52/AC2 lets an event organiser open it", async () => {
+    const res = await middleware(new NextRequest("http://localhost:3000/my-event-requests", signedInAs("event_organiser")));
+
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("SCRUM-52/AC2 sends a guest to the sign-in page", async () => {
+    const res = await middleware(new NextRequest("http://localhost:3000/my-event-requests"));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("http://localhost:3000/login");
+  });
+});
+// end of SCRUM-52
+

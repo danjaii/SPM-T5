@@ -6,6 +6,7 @@ import { eventDetailsRoutes } from "./routes/eventDetails";
 import { eventRoutes } from "./routes/events";
 import { eventRequestRoutes } from "./routes/eventRequests";
 import { leadRoutes } from "./routes/lead";
+import { myEventRequestRoutes } from "./routes/myEventRequests";
 import { upcomingEventRoutes } from "./routes/upcomingEvents";
 import { registrationRoutes } from "./routes/registrations";
 import { safetyDecisionRoutes, safetyCheckRoutes } from "./routes/safetyChecks";
@@ -34,6 +35,8 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/events", eventRequestRoutes(deps));
   // SCRUM-111: the assigned coordinator edits an event's details (PATCH /events/:id)
   app.use("/events", eventDetailsRoutes(deps, now));
+  // SCRUM-52: before eventRoutes, whose GET /events/:id would otherwise treat "my-requests" as an event id
+  app.use("/events", myEventRequestRoutes(deps));
   app.use("/events", eventRoutes(deps));
   // SCRUM-75: the Event Coordinator Lead's pages and actions
   app.use("/lead", leadRoutes(deps));
