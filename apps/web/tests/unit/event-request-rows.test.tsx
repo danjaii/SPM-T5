@@ -72,3 +72,31 @@ describe("SCRUM-151/AC3 open an event request from anywhere on its row", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 });
+
+describe("SCRUM-151/AC4 open an event request with the keyboard", () => {
+  it("SCRUM-151/AC4 keeps the event's name as a link to its details page, so Tab reaches it and Enter opens it", () => {
+    render(<ReviewQueueTable events={[item()]} />);
+
+    const link = screen.getByRole("link", { name: "Tech Summit" });
+    expect(link.getAttribute("href")).toBe("/events/evt-1");
+    expect(link.getAttribute("tabindex")).toBeNull();
+  });
+
+  it("SCRUM-151/AC4 adds no extra Tab stop for the row itself", () => {
+    render(<ReviewQueueTable events={[item()]} />);
+
+    expect(eventRows()[0].getAttribute("tabindex")).toBeNull();
+  });
+
+  it("SCRUM-151/AC4 shows a focus ring on the event's name when it is reached by keyboard", () => {
+    render(<ReviewQueueTable events={[item()]} />);
+
+    expect(screen.getByRole("link", { name: "Tech Summit" }).className).toContain("focus-visible:ring-2");
+  });
+
+  it("SCRUM-151/AC4 highlights the whole row while its link has keyboard focus, as it does on hover", () => {
+    render(<ReviewQueueTable events={[item()]} />);
+
+    expect(eventRows()[0].className).toContain("has-focus-visible:bg-muted");
+  });
+});
