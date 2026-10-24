@@ -5,7 +5,9 @@ import { roleLabel } from "@/lib/roles";
 import EventStatusBadge from "./EventStatusBadge";
 import { AppHeader } from "./AppHeader";
 import { BfcacheGuard } from "./BfcacheGuard";
+import { LinkedRow } from "./LinkedRow";
 import { NeedsAction } from "./shell/NeedsAction";
+import { ROW_LINK_FOCUS_CLASS } from "@/lib/rowLink";
 
 export interface DashboardData {
   user: { fullName: string; email: string; role: string };
@@ -94,15 +96,21 @@ export function DashboardView({ data, children }: { data: DashboardData; childre
                     <tr>{section.columns.map((c) => <th key={c.key} scope="col">{c.label}</th>)}</tr>
                   </thead>
                   <tbody>
-                    {section.rows.map((row, i) => (
-                      <tr key={i}>
-                        {section.columns.map((c) => {
-                          const href = c.linkKey ? row[c.linkKey] : undefined;
-                          const shown = c.statusKey ? <EventStatusBadge status={String(row[c.statusKey])} /> : row[c.key];
-                          return <td key={c.key}>{href ? <Link href={String(href)}>{shown}</Link> : shown}</td>;
-                        })}
-                      </tr>
-                    ))}
+                    {section.rows.map((row, i) => {
+                      const cells = section.columns.map((c) => {
+                        const href = c.linkKey ? row[c.linkKey] : undefined;
+                        const shown = c.statusKey ? <EventStatusBadge status={String(row[c.statusKey])} /> : row[c.key];
+                        return (
+                          <td key={c.key}>
+                            {href ? <Link href={String(href)} className={ROW_LINK_FOCUS_CLASS}>{shown}</Link> : shown}
+                          </td>
+                        );
+                      });
+                      // SCRUM-151/AC2-AC4: a row whose value links somewhere (e.g. an event's status) opens it from anywhere
+                      // on the row; a row with nothing to open stays plain
+                      const rowHref = section.columns.map((c) => (c.linkKey ? row[c.linkKey] : undefined)).find(Boolean);
+                      return rowHref ? <LinkedRow key={i} href={String(rowHref)}>{cells}</LinkedRow> : <tr key={i}>{cells}</tr>;
+                    })}
                   </tbody>
                 </table>
               )}

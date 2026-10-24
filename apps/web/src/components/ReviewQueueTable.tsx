@@ -1,13 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ReviewQueueItem } from "@/lib/eventsApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LINKED_ROW_CLASS, openRowLink, ROW_LINK_FOCUS_CLASS } from "@/lib/rowLink";
 import EventStatusBadge from "./EventStatusBadge";
 
 const formatDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "—";
 
 export function ReviewQueueTable({ events }: { events: ReviewQueueItem[] }) {
+  const router = useRouter();
+
   return (
     <Table>
       <TableHeader>
@@ -20,10 +26,16 @@ export function ReviewQueueTable({ events }: { events: ReviewQueueItem[] }) {
       </TableHeader>
       <TableBody>
         {events.map((event) => (
-          <TableRow key={event.id}>
+          // SCRUM-151/AC2-AC4: the whole row shows it can be clicked (the muted tint stands out on the white card, the shared
+          // accent hover does not) and opens the event from anywhere on it
+          <TableRow
+            key={event.id}
+            className={LINKED_ROW_CLASS}
+            onClick={(e) => openRowLink(e, router.push, `/events/${encodeURIComponent(event.id)}`)}
+          >
             <TableCell className="font-semibold text-foreground">
               {/* SCRUM-23/AC1: open the full request from the list */}
-              <Link href={`/events/${encodeURIComponent(event.id)}`} className="underline-offset-4 hover:underline">
+              <Link href={`/events/${encodeURIComponent(event.id)}`} className={`underline-offset-4 hover:underline ${ROW_LINK_FOCUS_CLASS}`}>
                 {event.name}
               </Link>
             </TableCell>
