@@ -95,8 +95,9 @@ jobs:
       - name: Fail loudly if the database is not configured (otherwise the tests would silently skip)
         run: test -n "$SUPABASE_URL" && test -n "$SUPABASE_SECRET_KEY" && test -n "$SUPABASE_PUBLISHABLE_KEY"
 
+      # Every service by pattern, not by name: a hand-written list left out notification-service, so its tests never ran.
       - name: Integration tests
-        run: pnpm vitest run --project @spm-t5/venue-service --project @spm-t5/event-service --project @spm-t5/auth-service --project @spm-t5/equipment-service tests/integration --coverage.enabled=false
+        run: pnpm vitest run --project '@spm-t5/*-service' tests/integration --coverage.enabled=false
 
   # Applies new supabase/migrations files to the hosted Supabase project, so merging to main is the only way a migration
   # reaches it. Never paste migration SQL into the dashboard SQL editor instead: it runs there but isn't recorded, so a
