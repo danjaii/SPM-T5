@@ -34,11 +34,11 @@ export function ReviewQueueTable({ events }: { events: ReviewQueueItem[] }) {
       <TableBody>
         {events.map((event) => (
           // SCRUM-151/AC2: the whole row shows it can be clicked; the muted tint stands out on the white card, the shared
-          // accent hover does not
-          <TableRow key={event.id} className="cursor-pointer hover:bg-muted" onClick={open(event.id)}>
+          // accent hover does not. AC4: it lights up the same way while its link has keyboard focus
+          <TableRow key={event.id} className="cursor-pointer hover:bg-muted has-focus-visible:bg-muted" onClick={open(event.id)}>
             <TableCell className="font-semibold text-foreground">
               {/* SCRUM-23/AC1: open the full request from the list */}
-              <Link href={`/events/${encodeURIComponent(event.id)}`} className="underline-offset-4 hover:underline">
+              <Link href={`/events/${encodeURIComponent(event.id)}`} className="underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
                 {event.name}
               </Link>
             </TableCell>
