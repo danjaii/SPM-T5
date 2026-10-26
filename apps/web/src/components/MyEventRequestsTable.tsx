@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MyEventRequest } from "@/lib/myEventRequests";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DeleteDraftButton } from "./DeleteDraftButton";
 import EventStatusBadge from "./EventStatusBadge";
 
 // Event dates are shown in Singapore time, like the rest of the app
@@ -18,6 +19,7 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
           <TableHead>Preferred start</TableHead>
           <TableHead>Expected attendance</TableHead>
           <TableHead>Submitted</TableHead>
+          <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -34,6 +36,9 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
             <TableCell>{formatDate(request.preferred_start_datetime)}</TableCell>
             <TableCell>{request.expected_attendance ?? "—"}</TableCell>
             <TableCell>{formatDate(request.submitted_at)}</TableCell>
+            <TableCell>
+              <DeleteDraftButton id={request.id} name={request.name} />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
