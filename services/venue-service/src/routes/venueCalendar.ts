@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { CALENDAR_TIME_ZONE, parseCalendarRange } from "@spm-t5/shared";
-import { validationFailed } from "../domain/errors";
+import { CALENDAR_TIME_ZONE, canViewVenueCalendar, isRole, parseCalendarRange } from "@spm-t5/shared";
+import { forbidden, validationFailed } from "../domain/errors";
 import { asyncHandler } from "../middlewares/errors";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { SupabaseVenueCalendarReader, type VenueCalendarReader } from "../readers/venueCalendarReader";
@@ -18,6 +18,13 @@ export function venueCalendarRoutes(
   router.get(
     "/",
     requireSession(deps),
+    // AC8: who the caller is (their profile row) decides, before the dates are looked at. Authentication above, role here.
+    asyncHandler(async (_req, res, next) => {
+      const { id, token } = res.locals.user as SessionUser;
+      const { data: profile } = await deps.forUser(token).from("users").select("role").eq("id", id).maybeSingle();
+      if (!isRole(profile?.role) || !canViewVenueCalendar(profile.role)) throw forbidden("You are not allowed to view the venue calendar.");
+      next();
+    }),
     asyncHandler(async (req, res) => {
       const { token } = res.locals.user as SessionUser;
       const parsed = parseCalendarRange(req.query, now());
