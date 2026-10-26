@@ -1,4 +1,4 @@
-import { unavailabilityReasonLabel, type CalendarRange } from "@spm-t5/shared";
+import { addDays, sgtToUtc, unavailabilityReasonLabel, type CalendarRange } from "@spm-t5/shared";
 import type { CalendarBlock, CalendarBooking, CalendarVenue } from "../readers/venueCalendarReader";
 
 export type CalendarStatus = "TENTATIVELY_HELD" | "CONFIRMED" | "BLOCKED" | "AVAILABLE" | "UNAVAILABLE";
@@ -36,6 +36,8 @@ export interface CalendarVenueView {
   name: string;
   address: string;
   max_capacity: number;
+  /** Singapore local time "HH:MM", or null when the venue has no limit. */
+  operating_hours: { start: string; end: string } | null;
   periods: CalendarPeriod[];
 }
 
@@ -93,9 +95,30 @@ function blockSegment(b: CalendarBlock, id: number): Segment {
   };
 }
 
-/** The stretches of the range when nothing else is on it: open, or closed outside the venue's operating hours. */
-function operatingSegments(_venue: CalendarVenue, range: CalendarRange): Segment[] {
-  return [{ priority: PRIORITY.open, key: "open", kind: "open", status: "AVAILABLE", start: range.start.getTime(), end: range.end.getTime() }];
+/** Operating hours that mean something: both set and not equal. Anything else is no restriction (spec AC3 S2). */
+function hoursOf(v: CalendarVenue): { start: string; end: string } | null {
+  return v.operatingStart && v.operatingEnd && v.operatingStart !== v.operatingEnd ? { start: v.operatingStart, end: v.operatingEnd } : null;
+}
+
+/**
+ * The stretches of the range when nothing else is on it: open inside the venue's operating hours (Singapore time, per day;
+ * an end before the start runs into the next day), closed otherwise.
+ */
+function operatingSegments(venue: CalendarVenue, range: CalendarRange): Segment[] {
+  const lo = range.start.getTime();
+  const hi = range.end.getTime();
+  const hours = hoursOf(venue);
+  if (!hours) return [{ priority: PRIORITY.open, key: "open", kind: "open", status: "AVAILABLE", start: lo, end: hi }];
+
+  const segments: Segment[] = [{ priority: PRIORITY.closed, key: "closed", kind: "closed", status: "UNAVAILABLE", start: lo, end: hi }];
+  const overnight = hours.end < hours.start;
+  // One day before the range, so the tail of an overnight window that began the evening before is included.
+  for (let day = addDays(range.from, -1); day <= range.to; day = addDays(day, 1)) {
+    const start = sgtToUtc(day, hours.start).getTime();
+    const end = sgtToUtc(overnight ? addDays(day, 1) : day, hours.end).getTime();
+    segments.push({ priority: PRIORITY.open, key: "open", kind: "open", status: "AVAILABLE", start, end });
+  }
+  return segments;
 }
 
 /** Cuts the range at every start and end, takes the winner of each piece, and joins neighbours with the same key. */
@@ -137,6 +160,6 @@ export function buildCalendar(
         ...entries.bookings.filter((b) => b.venueId === v.id).flatMap(bookingSegments),
         ...entries.blocks.filter((b) => b.venueId === v.id).map(blockSegment),
       ];
-      return { id: v.id, name: v.name, address: v.address, max_capacity: v.maxCapacity, periods: resolve(segments, range) };
+      return { id: v.id, name: v.name, address: v.address, max_capacity: v.maxCapacity, operating_hours: hoursOf(v), periods: resolve(segments, range) };
     });
 }
