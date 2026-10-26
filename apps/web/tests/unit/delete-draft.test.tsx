@@ -159,6 +159,20 @@ describe("SCRUM-56/AC3 confirmation prompt", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("SCRUM-56/AC3 cannot be dismissed with Escape while the delete is under way", async () => {
+    let finish: (value: unknown) => void = () => {};
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise((resolve) => (finish = resolve))));
+    render(<MyEventRequestsTable requests={[request()]} />);
+    const dialog = await deleteAndConfirm();
+    await within(dialog).findByRole("button", { name: "Deleting…" });
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    expect(screen.getByRole("dialog", { name: "Delete this draft?" })).toBeTruthy();
+    finish({ ok: true, status: 204, json: async () => undefined });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("SCRUM-56/AC3 starts clean when the dialog is opened again after a failure", async () => {
     mockDelete(500, { error: "Could not delete the draft." });
     render(<MyEventRequestsTable requests={[request()]} />);
