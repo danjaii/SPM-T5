@@ -116,4 +116,37 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       expect(error?.code).toBe("23514");
     });
   });
+
+  describe("SCRUM-53/AC3 the last-saved time is recorded", () => {
+    /** How far the database clock may be from this machine's clock, in ms (the test and the database share a host). */
+    const CLOCK_TOLERANCE_MS = 10_000;
+
+    it("returns updated_at as a recent timestamp that matches the stored row", async () => {
+      const before = Date.now();
+      const { data, error } = await who.organiser.client.rpc("create_event_draft", params("IT-53-AC3-updated-at"));
+      const after = Date.now();
+      expect(error).toBeNull();
+      track(data.id);
+
+      expect(typeof data.updated_at).toBe("string");
+      const returned = new Date(data.updated_at).getTime();
+      expect(Number.isNaN(returned)).toBe(false);
+      expect(returned).toBeGreaterThanOrEqual(before - CLOCK_TOLERANCE_MS);
+      expect(returned).toBeLessThanOrEqual(after + CLOCK_TOLERANCE_MS);
+
+      const { data: stored } = await admin.from("events").select("updated_at").eq("id", data.id).single();
+      expect(new Date(stored!.updated_at).getTime()).toBe(returned);
+    });
+
+    it("returns updated_at from POST /events/drafts", async () => {
+      const before = Date.now();
+      const res = await postAs(who.organiser, { name: "IT-53-AC3-http" });
+      const after = Date.now();
+      expect(res.status).toBe(201);
+      track(res.body.id);
+      const returned = new Date(res.body.updated_at).getTime();
+      expect(returned).toBeGreaterThanOrEqual(before - CLOCK_TOLERANCE_MS);
+      expect(returned).toBeLessThanOrEqual(after + CLOCK_TOLERANCE_MS);
+    });
+  });
 });

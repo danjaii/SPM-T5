@@ -256,3 +256,27 @@ describe("SCRUM-53/AC2 a draft is not blocked by empty fields", () => {
     expect(fake.rpcCalls).toHaveLength(0);
   });
 });
+
+describe("SCRUM-53/AC3 the last-saved time is recorded and returned", () => {
+  it("returns updated_at, the time the draft was saved, and it matches the stored row", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    fake.clock.now = () => new Date("2031-03-04T05:06:07.000Z");
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", organiser.cookie).send({ name: "Timed" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.updated_at).toBe("2031-03-04T05:06:07.000Z");
+    expect(fake.tables.events[0].updated_at).toBe(res.body.updated_at);
+  });
+
+  it("returns created_at as well, so a later save can be told apart from the first", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", organiser.cookie).send({});
+
+    expect(typeof res.body.created_at).toBe("string");
+    expect(Number.isNaN(Date.parse(res.body.updated_at))).toBe(false);
+  });
+});
