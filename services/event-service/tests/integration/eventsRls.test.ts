@@ -223,11 +223,13 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
       expect(data ?? []).toHaveLength(0);
     });
 
-    it("SCRUM-91 nobody creates or deletes an event through the API yet", async () => {
+    // SCRUM-49 lets an organiser submit a request and SCRUM-53 lets one save a draft, so an insert with the default (draft) state is
+    // no longer refused for the organiser; this one asks for a state neither policy allows.
+    it("SCRUM-91 nobody creates an event beyond a submission or a draft, or deletes one, through the API yet", async () => {
       for (const actor of [who.organiserA, who.coordinatorA]) {
         const insert = await actor.client
           .from("events")
-          .insert({ name: "IT-nope", organiser_id: who.organiserA.userId });
+          .insert({ name: "IT-nope", organiser_id: who.organiserA.userId, status: "approved" });
         expect(insert.error?.code).toBe(DENIED);
         const { data } = await actor.client.from("events").delete().eq("id", eventA).select("id");
         expect(data ?? []).toHaveLength(0);
