@@ -18,6 +18,7 @@ function createFake() {
   const sessions = new Map<string, string>(); // login token -> user id
   const tables: Record<string, Row[]> = { users: [], events: [], event_status_history: [] };
   const rpcCalls: { fn: string; args: Row }[] = [];
+  const eventReads: unknown[] = []; // ids asked of the events table
   const failure = { update: false, submit: false, submitCode: undefined as string | undefined, updateReturnsNothing: false };
   const clock = { now: () => new Date() };
 
@@ -26,7 +27,11 @@ function createFake() {
     const filters: [string, unknown][] = [];
     const builder = {
       select: () => builder,
-      eq: (col: string, val: unknown) => { filters.push([col, val]); return builder; },
+      eq: (col: string, val: unknown) => {
+        if (table === "events" && col === "id") eventReads.push(val);
+        filters.push([col, val]);
+        return builder;
+      },
       maybeSingle: async () => {
         const rows = tables[table].filter(
           (r) => (table !== "events" || r.organiser_id === callerId) && filters.every(([col, val]) => r[col] === val),
@@ -109,7 +114,7 @@ function createFake() {
     return event;
   };
 
-  return { deps, tables, rpcCalls, failure, clock, signIn, addEvent };
+  return { deps, tables, rpcCalls, eventReads, failure, clock, signIn, addEvent };
 }
 // end of fake Supabase
 
@@ -157,6 +162,16 @@ describe("SCRUM-54/AC1 open a draft (GET /events/drafts/:id)", () => {
       const res = await request(app).get(`/events/drafts/${id}`).set("Cookie", organiser.cookie);
       expect(res.status).toBe(404);
     }
+  });
+
+  it("does not ask the database about an id that is not a uuid", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await request(createApp(fake.deps)).get("/events/drafts/not-a-uuid").set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(404);
+    expect(fake.eventReads).toEqual([]);
   });
 
   it("answers 401 without a session", async () => {
