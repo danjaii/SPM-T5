@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { CALENDAR_TIME_ZONE, parseCalendarRange, type CalendarRange } from "@spm-t5/shared";
+import { CALENDAR_TIME_ZONE, parseCalendarRange } from "@spm-t5/shared";
+import { validationFailed } from "../domain/errors";
 import { asyncHandler } from "../middlewares/errors";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { SupabaseVenueCalendarReader, type VenueCalendarReader } from "../readers/venueCalendarReader";
@@ -20,7 +21,8 @@ export function venueCalendarRoutes(
     asyncHandler(async (req, res) => {
       const { token } = res.locals.user as SessionUser;
       const parsed = parseCalendarRange(req.query, now());
-      const range = (parsed as { data: CalendarRange }).data;
+      if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
+      const range = parsed.data;
       const reader = calendarFor(token);
       const [venues, entries] = await Promise.all([reader.venueList(), reader.entries(range.start, range.end)]);
 

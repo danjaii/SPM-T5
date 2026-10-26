@@ -49,3 +49,33 @@ describe("SCRUM-84/AC5 change the date range", () => {
     periods.slice(1).forEach((p, i) => expect(p.start).toBe(periods[i]!.end));
   });
 });
+
+describe("SCRUM-84/AC6 reject an invalid date range", () => {
+  it("S1: an end date before the start date answers 422 with the message on `to`, and reads nothing", async () => {
+    const { get, reader } = arrange();
+
+    const res = await get("?from=2026-11-14&to=2026-11-13");
+
+    expect(res.status).toBe(422);
+    expect(res.body).toEqual({
+      code: "VALIDATION_FAILED",
+      error: "Some fields are invalid.",
+      fieldErrors: { to: "The end date must be on or after the start date." },
+    });
+    expect(reader.reads).toBe(0);
+  });
+
+  it.each(["?from=14/11/2026", "?from=2026-02-30", "?to=2026-11-14", "?from=2026-11-01&to=2027-01-02"])("S2/S3/S5: %s answers 422 and reads nothing", async (query) => {
+    const { get, reader } = arrange();
+    const res = await get(query);
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("VALIDATION_FAILED");
+    expect(reader.reads).toBe(0);
+  });
+
+  it("S1: a request after the refusal still works, because nothing was kept", async () => {
+    const { get } = arrange();
+    await get("?from=2026-11-14&to=2026-11-13");
+    expect((await get("?from=2026-11-14")).status).toBe(200);
+  });
+});

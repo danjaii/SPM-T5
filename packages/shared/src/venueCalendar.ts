@@ -35,13 +35,38 @@ export function currentWeek(now: Date): CalendarRange {
 
 export type CalendarRangeResult = { ok: true; data: CalendarRange } | { ok: false; fieldErrors: Record<string, string> };
 
+/** The longest range one request may ask for, in days (both ends counted): a month view with room to spare. */
+export const MAX_CALENDAR_DAYS = 62;
+
+const DATE_PATTERN = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+/** True when YYYY-MM-DD is a day that exists (2026-02-30 does not). */
+function isRealDate(date: string): boolean {
+  if (!DATE_PATTERN.test(date)) return false;
+  return new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) === date;
+}
+
 /**
- * SCRUM-84/AC5: the range a request asks for. `from` and `to` are Singapore dates, both inclusive; no dates is the current week
- * and `from` alone is that one day.
+ * SCRUM-84/AC5 + AC6: the range a request asks for. `from` and `to` are Singapore dates, both inclusive; no dates is the current
+ * week and `from` alone is that one day. An end before the start, a malformed date and a range over MAX_CALENDAR_DAYS are refused
+ * with a message per field, so the page can keep the previous view and say why.
  */
 export function parseCalendarRange(query: { from?: unknown; to?: unknown }, now: Date): CalendarRangeResult {
   const from = String(query.from ?? "");
   const to = String(query.to ?? "");
-  if (!from) return { ok: true, data: currentWeek(now) };
-  return { ok: true, data: calendarRange(from, to || from) };
+  if (!from && !to) return { ok: true, data: currentWeek(now) };
+
+  const errors: Record<string, string> = {};
+  if (!from) errors.from = "Choose a start date.";
+  else if (!isRealDate(from)) errors.from = "Enter the date as YYYY-MM-DD.";
+  if (to && !isRealDate(to)) errors.to = "Enter the date as YYYY-MM-DD.";
+  if (Object.keys(errors).length) return { ok: false, fieldErrors: errors };
+
+  const last = to || from;
+  if (last < from) return { ok: false, fieldErrors: { to: "The end date must be on or after the start date." } };
+  const range = calendarRange(from, last);
+  if ((range.end.getTime() - range.start.getTime()) / 86_400_000 > MAX_CALENDAR_DAYS) {
+    return { ok: false, fieldErrors: { to: `Choose a range of ${MAX_CALENDAR_DAYS} days or fewer.` } };
+  }
+  return { ok: true, data: range };
 }

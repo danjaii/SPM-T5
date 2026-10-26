@@ -44,3 +44,38 @@ describe("SCRUM-84/AC5 choose the date range", () => {
     expect(parseCalendarRange({}, sgtToUtc("2026-11-11", "11:00"))).toMatchObject({ ok: true, data: { from: "2026-11-09", to: "2026-11-15" } });
   });
 });
+
+describe("SCRUM-84/AC6 reject an invalid date range", () => {
+  const ask = (query: { from?: unknown; to?: unknown }) => parseCalendarRange(query, new Date("2026-11-11T03:00:00Z"));
+
+  it("S1: an end date before the start date is refused with the message on the end date", () => {
+    expect(ask({ from: "2026-11-14", to: "2026-11-13" })).toEqual({ ok: false, fieldErrors: { to: "The end date must be on or after the start date." } });
+  });
+
+  it("S1: the same day for both is fine (on or after)", () => {
+    expect(ask({ from: "2026-11-14", to: "2026-11-14" })).toMatchObject({ ok: true });
+  });
+
+  it.each(["14/11/2026", "2026-11-14T00:00", "2026-2-3", "2026-02-30", "2026-13-01", "abc"])("S2: %s is not a date", (bad) => {
+    expect(ask({ from: bad })).toEqual({ ok: false, fieldErrors: { from: "Enter the date as YYYY-MM-DD." } });
+    expect(ask({ from: "2026-11-14", to: bad })).toEqual({ ok: false, fieldErrors: { to: "Enter the date as YYYY-MM-DD." } });
+  });
+
+  it("S2: a repeated parameter (an array) is not a date", () => {
+    expect(ask({ from: ["2026-11-14", "2026-11-15"] })).toMatchObject({ ok: false, fieldErrors: { from: expect.any(String) } });
+  });
+
+  it("S5: an end date with no start date asks for the start date", () => {
+    expect(ask({ to: "2026-11-14" })).toEqual({ ok: false, fieldErrors: { from: "Choose a start date." } });
+  });
+
+  it("S3: 62 days is the longest range; 63 is refused", () => {
+    expect(ask({ from: "2026-11-01", to: "2026-12-02" })).toMatchObject({ ok: true }); // 32 days
+    expect(ask({ from: "2026-11-01", to: "2027-01-01" })).toMatchObject({ ok: true }); // 62 days
+    expect(ask({ from: "2026-11-01", to: "2027-01-02" })).toEqual({ ok: false, fieldErrors: { to: "Choose a range of 62 days or fewer." } });
+  });
+
+  it("both a bad start and a bad end are reported together", () => {
+    expect(ask({ from: "x", to: "y" })).toEqual({ ok: false, fieldErrors: { from: "Enter the date as YYYY-MM-DD.", to: "Enter the date as YYYY-MM-DD." } });
+  });
+});
