@@ -59,7 +59,8 @@ export function EventRegistrationForm({ data }: { data: RegistrationFormData }) 
   return (
     <section className="space-y-4">
       {/* SCRUM-83/AC7: the event's name, date and time, and location, as its List of events card shows them */}
-      <div className="space-y-2">
+      <Card>
+        <CardContent className="space-y-2">
         <h1 className="font-heading text-2xl font-bold text-foreground">{event.name}</h1>
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <CalendarDays aria-hidden="true" className="size-4 shrink-0" />
@@ -69,7 +70,15 @@ export function EventRegistrationForm({ data }: { data: RegistrationFormData }) 
           <MapPin aria-hidden="true" className="size-4 shrink-0" />
           {event.venue.name ? `${event.venue.name}, ${event.venue.address}` : "Venue to be confirmed"}
         </p>
-      </div>
+        {event.my_registration && (
+          // SCRUM-83/AC5: an active registration is shown instead of the form (worded as on the card, SCRUM-71/AC10)
+          <p className="flex items-center gap-2 border-t border-border pt-3 text-sm font-semibold text-foreground">
+            Your registration:
+            <RegistrationStatusBadge status={event.my_registration} />
+          </p>
+        )}
+        </CardContent>
+      </Card>
 
       {error && <Alert variant="danger">{error}</Alert>}
       {registered && (
@@ -87,13 +96,7 @@ export function EventRegistrationForm({ data }: { data: RegistrationFormData }) 
         </Card>
       )}
 
-      {event.my_registration ? (
-        // SCRUM-83/AC5: an active registration is shown instead of the form (worded as on the card, SCRUM-71/AC10)
-        <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          Your registration:
-          <RegistrationStatusBadge status={event.my_registration} />
-        </p>
-      ) : UNAVAILABLE[event.availability] ? (
+      {event.my_registration ? null : UNAVAILABLE[event.availability] ? (
         <p className="rounded-xl border border-dashed border-border-strong p-8 text-center text-muted-foreground">{UNAVAILABLE[event.availability]}</p>
       ) : (
         !registered && (
