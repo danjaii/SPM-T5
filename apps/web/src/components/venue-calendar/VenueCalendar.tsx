@@ -1,9 +1,11 @@
 "use client";
 
+import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseCalendarRange } from "@spm-t5/shared";
 import { AuthAlert } from "@/components/auth/AuthParts";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchVenueCalendar, type CalendarQuery, type VenueCalendarData } from "@/lib/venueCalendar";
 import { VenueCalendarRangeForm } from "./VenueCalendarRangeForm";
@@ -17,6 +19,7 @@ export function VenueCalendar() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const shown = useRef<CalendarQuery>({}); // the dates last applied, so Reload asks for the same ones
   const pending = useRef<AbortController | null>(null);
   const routerRef = useRef(router); // read when a reply arrives, so a new router object never re-runs the first load
   routerRef.current = router;
@@ -36,6 +39,7 @@ export function VenueCalendar() {
       try {
         const result = await fetchVenueCalendar(query, controller.signal);
         if (result.kind === "ok") {
+          shown.current = query;
           setCalendar(result.calendar);
           setMessage(null);
           setFieldErrors({});
@@ -59,6 +63,9 @@ export function VenueCalendar() {
   return (
     <div className="flex flex-col gap-6">
       <VenueCalendarRangeForm busy={loading} fieldErrors={fieldErrors} onSubmit={load} />
+      <Button type="button" variant="outline" className="self-start" disabled={loading} onClick={() => void load(shown.current)}>
+        <RefreshCw aria-hidden="true" /> Reload
+      </Button>
       {message && <AuthAlert tone="error">{message}</AuthAlert>}
       {range && <p className="text-sm font-medium text-foreground">{range.from === range.to ? `Showing ${range.from}` : `Showing ${range.from} to ${range.to}`}</p>}
       {!calendar ? (
