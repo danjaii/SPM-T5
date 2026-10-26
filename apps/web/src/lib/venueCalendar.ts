@@ -1,3 +1,4 @@
+import { utcToSgt } from "@spm-t5/shared";
 import { VENUE_URL } from "@/lib/api";
 
 // Browser-side types and fetch for the venue availability calendar (SCRUM-84; contract: GET /venue-calendar on venue-service).
@@ -70,4 +71,11 @@ export async function fetchVenueCalendar(query: CalendarQuery = {}, signal?: Abo
   if (res.status === 403) return { kind: "forbidden", message: body.error ?? "You are not allowed to view the venue calendar." };
   if (res.status === 422 && body.fieldErrors) return { kind: "invalid", fieldErrors: body.fieldErrors };
   return { kind: "error", message: body.error ?? "Something went wrong. Please try again." };
+}
+
+/** "2026-11-14 10:00 to 12:00" in Singapore time; the end carries its date too when it falls on another day. */
+export function formatPeriodTimes(startIso: string, endIso: string): string {
+  const start = utcToSgt(new Date(startIso));
+  const end = utcToSgt(new Date(endIso));
+  return `${start.date} ${start.time} to ${end.date === start.date ? end.time : `${end.date} ${end.time}`}`;
 }
