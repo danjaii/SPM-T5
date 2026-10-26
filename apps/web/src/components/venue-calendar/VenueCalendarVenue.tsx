@@ -9,6 +9,7 @@ export function VenueCalendarVenue({ venue }: { venue: CalendarVenue }) {
       <div className="flex flex-col gap-0.5">
         <h2 id={headingId} className="text-lg font-bold text-foreground">{venue.name}</h2>
         <p className="text-sm text-muted-foreground">{venue.address} · Capacity {venue.max_capacity}</p>
+        {venue.operating_hours === null && <p className="text-sm text-muted-foreground">Open at any time</p>}
       </div>
       <ul className="flex flex-col gap-2">
         {venue.periods.map((period) => (
