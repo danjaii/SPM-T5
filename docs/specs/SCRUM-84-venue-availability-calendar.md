@@ -48,7 +48,13 @@ Scenario `n` of ACx is tested as `SCRUM-84/ACx`.
   booking 10:00-12:00 with 30 and 45 minutes is occupied 09:30-12:45: setup 09:30-10:00, event 10:00-12:00, turnaround 12:00-12:45.
 - S5: overlap precedence, highest first: Blocked, Confirmed event, Tentatively Held event, Confirmed setup/turnaround,
   Tentatively Held setup/turnaround, Available, Unavailable. So a block over a booking shows Blocked (the booking is flagged
-  by SCRUM-106 elsewhere); a booking in non-operating hours shows its status. Periods never overlap.
+  by SCRUM-106 elsewhere, and the Blocked period is flagged, S7); a booking in non-operating hours shows its status. Periods never overlap.
+- S7 (flag, decided by the team): every `BLOCKED` period carries `overlaps_confirmed_booking`. It is `true` only on the
+  stretch of the block that lies over the event, setup or turnaround (the occupied period) of a **Confirmed** booking, and
+  `false` on the rest of the block; a block is therefore split at the edges of that occupied period (touching at an edge is not
+  an overlap). A Tentatively Held booking never flags. The field exists only on block periods. It does not say which event,
+  coordinator or requester (36-S5, 105-S6). Basis: Week 7 change 2 (affected bookings are identified) and Week 9 O-20 (the
+  calendar flags them). The UI should show a note such as "Conflicts with a confirmed booking".
 - S6: no booking ids, event names, coordinators, `notes` or `created_by` are returned (36-S5).
 
 ### AC3 — Show available periods
@@ -112,6 +118,14 @@ Scenario `n` of ACx is tested as `SCRUM-84/ACx`.
   `venue_padded_period` (27) and the same holding statuses (DR5), and returns no event, coordinator or notes. SCRUM-97 (hold
   expiry) redefines the same "holding" rule in 56-57; when it lands this function must copy its holding predicate.
   Venues themselves are read through the caller's token from `venues` (blanket RLS today).
+- **DECISION: Event Coordinator Lead and Safety Officer get 403.** Jira AC8 names exactly three roles that may open the
+  calendar (Event Coordinator, Venue Staff, Technical Support Staff), and the Week 2 customer answer (Q40) names only Event
+  Coordinators and Venue Staff. Neither newer role is mentioned anywhere, so they stay refused; tested in
+  `venueCalendarAccess.test.ts` and `canViewVenueCalendar.test.ts`.
+- **DECISION: Technical Support Staff see block reasons.** Jira AC1 lets them open the calendar; they see the same reason label
+  coordinators see (SCRUM-105), never the notes or who made the block. Tested in `venueCalendarPeriods.test.ts` (S3) and by the
+  integration test.
+- **DECISION: a block over a Confirmed booking is Blocked,** flagged with `overlaps_confirmed_booking` (AC2 S7), not hidden.
 - **Never the service-role key;** everything is `deps.forUser(token)`.
 - **Time:** all instants are UTC ISO strings; ranges and days are Singapore dates; the current week is Monday-Sunday SGT.
 - **Max range 62 days** (about two months, a month view plus margin). The work is `venues x periods`, so it is bounded.
@@ -151,5 +165,9 @@ Scenario `n` of ACx is tested as `SCRUM-84/ACx`.
 
 ## Open questions
 
-- Should a block over a Confirmed booking show Blocked (chosen) or Confirmed? SCRUM-85 can add an `overlaps` field.
-- Technical Support Staff see the block reason label (as coordinators do); confirm with the PO.
+- (a) Week 2 Q40 does not name Technical Support Staff as calendar users; Jira 84 does and nothing newer changes it.
+- (b) Week 9 O-23 (Q49) says a block may be open-ended until lifted, while Week 9 Q41 says it should not be, and the schema
+  requires an end time. An open-ended block cannot appear on this calendar. Flag for the team.
+- (c) The Week 9 Q48 answer says only that buffers ensure preparation and reset "between event uses and holds". That supports
+  no buffers around blocks but does not state it; the calendar adds none.
+
