@@ -1,4 +1,4 @@
-import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, ListChecks, Package, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BedDouble, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FilePlus2, Home, ListChecks, Package, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { Role } from "@spm-t5/shared";
 
 /** The queues whose size is shown beside a nav item (SCRUM-121/AC2). */
@@ -28,6 +28,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "Event requests", href: "/events/review", icon: ClipboardList },
     { label: "My venue bookings", href: "/venue-bookings", icon: CalendarCheck },
     { label: "Venue catalogue", href: "/venues", icon: BedDouble },
+    // SCRUM-84/AC8: the venue availability calendar
+    { label: "Venue calendar", href: "/venue-calendar", icon: CalendarRange },
     { label: "Event registrations", href: "/registrations-overview", icon: Users },
   ],
   event_coordinator_lead: [
@@ -39,6 +41,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     dashboard("venue_staff"),
     { label: "Booking requests", href: "/booking-queue", icon: CalendarCheck, queue: "bookingQueue" },
     { label: "Venue catalogue", href: "/venues", icon: BedDouble },
+    // SCRUM-84/AC8: the venue availability calendar
+    { label: "Venue calendar", href: "/venue-calendar", icon: CalendarRange },
   ],
   technical_support_staff: [
     dashboard("technical_support_staff"),
@@ -47,6 +51,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "Inventory", href: "/equipment-inventory", icon: Package },
     { label: "Equipment availability", href: "/equipment-availability", icon: CalendarDays },
     { label: "Reserve equipment", href: "/equipment-reservation", icon: ClipboardList },
+    // SCRUM-84/AC8: the venue availability calendar
+    { label: "Venue calendar", href: "/venue-calendar", icon: CalendarRange },
   ],
   safety_officer: [
     dashboard("safety_officer"),

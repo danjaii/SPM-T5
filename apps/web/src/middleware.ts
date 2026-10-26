@@ -58,5 +58,6 @@ export const config = {
     "/equipment-inventory/:path*",
     "/equipment-reservation/:path*",
     "/my-event-requests/:path*",
+    "/venue-calendar/:path*", // SCRUM-84/AC8: several roles; see MULTI_ROLE in roleAccess.ts
   ],
 };
