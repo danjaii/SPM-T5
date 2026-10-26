@@ -208,6 +208,16 @@ describe("SCRUM-51/AC1 upload an attachment to a draft (POST /events/drafts/:id/
     }
   });
 
+  it("answers 400 when no body is sent at all", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+
+    const res = await request(createApp(fake.deps)).post(`/events/drafts/${draft.id}/attachments/upload-url`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(400);
+  });
+
   it("answers 500 when storage cannot prepare the upload", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser");
@@ -257,6 +267,16 @@ describe("SCRUM-51/AC1 attach the uploaded file (POST /events/drafts/:id/attachm
       expect(res.status).toBe(400);
     }
     expect(fake.rpcCalls).toEqual([]);
+  });
+
+  it("answers 400 when no body is sent at all", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+
+    const res = await request(createApp(fake.deps)).post(`/events/drafts/${draft.id}/attachments`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(400);
   });
 
   it("answers 401, 403 and 404 like the upload URL", async () => {

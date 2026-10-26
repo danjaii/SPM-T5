@@ -256,3 +256,54 @@ describe("SCRUM-51/AC4 remove an attachment from a request not yet submitted", (
     expect(screen.queryByLabelText(/add documents/i)).toBeNull();
   });
 });
+
+describe("SCRUM-51 panel edge cases", () => {
+  it("shows a size in MB for a large file and in KB for a small one", async () => {
+    mockServer([{ status: 200, body: { attachments: [stored("a1", "big.pdf", 5 * 1024 * 1024), stored("a2", "small.pdf", 100)] } }]);
+    render(<SupportingDocuments eventId={EVENT} />);
+
+    await screen.findByText("big.pdf");
+    expect(screen.getByText("5.0 MB")).toBeTruthy();
+    expect(screen.getByText("1 KB")).toBeTruthy();
+  });
+
+  it("falls back to a plain message when the service gives none (upload URL, attach and remove)", async () => {
+    mockServer([{ status: 200, body: { attachments: [stored("a1", "programme.pdf")] } }], {
+      "POST http://localhost:4002/events/drafts": { status: 500, body: {} },
+      "DELETE": { status: 500, body: {} },
+    });
+    render(<SupportingDocuments eventId={EVENT} />);
+    const list = await screen.findByRole("list", { name: /supporting documents/i });
+
+    choose([pdf("a.pdf")]);
+    expect((await screen.findByRole("alert")).textContent).toContain("We couldn't attach it.");
+
+    fireEvent.click(within(list).getByRole("button", { name: "Remove programme.pdf" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").some((a) => a.textContent?.includes("We couldn't remove it."))).toBe(true));
+  });
+
+  it("falls back to a plain message when attaching fails after the upload", async () => {
+    mockServer([{ status: 200, body: { attachments: [] } }], {
+      "POST http://localhost:4002/events/drafts/11111111-1111-4111-8111-111111111111/attachments/upload-url": {
+        status: 200, body: { upload_url: "https://storage.test/u", storage_path: `${EVENT}/x/a.pdf` },
+      },
+      [`POST http://localhost:4002/events/drafts/${EVENT}/attachments`]: { status: 500, body: {} },
+    });
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText(/no documents attached yet/i);
+
+    choose([pdf("a.pdf")]);
+
+    expect((await screen.findByRole("alert")).textContent).toContain("a.pdf: We couldn't attach it.");
+  });
+
+  it("does nothing when the file picker is closed without a file", async () => {
+    const server = mockServer([{ status: 200, body: { attachments: [] } }]);
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText(/no documents attached yet/i);
+
+    fireEvent.change(screen.getByLabelText(/add documents/i), { target: { files: null } });
+
+    expect(server.calls.filter((c) => c.method !== "GET")).toEqual([]);
+  });
+});

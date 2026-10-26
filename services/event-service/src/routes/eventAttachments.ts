@@ -35,9 +35,10 @@ export function eventAttachmentRoutes(deps: SupabaseDeps) {
     const user = await ownDraft(res, id);
     if (!user) return;
 
-    const fileName = typeof req.body.file_name === "string" ? req.body.file_name.trim() : "";
-    const contentType = typeof req.body.content_type === "string" ? req.body.content_type : "";
-    const size = typeof req.body.size === "number" ? req.body.size : NaN;
+    const body = req.body ?? {};
+    const fileName = typeof body.file_name === "string" ? body.file_name.trim() : "";
+    const contentType = typeof body.content_type === "string" ? body.content_type : "";
+    const size = typeof body.size === "number" ? body.size : NaN;
     if (!fileName || !contentType || !Number.isFinite(size) || size < 0) {
       return res.status(400).json({ error: "file_name, content_type and size are required." });
     }
