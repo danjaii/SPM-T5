@@ -33,6 +33,11 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
     eventIds.push(data.id);
     return data;
   }
+  /** Moves a draft to submitted. A name-only draft fails submit_event_draft() as incomplete (DR003), so the status is set directly. */
+  async function markSubmitted(eventId: string) {
+    const { error } = await admin.from("events").update({ status: "submitted", is_draft: false, submitted_at: new Date().toISOString() }).eq("id", eventId);
+    if (error) throw new Error(error.message);
+  }
   /** Upload-URL, send the file, register it: what the form does. */
   async function attach(actor: Actor, eventId: string, name = "plan.pdf", type = "application/pdf", body = "%PDF-1.4 IT-51") {
     const urlRes = await request(app).post(`/events/drafts/${eventId}/attachments/upload-url`).set("Cookie", cookie(actor))
@@ -93,7 +98,7 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
 
       expect((await attach(who.otherOrganiser, draft.id)).urlRes.status).toBe(404);
       expect((await attach(who.coordinator, draft.id)).urlRes.status).toBe(403);
-      await who.organiser.client.rpc("submit_event_draft", { p_event_id: draft.id });
+      await markSubmitted(draft.id);
       const late = await request(app).post(`/events/drafts/${draft.id}/attachments`).set("Cookie", cookie(who.organiser))
         .send({ file_name: "a.pdf", storage_path: `${draft.id}/a/a.pdf`, content_type: "application/pdf", size: 1 });
       expect(late.status).toBe(409);
@@ -162,7 +167,7 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
     it("keeps the attachment once the request is submitted (409, DR002) and the file stays", async () => {
       const draft = await newDraft(who.organiser, "IT-51-AC4-submitted");
       const { res } = await attach(who.organiser, draft.id);
-      await who.organiser.client.rpc("submit_event_draft", { p_event_id: draft.id });
+      await markSubmitted(draft.id);
 
       const late = await request(app).delete(`/events/drafts/${draft.id}/attachments/${res!.body.id}`).set("Cookie", cookie(who.organiser));
       const direct = await who.organiser.client.rpc("remove_event_attachment", { p_event_id: draft.id, p_attachment_id: res!.body.id });
