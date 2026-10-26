@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { parseCalendarRange } from "@spm-t5/shared";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchVenueCalendar, type CalendarQuery, type VenueCalendarData } from "@/lib/venueCalendar";
@@ -15,12 +16,19 @@ export function VenueCalendar() {
   const [calendar, setCalendar] = useState<VenueCalendarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const pending = useRef<AbortController | null>(null);
   const routerRef = useRef(router); // read when a reply arrives, so a new router object never re-runs the first load
   routerRef.current = router;
 
   const load = useCallback(
     async (query: CalendarQuery) => {
+      // SCRUM-84/AC6: the same check venue-service makes, so a bad range is refused here and the previous view stays
+      const checked = parseCalendarRange(query, new Date());
+      if (!checked.ok) {
+        setFieldErrors(checked.fieldErrors);
+        return;
+      }
       pending.current?.abort();
       const controller = new AbortController();
       pending.current = controller;
@@ -30,7 +38,9 @@ export function VenueCalendar() {
         if (result.kind === "ok") {
           setCalendar(result.calendar);
           setMessage(null);
-        } else if (result.kind === "unauthenticated") routerRef.current.replace("/login");
+          setFieldErrors({});
+        } else if (result.kind === "invalid") setFieldErrors(result.fieldErrors);
+        else if (result.kind === "unauthenticated") routerRef.current.replace("/login");
         else if (result.kind === "error" || result.kind === "forbidden") setMessage(result.message);
       } catch {
         return; // replaced by a newer request
@@ -48,7 +58,7 @@ export function VenueCalendar() {
   const range = calendar?.range;
   return (
     <div className="flex flex-col gap-6">
-      <VenueCalendarRangeForm busy={loading} onSubmit={load} />
+      <VenueCalendarRangeForm busy={loading} fieldErrors={fieldErrors} onSubmit={load} />
       {message && <AuthAlert tone="error">{message}</AuthAlert>}
       {range && <p className="text-sm font-medium text-foreground">{range.from === range.to ? `Showing ${range.from}` : `Showing ${range.from} to ${range.to}`}</p>}
       {!calendar ? (
