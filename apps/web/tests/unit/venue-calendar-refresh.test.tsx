@@ -17,7 +17,7 @@ describe("SCRUM-84/AC7 the latest recorded status", () => {
       calendarFixture({ venues: [venueFixture({ periods: [held] })] }),
       calendarFixture({ venues: [venueFixture({ periods: [{ ...held, status: "CONFIRMED", label: "Confirmed" }] })] }),
     ];
-    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => jsonReply(200, answers.shift()));
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<unknown>>(async () => jsonReply(200, answers.shift()));
     vi.stubGlobal("fetch", fetchMock);
     render(<VenueCalendar />);
     await screen.findByText("Available");
@@ -34,7 +34,7 @@ describe("SCRUM-84/AC7 the latest recorded status", () => {
   });
 
   it("SCRUM-84/AC7 reloading with nothing chosen asks for the current week", async () => {
-    const fetchMock = vi.fn(async (_url: string) => jsonReply(200, calendarFixture()));
+    const fetchMock = vi.fn<(url: string) => Promise<unknown>>(async () => jsonReply(200, calendarFixture()));
     vi.stubGlobal("fetch", fetchMock);
     render(<VenueCalendar />);
     await screen.findByText("Orchid Hall");

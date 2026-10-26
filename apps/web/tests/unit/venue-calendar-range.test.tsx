@@ -78,4 +78,23 @@ describe("SCRUM-84/AC5 change the date range", () => {
     release(jsonReply(200, calendarFixture()));
     await waitFor(() => expect((screen.getByRole("button", { name: "Show calendar" }) as HTMLButtonElement).disabled).toBe(false));
   });
+
+  it("SCRUM-84/AC5 drops the answer of a request that a newer choice replaced", async () => {
+    const fetchMock = vi.fn((url: string, init?: RequestInit) =>
+      url.includes("from=2026-12-01")
+        ? new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))))
+        : Promise.resolve(jsonReply(200, url.includes("from=2026-12-02") ? calendarFixture({ venues: [venueFixture({ name: "Second Hall" })] }) : calendarFixture())),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VenueCalendar />);
+    await screen.findByText("Orchid Hall");
+    type("Start date", "2026-12-01");
+    fireEvent.click(screen.getByRole("button", { name: "Show calendar" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // the button is disabled while loading, so submit the form itself as a second quick choice
+    type("Start date", "2026-12-02");
+    fireEvent.submit(screen.getByRole("form", { name: "Date range" }));
+    expect(await screen.findByText("Second Hall")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });
