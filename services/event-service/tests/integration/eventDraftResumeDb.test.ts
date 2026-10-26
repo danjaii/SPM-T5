@@ -89,4 +89,80 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe("SCRUM-54/AC2 re-save a draft", () => {
+    const putAs = (actor: Actor, id: string, body: unknown) =>
+      request(app).put(`/events/drafts/${id}`).set("Cookie", cookie(actor)).send(body as object);
+
+    it("updates the draft through PUT and moves updated_at forward", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC2-before", p_expected_attendance: 10 });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      const res = await putAs(who.organiser, draft.id, { name: "IT-54-AC2-after", expected_attendance: 90, purpose: "Edited" });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: draft.id, name: "IT-54-AC2-after", expected_attendance: 90, purpose: "Edited", status: "draft" });
+      expect(new Date(res.body.updated_at).getTime()).toBeGreaterThan(new Date(draft.updated_at).getTime());
+      expect(await stored(draft.id)).toMatchObject({ name: "IT-54-AC2-after", expected_attendance: 90, updated_at: res.body.updated_at });
+    });
+
+    it("clears a field the organiser emptied and names a blank draft Untitled draft", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC2-clear", p_purpose: "Gone soon", p_expected_attendance: 5 });
+
+      const res = await putAs(who.organiser, draft.id, { name: "   ", purpose: "", expected_attendance: null });
+
+      expect(res.status).toBe(200);
+      expect(await stored(draft.id)).toMatchObject({ name: "Untitled draft", purpose: null, expected_attendance: null });
+    });
+
+    it("answers 422 and changes nothing for a value the table would refuse", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC2-422", p_expected_attendance: 5 });
+
+      const res = await putAs(who.organiser, draft.id, { name: "IT-54-AC2-changed", expected_attendance: -1 });
+
+      expect(res.status).toBe(422);
+      expect(res.body.fieldErrors).toHaveProperty("expected_attendance");
+      expect(await stored(draft.id)).toMatchObject({ name: "IT-54-AC2-422", expected_attendance: 5 });
+    });
+
+    it("lets the owner change the fields of their draft directly (the UPDATE policy)", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC2-direct" });
+      const { data, error } = await who.organiser.client.from("events").update({ name: "IT-54-AC2-direct-2" }).eq("id", draft.id).select("id");
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+    });
+
+    it.each([
+      ["organiser_id", () => who.otherOrganiser.userId],
+      ["client_organisation_id", () => "00000000-0000-4000-8000-000000000000"],
+      ["assigned_coordinator_id", () => who.coordinator.userId],
+      ["cloned_from_event_id", () => "00000000-0000-4000-8000-000000000000"],
+      ["created_at", () => "2001-01-01T00:00:00Z"],
+      ["confirmed_at", () => "2031-01-01T00:00:00Z"],
+    ])("refuses the owner changing %s on their draft, directly or through the API", async (column, value) => {
+      const draft = await newDraft(who.organiser, { p_name: `IT-54-AC2-${column}` });
+      const before = await stored(draft.id);
+
+      const direct = await who.organiser.client.from("events").update({ [column]: value() }).eq("id", draft.id).select("id");
+      expect(direct.data ?? []).toEqual([]);
+
+      const viaApi = await putAs(who.organiser, draft.id, { name: `IT-54-AC2-${column}`, [column]: value() });
+      expect(viaApi.status).toBe(200);
+      const after = await stored(draft.id);
+      expect(after[column]).toEqual(before[column]);
+    });
+
+    it.each([
+      ["status", "submitted"],
+      ["is_draft", false],
+      ["submitted_at", "2031-01-01T00:00:00Z"],
+    ])("refuses the owner setting %s by a plain update, so a draft cannot submit itself", async (column, value) => {
+      const draft = await newDraft(who.organiser, { p_name: `IT-54-AC2-plain-${column}` });
+
+      const res = await who.organiser.client.from("events").update({ [column]: value }).eq("id", draft.id).select("id");
+
+      expect(res.data ?? []).toEqual([]);
+      expect(await stored(draft.id)).toMatchObject({ status: "draft", is_draft: true, submitted_at: null });
+    });
+  });
 });
