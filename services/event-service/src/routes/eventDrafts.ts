@@ -1,5 +1,12 @@
 import { Router } from "express";
-import { canCreateEventRequests, parseEventRequestDraft, type EventDraftInput } from "@spm-t5/shared";
+import {
+  canCreateEventRequests,
+  parseEventRequest,
+  parseEventRequestDraft,
+  EVENT_DRAFT_FIELDS,
+  type EventDraftInput,
+  type EventRequestInput,
+} from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { lookUpRole } from "./events";
@@ -34,8 +41,34 @@ function draftArguments(b: EventDraftInput) {
   };
 }
 
+/** The name the database gives a draft saved without one (migration 52). It is a placeholder, not an answer. */
+const UNTITLED = "Untitled draft";
+
+/**
+ * SCRUM-54/AC3: a stored draft in the shape the submission rules (parseEventRequest) read. An empty field is left out, not
+ * sent as null, so it gets the "Enter the ..." message a new request would get; the placeholder name counts as empty.
+ */
+function storedDraftAsRequest(draft: Record<string, unknown>): Record<string, unknown> {
+  const request: Record<string, unknown> = {};
+  for (const field of EVENT_DRAFT_FIELDS) {
+    if (draft[field] !== null && draft[field] !== undefined) request[field] = draft[field];
+  }
+  if (request.name === UNTITLED) delete request.name;
+  return request;
+}
+
+/** A validated request back in the shape of a draft, to be saved before it is submitted. */
+function requestAsDraft(data: EventRequestInput): EventDraftInput {
+  return {
+    ...data,
+    registration_capacity: data.registration_capacity ?? null,
+    registration_opens_at: data.registration_opens_at ?? null,
+    registration_closes_at: data.registration_closes_at ?? null,
+  };
+}
+
 /** SCRUM-53: an event organiser saves an incomplete event request as a draft. SCRUM-54: and reopens it. */
-export function eventDraftRoutes(deps: SupabaseDeps) {
+export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
   const router = Router();
 
   // SCRUM-53/AC1: store the request with status draft. No organiser or organisation argument is sent: the database function
@@ -110,6 +143,42 @@ export function eventDraftRoutes(deps: SupabaseDeps) {
     if (!saved) return res.status(404).json({ error: "Draft not found." });
 
     res.json(saved);
+  });
+
+  // SCRUM-54/AC3: submit a draft. The submission rules of POST /events (parseEventRequest) run first on the fields to be
+  // submitted: the body when one is sent ("save and submit"), otherwise the saved draft. A draft that fails them is left as it
+  // was. Then submit_event_draft() changes the status and writes the history row in one transaction.
+  router.post("/drafts/:id/submit", requireSession(deps), async (req, res) => {
+    const user = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, user);
+    if (role === undefined || !canCreateEventRequests(role)) {
+      return res.status(403).json({ error: "You are not allowed to create event requests." });
+    }
+
+    const id = String(req.params.id);
+    const { data: draft } = UUID.test(id)
+      ? await deps.forUser(user.token).from("events").select(DRAFT_COLUMNS).eq("id", id).maybeSingle()
+      : { data: null };
+    if (!draft) return res.status(404).json({ error: "Draft not found." });
+
+    const body = req.body as Record<string, unknown> | undefined;
+    const sentFields = body !== undefined && body !== null && typeof body === "object" && !Array.isArray(body) && Object.keys(body).length > 0;
+    const parsed = parseEventRequest(sentFields ? body : storedDraftAsRequest(draft as unknown as Record<string, unknown>), now());
+    if (!parsed.ok) {
+      return res.status(422).json({ code: "VALIDATION_FAILED", error: "Check the highlighted fields.", fieldErrors: parsed.fieldErrors });
+    }
+
+    const db = deps.forUser(user.token);
+    if (sentFields) {
+      const { error: saveError } = await db.rpc("update_event_draft", { p_event_id: id, ...draftArguments(requestAsDraft(parsed.data)) }).maybeSingle();
+      if (saveError) return res.status(500).json({ error: "Could not submit the request." });
+    }
+
+    const { data: submitted, error } = await db.rpc("submit_event_draft", { p_event_id: id }).single();
+    if (error?.code === "DR001") return res.status(404).json({ error: "Draft not found." });
+    if (error || !submitted) return res.status(500).json({ error: "Could not submit the request." });
+
+    res.json(submitted);
   });
 
   return router;

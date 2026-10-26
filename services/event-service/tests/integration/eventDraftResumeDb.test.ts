@@ -165,4 +165,121 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       expect(await stored(draft.id)).toMatchObject({ status: "draft", is_draft: true, submitted_at: null });
     });
   });
+
+  describe("SCRUM-54/AC3 submit a draft", () => {
+    const submitAs = (actor: Actor, id: string, body?: unknown) => {
+      const req = request(app).post(`/events/drafts/${id}/submit`).set("Cookie", cookie(actor));
+      return body === undefined ? req : req.send(body as object);
+    };
+    /** Every mandatory field, in the shape of the create_event_draft arguments. */
+    const completeArgs = (name: string) => ({
+      p_name: name,
+      p_purpose: "Integration test",
+      p_description: "Made by eventDraftResumeDb.test.ts",
+      p_preferred_start_datetime: "2031-05-03T09:00:00Z",
+      p_preferred_end_datetime: "2031-05-03T17:00:00Z",
+      p_expected_attendance: 40,
+      p_venue_requirements: "Projector",
+      p_preferred_room_layout_id: layoutId,
+      p_accessibility_requirements: "None required",
+      p_equipment_requirements_notes: "None required",
+    });
+
+    it("changes a complete draft from Draft to Submitted with submitted_at set and no coordinator", async () => {
+      const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-submit"));
+
+      const res = await submitAs(who.organiser, draft.id);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: draft.id, status: "submitted", is_draft: false, assigned_coordinator_id: null });
+      expect(res.body.submitted_at).toEqual(expect.any(String));
+      expect(await stored(draft.id)).toMatchObject({ status: "submitted", is_draft: false, assigned_coordinator_id: null });
+    });
+
+    it("writes one draft -> submitted history row in the organiser's name", async () => {
+      const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-history"));
+      await submitAs(who.organiser, draft.id);
+
+      const { data: history } = await admin.from("event_status_history").select("*").eq("event_id", draft.id);
+
+      expect(history).toHaveLength(1);
+      expect(history![0]).toMatchObject({ old_status: "draft", new_status: "submitted", changed_by: who.organiser.userId });
+    });
+
+    it("sends the organiser no notification for submitting", async () => {
+      const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-notify"));
+      await submitAs(who.organiser, draft.id);
+
+      const { data } = await admin.from("notifications").select("id").eq("event_id", draft.id);
+
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("puts the request in the Event Coordinator Lead's unassigned queue", async () => {
+      const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-queue"));
+      const before = await who.lead.client.rpc("lead_unassigned_queue");
+      expect((before.data as Array<{ id: string }>).some((r) => r.id === draft.id)).toBe(false);
+
+      const res = await submitAs(who.organiser, draft.id);
+
+      const { data, error } = await who.lead.client.rpc("lead_unassigned_queue");
+      expect(error).toBeNull();
+      const row = (data as Array<Record<string, unknown>>).find((r) => r.id === draft.id);
+      expect(row).toMatchObject({ name: "IT-54-AC3-queue", organiser_name: "Jason Chua", expected_attendance: 40 });
+      expect(new Date(row!.submitted_at as string).getTime()).toBe(new Date(res.body.submitted_at).getTime());
+    });
+
+    it("saves and submits in one call when the fields are sent as the body", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC3-body" });
+
+      const res = await submitAs(who.organiser, draft.id, {
+        name: "IT-54-AC3-body-final",
+        purpose: "From the form",
+        description: "Sent with the submit",
+        preferred_start_datetime: "2031-05-03T09:00:00Z",
+        preferred_end_datetime: "2031-05-03T17:00:00Z",
+        expected_attendance: 55,
+        venue_requirements: "Stage",
+        preferred_room_layout_id: layoutId,
+        accessibility_requirements: "None required",
+        equipment_requirements_notes: "None required",
+        registration_required: false,
+        registration_capacity: 20,
+      });
+
+      expect(res.status).toBe(200);
+      expect(await stored(draft.id)).toMatchObject({
+        name: "IT-54-AC3-body-final",
+        expected_attendance: 55,
+        status: "submitted",
+        registration_capacity: null,
+      });
+    });
+
+    it("refuses an incomplete draft with 422 and field errors, and it is still a draft", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC3-incomplete", p_purpose: "Only this" });
+      const before = await stored(draft.id);
+
+      const res = await submitAs(who.organiser, draft.id);
+
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe("VALIDATION_FAILED");
+      expect(res.body.fieldErrors).toHaveProperty("description");
+      expect(res.body.fieldErrors).toHaveProperty("preferred_start_datetime");
+      const after = await stored(draft.id);
+      expect(after).toMatchObject({ status: "draft", is_draft: true, submitted_at: null });
+      expect(after.updated_at).toBe(before.updated_at);
+      const { data: history } = await admin.from("event_status_history").select("id").eq("event_id", draft.id);
+      expect(history).toHaveLength(0);
+    });
+
+    it("refuses an incomplete draft in the database too (DR003) when the service is skipped", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC3-db-incomplete" });
+
+      const { error } = await who.organiser.client.rpc("submit_event_draft", { p_event_id: draft.id });
+
+      expect(error?.code).toBe("DR003");
+      expect(await stored(draft.id)).toMatchObject({ status: "draft" });
+    });
+  });
 });

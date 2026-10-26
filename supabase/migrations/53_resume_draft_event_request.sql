@@ -8,6 +8,17 @@
 -- A policy cannot limit columns, so a BEFORE UPDATE trigger (events_organiser_draft_guard) refuses an organiser changing the
 -- columns that are not part of the form, for every route a write could take, not just the function. The function itself only
 -- names the 14 draft fields.
+-- AC3 (submit): submit_event_draft() moves the caller's own draft to Submitted and writes the draft -> submitted history row in
+-- one transaction. It is security definer, because a plain update cannot do it (the policy above pins status = 'draft'); it
+-- therefore checks the caller itself: an event organiser, their own row, still a draft (AC4). The strict rules are
+-- parseEventRequest (packages/shared), which event-service runs first; the function repeats the "mandatory fields filled in"
+-- part so a caller who skips the service still cannot submit an empty draft.
+-- AC4: a request that is not a draft is refused (DR002), and the UPDATE policy never matches it.
+-- Custom SQLSTATEs (class DR): DR001 not the caller's draft or not found, DR002 not a draft any more, DR003 incomplete.
+-- No notification is written: notify_event_decision (44) only reacts to approved and rejected.
+-- The history row is written by the function, so no organiser INSERT policy for draft -> submitted history is added: such a
+-- policy would let an organiser forge history rows by inserting them directly.
+--
 -- AC2: the last-saved time is events.updated_at, refreshed by trg_events_updated_at on every UPDATE.
 
 -- ============================================================================
@@ -127,3 +138,89 @@ $$;
 grant execute on function public.update_event_draft(
   uuid, text, text, text, timestamptz, timestamptz, int, text, uuid, text, text, boolean, int, timestamptz, timestamptz
 ) to authenticated;
+
+-- ============================================================================
+-- AC3 / AC4: SUBMIT A DRAFT
+-- ============================================================================
+-- events_status_change_guard (14, replaced by 43 for the Safety Officer) lets only the assigned coordinator change an event's
+-- status, so it would refuse the organiser submitting their own draft. Same function, one more exception: the organiser
+-- of the row, draft -> submitted. It is only reachable through submit_event_draft(), because the organiser UPDATE policy keeps status = 'draft'.
+
+create or replace function public.events_status_change_guard()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.status is distinct from old.status
+     and auth.uid() is not null
+     and old.assigned_coordinator_id is distinct from auth.uid()
+     -- SCRUM-100/AC3 (migration 43): a Safety Officer's change request returns the event to Planning
+     and not (old.status = 'awaiting_arrangements' and new.status = 'planning'
+              and public.current_user_role() = 'safety_officer')
+     -- SCRUM-54/AC3: an organiser submits their own draft
+     and not (old.status = 'draft' and new.status = 'submitted' and old.organiser_id = auth.uid()) then
+    raise exception 'Only the coordinator assigned to this event can change its status'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.submit_event_draft(p_event_id uuid)
+returns events
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_event events;
+  blank constant text := 'Untitled draft';
+begin
+  if auth.uid() is null or public.current_user_role() is distinct from 'event_organiser' then
+    raise exception 'Only an event organiser can submit a draft' using errcode = '42501';
+  end if;
+
+  select * into v_event from events where id = p_event_id and organiser_id = auth.uid() for update;
+  if not found then
+    raise exception 'Draft not found' using errcode = 'DR001';
+  end if;
+  if v_event.status is distinct from 'draft' or v_event.is_draft is not true then
+    raise exception 'This request has already been submitted' using errcode = 'DR002';
+  end if;
+
+  if v_event.name = blank
+     or coalesce(btrim(v_event.purpose), '') = ''
+     or coalesce(btrim(v_event.description), '') = ''
+     or coalesce(btrim(v_event.venue_requirements), '') = ''
+     or coalesce(btrim(v_event.accessibility_requirements), '') = ''
+     or coalesce(btrim(v_event.equipment_requirements_notes), '') = ''
+     or v_event.preferred_start_datetime is null
+     or v_event.preferred_end_datetime is null
+     or v_event.preferred_room_layout_id is null
+     or coalesce(v_event.expected_attendance, 0) < 1
+     or (v_event.registration_required
+         and (v_event.registration_capacity is null or v_event.registration_opens_at is null or v_event.registration_closes_at is null))
+  then
+    raise exception 'The draft is missing required details' using errcode = 'DR003';
+  end if;
+
+  -- no registration: nothing about capacity or a window is kept, as create_event_request / parseEventRequest do
+  update events set
+    status = 'submitted',
+    is_draft = false,
+    submitted_at = now(),
+    registration_capacity = case when registration_required then registration_capacity else null end,
+    registration_opens_at = case when registration_required then registration_opens_at else null end,
+    registration_closes_at = case when registration_required then registration_closes_at else null end
+  where id = p_event_id
+  returning * into v_event;
+
+  insert into event_status_history (event_id, old_status, new_status, changed_by)
+  values (p_event_id, 'draft', 'submitted', auth.uid());
+
+  return v_event;
+end;
+$$;
+
+revoke execute on function public.submit_event_draft(uuid) from public, anon;
+grant execute on function public.submit_event_draft(uuid) to authenticated;

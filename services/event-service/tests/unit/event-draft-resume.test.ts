@@ -305,3 +305,220 @@ describe("SCRUM-54/AC2 re-save a draft (PUT /events/drafts/:id)", () => {
     expect(draft.name).toBe("Untouched");
   });
 });
+
+const COMPLETE = {
+  name: "Tech Summit",
+  purpose: "Showcase",
+  description: "A day of demos",
+  preferred_start_datetime: "2031-05-01T09:00:00.000Z",
+  preferred_end_datetime: "2031-05-01T17:00:00.000Z",
+  expected_attendance: 250,
+  venue_requirements: "A stage",
+  preferred_room_layout_id: LAYOUT_ID,
+  accessibility_requirements: "None required",
+  equipment_requirements_notes: "Two microphones",
+  registration_required: false,
+};
+
+describe("SCRUM-54/AC3 submit a draft (POST /events/drafts/:id/submit)", () => {
+  const submit = (fake: ReturnType<typeof createFake>, cookie: string, id: string, body?: unknown, now?: () => Date) => {
+    const req = request(createApp(fake.deps, { now })).post(`/events/drafts/${id}/submit`).set("Cookie", cookie);
+    return body === undefined ? req : req.send(body as object);
+  };
+
+  it("submits a complete saved draft: status Submitted, not a draft, submitted_at set, answers 200", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+
+    const res = await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: draft.id, status: "submitted", is_draft: false, assigned_coordinator_id: null });
+    expect(typeof res.body.submitted_at).toBe("string");
+    expect(fake.tables.events[0]).toMatchObject({ status: "submitted", is_draft: false });
+  });
+
+  it("records one draft -> submitted history row in the organiser's name and leaves no coordinator", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+
+    await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(fake.tables.event_status_history).toEqual([
+      { event_id: draft.id, old_status: "draft", new_status: "submitted", changed_by: organiser.id },
+    ]);
+    expect(fake.tables.events[0].assigned_coordinator_id).toBeNull();
+  });
+
+  it("with no body, asks the database only to submit the saved draft", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+
+    await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(fake.rpcCalls).toEqual([{ fn: "submit_event_draft", args: { p_event_id: draft.id } }]);
+  });
+
+  it("with a body, saves those fields first and then submits (save and submit)", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, { name: "Old" });
+
+    const res = await submit(fake, organiser.cookie, draft.id as string, { ...COMPLETE, name: "Saved and submitted" });
+
+    expect(res.status).toBe(200);
+    expect(fake.rpcCalls.map((c) => c.fn)).toEqual(["update_event_draft", "submit_event_draft"]);
+    expect(res.body).toMatchObject({ name: "Saved and submitted", expected_attendance: 250, status: "submitted" });
+  });
+
+  it("clears registration capacity and window when registration is not needed, as POST /events does", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+
+    const res = await submit(fake, organiser.cookie, draft.id as string, {
+      ...COMPLETE,
+      registration_required: false,
+      registration_capacity: 50,
+      registration_opens_at: "2031-04-01T09:00:00.000Z",
+      registration_closes_at: "2031-04-20T09:00:00.000Z",
+    });
+
+    expect(res.body).toMatchObject({ registration_capacity: null, registration_opens_at: null, registration_closes_at: null });
+  });
+
+  it("submits a draft that asks for registration when the capacity and window are filled in", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, {
+      ...COMPLETE,
+      registration_required: true,
+      registration_capacity: 200,
+      registration_opens_at: "2031-04-01T09:00:00.000Z",
+      registration_closes_at: "2031-04-20T09:00:00.000Z",
+    });
+
+    const res = await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ registration_required: true, registration_capacity: 200 });
+  });
+
+  it("answers 422 listing every missing field and leaves an incomplete draft as it was", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, { name: "Half done", purpose: "Only this" });
+
+    const res = await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(res.status).toBe(422);
+    expect(res.body).toMatchObject({ code: "VALIDATION_FAILED", error: "Check the highlighted fields." });
+    expect(Object.keys(res.body.fieldErrors).sort()).toEqual(
+      [
+        "accessibility_requirements", "description", "equipment_requirements_notes", "expected_attendance",
+        "preferred_end_datetime", "preferred_room_layout_id", "preferred_start_datetime", "venue_requirements",
+      ].sort(),
+    );
+    expect(fake.rpcCalls).toHaveLength(0);
+    expect(fake.tables.events[0]).toMatchObject({ status: "draft", is_draft: true, submitted_at: null });
+    expect(fake.tables.event_status_history).toHaveLength(0);
+  });
+
+  it("does not accept the placeholder name of an unnamed draft", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, { ...COMPLETE, name: "Untitled draft" });
+
+    const res = await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(res.status).toBe(422);
+    expect(res.body.fieldErrors).toEqual({ name: "Enter the event name." });
+  });
+
+  it("applies the same rules as a new request: a start date in the past is refused", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+
+    const res = await submit(fake, organiser.cookie, draft.id as string, undefined, () => new Date("2035-01-01T00:00:00Z"));
+
+    expect(res.status).toBe(422);
+    expect(res.body.fieldErrors).toHaveProperty("preferred_start_datetime");
+  });
+
+  it("answers 422 and saves nothing when the body sent with the submit is invalid", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, { ...COMPLETE, name: "Stays" });
+
+    const res = await submit(fake, organiser.cookie, draft.id as string, { ...COMPLETE, expected_attendance: 0 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.fieldErrors).toHaveProperty("expected_attendance");
+    expect(fake.rpcCalls).toHaveLength(0);
+    expect(fake.tables.events[0]).toMatchObject({ name: "Stays", status: "draft", expected_attendance: 250 });
+  });
+
+  it("answers 404 for a draft that is not the caller's, and for an id that is not a uuid", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const other = fake.signIn("event_organiser");
+    const theirs = fake.addEvent(other.id, COMPLETE);
+
+    for (const id of [theirs.id as string, MISSING_ID, "not-a-uuid"]) {
+      expect((await submit(fake, organiser.cookie, id)).status).toBe(404);
+    }
+    expect(fake.rpcCalls).toHaveLength(0);
+    expect(theirs.status).toBe("draft");
+  });
+
+  it("answers 404 when the database says it is no longer the caller's draft", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+    fake.failure.submitCode = "DR001";
+
+    expect((await submit(fake, organiser.cookie, draft.id as string)).status).toBe(404);
+  });
+
+  it("answers 500 when the database refuses the submission for another reason", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+    fake.failure.submitCode = "XX000";
+
+    const res = await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "Could not submit the request." });
+  });
+
+  it("answers 500 when saving the body before the submit fails, and does not submit", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+    fake.failure.update = true;
+
+    const res = await submit(fake, organiser.cookie, draft.id as string, COMPLETE);
+
+    expect(res.status).toBe(500);
+    expect(fake.rpcCalls.map((c) => c.fn)).toEqual(["update_event_draft"]);
+  });
+
+  it("answers 401 without a session and 403 to other roles", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+    const app = createApp(fake.deps);
+
+    expect((await request(app).post(`/events/drafts/${draft.id}/submit`)).status).toBe(401);
+    for (const role of ["event_coordinator", "attendee", "venue_staff", "event_coordinator_lead"]) {
+      const user = fake.signIn(role);
+      expect((await submit(fake, user.cookie, draft.id as string)).status).toBe(403);
+    }
+    expect(draft.status).toBe("draft");
+  });
+});
