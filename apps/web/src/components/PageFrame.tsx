@@ -2,8 +2,9 @@ import { TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// SCRUM-126/AC5, AC11: the title, subtitle and error state the Lead's pages share. The sidebar comes from the app shell.
-export function LeadPage({
+// SCRUM-126/AC5, AC11: the title, subtitle and error state the Lead pages share; SCRUM-139 reuses it for the attendee and
+// registration pages. The sidebar comes from the app shell.
+export function PageFrame({
   title,
   description,
   action,
@@ -38,8 +39,8 @@ export function LeadPage({
   );
 }
 
-/** SCRUM-126/AC11: shown while a Lead page loads. */
-export function LeadPageSkeleton({ label }: { label: string }) {
+/** SCRUM-126/AC11: shown while a page loads. */
+export function PageFrameSkeleton({ label }: { label: string }) {
   return (
     <main className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6" role="status" aria-label={label}>
       <div className="space-y-2">
