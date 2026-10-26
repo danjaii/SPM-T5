@@ -89,6 +89,13 @@ async function findOwnDraft(deps: SupabaseDeps, token: string, id: string): Prom
   return draft.status === "draft" ? { draft } : { refusal: NOT_A_DRAFT };
 }
 
+/** The refusal for the database's own "not found" (DR001) and "not a draft" (DR002) errors, which repeat the checks made by the read. */
+function draftRefusal(error: { code?: string } | null): Refusal | undefined {
+  if (error?.code === "DR001") return NOT_FOUND;
+  if (error?.code === "DR002") return NOT_A_DRAFT;
+  return undefined;
+}
+
 /** SCRUM-53: an event organiser saves an incomplete event request as a draft. SCRUM-54: and reopens it. */
 export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
   const router = Router();
@@ -155,10 +162,10 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
     const { data: saved, error } = await deps
       .forUser(user.token)
       .rpc("update_event_draft", { p_event_id: id, ...draftArguments(parsed.data) })
-      .maybeSingle();
-    if (error) return res.status(500).json({ error: "Could not save the draft." });
-    // the read above found a draft, so no row means it was submitted in between (the policy only matches drafts)
-    if (!saved) return res.status(NOT_A_DRAFT.status).json(NOT_A_DRAFT.body);
+      .single();
+    const refusal = draftRefusal(error);
+    if (refusal) return res.status(refusal.status).json(refusal.body);
+    if (error || !saved) return res.status(500).json({ error: "Could not save the draft." });
 
     res.json(saved);
   });
@@ -186,14 +193,16 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
 
     const db = deps.forUser(user.token);
     if (sentFields) {
-      const { error: saveError } = await db.rpc("update_event_draft", { p_event_id: id, ...draftArguments(requestAsDraft(parsed.data)) }).maybeSingle();
+      const { error: saveError } = await db.rpc("update_event_draft", { p_event_id: id, ...draftArguments(requestAsDraft(parsed.data)) }).single();
+      const saveRefusal = draftRefusal(saveError);
+      if (saveRefusal) return res.status(saveRefusal.status).json(saveRefusal.body);
       if (saveError) return res.status(500).json({ error: "Could not submit the request." });
     }
 
     const { data: submitted, error } = await db.rpc("submit_event_draft", { p_event_id: id }).single();
     // the database repeats the checks above, for a request that changed in between
-    if (error?.code === "DR001") return res.status(NOT_FOUND.status).json(NOT_FOUND.body);
-    if (error?.code === "DR002") return res.status(NOT_A_DRAFT.status).json(NOT_A_DRAFT.body);
+    const refusal = draftRefusal(error);
+    if (refusal) return res.status(refusal.status).json(refusal.body);
     if (error || !submitted) return res.status(500).json({ error: "Could not submit the request." });
 
     res.json(submitted);

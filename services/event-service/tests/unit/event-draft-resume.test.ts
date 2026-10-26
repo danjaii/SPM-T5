@@ -19,7 +19,7 @@ function createFake() {
   const tables: Record<string, Row[]> = { users: [], events: [], event_status_history: [] };
   const rpcCalls: { fn: string; args: Row }[] = [];
   const eventReads: unknown[] = []; // ids asked of the events table
-  const failure = { update: false, submit: false, submitCode: undefined as string | undefined, updateReturnsNothing: false };
+  const failure = { update: false, submit: false, submitCode: undefined as string | undefined, updateCode: undefined as string | undefined };
   const clock = { now: () => new Date() };
 
   // reads behave like RLS: a user only sees their own events (migration 14 gives the organiser their own rows)
@@ -42,10 +42,12 @@ function createFake() {
     return builder;
   };
 
-  /** Pretends to be update_event_draft (migration 53): the caller's own draft only, the 14 draft fields only. */
+  /** Pretends to be update_event_draft (migration 54, security definer): the caller's own draft only, the 14 draft fields only. */
   const updateEventDraft = (callerId: string | undefined, args: Row) => {
-    const event = tables.events.find((e) => e.id === args.p_event_id && e.organiser_id === callerId && e.status === "draft");
-    if (!event || failure.updateReturnsNothing) return { data: null, error: null };
+    if (failure.updateCode) return { data: null, error: { message: "refused", code: failure.updateCode } };
+    const event = tables.events.find((e) => e.id === args.p_event_id && e.organiser_id === callerId);
+    if (!event) return { data: null, error: { message: "not found", code: "DR001" } };
+    if (event.status !== "draft") return { data: null, error: { message: "not a draft", code: "DR002" } };
     for (const field of FIELD_ARGS) event[field] = args[`p_${field}`] ?? (field === "registration_required" ? false : null);
     if (typeof event.name !== "string" || event.name.trim() === "") event.name = "Untitled draft";
     event.updated_at = clock.now().toISOString();
@@ -293,6 +295,18 @@ describe("SCRUM-54/AC2 re-save a draft (PUT /events/drafts/:id)", () => {
     expect(theirs.name).toBe("Theirs");
   });
 
+  it("answers 404 when the database says it is not the caller's draft", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+    fake.failure.updateCode = "DR001";
+
+    const res = await put(fake, organiser.cookie, draft.id as string, { name: "x" });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Draft not found." });
+  });
+
   it("answers 500 when the database refuses the write", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser");
@@ -523,6 +537,18 @@ describe("SCRUM-54/AC3 submit a draft (POST /events/drafts/:id/submit)", () => {
     expect(fake.rpcCalls.map((c) => c.fn)).toEqual(["update_event_draft"]);
   });
 
+  it("answers 409 when the request is submitted between the read and the save in a save-and-submit", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+    fake.failure.updateCode = "DR002";
+
+    const res = await submit(fake, organiser.cookie, draft.id as string, COMPLETE);
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("NOT_A_DRAFT");
+  });
+
   it("answers 401 without a session and 403 to other roles", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser");
@@ -594,11 +620,12 @@ describe("SCRUM-54/AC4 the draft flow is not available once a request is submitt
     const draft = fake.addEvent(organiser.id, COMPLETE);
     const app = createApp(fake.deps);
 
-    fake.failure.updateReturnsNothing = true;
+    fake.failure.updateCode = "DR002";
     const put = await request(app).put(`/events/drafts/${draft.id}`).set("Cookie", organiser.cookie).send({ name: "Late" });
     expect(put.status).toBe(409);
     expect(put.body).toEqual(NOT_A_DRAFT);
 
+    fake.failure.updateCode = undefined;
     fake.failure.submitCode = "DR002";
     const submit = await request(app).post(`/events/drafts/${draft.id}/submit`).set("Cookie", organiser.cookie);
     expect(submit.status).toBe(409);
