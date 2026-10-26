@@ -18,7 +18,7 @@ export function EventRegistrationList({ registrations }: { registrations: EventR
 
   return (
     // SCRUM-74/AC10: more than 15 rows scroll inside the box
-    <div data-testid="registration-scroll" className={registrations.length > SCROLL_AFTER_ROWS ? "max-h-[32rem] overflow-y-auto rounded-xl" : undefined}>
+    <div data-testid="registration-scroll" className={registrations.length > SCROLL_AFTER_ROWS ? "max-h-128 overflow-y-auto rounded-xl" : undefined}>
       <Table>
         <TableHeader>
           <TableRow>
