@@ -327,6 +327,7 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       venue_requirements: "Projector",
       accessibility_requirements: "None required",
       equipment_requirements_notes: "None required",
+      registration_required: false, // mandatory for a submission (parseEventRequest), so the setup below needs it
     };
     let draftId: string;
     let submittedId: string;
