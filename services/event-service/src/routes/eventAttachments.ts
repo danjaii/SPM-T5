@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { canCreateEventRequests } from "@spm-t5/shared";
+import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_TYPE_REFUSED, attachmentRefusal, canCreateEventRequests } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { lookUpRole } from "./events";
@@ -42,6 +42,10 @@ export function eventAttachmentRoutes(deps: SupabaseDeps) {
       return res.status(400).json({ error: "file_name, content_type and size are required." });
     }
 
+    // SCRUM-51/AC2: a type that is not accepted is turned away before anything is prepared
+    const refusal = attachmentRefusal({ type: contentType, size });
+    if (refusal) return res.status(400).json(refusal);
+
     // <event id>/<random>/<name>: the event folder is what the storage policy checks; the random folder keeps same-named files apart
     const safeName = fileName.replace(/[^\w.-]+/g, "_").slice(-100);
     const storagePath = `${id}/${crypto.randomUUID()}/${safeName}`;
@@ -64,12 +68,21 @@ export function eventAttachmentRoutes(deps: SupabaseDeps) {
       return res.status(400).json({ error: "file_name, storage_path, content_type and size are required." });
     }
 
+    const refusal = attachmentRefusal({ type: contentType, size });
+    if (refusal) return res.status(400).json(refusal);
+
     const { data, error } = await deps.forUser(user.token).rpc("add_event_attachment", {
       p_event_id: id, p_file_name: fileName, p_storage_path: storagePath, p_content_type: contentType, p_size_bytes: size,
     }).single();
     if (error?.code === "DR001") return res.status(404).json({ error: "Draft not found." });
     if (error?.code === "DR002") {
       return res.status(409).json({ code: "NOT_A_DRAFT", error: "This request has been submitted, so files can no longer be attached." });
+    }
+    if (error?.code === "AT002") {
+      return res.status(400).json({
+        code: "FILE_TYPE_NOT_ACCEPTED", error: `${ATTACHMENT_TYPE_REFUSED} Accepted: ${ATTACHMENT_ACCEPTED_TEXT}.`,
+        acceptedTypes: ATTACHMENT_ACCEPTED_TEXT,
+      });
     }
     if (error?.code === "AT001") return res.status(400).json({ error: "The file was not uploaded for this request." });
     if (error || !data) return res.status(500).json({ error: "Could not attach the file." });

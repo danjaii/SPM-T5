@@ -101,4 +101,21 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
       expect(data).toEqual([]);
     });
   });
+
+  describe("SCRUM-51/AC2 file type restriction", () => {
+    it("refuses an unsupported type at the API (400, accepted types shown) and in the database (AT002), attaching nothing", async () => {
+      const draft = await newDraft(who.organiser, "IT-51-AC2-type");
+
+      const { urlRes } = await attach(who.organiser, draft.id, "all.zip", "application/zip");
+      const direct = await who.organiser.client.rpc("add_event_attachment", {
+        p_event_id: draft.id, p_file_name: "all.zip", p_storage_path: `${draft.id}/a/all.zip`, p_content_type: "application/zip", p_size_bytes: 1,
+      });
+
+      expect(urlRes.status).toBe(400);
+      expect(urlRes.body).toMatchObject({ code: "FILE_TYPE_NOT_ACCEPTED" });
+      expect(direct.error?.code).toBe("AT002");
+      const { data } = await admin.from("event_request_attachments").select("id").eq("event_id", draft.id);
+      expect(data).toEqual([]);
+    });
+  });
 });

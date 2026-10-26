@@ -35,3 +35,24 @@ export function attachmentProblem(file: { type: string; size: number }): string 
   if (file.size > ATTACHMENT_MAX_BYTES) return ATTACHMENT_TOO_LARGE;
   return undefined;
 }
+
+/** SCRUM-51/AC2: the accepted types in words, for the message a refused file is shown. */
+export const ATTACHMENT_ACCEPTED_TEXT = "images, video (MP4, MOV, WebM), PDF, Word, Excel, PowerPoint, plain text and CSV";
+
+export type AttachmentRefusal = {
+  code: "FILE_TYPE_NOT_ACCEPTED";
+  error: string;
+  acceptedTypes: string;
+};
+
+/** SCRUM-51/AC2: why a file can't be attached, with the accepted types, or undefined when it can. */
+export function attachmentRefusal(file: { type: string; size: number }): AttachmentRefusal | undefined {
+  if (!typeAllowed(file.type.toLowerCase())) {
+    return {
+      code: "FILE_TYPE_NOT_ACCEPTED",
+      error: `${ATTACHMENT_TYPE_REFUSED} Accepted: ${ATTACHMENT_ACCEPTED_TEXT}.`,
+      acceptedTypes: ATTACHMENT_ACCEPTED_TEXT,
+    };
+  }
+  return undefined;
+}

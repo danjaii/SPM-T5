@@ -5,7 +5,7 @@
 -- write privilege on it: a row is written only by add_event_attachment() and removed only by remove_event_attachment(), which
 -- check the caller themselves (an event organiser, their own request, still a draft; Week 9: organisers cannot edit a submitted
 -- request). The same SQLSTATEs as the draft functions: DR001 not the caller's request or not found, DR002 not a draft any more.
--- AT001: the storage path is not in the request's own folder.
+-- AT001: the storage path is not in the request's own folder. AT002: a file type that is not accepted.
 
 create table event_request_attachments (
   id            uuid primary key default gen_random_uuid(),
@@ -29,6 +29,28 @@ create policy event_request_attachments_select on event_request_attachments
 
 revoke all on event_request_attachments from anon, authenticated;
 grant select on event_request_attachments to authenticated;
+
+-- SCRUM-51/AC2: the types the event-attachments bucket accepts (08; packages/shared/src/attachments.ts is the same list)
+create function public.is_attachment_type_allowed(p_type text)
+returns boolean
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select lower(coalesce(p_type, '')) ~ '^image/.+'
+    or lower(coalesce(p_type, '')) = any (array[
+      'video/mp4', 'video/quicktime', 'video/webm',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'text/csv'
+    ])
+$$;
 
 create function public.add_event_attachment(
   p_event_id     uuid,
@@ -61,6 +83,10 @@ begin
   -- the file must sit in this request's own folder, the one the storage policies check
   if public.storage_path_event_id(p_storage_path) is distinct from p_event_id then
     raise exception 'The file is not in this request''s folder' using errcode = 'AT001';
+  end if;
+
+  if not public.is_attachment_type_allowed(p_content_type) then
+    raise exception 'This file type is not supported' using errcode = 'AT002';
   end if;
 
   insert into event_request_attachments (event_id, file_name, storage_path, content_type, size_bytes, uploaded_by)

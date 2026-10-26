@@ -328,3 +328,47 @@ describe("SCRUM-51/AC1 list a request's attachments (GET /events/:id/request-att
     expect((await request(app).get(`/events/${draft.id}/request-attachments`)).status).toBe(401);
   });
 });
+
+describe("SCRUM-51/AC2 a file of an unsupported type is rejected with the accepted types", () => {
+  const ZIP = { file_name: "all.zip", content_type: "application/zip", size: 1024 };
+
+  it("refuses the upload URL with FILE_TYPE_NOT_ACCEPTED and the accepted types, preparing nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+
+    const res = await request(createApp(fake.deps)).post(`/events/drafts/${draft.id}/attachments/upload-url`)
+      .set("Cookie", organiser.cookie).send(ZIP);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "FILE_TYPE_NOT_ACCEPTED", acceptedTypes: expect.stringContaining("PDF") });
+    expect(res.body.error).toContain("Accepted:");
+    expect(fake.storage.uploadPaths).toEqual([]);
+  });
+
+  it("refuses to attach a file of an unsupported type, without calling the database", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+
+    const res = await request(createApp(fake.deps)).post(`/events/drafts/${draft.id}/attachments`).set("Cookie", organiser.cookie)
+      .send({ file_name: "all.zip", storage_path: `${draft.id}/a/all.zip`, content_type: "application/zip", size: 1024 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("FILE_TYPE_NOT_ACCEPTED");
+    expect(fake.rpcCalls).toEqual([]);
+  });
+
+  it("maps the database's own AT002 refusal to the same answer", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+    fake.failure.rpcCode = "AT002";
+
+    const res = await request(createApp(fake.deps)).post(`/events/drafts/${draft.id}/attachments`).set("Cookie", organiser.cookie)
+      .send({ file_name: "a.pdf", storage_path: `${draft.id}/a/a.pdf`, content_type: "application/pdf", size: 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("FILE_TYPE_NOT_ACCEPTED");
+  });
+});
