@@ -10,7 +10,7 @@ import type { SupabaseDeps } from "../supabase";
 /** SCRUM-84: GET /venue-calendar, the status of every venue across a date range (docs/specs/SCRUM-84-venue-availability-calendar.md). */
 export function venueCalendarRoutes(
   deps: SupabaseDeps,
-  now: () => Date = () => new Date(),
+  now: () => Date,
   calendarFor: (accessToken: string) => VenueCalendarReader = (token) => new SupabaseVenueCalendarReader(deps.forUser(token)),
 ) {
   const router = Router();

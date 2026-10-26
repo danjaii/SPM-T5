@@ -46,9 +46,11 @@ describe("SCRUM-84/AC2 SupabaseVenueCalendarReader", () => {
 
   it("lists the active venues with hours as HH:MM, 0 for missing setup times, and throws on an error", async () => {
     const row = { id: "v1", name: "Orchid Hall", address: "x", max_capacity: 150, operating_hours_start: "08:00:00", operating_hours_end: "22:30:00", setup_minutes: null, turnaround_minutes: 45 };
-    const venues = await new SupabaseVenueCalendarReader(stubDb({ data: [row, { ...row, operating_hours_start: null, operating_hours_end: null }], error: null }).db).venueList();
+    const noTimes = { ...row, id: "v2", turnaround_minutes: null };
+    const venues = await new SupabaseVenueCalendarReader(stubDb({ data: [row, { ...row, operating_hours_start: null, operating_hours_end: null }, noTimes], error: null }).db).venueList();
     expect(venues[0]).toEqual({ id: "v1", name: "Orchid Hall", address: "x", maxCapacity: 150, operatingStart: "08:00", operatingEnd: "22:30", setupMinutes: 0, turnaroundMinutes: 45 });
     expect(venues[1]).toMatchObject({ operatingStart: null, operatingEnd: null });
+    expect(venues[2]).toMatchObject({ setupMinutes: 0, turnaroundMinutes: 0 });
     expect(await new SupabaseVenueCalendarReader(stubDb({ data: null, error: null }).db).venueList()).toEqual([]);
     await expect(new SupabaseVenueCalendarReader(stubDb({ data: null, error: { message: "down" } }).db).venueList()).rejects.toThrow(/venues/);
   });

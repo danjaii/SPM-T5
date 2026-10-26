@@ -58,3 +58,31 @@ describe("SCRUM-84/AC1 open the venue availability calendar", () => {
     ]);
   });
 });
+
+describe("SCRUM-84/AC1 the default wiring reads through the caller's own token", () => {
+  it("uses the real clock and a reader built from the caller's token (never the service-role key)", async () => {
+    const tokens: string[] = [];
+    const session = createFakeSession();
+    const base = session.deps.forUser;
+    const deps = {
+      ...session.deps,
+      forUser: (token: string) => {
+        tokens.push(token);
+        const db = base(token) as unknown as { from: (t: string) => unknown };
+        return {
+          from: (table: string) => (table === "users" ? db.from(table) : { select: () => ({ eq: () => ({ order: async () => ({ data: [], error: null }) }) }) }),
+          rpc: async () => ({ data: [], error: null }),
+        };
+      },
+    } as unknown as typeof session.deps;
+    const cookie = session.signIn("venue_staff").cookie;
+    const app = createApp(deps);
+
+    const res = await request(app).get("/venue-calendar").set("Cookie", cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.venues).toEqual([]);
+    expect(tokens.length).toBeGreaterThan(0);
+    expect(new Set(tokens)).toEqual(new Set([cookie.replace("cs_session=", "")]));
+  });
+});

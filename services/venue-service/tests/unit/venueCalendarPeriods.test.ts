@@ -150,6 +150,21 @@ describe("SCRUM-84/AC2 held, confirmed and blocked periods", () => {
     expect(periods[0]).toMatchObject({ event_start: iso(sgtToUtc("2026-11-08", "20:00")) });
   });
 
+  it("S5: if old data has two bookings overlapping, the Confirmed one wins the overlap whatever order they come in", async () => {
+    const { reader, get } = arrange();
+    reader.hold("orchid", "CONFIRMED", at("10:00"), at("12:00"));
+    reader.hold("orchid", "TENTATIVELY_HELD", at("11:00"), at("13:00"));
+
+    const periods = await get();
+
+    expect(periods.map((p) => [p.status, p.start, p.end])).toEqual([
+      ["AVAILABLE", week.start, iso(at("10:00"))],
+      ["CONFIRMED", iso(at("10:00")), iso(at("12:00"))],
+      ["TENTATIVELY_HELD", iso(at("12:00")), iso(at("13:00"))],
+      ["AVAILABLE", iso(at("13:00")), week.end],
+    ]);
+  });
+
   it("S6: nothing that identifies the event, the coordinator or the block's author is returned", async () => {
     const { reader, get } = arrange();
     reader.hold("orchid", "CONFIRMED", at("10:00"), at("12:00"));

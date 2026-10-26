@@ -133,7 +133,7 @@ function resolve(segments: Segment[], range: CalendarRange): CalendarPeriod[] {
     const covering = segments.filter((s) => s.start <= start && s.end >= end);
     const seg = covering.reduce((best, s) => (s.priority > best.priority ? s : best));
     const last = out[out.length - 1];
-    if (last && last.seg.key === seg.key && last.end === start) last.end = end;
+    if (last && last.seg.key === seg.key) last.end = end; // the cuts are contiguous, so a neighbour always ends where this starts
     else out.push({ seg, start, end });
   }
   return out.map(({ seg, start, end }) => ({

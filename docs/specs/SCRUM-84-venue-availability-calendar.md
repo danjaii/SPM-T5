@@ -122,15 +122,18 @@ Scenario `n` of ACx is tested as `SCRUM-84/ACx`.
 
 ## AC → test mapping
 
-| AC | Test file | `describe` / `it` |
+| AC | Test file | `describe` |
 | ----- | ----- | ----- |
-| AC1 | `services/venue-service/tests/unit/venueCalendarOpen.test.ts` | `SCRUM-84/AC1 …` |
-| AC2 | `services/venue-service/tests/unit/venueCalendarPeriods.test.ts` | `SCRUM-84/AC2 …` |
-| AC3, AC4 | `services/venue-service/tests/unit/venueCalendarHours.test.ts` | `SCRUM-84/AC3 …`, `SCRUM-84/AC4 …` |
-| AC5, AC6 | `packages/shared/tests/unit/venueCalendarRange.test.ts`; `services/venue-service/tests/unit/venueCalendarRange.test.ts` | `SCRUM-84/AC5 …`, `SCRUM-84/AC6 …` |
-| AC7 | `services/venue-service/tests/unit/venueCalendarFresh.test.ts` | `SCRUM-84/AC7 …` |
-| AC8 | `packages/shared/tests/unit/canViewVenueCalendar.test.ts`; `services/venue-service/tests/unit/venueCalendarAccess.test.ts` | `SCRUM-84/AC8 …` |
-| AC1-AC8 (database) | `services/venue-service/tests/integration/venueCalendar.test.ts` | `SCRUM-84 …` (not run by the author) |
+| AC1 | `services/venue-service/tests/unit/venueCalendarOpen.test.ts` | `SCRUM-84/AC1 open the venue availability calendar`; `SCRUM-84/AC1 the default wiring reads through the caller's own token` |
+| AC1 | `packages/shared/tests/unit/venueCalendarRange.test.ts` | `SCRUM-84/AC1 the current week (Monday to Sunday, Singapore time)` |
+| AC2 | `services/venue-service/tests/unit/venueCalendarPeriods.test.ts` | `SCRUM-84/AC2 held, confirmed and blocked periods` (S1 to S6) |
+| AC2 | `services/venue-service/tests/unit/supabaseVenueCalendarReader.test.ts` | `SCRUM-84/AC2 SupabaseVenueCalendarReader` (status mapping, one rpc call) |
+| AC3, AC4 | `services/venue-service/tests/unit/venueCalendarHours.test.ts` | `SCRUM-84/AC4 periods outside operating hours are Unavailable`; `SCRUM-84/AC3 free time inside operating hours is Available` |
+| AC5 | `services/venue-service/tests/unit/venueCalendarRange.test.ts`; `packages/shared/tests/unit/venueCalendarRange.test.ts` | `SCRUM-84/AC5 change the date range`; `SCRUM-84/AC5 choose the date range` |
+| AC6 | the same two files | `SCRUM-84/AC6 reject an invalid date range` |
+| AC7 | `services/venue-service/tests/unit/venueCalendarFresh.test.ts` | `SCRUM-84/AC7 the latest recorded status` |
+| AC8 | `services/venue-service/tests/unit/venueCalendarAccess.test.ts`; `packages/shared/tests/unit/canViewVenueCalendar.test.ts` | `SCRUM-84/AC8 access control`; `SCRUM-84/AC8 canViewVenueCalendar` |
+| AC1 to AC8 (database) | `services/venue-service/tests/integration/venueCalendar.test.ts` | `SCRUM-84 venue availability calendar (migration 58)`, one `it` per AC (written, not run by the author) |
 
 (Kept current as tests are written.)
 
