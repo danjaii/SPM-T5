@@ -282,4 +282,100 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       expect(await stored(draft.id)).toMatchObject({ status: "draft" });
     });
   });
+
+  describe("SCRUM-54/AC4 only the owner uses the draft flow, and only while it is a draft", () => {
+    const send = (method: "get" | "put" | "post", actor: Actor | undefined, id: string, suffix = "") => {
+      const req = request(app)[method](`/events/drafts/${id}${suffix}`);
+      return actor ? req.set("Cookie", cookie(actor)) : req;
+    };
+    const FIELDS = {
+      name: "IT-54-AC4-complete",
+      purpose: "Integration test",
+      description: "Made by eventDraftResumeDb.test.ts",
+      preferred_start_datetime: "2031-05-03T09:00:00Z",
+      preferred_end_datetime: "2031-05-03T17:00:00Z",
+      expected_attendance: 40,
+      venue_requirements: "Projector",
+      accessibility_requirements: "None required",
+      equipment_requirements_notes: "None required",
+    };
+    let draftId: string;
+    let submittedId: string;
+
+    beforeAll(async () => {
+      draftId = (await newDraft(who.organiser, { p_name: "IT-54-AC4-draft", p_purpose: "Private" })).id;
+      submittedId = (await newDraft(who.organiser, { p_name: "IT-54-AC4-submitted" })).id;
+      const { error } = await who.organiser.client.rpc("submit_event_draft", { p_event_id: submittedId });
+      // the draft above is incomplete on purpose, so submit this one through the service with the complete fields
+      expect(error?.code).toBe("DR003");
+      const res = await request(app)
+        .post(`/events/drafts/${submittedId}/submit`)
+        .set("Cookie", cookie(who.organiser))
+        .send({ ...FIELDS, preferred_room_layout_id: layoutId });
+      expect(res.status).toBe(200);
+    });
+
+    it("answers 404 to another organiser reading, re-saving or submitting the draft, and changes nothing", async () => {
+      expect((await send("get", who.otherOrganiser, draftId)).status).toBe(404);
+      expect((await send("put", who.otherOrganiser, draftId).send({ name: "IT-54-AC4-hijacked" })).status).toBe(404);
+      expect((await send("post", who.otherOrganiser, draftId, "/submit")).status).toBe(404);
+      expect(await stored(draftId)).toMatchObject({ name: "IT-54-AC4-draft", status: "draft", purpose: "Private" });
+    });
+
+    it.each(["coordinator", "attendee", "lead"] as const)("answers 403 to a %s on every draft route", async (key) => {
+      expect((await send("get", who[key], draftId)).status).toBe(403);
+      expect((await send("put", who[key], draftId).send({ name: "IT-54-AC4-hijacked" })).status).toBe(403);
+      expect((await send("post", who[key], draftId, "/submit")).status).toBe(403);
+      expect(await stored(draftId)).toMatchObject({ name: "IT-54-AC4-draft", status: "draft" });
+    });
+
+    it("answers 401 without a session", async () => {
+      expect((await send("get", undefined, draftId)).status).toBe(401);
+      expect((await send("put", undefined, draftId).send({})).status).toBe(401);
+      expect((await send("post", undefined, draftId, "/submit")).status).toBe(401);
+    });
+
+    it.each(["otherOrganiser", "coordinator", "attendee"] as const)("lets a %s neither update nor submit the draft in the database", async (key) => {
+      const direct = await who[key].client.from("events").update({ name: "IT-54-AC4-hijacked" }).eq("id", draftId).select("id");
+      expect(direct.data ?? []).toEqual([]);
+      const resave = await who[key].client.rpc("update_event_draft", { p_event_id: draftId, p_name: "IT-54-AC4-hijacked" });
+      expect(resave.data ?? []).toEqual([]);
+      const submit = await who[key].client.rpc("submit_event_draft", { p_event_id: draftId });
+      expect(submit.error?.code).toBe(key === "otherOrganiser" ? "DR001" : DENIED);
+      expect(await stored(draftId)).toMatchObject({ name: "IT-54-AC4-draft", status: "draft" });
+    });
+
+    it("answers 409 NOT_A_DRAFT to the owner on every draft route once the request is submitted", async () => {
+      const get = await send("get", who.organiser, submittedId);
+      expect(get.status).toBe(409);
+      expect(get.body.code).toBe("NOT_A_DRAFT");
+      const put = await send("put", who.organiser, submittedId).send({ name: "IT-54-AC4-edited" });
+      expect(put.status).toBe(409);
+      expect(put.body.code).toBe("NOT_A_DRAFT");
+      const submit = await send("post", who.organiser, submittedId, "/submit");
+      expect(submit.status).toBe(409);
+      expect(submit.body.code).toBe("NOT_A_DRAFT");
+      expect(await stored(submittedId)).toMatchObject({ name: "IT-54-AC4-complete", status: "submitted" });
+      const { data: history } = await admin.from("event_status_history").select("id").eq("event_id", submittedId);
+      expect(history).toHaveLength(1);
+    });
+
+    it("leaves a submitted request untouched by the owner's direct updates, so it cannot go back to draft", async () => {
+      for (const change of [{ name: "IT-54-AC4-edited" }, { status: "draft" }, { is_draft: true }, { submitted_at: null }]) {
+        const res = await who.organiser.client.from("events").update(change).eq("id", submittedId).select("id");
+        expect(res.data ?? []).toEqual([]);
+      }
+      const resave = await who.organiser.client.rpc("update_event_draft", { p_event_id: submittedId, p_name: "IT-54-AC4-edited" });
+      expect(resave.data ?? []).toEqual([]);
+      const again = await who.organiser.client.rpc("submit_event_draft", { p_event_id: submittedId });
+      expect(again.error?.code).toBe("DR002");
+      expect(await stored(submittedId)).toMatchObject({ name: "IT-54-AC4-complete", status: "submitted", is_draft: false });
+    });
+
+    it("still gives the organiser no way to delete an event", async () => {
+      const del = await who.organiser.client.from("events").delete().eq("id", draftId).select("id");
+      expect(del.data ?? []).toEqual([]);
+      expect(await stored(draftId)).toMatchObject({ status: "draft" });
+    });
+  });
 });

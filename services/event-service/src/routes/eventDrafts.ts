@@ -67,6 +67,28 @@ function requestAsDraft(data: EventRequestInput): EventDraftInput {
   };
 }
 
+type DraftRow = Record<string, unknown>;
+type Refusal = { status: number; body: Record<string, string> };
+
+const NOT_FOUND: Refusal = { status: 404, body: { error: "Draft not found." } };
+// SCRUM-54/AC4: the draft flow is closed once a request is submitted
+const NOT_A_DRAFT: Refusal = {
+  status: 409,
+  body: { code: "NOT_A_DRAFT", error: "This request has been submitted, so it can no longer be edited as a draft." },
+};
+
+/**
+ * SCRUM-54: the caller's own event, or why the draft flow refuses it. Read as the caller, so RLS (migration 14) only shows them
+ * their own events: someone else's is "not found", not a hint that it exists. One that is no longer a draft is AC4's 409.
+ */
+async function findOwnDraft(deps: SupabaseDeps, token: string, id: string): Promise<{ draft: DraftRow } | { refusal: Refusal }> {
+  if (!UUID.test(id)) return { refusal: NOT_FOUND };
+  const { data } = await deps.forUser(token).from("events").select(DRAFT_COLUMNS).eq("id", id).maybeSingle();
+  if (!data) return { refusal: NOT_FOUND };
+  const draft = data as unknown as DraftRow;
+  return draft.status === "draft" ? { draft } : { refusal: NOT_A_DRAFT };
+}
+
 /** SCRUM-53: an event organiser saves an incomplete event request as a draft. SCRUM-54: and reopens it. */
 export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
   const router = Router();
@@ -106,13 +128,10 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
       return res.status(403).json({ error: "You are not allowed to create event requests." });
     }
 
-    const id = String(req.params.id);
-    const { data: draft } = UUID.test(id)
-      ? await deps.forUser(user.token).from("events").select(DRAFT_COLUMNS).eq("id", id).maybeSingle()
-      : { data: null };
-    if (!draft) return res.status(404).json({ error: "Draft not found." });
+    const found = await findOwnDraft(deps, user.token, String(req.params.id));
+    if ("refusal" in found) return res.status(found.refusal.status).json(found.refusal.body);
 
-    res.json(draft);
+    res.json(found.draft);
   });
 
   // SCRUM-54/AC2: save the draft again. The whole form is sent, so a field left out or empty is cleared. Status, organiser,
@@ -125,10 +144,8 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
     }
 
     const id = String(req.params.id);
-    const { data: draft } = UUID.test(id)
-      ? await deps.forUser(user.token).from("events").select("id").eq("id", id).maybeSingle()
-      : { data: null };
-    if (!draft) return res.status(404).json({ error: "Draft not found." });
+    const found = await findOwnDraft(deps, user.token, id);
+    if ("refusal" in found) return res.status(found.refusal.status).json(found.refusal.body);
 
     const parsed = parseEventRequestDraft(req.body);
     if (!parsed.ok) {
@@ -140,7 +157,8 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
       .rpc("update_event_draft", { p_event_id: id, ...draftArguments(parsed.data) })
       .maybeSingle();
     if (error) return res.status(500).json({ error: "Could not save the draft." });
-    if (!saved) return res.status(404).json({ error: "Draft not found." });
+    // the read above found a draft, so no row means it was submitted in between (the policy only matches drafts)
+    if (!saved) return res.status(NOT_A_DRAFT.status).json(NOT_A_DRAFT.body);
 
     res.json(saved);
   });
@@ -156,14 +174,12 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
     }
 
     const id = String(req.params.id);
-    const { data: draft } = UUID.test(id)
-      ? await deps.forUser(user.token).from("events").select(DRAFT_COLUMNS).eq("id", id).maybeSingle()
-      : { data: null };
-    if (!draft) return res.status(404).json({ error: "Draft not found." });
+    const found = await findOwnDraft(deps, user.token, id);
+    if ("refusal" in found) return res.status(found.refusal.status).json(found.refusal.body);
 
     const body = req.body as Record<string, unknown> | undefined;
     const sentFields = body !== undefined && body !== null && typeof body === "object" && !Array.isArray(body) && Object.keys(body).length > 0;
-    const parsed = parseEventRequest(sentFields ? body : storedDraftAsRequest(draft as unknown as Record<string, unknown>), now());
+    const parsed = parseEventRequest(sentFields ? body : storedDraftAsRequest(found.draft), now());
     if (!parsed.ok) {
       return res.status(422).json({ code: "VALIDATION_FAILED", error: "Check the highlighted fields.", fieldErrors: parsed.fieldErrors });
     }
@@ -175,7 +191,9 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
     }
 
     const { data: submitted, error } = await db.rpc("submit_event_draft", { p_event_id: id }).single();
-    if (error?.code === "DR001") return res.status(404).json({ error: "Draft not found." });
+    // the database repeats the checks above, for a request that changed in between
+    if (error?.code === "DR001") return res.status(NOT_FOUND.status).json(NOT_FOUND.body);
+    if (error?.code === "DR002") return res.status(NOT_A_DRAFT.status).json(NOT_A_DRAFT.body);
     if (error || !submitted) return res.status(500).json({ error: "Could not submit the request." });
 
     res.json(submitted);

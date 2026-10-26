@@ -522,3 +522,82 @@ describe("SCRUM-54/AC3 submit a draft (POST /events/drafts/:id/submit)", () => {
     expect(draft.status).toBe("draft");
   });
 });
+
+describe("SCRUM-54/AC4 the draft flow is not available once a request is submitted", () => {
+  const NOT_A_DRAFT = {
+    code: "NOT_A_DRAFT",
+    error: "This request has been submitted, so it can no longer be edited as a draft.",
+  };
+
+  /** A request the organiser submitted earlier. */
+  const submittedRequest = (fake: ReturnType<typeof createFake>, organiserId: string) =>
+    fake.addEvent(organiserId, { ...COMPLETE, name: "Already in", status: "submitted", is_draft: false, submitted_at: "2031-01-01T00:00:00.000Z" });
+
+  it.each(["submitted", "under_review", "approved", "cancelled"])("answers 409 NOT_A_DRAFT to the owner opening a %s request", async (status) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, { ...COMPLETE, status, is_draft: false });
+
+    const res = await request(createApp(fake.deps)).get(`/events/drafts/${event.id}`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual(NOT_A_DRAFT);
+  });
+
+  it("answers 409 to a re-save and changes nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = submittedRequest(fake, organiser.id);
+
+    const res = await request(createApp(fake.deps)).put(`/events/drafts/${event.id}`).set("Cookie", organiser.cookie).send({ name: "Edited" });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual(NOT_A_DRAFT);
+    expect(fake.rpcCalls).toHaveLength(0);
+    expect(event.name).toBe("Already in");
+  });
+
+  it("answers 409 to a submit, with or without a body, and writes no second history row", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = submittedRequest(fake, organiser.id);
+    const app = createApp(fake.deps);
+
+    for (const body of [undefined, COMPLETE]) {
+      const req = request(app).post(`/events/drafts/${event.id}/submit`).set("Cookie", organiser.cookie);
+      const res = await (body === undefined ? req : req.send(body));
+      expect(res.status).toBe(409);
+      expect(res.body).toEqual(NOT_A_DRAFT);
+    }
+    expect(fake.rpcCalls).toHaveLength(0);
+    expect(fake.tables.event_status_history).toHaveLength(0);
+  });
+
+  it("answers 409 when the request is submitted between the read and the write", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, COMPLETE);
+    const app = createApp(fake.deps);
+
+    fake.failure.updateReturnsNothing = true;
+    const put = await request(app).put(`/events/drafts/${draft.id}`).set("Cookie", organiser.cookie).send({ name: "Late" });
+    expect(put.status).toBe(409);
+    expect(put.body).toEqual(NOT_A_DRAFT);
+
+    fake.failure.submitCode = "DR002";
+    const submit = await request(app).post(`/events/drafts/${draft.id}/submit`).set("Cookie", organiser.cookie);
+    expect(submit.status).toBe(409);
+    expect(submit.body).toEqual(NOT_A_DRAFT);
+  });
+
+  it("answers 404, not 409, for someone else's submitted request (no hint that it exists)", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const other = fake.signIn("event_organiser");
+    const theirs = submittedRequest(fake, other.id);
+
+    const res = await request(createApp(fake.deps)).get(`/events/drafts/${theirs.id}`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(404);
+  });
+});

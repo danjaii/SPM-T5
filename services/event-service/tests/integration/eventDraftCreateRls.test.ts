@@ -205,9 +205,8 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       await stillUntouched();
     });
 
-    it("does not let the owner update or delete it directly yet (SCRUM-54 adds the update policy)", async () => {
-      const update = await who.organiser.client.from("events").update({ name: "IT-53-AC4-renamed" }).eq("id", draftId).select("id");
-      expect(update.data ?? []).toEqual([]);
+    // SCRUM-54 (migration 53) added the owner's update policy, tested in eventDraftResumeDb.test.ts; there is still no delete policy
+    it("does not let the owner delete it directly", async () => {
       const del = await who.organiser.client.from("events").delete().eq("id", draftId).select("id");
       expect(del.data ?? []).toEqual([]);
       await stillUntouched();
