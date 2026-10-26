@@ -15,7 +15,7 @@ reasons and setup/turnaround are already in the payload (see Decisions).
 
 Customer docs: briefing "Venue Availability Calendar: available, tentatively held, confirmed, blocked, or otherwise
 unavailable"; project instructions "Authorised internal users can view venue availability"; week 2 Q: coordinators and Venue
-Staff view the calendar; week 9 Q38/Q48: setup and turnaround pad events and holds, not maintenance blocks. Nothing
+Staff view the calendar; week 9 Q38: setup and turnaround pad events and holds (Q48 is read as: not blocks, see Open questions c). Nothing
 contradicts the ACs. Q41 (a block also stops holds) is already built (SCRUM-105).
 
 ## Acceptance criteria
