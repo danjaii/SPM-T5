@@ -117,3 +117,55 @@ describe("SCRUM-51/AC1 upload a supporting document", () => {
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/couldn't load the documents/i));
   });
 });
+
+describe("SCRUM-51/AC2 a file of an unsupported type is rejected and the accepted types are shown", () => {
+  const zip = () => new File(["x"], "all.zip", { type: "application/zip" });
+
+  it("turns the file away before uploading, naming the accepted types, and attaches nothing", async () => {
+    const server = mockServer([{ status: 200, body: { attachments: [] } }]);
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText(/no documents attached yet/i);
+
+    choose([zip()]);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("all.zip");
+    expect(alert.textContent).toContain("This file type is not supported");
+    expect(alert.textContent).toContain("PDF");
+    expect(server.calls.filter((c) => c.method !== "GET")).toEqual([]);
+  });
+
+  it("still uploads the acceptable files chosen together with an unsupported one", async () => {
+    const server = mockServer([{ status: 200, body: { attachments: [] } }], {
+      "POST http://localhost:4002/events/drafts": { status: 200, body: { upload_url: "https://storage.test/u", storage_path: `${EVENT}/x/a.pdf` } },
+    });
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText(/no documents attached yet/i);
+
+    choose([zip(), pdf("a.pdf")]);
+
+    await waitFor(() => expect(server.calls.some((c) => c.url.endsWith("/attachments/upload-url"))).toBe(true));
+    expect((await screen.findByRole("alert")).textContent).toContain("all.zip");
+    expect(server.calls.filter((c) => c.url.endsWith("/attachments/upload-url"))).toHaveLength(1);
+  });
+
+  it("shows the accepted types up front, and the file picker offers only them", async () => {
+    mockServer([{ status: 200, body: { attachments: [] } }]);
+    render(<SupportingDocuments eventId={EVENT} />);
+
+    expect((await screen.findByText(/accepted:/i)).textContent).toContain("PDF");
+    expect(screen.getByLabelText(/add documents/i).getAttribute("accept")).toContain("application/pdf");
+  });
+
+  it("shows the service's own refusal of a type (400) when the file got past the form's check", async () => {
+    mockServer([{ status: 200, body: { attachments: [] } }], {
+      "POST http://localhost:4002/events/drafts": { status: 400, body: { code: "FILE_TYPE_NOT_ACCEPTED", error: "This file type is not supported. Accepted: PDF." } },
+    });
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText(/no documents attached yet/i);
+
+    choose([pdf()]);
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Accepted: PDF.");
+  });
+});

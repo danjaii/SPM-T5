@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, FileText } from "lucide-react";
 
+import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_TYPES, attachmentRefusal } from "@spm-t5/shared";
 import { uploadFile } from "@/lib/events";
 import {
   listRequestAttachments, registerRequestAttachment, requestAttachmentUpload, type RequestAttachment,
@@ -15,7 +16,7 @@ const sizeText = (bytes: number) =>
   bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 // SCRUM-51: supporting documents on an event request that is still a draft. AC1: choose files, they are uploaded and listed
-// with the request.
+// with the request. AC2: a file type that is not accepted is turned away, with the accepted types.
 export function SupportingDocuments({ eventId }: { eventId: string }) {
   const [files, setFiles] = useState<RequestAttachment[]>();
   const [messages, setMessages] = useState<string[]>([]);
@@ -47,7 +48,9 @@ export function SupportingDocuments({ eventId }: { eventId: string }) {
     setBusy(true);
     const problems: string[] = [];
     for (const file of chosen) {
-      const problem = await attach(file);
+      // AC2: a file that can't be attached is turned away here, with the accepted types, before anything is sent
+      const refusal = attachmentRefusal(file);
+      const problem = refusal ? `${file.name}: ${refusal.error}` : await attach(file);
       if (problem) problems.push(problem);
     }
     await load();
@@ -81,7 +84,9 @@ export function SupportingDocuments({ eventId }: { eventId: string }) {
       )}
 
       <label htmlFor="supporting-documents-input" className="text-sm font-semibold text-foreground">Add documents</label>
+      <p id="supporting-documents-hint" className="text-sm text-muted-foreground">Accepted: {ATTACHMENT_ACCEPTED_TEXT}.</p>
       <input id="supporting-documents-input" type="file" multiple disabled={busy} onChange={choose}
+        accept={ATTACHMENT_TYPES.join(",")} aria-describedby="supporting-documents-hint"
         className="text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-border-strong file:bg-card file:px-3 file:py-2 file:text-sm file:font-semibold" />
     </section>
   );
