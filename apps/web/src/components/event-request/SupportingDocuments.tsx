@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, FileText } from "lucide-react";
+import { AlertCircle, FileText, Trash2 } from "lucide-react";
 
 import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES, attachmentRefusal } from "@spm-t5/shared";
+import { Button } from "@/components/ui/button";
 import { uploadFile } from "@/lib/events";
 import {
-  listRequestAttachments, registerRequestAttachment, requestAttachmentUpload, type RequestAttachment,
+  listRequestAttachments, registerRequestAttachment, removeRequestAttachment, requestAttachmentUpload, type RequestAttachment,
 } from "@/lib/requestAttachments";
 
 const ATTACHMENT_MAX_MB = ATTACHMENT_MAX_BYTES / (1024 * 1024);
@@ -18,8 +19,9 @@ const sizeText = (bytes: number) =>
 
 // SCRUM-51: supporting documents on an event request that is still a draft. AC1: choose files, they are uploaded and listed
 // with the request. AC2: a file type that is not accepted is turned away, with the accepted types.
-// AC3: so is a file over the size limit, with the maximum size.
-export function SupportingDocuments({ eventId }: { eventId: string }) {
+// AC3: so is a file over the size limit, with the maximum size. AC4: a document can be removed while the request is a draft.
+/** `readOnly` is for a request that has been submitted: the documents are listed, but none can be added or removed. */
+export function SupportingDocuments({ eventId, readOnly = false }: { eventId: string; readOnly?: boolean }) {
   const [files, setFiles] = useState<RequestAttachment[]>();
   const [messages, setMessages] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -60,6 +62,16 @@ export function SupportingDocuments({ eventId }: { eventId: string }) {
     setBusy(false);
   }
 
+  async function remove(file: RequestAttachment) {
+    setMessages([]);
+    const { ok, data } = await removeRequestAttachment(eventId, file.id);
+    if (!ok) {
+      setMessages([`${file.file_name}: ${data.error ?? "We couldn't remove it. Please try again."}`]);
+      return;
+    }
+    await load();
+  }
+
   return (
     <section aria-labelledby="supporting-documents-title" className="flex flex-col gap-3">
       <h3 id="supporting-documents-title" className="text-base font-bold text-foreground">Supporting documents</h3>
@@ -80,16 +92,26 @@ export function SupportingDocuments({ eventId }: { eventId: string }) {
               <FileText aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate font-medium text-foreground">{f.file_name}</span>
               <span className="text-muted-foreground">{sizeText(f.size_bytes)}</span>
+              {readOnly ? null : (
+                <Button type="button" variant="ghost" size="sm" aria-label={`Remove ${f.file_name}`} onClick={() => void remove(f)}>
+                  <Trash2 aria-hidden="true" />
+                  Remove
+                </Button>
+              )}
             </li>
           ))}
         </ul>
       )}
 
-      <label htmlFor="supporting-documents-input" className="text-sm font-semibold text-foreground">Add documents</label>
-      <p id="supporting-documents-hint" className="text-sm text-muted-foreground">Accepted: {ATTACHMENT_ACCEPTED_TEXT}. Each file can be up to {ATTACHMENT_MAX_MB} MB.</p>
-      <input id="supporting-documents-input" type="file" multiple disabled={busy} onChange={choose}
-        accept={ATTACHMENT_TYPES.join(",")} aria-describedby="supporting-documents-hint"
-        className="text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-border-strong file:bg-card file:px-3 file:py-2 file:text-sm file:font-semibold" />
+      {readOnly ? null : (
+        <>
+          <label htmlFor="supporting-documents-input" className="text-sm font-semibold text-foreground">Add documents</label>
+          <p id="supporting-documents-hint" className="text-sm text-muted-foreground">Accepted: {ATTACHMENT_ACCEPTED_TEXT}. Each file can be up to {ATTACHMENT_MAX_MB} MB.</p>
+          <input id="supporting-documents-input" type="file" multiple disabled={busy} onChange={choose}
+            accept={ATTACHMENT_TYPES.join(",")} aria-describedby="supporting-documents-hint"
+            className="text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-border-strong file:bg-card file:px-3 file:py-2 file:text-sm file:font-semibold" />
+        </>
+      )}
     </section>
   );
 }

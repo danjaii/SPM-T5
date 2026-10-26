@@ -215,3 +215,44 @@ describe("SCRUM-51/AC3 a file over the size limit is rejected and the maximum si
     expect((await screen.findByRole("alert")).textContent).toContain("10 MB");
   });
 });
+
+describe("SCRUM-51/AC4 remove an attachment from a request not yet submitted", () => {
+  const listed = () => [{ status: 200, body: { attachments: [stored("a1", "programme.pdf"), stored("a2", "floor plan.pdf")] } }];
+
+  it("deletes the chosen attachment and drops it from the list, leaving the others", async () => {
+    const server = mockServer(
+      [...listed(), { status: 200, body: { attachments: [stored("a2", "floor plan.pdf")] } }],
+      { "DELETE": { status: 200, body: { removed: true, fileRemoved: true } } },
+    );
+    render(<SupportingDocuments eventId={EVENT} />);
+    const list = await screen.findByRole("list", { name: /supporting documents/i });
+
+    fireEvent.click(within(list).getByRole("button", { name: "Remove programme.pdf" }));
+
+    await waitFor(() => expect(screen.queryByText("programme.pdf")).toBeNull());
+    expect(screen.getByText("floor plan.pdf")).toBeTruthy();
+    expect(server.calls.find((c) => c.method === "DELETE")?.url).toBe(`http://localhost:4002/events/drafts/${EVENT}/attachments/a1`);
+  });
+
+  it("keeps the attachment and says why when the request has been submitted in the meantime", async () => {
+    mockServer(listed(), {
+      "DELETE": { status: 409, body: { code: "NOT_A_DRAFT", error: "This request has been submitted, so files can no longer be removed." } },
+    });
+    render(<SupportingDocuments eventId={EVENT} />);
+    const list = await screen.findByRole("list", { name: /supporting documents/i });
+
+    fireEvent.click(within(list).getByRole("button", { name: "Remove programme.pdf" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("can no longer be removed");
+    expect(screen.getByText("programme.pdf")).toBeTruthy();
+  });
+
+  it("offers no Remove button when the panel is read-only (a submitted request)", async () => {
+    mockServer(listed());
+    render(<SupportingDocuments eventId={EVENT} readOnly />);
+    await screen.findByRole("list", { name: /supporting documents/i });
+
+    expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
+    expect(screen.queryByLabelText(/add documents/i)).toBeNull();
+  });
+});

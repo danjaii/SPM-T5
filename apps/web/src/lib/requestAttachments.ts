@@ -47,3 +47,7 @@ export const registerRequestAttachment = (eventId: string, file: File, storagePa
     content_type: file.type,
     size: file.size,
   });
+
+/** SCRUM-51/AC4: take a document off a request that has not been submitted. */
+export const removeRequestAttachment = (eventId: string, attachmentId: string) =>
+  call<{ removed: boolean }>("DELETE", `${draftPath(eventId)}/${encodeURIComponent(attachmentId)}`);
