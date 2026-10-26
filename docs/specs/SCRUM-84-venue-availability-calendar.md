@@ -117,8 +117,8 @@ Scenario `n` of ACx is tested as `SCRUM-84/ACx`.
 - **Max range 62 days** (about two months, a month view plus margin). The work is `venues x periods`, so it is bounded.
 - **Response is snake_case** like `/venues` (`max_capacity`) and the block reason fields asked for. Periods carry a `kind`
   (`event`, `setup`, `turnaround`, `block`, `open`, `closed`) so SCRUM-85 can add fields without breaking changes.
-- **Split of work:** `packages/shared/src/venueCalendar.ts` has the role rule is in `roles.ts` and the range parser (the web
-  can validate with the same code); `services/venue-service/src/services/venueCalendarService.ts` builds periods (pure).
+- **Split of work:** `packages/shared/src/venueCalendar.ts` has the range parser (the web
+  can validate with the same code; the role rule is in `roles.ts`); `services/venue-service/src/services/venueCalendarService.ts` builds periods (pure).
 
 ## AC → test mapping
 
