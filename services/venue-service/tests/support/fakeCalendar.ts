@@ -1,5 +1,5 @@
 import type { Role } from "@spm-t5/shared";
-import type { CalendarVenue, VenueCalendarReader } from "../../src/readers/venueCalendarReader";
+import type { CalendarBlock, CalendarBooking, CalendarVenue, VenueCalendarReader } from "../../src/readers/venueCalendarReader";
 import type { SupabaseDeps } from "../../src/supabase";
 
 type Row = Record<string, unknown>;
@@ -56,7 +56,36 @@ export const aCalendarVenue = (overrides: Partial<CalendarVenue> = {}): Calendar
 
 export class FakeVenueCalendarReader implements VenueCalendarReader {
   reads = 0;
+  bookings: CalendarBooking[] = [];
+  blocks: CalendarBlock[] = [];
   constructor(public venues: CalendarVenue[] = []) {}
+
+  /** Like the database function: the occupied period is the event plus the venue's CURRENT setup and turnaround. */
+  hold(venueId: string, status: CalendarBooking["status"], eventStart: Date, eventEnd: Date) {
+    const v = this.venues.find((x) => x.id === venueId)!;
+    this.bookings.push({
+      venueId,
+      status,
+      eventStart,
+      eventEnd,
+      occupiedStart: new Date(eventStart.getTime() - v.setupMinutes * 60_000),
+      occupiedEnd: new Date(eventEnd.getTime() + v.turnaroundMinutes * 60_000),
+      setupMinutes: v.setupMinutes,
+      turnaroundMinutes: v.turnaroundMinutes,
+    });
+  }
+
+  block(venueId: string, start: Date, end: Date, reason = "maintenance") {
+    this.blocks.push({ venueId, start, end, reason });
+  }
+
+  async entries(from: Date, to: Date) {
+    this.reads += 1;
+    return {
+      bookings: this.bookings.filter((b) => b.occupiedStart < to && b.occupiedEnd > from),
+      blocks: this.blocks.filter((b) => b.start < to && b.end > from),
+    };
+  }
 
   async venueList() {
     this.reads += 1;

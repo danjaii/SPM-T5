@@ -20,12 +20,13 @@ export function venueCalendarRoutes(
     asyncHandler(async (_req, res) => {
       const { token } = res.locals.user as SessionUser;
       const range = currentWeek(now());
-      const venues = await calendarFor(token).venueList();
+      const reader = calendarFor(token);
+      const [venues, entries] = await Promise.all([reader.venueList(), reader.entries(range.start, range.end)]);
 
       // AC7: always the latest; never cached.
       res.set("Cache-Control", "no-store").json({
         range: { from: range.from, to: range.to, start: range.start.toISOString(), end: range.end.toISOString(), time_zone: CALENDAR_TIME_ZONE },
-        venues: buildCalendar(venues, range),
+        venues: buildCalendar(venues, entries, range),
       });
     }),
   );
