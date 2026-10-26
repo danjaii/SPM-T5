@@ -10,6 +10,9 @@ import type { SafetyQueueItem } from "@/lib/safetyCheckServer";
 
 const NOT_SPECIFIED = "Not specified";
 
+const whenOf = (e: SafetyQueueItem) =>
+  e.preferred_start_datetime ? formatEventDateTime(e.preferred_start_datetime, e.preferred_end_datetime) : NOT_SPECIFIED;
+
 // SCRUM-99/AC2: the events ready for an Operational Safety Check, in the order event-service sends them (soonest first).
 // SCRUM-142/AC1: each row carries its status as an icon and label, and opens the check from anywhere on it; the
 // attendance and venue columns give way on a phone, so the page never scrolls sideways.
@@ -29,7 +32,7 @@ export function SafetyCheckQueue({ events }: { events: SafetyQueueItem[] }) {
       <TableHeader>
         <TableRow>
           <TableHead>Event</TableHead>
-          <TableHead>Date and time</TableHead>
+          <TableHead className="hidden md:table-cell">Date and time</TableHead>
           <TableHead className="hidden md:table-cell">Expected attendance</TableHead>
           <TableHead className="hidden md:table-cell">Venues</TableHead>
           <TableHead>Status</TableHead>
@@ -46,10 +49,10 @@ export function SafetyCheckQueue({ events }: { events: SafetyQueueItem[] }) {
               >
                 {e.name}
               </Link>
+              {/* on a phone the date column is gone, so the date sits under the name */}
+              <span className="mt-1 block text-xs font-normal text-muted-foreground md:hidden">{whenOf(e)}</span>
             </TableCell>
-            <TableCell className="whitespace-normal">
-              {e.preferred_start_datetime ? formatEventDateTime(e.preferred_start_datetime, e.preferred_end_datetime) : NOT_SPECIFIED}
-            </TableCell>
+            <TableCell className="hidden whitespace-normal md:table-cell">{whenOf(e)}</TableCell>
             <TableCell className="hidden md:table-cell">{e.expected_attendance ?? NOT_SPECIFIED}</TableCell>
             <TableCell className="hidden whitespace-normal md:table-cell">{e.venue_names.join(", ")}</TableCell>
             <TableCell><StatusBadge tone="info" label="Safety check" /></TableCell>

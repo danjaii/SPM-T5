@@ -49,7 +49,7 @@ export function SafetyCheckReview({ details, canDecide }: Props) {
               return (
                 <li key={f.id} className="flex flex-col gap-3 border-b border-border px-5 py-4 last:border-b-0">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex min-w-0 gap-3">
+                    <div className="flex min-w-0 flex-1 basis-64 gap-3">
                       <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">{i + 1}</span>
                       <div className="flex min-w-0 flex-col gap-1">
                         <h3 className="text-sm font-semibold">{f.title}</h3>
