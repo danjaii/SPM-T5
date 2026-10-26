@@ -80,4 +80,40 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       expect(list.body.find((e: { id: string }) => e.id === res.body.id)).toMatchObject({ status: "draft" });
     });
   });
+
+  describe("SCRUM-53/AC2 an incomplete draft is not blocked", () => {
+    it.each([null, "", "   "])("stores a draft whose name is %j as 'Untitled draft'", async (name) => {
+      const { data, error } = await who.organiser.client.rpc("create_event_draft", params(name));
+      expect(error).toBeNull();
+      track(data.id);
+      expect(data).toMatchObject({ name: "Untitled draft", status: "draft", registration_required: false });
+    });
+
+    it("stores a draft with no fields at all", async () => {
+      const { data, error } = await who.organiser.client.rpc("create_event_draft");
+      expect(error).toBeNull();
+      track(data.id);
+      expect(data).toMatchObject({ name: "Untitled draft", purpose: null, expected_attendance: null, preferred_start_datetime: null });
+    });
+
+    it("saves an empty body through POST /events/drafts", async () => {
+      const res = await postAs(who.organiser, {});
+      expect(res.status).toBe(201);
+      track(res.body.id);
+      expect(res.body).toMatchObject({ name: "Untitled draft", status: "draft" });
+    });
+
+    it("answers 422 and stores nothing for a value the table would refuse", async () => {
+      const res = await postAs(who.organiser, { name: "IT-53-AC2-negative", expected_attendance: -3 });
+      expect(res.status).toBe(422);
+      expect(res.body.fieldErrors).toHaveProperty("expected_attendance");
+      const { data } = await admin.from("events").select("id").eq("name", "IT-53-AC2-negative");
+      expect(data).toHaveLength(0);
+    });
+
+    it("leaves the table's own check constraints in force (negative attendance is refused by the database)", async () => {
+      const { error } = await who.organiser.client.rpc("create_event_draft", params("IT-53-AC2-check", { p_expected_attendance: -1 }));
+      expect(error?.code).toBe("23514");
+    });
+  });
 });

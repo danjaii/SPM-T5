@@ -206,3 +206,53 @@ describe("SCRUM-53/AC1 save a draft (POST /events/drafts)", () => {
     expect(fake.tables.events).toHaveLength(0);
   });
 });
+
+describe("SCRUM-53/AC2 a draft is not blocked by empty fields", () => {
+  it("saves an empty body as 'Untitled draft'", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", organiser.cookie).send({});
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ name: "Untitled draft", status: "draft", purpose: null });
+  });
+
+  it("saves a request whose every field is blank", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/drafts")
+      .set("Cookie", organiser.cookie)
+      .send({ name: "  ", purpose: "", description: "", expected_attendance: "", preferred_start_datetime: "", registration_required: false });
+
+    expect(res.status).toBe(201);
+    expect(fake.tables.events[0]).toMatchObject({ name: "Untitled draft", purpose: null, expected_attendance: null, preferred_start_datetime: null });
+  });
+
+  it("sends blank values to the database as null, not as empty strings", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", organiser.cookie).send({ name: "", purpose: "", expected_attendance: "" });
+
+    expect(fake.rpcCalls[0].args).toMatchObject({ p_name: null, p_purpose: null, p_expected_attendance: null });
+  });
+
+  it("still answers 422 with the field errors, and stores nothing, for a value the database would refuse", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/drafts")
+      .set("Cookie", organiser.cookie)
+      .send({ name: "Bad numbers", expected_attendance: -5, preferred_start_datetime: "2031-05-02T09:00:00Z", preferred_end_datetime: "2031-05-01T09:00:00Z" });
+
+    expect(res.status).toBe(422);
+    expect(res.body).toMatchObject({ code: "VALIDATION_FAILED", error: "Check the highlighted fields." });
+    expect(Object.keys(res.body.fieldErrors).sort()).toEqual(["expected_attendance", "preferred_end_datetime"]);
+    expect(fake.tables.events).toHaveLength(0);
+    expect(fake.rpcCalls).toHaveLength(0);
+  });
+});
