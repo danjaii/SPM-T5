@@ -1,39 +1,67 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchVenueCalendar, type VenueCalendarData } from "@/lib/venueCalendar";
+import { fetchVenueCalendar, type CalendarQuery, type VenueCalendarData } from "@/lib/venueCalendar";
+import { VenueCalendarRangeForm } from "./VenueCalendarRangeForm";
 import { VenueCalendarVenue } from "./VenueCalendarVenue";
 
-type View = { state: "loading" } | { state: "ready"; calendar: VenueCalendarData } | { state: "error"; message: string };
-
-// SCRUM-84/AC1: the venue availability calendar. Opens on the current week (no dates sent); the venues come from venue-service.
+// SCRUM-84/AC1 + AC5: the venue availability calendar. Opens on the current week (no dates sent); choosing dates asks venue-service
+// again. The last good answer stays on screen while a new one loads.
 export function VenueCalendar() {
   const router = useRouter();
-  const [view, setView] = useState<View>({ state: "loading" });
+  const [calendar, setCalendar] = useState<VenueCalendarData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<string | null>(null);
+  const pending = useRef<AbortController | null>(null);
+  const routerRef = useRef(router); // read when a reply arrives, so a new router object never re-runs the first load
+  routerRef.current = router;
+
+  const load = useCallback(
+    async (query: CalendarQuery) => {
+      pending.current?.abort();
+      const controller = new AbortController();
+      pending.current = controller;
+      setLoading(true);
+      try {
+        const result = await fetchVenueCalendar(query, controller.signal);
+        if (result.kind === "ok") {
+          setCalendar(result.calendar);
+          setMessage(null);
+        } else if (result.kind === "unauthenticated") routerRef.current.replace("/login");
+        else if (result.kind === "error" || result.kind === "forbidden") setMessage(result.message);
+      } catch {
+        return; // replaced by a newer request
+      }
+      setLoading(false);
+    },
+    [],
+  );
 
   useEffect(() => {
-    const controller = new AbortController();
-    fetchVenueCalendar({}, controller.signal)
-      .then((result) => {
-        if (result.kind === "ok") setView({ state: "ready", calendar: result.calendar });
-        else if (result.kind === "unauthenticated") router.replace("/login");
-        else if (result.kind === "error" || result.kind === "forbidden") setView({ state: "error", message: result.message });
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, [router]);
+    void load({});
+    return () => pending.current?.abort();
+  }, [load]);
 
-  if (view.state === "loading") return <CalendarSkeleton />;
-  if (view.state === "error") return <AuthAlert tone="error">{view.message}</AuthAlert>;
-  if (view.calendar.venues.length === 0) return <p className="text-sm text-muted-foreground">There are no venues to show.</p>;
+  const range = calendar?.range;
   return (
-    <div className="flex flex-col gap-4">
-      {view.calendar.venues.map((venue) => (
-        <VenueCalendarVenue key={venue.id} venue={venue} />
-      ))}
+    <div className="flex flex-col gap-6">
+      <VenueCalendarRangeForm busy={loading} onSubmit={load} />
+      {message && <AuthAlert tone="error">{message}</AuthAlert>}
+      {range && <p className="text-sm font-medium text-foreground">{range.from === range.to ? `Showing ${range.from}` : `Showing ${range.from} to ${range.to}`}</p>}
+      {!calendar ? (
+        loading && <CalendarSkeleton />
+      ) : calendar.venues.length === 0 ? (
+        <p className="text-sm text-muted-foreground">There are no venues to show.</p>
+      ) : (
+        <div aria-busy={loading} className="flex flex-col gap-4">
+          {calendar.venues.map((venue) => (
+            <VenueCalendarVenue key={venue.id} venue={venue} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
