@@ -75,6 +75,10 @@ describe("SCRUM-53/AC2 parseEventRequestDraft does not block on empty fields", (
     ).toMatchObject({ expected_attendance: 0 });
   });
 
+  it("keeps a valid room layout id", () => {
+    expect(dataOf({ preferred_room_layout_id: "a685c8bf-c57d-5cb4-be30-49dedce9a02b" }).preferred_room_layout_id).toBe("a685c8bf-c57d-5cb4-be30-49dedce9a02b");
+  });
+
   it("defaults registration_required to false and keeps the registration fields as typed", () => {
     expect(dataOf({}).registration_required).toBe(false);
     expect(dataOf({ registration_required: false, registration_capacity: 40 }).registration_capacity).toBe(40);
