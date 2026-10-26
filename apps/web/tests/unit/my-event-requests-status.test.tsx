@@ -39,3 +39,35 @@ describe("SCRUM-55/AC1 each request shows its status clearly", () => {
     expect(within(screen.getByRole("row", { name: /Alpha/ })).getByText("on_hold")).toBeTruthy();
   });
 });
+
+describe("SCRUM-55/AC2 drafts are visually distinguished", () => {
+  it("SCRUM-55/AC2 labels a draft as not submitted yet and marks its row, with the Submitted column saying so", () => {
+    render(<MyEventRequestsTable requests={[make("1", "Alpha", "draft")]} />);
+
+    const row = screen.getByRole("row", { name: /Alpha/ });
+    expect(row.getAttribute("data-draft")).toBe("true");
+    expect(within(row).getByText("Not submitted yet")).toBeTruthy();
+    expect(within(row).getByText("Not submitted")).toBeTruthy();
+  });
+
+  it("SCRUM-55/AC2 leaves a submitted request without any draft marking", () => {
+    render(<MyEventRequestsTable requests={[make("2", "Beta", "submitted")]} />);
+
+    const row = screen.getByRole("row", { name: /Beta/ });
+    expect(row.getAttribute("data-draft")).toBeNull();
+    expect(within(row).queryByText("Not submitted yet")).toBeNull();
+    expect(row.textContent).toMatch(/1 Oct 2026/);
+  });
+
+  it("SCRUM-55/AC2 shows a nameless draft, or the Untitled draft placeholder, as Untitled draft and still links to it", () => {
+    render(<MyEventRequestsTable requests={[make("1", "", "draft"), make("2", "Untitled draft", "draft"), make("3", "  ", "draft")]} />);
+
+    const links = screen.getAllByRole("link", { name: "Untitled draft" });
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/events/1", "/events/2", "/events/3"]);
+  });
+
+  it("SCRUM-55/AC2 keeps a real draft name as it is", () => {
+    render(<MyEventRequestsTable requests={[make("1", "Half done", "draft")]} />);
+    expect(screen.getByRole("link", { name: "Half done" })).toBeTruthy();
+  });
+});

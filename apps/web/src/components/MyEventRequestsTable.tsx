@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { MyEventRequest } from "@/lib/myEventRequests";
+import { isDraft, isUntitledDraft, UNTITLED_DRAFT, type MyEventRequest } from "@/lib/myEventRequests";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import EventStatusBadge from "./EventStatusBadge";
 
@@ -22,18 +22,20 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
       </TableHeader>
       <TableBody>
         {requests.map((request) => (
-          <TableRow key={request.id}>
+          <TableRow key={request.id} data-draft={isDraft(request) ? "true" : undefined} className={isDraft(request) ? "bg-muted/50" : undefined}>
             <TableCell className="font-semibold text-foreground">
               <Link href={`/events/${encodeURIComponent(request.id)}`} className="underline-offset-4 hover:underline">
-                {request.name}
+                {isUntitledDraft(request) ? <span className="font-normal text-muted-foreground italic">{UNTITLED_DRAFT}</span> : request.name}
               </Link>
+              {/* SCRUM-55/AC2: a draft is labelled in words as well as by its badge and tint */}
+              {isDraft(request) && <p className="text-xs font-normal text-muted-foreground">Not submitted yet</p>}
             </TableCell>
             <TableCell>
               <EventStatusBadge status={request.status} />
             </TableCell>
             <TableCell>{formatDate(request.preferred_start_datetime)}</TableCell>
             <TableCell>{request.expected_attendance ?? "—"}</TableCell>
-            <TableCell>{formatDate(request.submitted_at)}</TableCell>
+            <TableCell>{isDraft(request) ? "Not submitted" : formatDate(request.submitted_at)}</TableCell>
           </TableRow>
         ))}
       </TableBody>
