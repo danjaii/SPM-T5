@@ -1,13 +1,13 @@
 import { calendarRange, sgtToUtc } from "@spm-t5/shared";
 import { describe, expect, it } from "vitest";
-import type { CalendarVenue } from "../../src/readers/venueCalendarReader";
+import type { CalendarBlock, CalendarBooking, CalendarVenue } from "../../src/readers/venueCalendarReader";
 import { buildCalendar } from "../../src/services/venueCalendarService";
 import { aCalendarVenue } from "../support/fakeCalendar";
 
 // Operating hours are Singapore local time. One day: Saturday 14 November 2026.
 const DAY = calendarRange("2026-11-14", "2026-11-14");
 const at = (time: string, date = "2026-11-14") => sgtToUtc(date, time).toISOString();
-const nothing = { bookings: [], blocks: [] };
+const nothing: { bookings: CalendarBooking[]; blocks: CalendarBlock[] } = { bookings: [], blocks: [] };
 
 const periodsOf = (venue: Partial<CalendarVenue>, range = DAY, entries = nothing) =>
   buildCalendar([aCalendarVenue(venue)], entries, range)[0]!.periods.map((p) => [p.status, p.label, p.start, p.end]);
