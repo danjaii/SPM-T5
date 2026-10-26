@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   ATTACHMENT_ACCEPTED_TEXT,
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_TOO_LARGE,
   ATTACHMENT_TYPE_REFUSED,
   attachmentProblem,
   attachmentRefusal,
@@ -33,5 +35,21 @@ describe("SCRUM-51/AC2 a file of an unsupported type is refused, naming the acce
   it("does not accept a bare image/ prefix or a video type that is not listed", () => {
     expect(attachmentProblem({ type: "image/", size: 1 })).toBe(ATTACHMENT_TYPE_REFUSED);
     expect(attachmentProblem({ type: "video/x-flv", size: 1 })).toBe(ATTACHMENT_TYPE_REFUSED);
+  });
+});
+
+describe("SCRUM-51/AC3 a file over the limit is refused, naming the maximum size", () => {
+  it("refuses one byte over 10 MB with FILE_TOO_LARGE and the limit, and accepts exactly 10 MB", () => {
+    expect(attachmentRefusal({ type: "application/pdf", size: ATTACHMENT_MAX_BYTES + 1 })).toEqual({
+      code: "FILE_TOO_LARGE",
+      error: ATTACHMENT_TOO_LARGE,
+      maxBytes: ATTACHMENT_MAX_BYTES,
+    });
+    expect(ATTACHMENT_TOO_LARGE).toContain("10 MB");
+    expect(attachmentRefusal({ type: "application/pdf", size: ATTACHMENT_MAX_BYTES })).toBeUndefined();
+  });
+
+  it("checks the type before the size", () => {
+    expect(attachmentRefusal({ type: "application/zip", size: ATTACHMENT_MAX_BYTES + 1 })?.code).toBe("FILE_TYPE_NOT_ACCEPTED");
   });
 });

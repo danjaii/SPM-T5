@@ -372,3 +372,50 @@ describe("SCRUM-51/AC2 a file of an unsupported type is rejected with the accept
     expect(res.body.code).toBe("FILE_TYPE_NOT_ACCEPTED");
   });
 });
+
+describe("SCRUM-51/AC3 a file over the size limit is rejected with the maximum size", () => {
+  const TEN_MB = 10 * 1024 * 1024;
+
+  it("refuses an upload URL for a file over 10 MB with FILE_TOO_LARGE and maxBytes, preparing nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+
+    const res = await request(createApp(fake.deps)).post(`/events/drafts/${draft.id}/attachments/upload-url`)
+      .set("Cookie", organiser.cookie).send({ ...PDF, size: TEN_MB + 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "FILE_TOO_LARGE", maxBytes: TEN_MB });
+    expect(res.body.error).toContain("10 MB");
+    expect(fake.storage.uploadPaths).toEqual([]);
+  });
+
+  it("accepts a file of exactly 10 MB", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+
+    const res = await request(createApp(fake.deps)).post(`/events/drafts/${draft.id}/attachments/upload-url`)
+      .set("Cookie", organiser.cookie).send({ ...PDF, size: TEN_MB });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("refuses to attach an oversized file without calling the database, and maps the database's AT003", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+    const app = createApp(fake.deps);
+    const body = { file_name: "a.pdf", storage_path: `${draft.id}/a/a.pdf`, content_type: "application/pdf", size: TEN_MB + 1 };
+
+    const big = await request(app).post(`/events/drafts/${draft.id}/attachments`).set("Cookie", organiser.cookie).send(body);
+    expect(big.status).toBe(400);
+    expect(big.body.code).toBe("FILE_TOO_LARGE");
+    expect(fake.rpcCalls).toEqual([]);
+
+    fake.failure.rpcCode = "AT003";
+    const db = await request(app).post(`/events/drafts/${draft.id}/attachments`).set("Cookie", organiser.cookie).send({ ...body, size: 1 });
+    expect(db.status).toBe(400);
+    expect(db.body).toMatchObject({ code: "FILE_TOO_LARGE", maxBytes: TEN_MB });
+  });
+});

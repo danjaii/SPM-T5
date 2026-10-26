@@ -118,4 +118,25 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
       expect(data).toEqual([]);
     });
   });
+
+  describe("SCRUM-51/AC3 file size restriction", () => {
+    it("refuses a file over 10 MB at the API (400, maximum shown) and in the database (AT003), accepting exactly 10 MB", async () => {
+      const draft = await newDraft(who.organiser, "IT-51-AC3-size");
+      const tenMb = 10 * 1024 * 1024;
+
+      const over = await request(app).post(`/events/drafts/${draft.id}/attachments/upload-url`).set("Cookie", cookie(who.organiser))
+        .send({ file_name: "big.pdf", content_type: "application/pdf", size: tenMb + 1 });
+      const direct = await who.organiser.client.rpc("add_event_attachment", {
+        p_event_id: draft.id, p_file_name: "big.pdf", p_storage_path: `${draft.id}/a/big.pdf`, p_content_type: "application/pdf", p_size_bytes: tenMb + 1,
+      });
+      const exact = await who.organiser.client.rpc("add_event_attachment", {
+        p_event_id: draft.id, p_file_name: "exact.pdf", p_storage_path: `${draft.id}/a/exact.pdf`, p_content_type: "application/pdf", p_size_bytes: tenMb,
+      });
+
+      expect(over.status).toBe(400);
+      expect(over.body).toMatchObject({ code: "FILE_TOO_LARGE", maxBytes: tenMb });
+      expect(direct.error?.code).toBe("AT003");
+      expect(exact.error).toBeNull();
+    });
+  });
 });

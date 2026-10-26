@@ -5,7 +5,7 @@
 -- write privilege on it: a row is written only by add_event_attachment() and removed only by remove_event_attachment(), which
 -- check the caller themselves (an event organiser, their own request, still a draft; Week 9: organisers cannot edit a submitted
 -- request). The same SQLSTATEs as the draft functions: DR001 not the caller's request or not found, DR002 not a draft any more.
--- AT001: the storage path is not in the request's own folder. AT002: a file type that is not accepted.
+-- AT001: the storage path is not in the request's own folder. AT002: a file type that is not accepted. AT003: a file over 10 MB (10485760 bytes, the bucket's file_size_limit).
 
 create table event_request_attachments (
   id            uuid primary key default gen_random_uuid(),
@@ -87,6 +87,10 @@ begin
 
   if not public.is_attachment_type_allowed(p_content_type) then
     raise exception 'This file type is not supported' using errcode = 'AT002';
+  end if;
+
+  if p_size_bytes > 10485760 then
+    raise exception 'This file is larger than the 10 MB limit' using errcode = 'AT003';
   end if;
 
   insert into event_request_attachments (event_id, file_name, storage_path, content_type, size_bytes, uploaded_by)

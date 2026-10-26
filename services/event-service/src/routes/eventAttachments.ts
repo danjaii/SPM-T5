@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_TYPE_REFUSED, attachmentRefusal, canCreateEventRequests } from "@spm-t5/shared";
+import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_MAX_BYTES, ATTACHMENT_TOO_LARGE, ATTACHMENT_TYPE_REFUSED, attachmentRefusal, canCreateEventRequests } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { lookUpRole } from "./events";
@@ -42,7 +42,7 @@ export function eventAttachmentRoutes(deps: SupabaseDeps) {
       return res.status(400).json({ error: "file_name, content_type and size are required." });
     }
 
-    // SCRUM-51/AC2: a type that is not accepted is turned away before anything is prepared
+    // SCRUM-51/AC2, AC3: a type that is not accepted, or a file over 10 MB, is turned away before anything is prepared
     const refusal = attachmentRefusal({ type: contentType, size });
     if (refusal) return res.status(400).json(refusal);
 
@@ -83,6 +83,9 @@ export function eventAttachmentRoutes(deps: SupabaseDeps) {
         code: "FILE_TYPE_NOT_ACCEPTED", error: `${ATTACHMENT_TYPE_REFUSED} Accepted: ${ATTACHMENT_ACCEPTED_TEXT}.`,
         acceptedTypes: ATTACHMENT_ACCEPTED_TEXT,
       });
+    }
+    if (error?.code === "AT003") {
+      return res.status(400).json({ code: "FILE_TOO_LARGE", error: ATTACHMENT_TOO_LARGE, maxBytes: ATTACHMENT_MAX_BYTES });
     }
     if (error?.code === "AT001") return res.status(400).json({ error: "The file was not uploaded for this request." });
     if (error || !data) return res.status(500).json({ error: "Could not attach the file." });
