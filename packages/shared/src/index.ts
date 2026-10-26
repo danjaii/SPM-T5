@@ -4,6 +4,7 @@ export * from "./equipmentAvailability";
 export * from "./equipmentRequest";
 export * from "./eventChangeRequest";
 export * from "./eventDetails";
+export * from "./eventDraft";
 export * from "./eventImpact";
 export * from "./eventRequest";
 export * from "./eventStatus";
