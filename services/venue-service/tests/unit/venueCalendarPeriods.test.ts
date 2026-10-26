@@ -71,6 +71,7 @@ describe("SCRUM-84/AC2 held, confirmed and blocked periods", () => {
       end: iso(at("16:00")),
       reason: "equipment_failure",
       reason_label: "Equipment failure",
+      overlaps_confirmed_booking: false,
     });
   });
 
@@ -117,7 +118,8 @@ describe("SCRUM-84/AC2 held, confirmed and blocked periods", () => {
     expect(periods.map((p) => [p.status, p.start, p.end])).toEqual([
       ["AVAILABLE", week.start, iso(at("10:00"))],
       ["CONFIRMED", iso(at("10:00")), iso(at("11:00"))],
-      ["BLOCKED", iso(at("11:00")), iso(at("12:30"))],
+      ["BLOCKED", iso(at("11:00")), iso(at("12:00"))], // flagged: over the Confirmed booking
+      ["BLOCKED", iso(at("12:00")), iso(at("12:30"))],
       ["TENTATIVELY_HELD", iso(at("12:30")), iso(at("13:00"))],
       ["AVAILABLE", iso(at("13:00")), week.end],
     ]);
@@ -163,6 +165,68 @@ describe("SCRUM-84/AC2 held, confirmed and blocked periods", () => {
       ["TENTATIVELY_HELD", iso(at("12:00")), iso(at("13:00"))],
       ["AVAILABLE", iso(at("13:00")), week.end],
     ]);
+  });
+
+  it("S7: a block over a Confirmed booking is Blocked and flagged, only over the stretch that overlaps it (event, setup or turnaround)", async () => {
+    const { reader, get } = arrange(aCalendarVenue({ setupMinutes: 30, turnaroundMinutes: 45 }));
+    reader.hold("orchid", "CONFIRMED", at("10:00"), at("12:00")); // occupied 09:30-12:45
+    reader.block("orchid", at("08:00"), at("09:00")); // before it: not flagged
+    reader.block("orchid", at("09:00"), at("14:00")); // touches setup .. turnaround: flagged 09:30-12:45 only
+
+    const blocks = (await get()).filter((p) => p.kind === "block");
+
+    expect(blocks.map((p) => [p.start, p.end, p.overlaps_confirmed_booking])).toEqual([
+      [iso(at("08:00")), iso(at("09:00")), false],
+      [iso(at("09:00")), iso(at("09:30")), false],
+      [iso(at("09:30")), iso(at("12:45")), true],
+      [iso(at("12:45")), iso(at("14:00")), false],
+    ]);
+  });
+
+  it("S7: a block touching a Confirmed booking's occupied time only at its edge is not flagged", async () => {
+    const { reader, get } = arrange();
+    reader.hold("orchid", "CONFIRMED", at("10:00"), at("12:00"));
+    reader.block("orchid", at("12:00"), at("13:00"));
+
+    const [block] = (await get()).filter((p) => p.kind === "block");
+
+    expect(block!.overlaps_confirmed_booking).toBe(false);
+  });
+
+  it("S7: a Tentatively Held booking under a block is not flagged", async () => {
+    const { reader, get } = arrange();
+    reader.hold("orchid", "TENTATIVELY_HELD", at("10:00"), at("12:00"));
+    reader.block("orchid", at("09:00"), at("13:00"));
+
+    const [block] = (await get()).filter((p) => p.kind === "block");
+
+    expect(block).toMatchObject({ status: "BLOCKED", overlaps_confirmed_booking: false });
+  });
+
+  it("S7: a Confirmed booking at another venue does not flag this venue's block, and the flag names no event, coordinator or requester", async () => {
+    const reader = new FakeVenueCalendarReader([aCalendarVenue(), aCalendarVenue({ id: "jasmine", name: "Jasmine Room" })]);
+    reader.hold("jasmine", "CONFIRMED", at("10:00"), at("12:00"));
+    reader.block("orchid", at("09:00"), at("13:00"));
+    const session = createFakeSession();
+    const app = createApp(session.deps, { now: () => NOW, venueCalendar: () => reader });
+
+    const res = await request(app).get("/venue-calendar?from=2026-11-14").set("Cookie", session.signIn("technical_support_staff").cookie);
+
+    const orchid = res.body.venues.find((v: { id: string }) => v.id === "orchid").periods.find((p: { kind: string }) => p.kind === "block");
+    expect(orchid.overlaps_confirmed_booking).toBe(false);
+    expect(Object.keys(orchid).sort()).toEqual(["end", "kind", "label", "overlaps_confirmed_booking", "reason", "reason_label", "start", "status"]);
+  });
+
+  it("S3: Technical Support Staff see the block's reason label, and still no notes or author", async () => {
+    const { reader } = arrange();
+    reader.block("orchid", at("08:00"), at("16:00"), "safety");
+    const session = createFakeSession();
+    const app = createApp(session.deps, { now: () => NOW, venueCalendar: () => reader });
+
+    const res = await request(app).get("/venue-calendar?from=2026-11-14").set("Cookie", session.signIn("technical_support_staff").cookie);
+
+    expect(res.body.venues[0].periods.find((p: { kind: string }) => p.kind === "block")).toMatchObject({ reason: "safety", reason_label: "Safety concern" });
+    expect(JSON.stringify(res.body)).not.toMatch(/notes|created_by|recorded/i);
   });
 
   it("S6: nothing that identifies the event, the coordinator or the block's author is returned", async () => {

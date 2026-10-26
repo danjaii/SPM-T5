@@ -29,6 +29,8 @@ export interface CalendarPeriod {
   turnaround_minutes?: number;
   reason?: string;
   reason_label?: string;
+  /** Only on blocks: true over the stretch that overlaps the event, setup or turnaround of a Confirmed booking. */
+  overlaps_confirmed_booking?: boolean;
 }
 
 export interface CalendarVenueView {
@@ -42,6 +44,11 @@ export interface CalendarVenueView {
 }
 
 /** What lies over a stretch of time. The one with the highest `priority` wins where several overlap (spec: precedence). */
+interface Interval {
+  start: number;
+  end: number;
+}
+
 interface Segment {
   priority: number;
   /** Adjacent stretches with the same key are one period. */
@@ -83,16 +90,28 @@ function bookingSegments(b: CalendarBooking, id: number): Segment[] {
   ];
 }
 
-function blockSegment(b: CalendarBlock, id: number): Segment {
-  return {
-    priority: PRIORITY.block,
-    key: `block:${id}`,
-    kind: "block",
-    status: "BLOCKED",
-    start: b.start.getTime(),
-    end: b.end.getTime(),
-    extra: { reason: b.reason, reason_label: unavailabilityReasonLabel(b.reason) ?? "Other" },
-  };
+/**
+ * A block, cut wherever a Confirmed booking's occupied period (setup, event, turnaround) starts or ends inside it, so the pieces
+ * lying over that period are flagged and the rest are not. A Pending booking never flags. The flag says nothing about which booking.
+ */
+function blockSegments(b: CalendarBlock, id: number, confirmed: Interval[]): Segment[] {
+  const start = b.start.getTime();
+  const end = b.end.getTime();
+  const cuts = [...new Set([start, end, ...confirmed.flatMap((c) => [c.start, c.end])])].filter((t) => t >= start && t <= end).sort((x, y) => x - y);
+  const label = unavailabilityReasonLabel(b.reason) ?? "Other";
+  return cuts.slice(0, -1).map((from, i) => {
+    const to = cuts[i + 1]!;
+    const flagged = confirmed.some((c) => c.start < to && c.end > from);
+    return {
+      priority: PRIORITY.block,
+      key: `block:${id}:${flagged}`,
+      kind: "block",
+      status: "BLOCKED",
+      start: from,
+      end: to,
+      extra: { reason: b.reason, reason_label: label, overlaps_confirmed_booking: flagged },
+    };
+  });
 }
 
 /** Operating hours that mean something: both set and not equal. Anything else is no restriction (spec AC3 S2). */
@@ -155,10 +174,12 @@ export function buildCalendar(
   return [...venues]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((v) => {
+      const bookings = entries.bookings.filter((b) => b.venueId === v.id);
+      const confirmed = bookings.filter((b) => b.status === "CONFIRMED").map((b) => ({ start: b.occupiedStart.getTime(), end: b.occupiedEnd.getTime() }));
       const segments = [
         ...operatingSegments(v, range),
-        ...entries.bookings.filter((b) => b.venueId === v.id).flatMap(bookingSegments),
-        ...entries.blocks.filter((b) => b.venueId === v.id).map(blockSegment),
+        ...bookings.flatMap(bookingSegments),
+        ...entries.blocks.filter((b) => b.venueId === v.id).flatMap((b, id) => blockSegments(b, id, confirmed)),
       ];
       return { id: v.id, name: v.name, address: v.address, max_capacity: v.maxCapacity, operating_hours: hoursOf(v), periods: resolve(segments, range) };
     });

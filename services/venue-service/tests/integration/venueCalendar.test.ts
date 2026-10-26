@@ -108,6 +108,24 @@ describe.skipIf(!hasDb)("SCRUM-84 venue availability calendar (migration 58)", (
     }
   });
 
+  it("SCRUM-84/AC2: a block over a Confirmed booking is Blocked and flagged over the overlapped time; over a Pending one it is not flagged", async () => {
+    const venue = await fixtures.venue("IT-cal-flag", { setup_minutes: 30, turnaround_minutes: 45 });
+    await hold(venue, at("10:00"), at("12:00"), "approved"); // occupied 09:30-12:45
+    await hold(venue, at("16:00"), at("17:00"), "requested");
+    await fixtures.unavailabilityAs(who.venueStaff.client, venue, at("09:00"), at("14:00"));
+    await fixtures.unavailabilityAs(who.venueStaff.client, venue, at("15:00"), at("18:00"));
+
+    for (const key of ["coordinator", "technicalSupport"] as const) {
+      const view = await calendarFor(who[key], venue);
+      expect(view?.periods.filter((p) => p.kind === "block").map((p) => [p.start, p.end, p.overlaps_confirmed_booking])).toEqual([
+        [at("09:00").toISOString(), at("09:30").toISOString(), false],
+        [at("09:30").toISOString(), at("12:45").toISOString(), true],
+        [at("12:45").toISOString(), at("14:00").toISOString(), false],
+        [at("15:00").toISOString(), at("18:00").toISOString(), false],
+      ]);
+    }
+  });
+
   it("SCRUM-84/AC2: the function returns no notes, no author and no event, coordinator or request", async () => {
     const venue = await fixtures.venue("IT-cal-private");
     await fixtures.unavailabilityAs(who.venueStaff.client, venue, at("08:00"), at("16:00"), "other", "a private note");
