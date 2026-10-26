@@ -32,3 +32,16 @@ export function currentWeek(now: Date): CalendarRange {
   const monday = addDays(today, -((weekday + 6) % 7));
   return calendarRange(monday, addDays(monday, 6));
 }
+
+export type CalendarRangeResult = { ok: true; data: CalendarRange } | { ok: false; fieldErrors: Record<string, string> };
+
+/**
+ * SCRUM-84/AC5: the range a request asks for. `from` and `to` are Singapore dates, both inclusive; no dates is the current week
+ * and `from` alone is that one day.
+ */
+export function parseCalendarRange(query: { from?: unknown; to?: unknown }, now: Date): CalendarRangeResult {
+  const from = String(query.from ?? "");
+  const to = String(query.to ?? "");
+  if (!from) return { ok: true, data: currentWeek(now) };
+  return { ok: true, data: calendarRange(from, to || from) };
+}

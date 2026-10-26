@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, currentWeek, sgtToUtc } from "../../src";
+import { addDays, currentWeek, parseCalendarRange, sgtToUtc } from "../../src";
 
 describe("SCRUM-84/AC1 the current week (Monday to Sunday, Singapore time)", () => {
   it("S1: a Wednesday gives that Monday to the Sunday", () => {
@@ -21,5 +21,26 @@ describe("SCRUM-84/AC1 the current week (Monday to Sunday, Singapore time)", () 
 
   it("adds days across a month end", () => {
     expect(addDays("2026-11-30", 1)).toBe("2026-12-01");
+  });
+});
+
+describe("SCRUM-84/AC5 choose the date range", () => {
+  it("S1: a single date is that Singapore day, midnight to midnight", () => {
+    const parsed = parseCalendarRange({ from: "2026-11-14" }, sgtToUtc("2026-11-11", "11:00"));
+    expect(parsed).toEqual({ ok: true, data: { from: "2026-11-14", to: "2026-11-14", start: sgtToUtc("2026-11-14", "00:00"), end: sgtToUtc("2026-11-15", "00:00") } });
+  });
+
+  it("S2: a start and an end date include both days", () => {
+    const parsed = parseCalendarRange({ from: "2026-11-14", to: "2026-11-16" }, new Date());
+    expect(parsed).toMatchObject({ ok: true, data: { from: "2026-11-14", to: "2026-11-16", end: sgtToUtc("2026-11-17", "00:00") } });
+  });
+
+  it("S4: a range over a month and a year end works", () => {
+    const parsed = parseCalendarRange({ from: "2026-12-30", to: "2027-01-02" }, new Date());
+    expect(parsed).toMatchObject({ ok: true, data: { end: sgtToUtc("2027-01-03", "00:00") } });
+  });
+
+  it("S2: no dates is the current week", () => {
+    expect(parseCalendarRange({}, sgtToUtc("2026-11-11", "11:00"))).toMatchObject({ ok: true, data: { from: "2026-11-09", to: "2026-11-15" } });
   });
 });

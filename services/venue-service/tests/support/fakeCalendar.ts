@@ -56,6 +56,8 @@ export const aCalendarVenue = (overrides: Partial<CalendarVenue> = {}): Calendar
 
 export class FakeVenueCalendarReader implements VenueCalendarReader {
   reads = 0;
+  /** The window of the last entries() call. */
+  asked?: { from: Date; to: Date };
   bookings: CalendarBooking[] = [];
   blocks: CalendarBlock[] = [];
   constructor(public venues: CalendarVenue[] = []) {}
@@ -81,6 +83,7 @@ export class FakeVenueCalendarReader implements VenueCalendarReader {
 
   async entries(from: Date, to: Date) {
     this.reads += 1;
+    this.asked = { from, to };
     return {
       bookings: this.bookings.filter((b) => b.occupiedStart < to && b.occupiedEnd > from),
       blocks: this.blocks.filter((b) => b.start < to && b.end > from),
