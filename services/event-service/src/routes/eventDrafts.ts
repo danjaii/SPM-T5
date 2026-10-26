@@ -4,7 +4,17 @@ import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { lookUpRole } from "./events";
 
-/** SCRUM-53: an event organiser saves an incomplete event request as a draft. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The columns a draft is made of, as the form needs them to pre-fill (SCRUM-54/AC1). */
+const DRAFT_COLUMNS = [
+  "id", "name", "purpose", "description", "preferred_start_datetime", "preferred_end_datetime", "expected_attendance",
+  "venue_requirements", "preferred_room_layout_id", "accessibility_requirements", "equipment_requirements_notes",
+  "registration_required", "registration_capacity", "registration_opens_at", "registration_closes_at",
+  "status", "is_draft", "submitted_at", "created_at", "updated_at",
+].join(", ");
+
+/** SCRUM-53: an event organiser saves an incomplete event request as a draft. SCRUM-54: and reopens it. */
 export function eventDraftRoutes(deps: SupabaseDeps) {
   const router = Router();
 
@@ -49,6 +59,23 @@ export function eventDraftRoutes(deps: SupabaseDeps) {
     if (error || !draft) return res.status(500).json({ error: "Could not save the draft." });
 
     res.status(201).json(draft);
+  });
+
+  // SCRUM-54/AC1: open a saved draft. Read as the caller, so RLS (migration 14) only shows them their own events.
+  router.get("/drafts/:id", requireSession(deps), async (req, res) => {
+    const user = res.locals.user as SessionUser;
+    const role = await lookUpRole(deps, user);
+    if (role === undefined || !canCreateEventRequests(role)) {
+      return res.status(403).json({ error: "You are not allowed to create event requests." });
+    }
+
+    const id = String(req.params.id);
+    const { data: draft } = UUID.test(id)
+      ? await deps.forUser(user.token).from("events").select(DRAFT_COLUMNS).eq("id", id).maybeSingle()
+      : { data: null };
+    if (!draft) return res.status(404).json({ error: "Draft not found." });
+
+    res.json(draft);
   });
 
   return router;
