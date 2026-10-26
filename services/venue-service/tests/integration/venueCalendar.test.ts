@@ -103,7 +103,7 @@ describe.skipIf(!hasDb)("SCRUM-84 venue availability calendar (migration 58)", (
     for (const key of ["coordinator", "technicalSupport"] as const) {
       const view = await calendarFor(who[key], venue);
       const block = view?.periods.find((p) => p.kind === "block");
-      expect(block).toEqual({ kind: "block", status: "BLOCKED", label: "Blocked", start: at("08:00").toISOString(), end: at("16:00").toISOString(), reason: "renovation", reason_label: "Renovation" });
+      expect(block).toEqual({ kind: "block", status: "BLOCKED", label: "Blocked", start: at("08:00").toISOString(), end: at("16:00").toISOString(), reason: "renovation", reason_label: "Renovation", overlaps_confirmed_booking: false });
       expect(JSON.stringify(view)).not.toContain("a private note");
     }
   });
