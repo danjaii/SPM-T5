@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, FileText } from "lucide-react";
 
-import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_TYPES, attachmentRefusal } from "@spm-t5/shared";
+import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES, attachmentRefusal } from "@spm-t5/shared";
 import { uploadFile } from "@/lib/events";
 import {
   listRequestAttachments, registerRequestAttachment, requestAttachmentUpload, type RequestAttachment,
 } from "@/lib/requestAttachments";
 
+const ATTACHMENT_MAX_MB = ATTACHMENT_MAX_BYTES / (1024 * 1024);
 const LOAD_FAILED = "We couldn't load the documents. Please try again.";
 
 /** A readable size, such as "1.5 MB". */
@@ -17,6 +18,7 @@ const sizeText = (bytes: number) =>
 
 // SCRUM-51: supporting documents on an event request that is still a draft. AC1: choose files, they are uploaded and listed
 // with the request. AC2: a file type that is not accepted is turned away, with the accepted types.
+// AC3: so is a file over the size limit, with the maximum size.
 export function SupportingDocuments({ eventId }: { eventId: string }) {
   const [files, setFiles] = useState<RequestAttachment[]>();
   const [messages, setMessages] = useState<string[]>([]);
@@ -84,7 +86,7 @@ export function SupportingDocuments({ eventId }: { eventId: string }) {
       )}
 
       <label htmlFor="supporting-documents-input" className="text-sm font-semibold text-foreground">Add documents</label>
-      <p id="supporting-documents-hint" className="text-sm text-muted-foreground">Accepted: {ATTACHMENT_ACCEPTED_TEXT}.</p>
+      <p id="supporting-documents-hint" className="text-sm text-muted-foreground">Accepted: {ATTACHMENT_ACCEPTED_TEXT}. Each file can be up to {ATTACHMENT_MAX_MB} MB.</p>
       <input id="supporting-documents-input" type="file" multiple disabled={busy} onChange={choose}
         accept={ATTACHMENT_TYPES.join(",")} aria-describedby="supporting-documents-hint"
         className="text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-border-strong file:bg-card file:px-3 file:py-2 file:text-sm file:font-semibold" />

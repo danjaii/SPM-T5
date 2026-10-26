@@ -169,3 +169,49 @@ describe("SCRUM-51/AC2 a file of an unsupported type is rejected and the accepte
     expect((await screen.findByRole("alert")).textContent).toContain("Accepted: PDF.");
   });
 });
+
+describe("SCRUM-51/AC3 a file over the size limit is rejected and the maximum size is shown", () => {
+  const TEN_MB = 10 * 1024 * 1024;
+
+  it("turns a file over 10 MB away before uploading, naming the 10 MB limit, and attaches nothing", async () => {
+    const server = mockServer([{ status: 200, body: { attachments: [] } }]);
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText(/no documents attached yet/i);
+
+    choose([pdf("huge.pdf", TEN_MB + 1)]);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("huge.pdf");
+    expect(alert.textContent).toContain("10 MB");
+    expect(server.calls.filter((c) => c.method !== "GET")).toEqual([]);
+  });
+
+  it("accepts a file of exactly 10 MB", async () => {
+    const server = mockServer([{ status: 200, body: { attachments: [] } }]);
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText(/no documents attached yet/i);
+
+    choose([pdf("exact.pdf", TEN_MB)]);
+
+    await waitFor(() => expect(server.calls.some((c) => c.url.endsWith("/attachments/upload-url"))).toBe(true));
+  });
+
+  it("states the maximum size up front", async () => {
+    mockServer([{ status: 200, body: { attachments: [] } }]);
+    render(<SupportingDocuments eventId={EVENT} />);
+
+    expect((await screen.findByText(/accepted:/i)).textContent).toContain("10 MB");
+  });
+
+  it("shows the service's own refusal of a size (400) when the file got past the form's check", async () => {
+    mockServer([{ status: 200, body: { attachments: [] } }], {
+      "POST http://localhost:4002/events/drafts": { status: 400, body: { code: "FILE_TOO_LARGE", error: "This file is larger than the 10 MB limit." } },
+    });
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText(/no documents attached yet/i);
+
+    choose([pdf()]);
+
+    expect((await screen.findByRole("alert")).textContent).toContain("10 MB");
+  });
+});
