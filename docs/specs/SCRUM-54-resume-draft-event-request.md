@@ -51,6 +51,7 @@ Scenarios:
   queue (`lead_unassigned_queue()`, migration 21). Answers 200 with the row.
 - Body optional. With no body the saved draft is submitted. With a body it is the same fields as PUT ("save and submit"):
   they are validated strictly, saved, then submitted. If the body is invalid nothing is saved.
+- A draft still named "Untitled draft" (the placeholder) is treated as having no name: 422 on `name`.
 - As for `POST /events`, registration capacity and window are cleared when `registration_required` is false.
 - Submitting writes no notification (`notify_event_decision` only reacts to approved/rejected).
 
@@ -94,7 +95,6 @@ Scenarios:
 | AC2 | `services/event-service/tests/unit/event-draft-resume.test.ts` | `SCRUM-54/AC2 re-save a draft (PUT /events/drafts/:id)` |
 | AC2 | `services/event-service/tests/integration/eventDraftResumeDb.test.ts` | `SCRUM-54/AC2 ...` |
 | AC3 | `services/event-service/tests/unit/event-draft-resume.test.ts` | `SCRUM-54/AC3 submit a draft (POST /events/drafts/:id/submit)` |
-| AC3 | `packages/shared/tests/unit/eventDraft.test.ts` | `SCRUM-54/AC3 draftToEventRequestInput ...` (if a mapper is shared) |
 | AC3 | `services/event-service/tests/integration/eventDraftResumeDb.test.ts` | `SCRUM-54/AC3 ...` |
 | AC4 | `services/event-service/tests/unit/event-draft-resume.test.ts` | `SCRUM-54/AC4 ...` |
 | AC4 | `services/event-service/tests/integration/eventDraftResumeDb.test.ts` | `SCRUM-54/AC4 ...` |
@@ -104,7 +104,7 @@ Scenarios:
   `update_event_draft()`, `submit_event_draft()`, replaced `events_status_change_guard()`. Affects event-service; the guard is
   shared by every path that changes `events.status`, so other services' status changes are covered by running their tests.
 - `services/event-service`: `routes/eventDrafts.ts` (extended), no new mount.
-- `packages/shared`: not changed unless noted in the commit log.
+- `packages/shared`: not changed (the stored-draft -> strict-input mapper lives in `routes/eventDrafts.ts`).
 - `services/event-service/tests/integration/eventDraftCreateRls.test.ts` (SCRUM-53): one test asserted the owner could not
   update a draft yet and named SCRUM-54 as the change; it is edited minimally (see the commit).
 - No `apps/web` change: the UI is SCRUM-124. No C4/ADR change.
