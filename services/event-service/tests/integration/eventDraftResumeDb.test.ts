@@ -125,31 +125,60 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       expect(await stored(draft.id)).toMatchObject({ name: "IT-54-AC2-422", expected_attendance: 5 });
     });
 
-    it("lets the owner change the fields of their draft directly (the UPDATE policy)", async () => {
-      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC2-direct" });
-      const { data, error } = await who.organiser.client.from("events").update({ name: "IT-54-AC2-direct-2" }).eq("id", draft.id).select("id");
-      expect(error).toBeNull();
-      expect(data).toHaveLength(1);
-    });
-
     it.each([
+      ["name", "IT-54-AC2-direct"],
+      ["purpose", "Direct"],
       ["organiser_id", () => who.otherOrganiser.userId],
       ["client_organisation_id", () => "00000000-0000-4000-8000-000000000000"],
-      ["assigned_coordinator_id", () => who.coordinator.userId],
       ["cloned_from_event_id", () => "00000000-0000-4000-8000-000000000000"],
-      ["created_at", () => "2001-01-01T00:00:00Z"],
-      ["confirmed_at", () => "2031-01-01T00:00:00Z"],
-    ])("refuses the owner changing %s on their draft, directly or through the API", async (column, value) => {
-      const draft = await newDraft(who.organiser, { p_name: `IT-54-AC2-${column}` });
+      ["created_at", "2001-01-01T00:00:00Z"],
+      ["confirmed_at", "2031-01-01T00:00:00Z"],
+    ])("refuses the owner updating %s on their draft directly: authenticated has no UPDATE privilege on it", async (column, value) => {
+      const draft = await newDraft(who.organiser, { p_name: `IT-54-AC2-direct-${column}` });
       const before = await stored(draft.id);
 
-      const direct = await who.organiser.client.from("events").update({ [column]: value() }).eq("id", draft.id).select("id");
-      expect(direct.data ?? []).toEqual([]);
+      const res = await who.organiser.client
+        .from("events")
+        .update({ [column]: typeof value === "function" ? value() : value })
+        .eq("id", draft.id)
+        .select("id");
 
-      const viaApi = await putAs(who.organiser, draft.id, { name: `IT-54-AC2-${column}`, [column]: value() });
-      expect(viaApi.status).toBe(200);
+      expect(res.error?.code).toBe(DENIED);
+      expect(await stored(draft.id)).toEqual(before);
+    });
+
+    it("changes only the 14 draft fields through the API, whatever else the body names", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC2-whitelist" });
+      const before = await stored(draft.id);
+
+      const res = await putAs(who.organiser, draft.id, {
+        name: "IT-54-AC2-whitelist-saved",
+        organiser_id: who.otherOrganiser.userId,
+        client_organisation_id: "00000000-0000-4000-8000-000000000000",
+        assigned_coordinator_id: who.coordinator.userId,
+        cloned_from_event_id: "00000000-0000-4000-8000-000000000000",
+        created_at: "2001-01-01T00:00:00Z",
+        confirmed_at: "2031-01-01T00:00:00Z",
+        status: "approved",
+        is_draft: false,
+        submitted_at: "2031-01-01T00:00:00Z",
+      });
+
+      expect(res.status).toBe(200);
       const after = await stored(draft.id);
-      expect(after[column]).toEqual(before[column]);
+      expect(after.name).toBe("IT-54-AC2-whitelist-saved");
+      for (const column of ["organiser_id", "client_organisation_id", "assigned_coordinator_id", "cloned_from_event_id", "created_at", "confirmed_at", "status", "is_draft", "submitted_at"]) {
+        expect(after[column]).toEqual(before[column]);
+      }
+    });
+
+    it("refuses a non-organiser calling update_event_draft (42501)", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC2-role" });
+      for (const key of ["coordinator", "attendee"] as const) {
+        const { error } = await who[key].client.rpc("update_event_draft", { p_event_id: draft.id, p_name: "IT-54-AC2-hijacked" });
+        expect(error?.code).toBe(DENIED);
+      }
+      expect(await stored(draft.id)).toMatchObject({ name: "IT-54-AC2-role" });
     });
 
     it.each([
@@ -338,8 +367,9 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
     it.each(["otherOrganiser", "coordinator", "attendee"] as const)("lets a %s neither update nor submit the draft in the database", async (key) => {
       const direct = await who[key].client.from("events").update({ name: "IT-54-AC4-hijacked" }).eq("id", draftId).select("id");
       expect(direct.data ?? []).toEqual([]);
+      expect(direct.error?.code).toBe(DENIED);
       const resave = await who[key].client.rpc("update_event_draft", { p_event_id: draftId, p_name: "IT-54-AC4-hijacked" });
-      expect(resave.data ?? []).toEqual([]);
+      expect(resave.error?.code).toBe(key === "otherOrganiser" ? "DR001" : DENIED);
       const submit = await who[key].client.rpc("submit_event_draft", { p_event_id: draftId });
       expect(submit.error?.code).toBe(key === "otherOrganiser" ? "DR001" : DENIED);
       expect(await stored(draftId)).toMatchObject({ name: "IT-54-AC4-draft", status: "draft" });
@@ -366,7 +396,7 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
         expect(res.data ?? []).toEqual([]);
       }
       const resave = await who.organiser.client.rpc("update_event_draft", { p_event_id: submittedId, p_name: "IT-54-AC4-edited" });
-      expect(resave.data ?? []).toEqual([]);
+      expect(resave.error?.code).toBe("DR002");
       const again = await who.organiser.client.rpc("submit_event_draft", { p_event_id: submittedId });
       expect(again.error?.code).toBe("DR002");
       expect(await stored(submittedId)).toMatchObject({ name: "IT-54-AC4-complete", status: "submitted", is_draft: false });

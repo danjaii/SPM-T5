@@ -34,7 +34,8 @@ Scenarios:
 - `PUT /events/drafts/:id` validates with the same lenient `parseEventRequestDraft` as SCRUM-53 (same 422 shape), stores
   the whole body and answers 200 with the row. `updated_at` is later than before (trigger `trg_events_updated_at`).
 - PUT replaces the draft: a field left out or sent empty is cleared (null). That is how an organiser blanks a field.
-- Status, organiser, organisation, coordinator and timestamps cannot be changed through it, whatever the body says.
+- Status, organiser, organisation, coordinator and timestamps cannot be changed through it, whatever the body says (the function
+  writes only the 14 draft fields). A direct table update by the organiser is refused with 42501.
 - A 422 changes nothing.
 
 ### AC3 — Submit from draft
@@ -62,19 +63,21 @@ Scenarios:
 
 Scenarios:
 - GET, PUT and submit on a request that is not a draft answer 409 `{ code: "NOT_A_DRAFT" }`, for the owner. Nothing changes.
-- The database agrees: the organiser UPDATE policy only matches `status = 'draft'` rows, so a direct update of a submitted
-  request changes nothing; the organiser can never set a request back to draft or move it on by a plain update.
+- The database agrees: `update_event_draft()` refuses a row that is not a draft (`DR002`), and the organiser has no UPDATE
+  privilege to change it directly, so a request can never be set back to draft or edited by a plain update.
 - Another organiser, a coordinator or an attendee cannot read, update or submit someone else's draft (404, or 403 by role).
 - Week 9 customer clarification ("organisers cannot directly edit or alter submitted requests on their own") matches.
 
 ## Decisions
 - Last-saved time is `events.updated_at`; an unnamed draft is "Untitled draft" (team decisions, SCRUM-53).
-- **Re-save = `update_event_draft()` (security invoker) + organiser UPDATE policy + column guard trigger.** The policy
-  (`events_update_organiser_draft`) matches only the caller's own drafts and its `WITH CHECK` pins organiser, status
-  `draft`, `is_draft`, no `submitted_at`, no coordinator, no confirmed/cancelled/completed time. A policy cannot restrict
-  columns, so trigger `trg_events_organiser_draft_guard` refuses an organiser changing `client_organisation_id`,
-  `event_category_id`, `cloned_from_event_id`, `created_at` (and the columns above) for every caller path, including a direct
-  PATCH. The function only names the 14 draft fields.
+- **Re-save = `update_event_draft()` (security definer, migration 54).** `14_events_rls.sql` revokes UPDATE on `events` from
+  `authenticated` and grants it only on `status` and `assigned_coordinator_id`: writes to events go through security definer
+  functions so history and send-back logic cannot be bypassed. An RLS UPDATE policy is therefore useless for the organiser
+  (migration 53 tried one plus a column guard trigger; both were unreachable and are dropped by 54), and granting UPDATE on the
+  draft columns would let an assigned coordinator edit them directly. So the function checks the caller itself (organiser role,
+  42501), locks the caller's own row (`DR001` if not found), refuses a row that is no longer a draft (`DR002`) and writes only
+  the 14 draft fields. The organiser still has no UPDATE privilege on any draft column, so a direct update is refused (42501);
+  the function's column list is the whitelist.
 - **Submit = `submit_event_draft()` (security definer).** A plain update cannot submit: the policy pins `status = 'draft'`,
   so only this function can move a draft on. It checks the caller itself (organiser role, own row, still a draft), locks the
   row, refuses a draft missing a mandatory field (a last check in the database; the real rules are `parseEventRequest`,
@@ -100,8 +103,10 @@ Scenarios:
 | AC4 | `services/event-service/tests/integration/eventDraftResumeDb.test.ts` | `SCRUM-54/AC4 ...` |
 
 ## Affected workspaces
-- `supabase/migrations/53_resume_draft_event_request.sql` (new): organiser UPDATE policy, column guard trigger,
-  `update_event_draft()`, `submit_event_draft()`, replaced `events_status_change_guard()`. Affects event-service; the guard is
+- `supabase/migrations/53_resume_draft_event_request.sql` (new): `submit_event_draft()`, replaced `events_status_change_guard()`;
+  also an organiser UPDATE policy, a column guard trigger and an invoker `update_event_draft()` that turned out to be unreachable.
+- `supabase/migrations/54_event_draft_update_definer.sql` (new, append-only fix): drops that policy and trigger and replaces
+  `update_event_draft()` with a security definer version. Affects event-service; the guard is
   shared by every path that changes `events.status`, so other services' status changes are covered by running their tests.
 - `services/event-service`: `routes/eventDrafts.ts` (extended), no new mount.
 - `packages/shared`: not changed (the stored-draft -> strict-input mapper lives in `routes/eventDrafts.ts`).
