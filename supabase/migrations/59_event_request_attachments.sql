@@ -6,6 +6,7 @@
 -- check the caller themselves (an event organiser, their own request, still a draft; Week 9: organisers cannot edit a submitted
 -- request). The same SQLSTATEs as the draft functions: DR001 not the caller's request or not found, DR002 not a draft any more.
 -- AT001: the storage path is not in the request's own folder. AT002: a file type that is not accepted. AT003: a file over 10 MB (10485760 bytes, the bucket's file_size_limit).
+-- AT004: no such attachment on that request.
 
 create table event_request_attachments (
   id            uuid primary key default gen_random_uuid(),
@@ -103,3 +104,65 @@ $$;
 
 revoke execute on function public.add_event_attachment(uuid, text, text, text, bigint) from public, anon;
 grant execute on function public.add_event_attachment(uuid, text, text, text, bigint) to authenticated;
+
+-- SCRUM-51/AC4: remove an attachment from a request that is still the caller's own draft. Returns the removed row so the
+-- service can delete the stored file (the row is not readable once gone).
+create function public.remove_event_attachment(p_event_id uuid, p_attachment_id uuid)
+returns event_request_attachments
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_event events;
+  v_row   event_request_attachments;
+begin
+  if auth.uid() is null or public.current_user_role() is distinct from 'event_organiser' then
+    raise exception 'Only an event organiser can remove files from a request' using errcode = '42501';
+  end if;
+
+  select * into v_event from events where id = p_event_id and organiser_id = auth.uid() for update;
+  if not found then
+    raise exception 'Draft not found' using errcode = 'DR001';
+  end if;
+  if v_event.status is distinct from 'draft' or v_event.is_draft is not true then
+    raise exception 'This request has already been submitted' using errcode = 'DR002';
+  end if;
+
+  delete from event_request_attachments where id = p_attachment_id and event_id = p_event_id returning * into v_row;
+  if not found then
+    raise exception 'Attachment not found' using errcode = 'AT004';
+  end if;
+
+  return v_row;
+end;
+$$;
+
+revoke execute on function public.remove_event_attachment(uuid, uuid) from public, anon;
+grant execute on function public.remove_event_attachment(uuid, uuid) to authenticated;
+
+-- The stored file goes through the Storage API (a direct delete on storage.objects is not allowed). Only an organiser may delete,
+-- and only a file in the folder of their own request that is still a draft.
+create function public.user_owns_draft_event(p_user uuid, p_event_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1 from public.events e
+    join public.users u on u.id = e.organiser_id
+    where e.id = p_event_id and e.organiser_id = p_user and e.status = 'draft' and e.is_draft and u.role = 'event_organiser'
+  )
+$$;
+
+revoke execute on function public.user_owns_draft_event(uuid, uuid) from public, anon;
+grant execute on function public.user_owns_draft_event(uuid, uuid) to authenticated;
+
+create policy event_attachments_delete_own_draft on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'event-attachments'
+    and public.user_owns_draft_event(auth.uid(), public.storage_path_event_id(name))
+  );

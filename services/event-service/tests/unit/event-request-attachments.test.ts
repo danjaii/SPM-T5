@@ -68,6 +68,18 @@ function createFake() {
     return { data: { ...row }, error: null };
   };
 
+  /** Pretends to be remove_event_attachment (migration 59): the organiser's own draft's attachment only. */
+  const removeEventAttachment = (callerId: string | undefined, args: Row) => {
+    if (failure.rpcCode) return { data: null, error: { message: "refused", code: failure.rpcCode } };
+    const event = tables.events.find((e) => e.id === args.p_event_id && e.organiser_id === callerId);
+    if (!event) return { data: null, error: { message: "not found", code: "DR001" } };
+    if (event.status !== "draft") return { data: null, error: { message: "not a draft", code: "DR002" } };
+    const at = tables.event_request_attachments.findIndex((a) => a.id === args.p_attachment_id && a.event_id === args.p_event_id);
+    if (at < 0) return { data: null, error: { message: "no such attachment", code: "AT004" } };
+    const [row] = tables.event_request_attachments.splice(at, 1);
+    return { data: { ...row }, error: null };
+  };
+
   const deps = {
     anon: {
       auth: {
@@ -83,6 +95,7 @@ function createFake() {
         const run = async () => {
           rpcCalls.push({ fn, args });
           if (fn === "add_event_attachment") return addEventAttachment(sessions.get(token), args);
+          if (fn === "remove_event_attachment") return removeEventAttachment(sessions.get(token), args);
           throw new Error(`fake has no function ${fn}`);
         };
         return { single: run };
@@ -417,5 +430,89 @@ describe("SCRUM-51/AC3 a file over the size limit is rejected with the maximum s
     const db = await request(app).post(`/events/drafts/${draft.id}/attachments`).set("Cookie", organiser.cookie).send({ ...body, size: 1 });
     expect(db.status).toBe(400);
     expect(db.body).toMatchObject({ code: "FILE_TOO_LARGE", maxBytes: TEN_MB });
+  });
+});
+
+describe("SCRUM-51/AC4 remove an attachment from a draft (DELETE /events/drafts/:id/attachments/:attachmentId)", () => {
+  function draftWithFile(fake: ReturnType<typeof createFake>) {
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id);
+    const row = {
+      id: crypto.randomUUID(), event_id: draft.id, file_name: "a.pdf", storage_path: `${draft.id}/x/a.pdf`,
+      content_type: "application/pdf", size_bytes: 10, uploaded_by: organiser.id, created_at: "2031-01-01T00:00:00.000Z",
+    };
+    fake.tables.event_request_attachments.push(row);
+    return { organiser, draft, row };
+  }
+
+  it("deletes the attachment and its stored file, and it is no longer listed", async () => {
+    const fake = createFake();
+    const { organiser, draft, row } = draftWithFile(fake);
+    const app = createApp(fake.deps);
+
+    const res = await request(app).delete(`/events/drafts/${draft.id}/attachments/${row.id}`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ removed: true, fileRemoved: true });
+    expect(fake.rpcCalls).toEqual([{ fn: "remove_event_attachment", args: { p_event_id: draft.id, p_attachment_id: row.id } }]);
+    expect(fake.storage.removed).toEqual([[row.storage_path]]);
+    const list = await request(app).get(`/events/${draft.id}/request-attachments`).set("Cookie", organiser.cookie);
+    expect(list.body).toEqual({ attachments: [] });
+  });
+
+  it("keeps the attachment of a submitted request (409 NOT_A_DRAFT) and touches no file", async () => {
+    const fake = createFake();
+    const { organiser, draft, row } = draftWithFile(fake);
+    draft.status = "submitted";
+    draft.is_draft = false;
+
+    const res = await request(createApp(fake.deps)).delete(`/events/drafts/${draft.id}/attachments/${row.id}`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("NOT_A_DRAFT");
+    expect(fake.tables.event_request_attachments).toHaveLength(1);
+    expect(fake.storage.removed).toEqual([]);
+  });
+
+  it("answers 401 without a session, 403 to a coordinator and 404 to another organiser, removing nothing", async () => {
+    const fake = createFake();
+    const { draft, row } = draftWithFile(fake);
+    const other = fake.signIn("event_organiser");
+    const coordinator = fake.signIn("event_coordinator");
+    const app = createApp(fake.deps);
+    const url = `/events/drafts/${draft.id}/attachments/${row.id}`;
+
+    expect((await request(app).delete(url)).status).toBe(401);
+    expect((await request(app).delete(url).set("Cookie", coordinator.cookie)).status).toBe(403);
+    expect((await request(app).delete(url).set("Cookie", other.cookie)).status).toBe(404);
+    expect(fake.tables.event_request_attachments).toHaveLength(1);
+    expect(fake.storage.removed).toEqual([]);
+  });
+
+  it("answers 404 for an unknown attachment or an id that is not a uuid, and 500 for any other database error", async () => {
+    const fake = createFake();
+    const { organiser, draft, row } = draftWithFile(fake);
+    const app = createApp(fake.deps);
+
+    expect((await request(app).delete(`/events/drafts/${draft.id}/attachments/${MISSING_ID}`).set("Cookie", organiser.cookie)).status).toBe(404);
+    expect((await request(app).delete(`/events/drafts/${draft.id}/attachments/not-a-uuid`).set("Cookie", organiser.cookie)).status).toBe(404);
+    fake.failure.rpcCode = "XX000";
+    expect((await request(app).delete(`/events/drafts/${draft.id}/attachments/${row.id}`).set("Cookie", organiser.cookie)).status).toBe(500);
+    for (const [code, status] of [["DR001", 404], ["DR002", 409]] as const) {
+      fake.failure.rpcCode = code;
+      expect((await request(app).delete(`/events/drafts/${draft.id}/attachments/${row.id}`).set("Cookie", organiser.cookie)).status).toBe(status);
+    }
+  });
+
+  it("still answers 200 when the stored file could not be deleted, saying so", async () => {
+    const fake = createFake();
+    const { organiser, draft, row } = draftWithFile(fake);
+    fake.failure.remove = true;
+
+    const res = await request(createApp(fake.deps)).delete(`/events/drafts/${draft.id}/attachments/${row.id}`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ removed: true, fileRemoved: false });
+    expect(fake.tables.event_request_attachments).toEqual([]);
   });
 });

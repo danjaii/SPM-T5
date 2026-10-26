@@ -139,4 +139,51 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
       expect(exact.error).toBeNull();
     });
   });
+
+  describe("SCRUM-51/AC4 remove an attachment", () => {
+    it("deletes the row and the stored file of an unsubmitted request, and refuses another organiser's draft", async () => {
+      const draft = await newDraft(who.organiser, "IT-51-AC4-remove");
+      const { res } = await attach(who.organiser, draft.id);
+      const path = res!.body.storage_path as string;
+      const url = `/events/drafts/${draft.id}/attachments/${res!.body.id}`;
+
+      const refused = await request(app).delete(url).set("Cookie", cookie(who.otherOrganiser));
+      const removed = await request(app).delete(url).set("Cookie", cookie(who.organiser));
+
+      expect(refused.status).toBe(404);
+      expect(removed.status).toBe(200);
+      expect(removed.body).toEqual({ removed: true, fileRemoved: true });
+      const { data: rows } = await admin.from("event_request_attachments").select("id").eq("event_id", draft.id);
+      expect(rows).toEqual([]);
+      const { data: file } = await admin.storage.from(BUCKET).download(path);
+      expect(file).toBeNull();
+    });
+
+    it("keeps the attachment once the request is submitted (409, DR002) and the file stays", async () => {
+      const draft = await newDraft(who.organiser, "IT-51-AC4-submitted");
+      const { res } = await attach(who.organiser, draft.id);
+      await who.organiser.client.rpc("submit_event_draft", { p_event_id: draft.id });
+
+      const late = await request(app).delete(`/events/drafts/${draft.id}/attachments/${res!.body.id}`).set("Cookie", cookie(who.organiser));
+      const direct = await who.organiser.client.rpc("remove_event_attachment", { p_event_id: draft.id, p_attachment_id: res!.body.id });
+      const storage = await who.organiser.client.storage.from(BUCKET).remove([res!.body.storage_path]);
+
+      expect(late.status).toBe(409);
+      expect(direct.error?.code).toBe("DR002");
+      expect(storage.data ?? []).toEqual([]);
+      const { data: file } = await admin.storage.from(BUCKET).download(res!.body.storage_path);
+      expect(file).not.toBeNull();
+      const { data: rows } = await admin.from("event_request_attachments").select("id").eq("event_id", draft.id);
+      expect(rows).toHaveLength(1);
+    });
+
+    it("lets nobody but the organiser call remove_event_attachment (a coordinator gets 42501)", async () => {
+      const draft = await newDraft(who.organiser, "IT-51-AC4-role");
+      const { res } = await attach(who.organiser, draft.id);
+
+      const refused = await who.coordinator.client.rpc("remove_event_attachment", { p_event_id: draft.id, p_attachment_id: res!.body.id });
+
+      expect(refused.error?.code).toBe(DENIED);
+    });
+  });
 });

@@ -101,5 +101,26 @@ export function eventAttachmentRoutes(deps: SupabaseDeps) {
     res.json({ attachments: data ?? [] });
   });
 
+  // SCRUM-51/AC4: remove an attachment from a request not yet submitted. The row goes first, in one definer function that checks
+  // the caller; then the stored file, as the caller (the bucket's delete policy allows the organiser's own draft only).
+  router.delete("/drafts/:id/attachments/:attachmentId", requireSession(deps), async (req, res) => {
+    const id = String(req.params.id);
+    const attachmentId = String(req.params.attachmentId);
+    const user = await ownDraft(res, id);
+    if (!user) return;
+    if (!UUID.test(attachmentId)) return res.status(404).json({ error: "Attachment not found." });
+
+    const db = deps.forUser(user.token);
+    const { data, error } = await db.rpc("remove_event_attachment", { p_event_id: id, p_attachment_id: attachmentId }).single();
+    if (error?.code === "DR001" || error?.code === "AT004") return res.status(404).json({ error: "Attachment not found." });
+    if (error?.code === "DR002") {
+      return res.status(409).json({ code: "NOT_A_DRAFT", error: "This request has been submitted, so files can no longer be removed." });
+    }
+    if (error || !data) return res.status(500).json({ error: "Could not remove the file." });
+
+    const { error: storageError } = await db.storage.from(BUCKET).remove([(data as { storage_path: string }).storage_path]);
+    res.json({ removed: true, fileRemoved: !storageError });
+  });
+
   return router;
 }
