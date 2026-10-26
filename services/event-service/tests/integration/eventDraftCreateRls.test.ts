@@ -149,4 +149,119 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       expect(returned).toBeLessThanOrEqual(after + CLOCK_TOLERANCE_MS);
     });
   });
+
+  describe("SCRUM-53/AC4 a draft is private to the organiser who created it", () => {
+    let draftId: string;
+    const DRAFT_NAME = "IT-53-AC4-private-draft";
+
+    beforeAll(async () => {
+      const { data, error } = await who.organiser.client.rpc("create_event_draft", params(DRAFT_NAME));
+      expect(error).toBeNull();
+      draftId = track(data.id);
+    });
+
+    const stored = async () => (await admin.from("events").select("name, status").eq("id", draftId)).data ?? [];
+    const stillUntouched = async () => expect(await stored()).toEqual([{ name: DRAFT_NAME, status: "draft" }]);
+
+    it("lets the owner read it", async () => {
+      const { data } = await who.organiser.client.from("events").select("id").eq("id", draftId);
+      expect(data).toHaveLength(1);
+      const res = await request(app).get(`/events/${draftId}`).set("Cookie", `cs_session=${who.organiser.token}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: draftId, name: DRAFT_NAME, status: "draft" });
+    });
+
+    it.each(["otherOrganiser", "coordinator", "attendee"] as const)("hides it from a %s", async (key) => {
+      const { data } = await who[key].client.from("events").select("id").eq("id", draftId);
+      expect(data).toEqual([]);
+
+      const res = await request(app).get(`/events/${draftId}`).set("Cookie", `cs_session=${who[key].token}`);
+      expect([403, 404]).toContain(res.status);
+      expect(JSON.stringify(res.body)).not.toContain(DRAFT_NAME);
+    });
+
+    it("does not list it in another organiser's My event requests", async () => {
+      const res = await request(app).get("/events/my-requests").set("Cookie", `cs_session=${who.otherOrganiser.token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.map((e: { id: string }) => e.id)).not.toContain(draftId);
+    });
+
+    it.each(["otherOrganiser", "coordinator", "attendee"] as const)("lets a %s neither update nor delete it", async (key) => {
+      const update = await who[key].client.from("events").update({ name: "IT-53-AC4-hijacked" }).eq("id", draftId).select("id");
+      expect(update.data ?? []).toEqual([]);
+      const status = await who[key].client.from("events").update({ status: "approved" }).eq("id", draftId).select("id");
+      expect(status.data ?? []).toEqual([]);
+      const del = await who[key].client.from("events").delete().eq("id", draftId).select("id");
+      expect(del.data ?? []).toEqual([]);
+      await stillUntouched();
+    });
+
+    it("cannot be edited through the API by another organiser (no PATCH route reaches it)", async () => {
+      const res = await request(app)
+        .patch(`/events/${draftId}`)
+        .set("Cookie", `cs_session=${who.otherOrganiser.token}`)
+        .send({ name: "IT-53-AC4-hijacked" });
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      await stillUntouched();
+    });
+
+    it("does not let the owner update or delete it directly yet (SCRUM-54 adds the update policy)", async () => {
+      const update = await who.organiser.client.from("events").update({ name: "IT-53-AC4-renamed" }).eq("id", draftId).select("id");
+      expect(update.data ?? []).toEqual([]);
+      const del = await who.organiser.client.from("events").delete().eq("id", draftId).select("id");
+      expect(del.data ?? []).toEqual([]);
+      await stillUntouched();
+    });
+
+    it.each(["coordinator", "attendee"] as const)("refuses a %s saving a draft: 403 from the API, 42501 from the database", async (key) => {
+      const res = await postAs(who[key], { name: `IT-53-AC4-${key}` });
+      expect(res.status).toBe(403);
+      const { error } = await who[key].client.rpc("create_event_draft", params(`IT-53-AC4-${key}-rpc`));
+      expect(error?.code).toBe(DENIED);
+      const { data } = await admin.from("events").select("id").like("name", `IT-53-AC4-${key}%`);
+      expect(data).toHaveLength(0);
+    });
+
+    it("answers 401 to POST /events/drafts without a session", async () => {
+      const res = await request(app).post("/events/drafts").send({ name: "IT-53-AC4-anonymous" });
+      expect(res.status).toBe(401);
+    });
+
+    it.each([
+      ["names a different organiser", { organiser_id: "OTHER" }],
+      ["is approved", { status: "approved" }],
+      ["is flagged as not a draft", { is_draft: false }],
+      ["carries a submitted_at", { submitted_at: "2031-01-01T00:00:00Z" }],
+      ["names a coordinator", { assigned_coordinator_id: "COORDINATOR" }],
+      ["carries a confirmed_at", { confirmed_at: "2031-01-01T00:00:00Z" }],
+    ])("refuses a direct draft insert that %s", async (label, extra) => {
+      const resolved = Object.fromEntries(
+        Object.entries(extra).map(([k, v]) => [k, v === "OTHER" ? who.otherOrganiser.userId : v === "COORDINATOR" ? who.coordinator.userId : v]),
+      );
+      const name = `IT-53-AC4-smuggle-${label}`;
+      const { error } = await who.organiser.client.from("events").insert({
+        name,
+        organiser_id: who.organiser.userId,
+        status: "draft",
+        is_draft: true,
+        ...resolved,
+      });
+      expect(error?.code).toBe(DENIED);
+      const { data } = await admin.from("events").select("id").eq("name", name);
+      expect(data).toHaveLength(0);
+    });
+
+    it("accepts a plain direct draft insert by the organiser (the policy allows exactly this)", async () => {
+      const { error } = await who.organiser.client.from("events").insert({
+        name: "IT-53-AC4-plain-insert",
+        organiser_id: who.organiser.userId,
+        status: "draft",
+        is_draft: true,
+      });
+      expect(error).toBeNull();
+      const { data } = await admin.from("events").select("id").eq("name", "IT-53-AC4-plain-insert");
+      expect(data).toHaveLength(1);
+      track(data![0].id as string);
+    });
+  });
 });

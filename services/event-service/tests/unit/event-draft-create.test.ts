@@ -280,3 +280,62 @@ describe("SCRUM-53/AC3 the last-saved time is recorded and returned", () => {
     expect(Number.isNaN(Date.parse(res.body.updated_at))).toBe(false);
   });
 });
+
+describe("SCRUM-53/AC4 only an event organiser saves a draft", () => {
+  it("answers 401 without a session and stores nothing", async () => {
+    const fake = createFake();
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").send({ name: "Anonymous" });
+
+    expect(res.status).toBe(401);
+    expect(fake.tables.events).toHaveLength(0);
+  });
+
+  it("answers 401 for a token that belongs to nobody", async () => {
+    const fake = createFake();
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", "cs_session=forged").send({ name: "Forged" });
+
+    expect(res.status).toBe(401);
+    expect(fake.rpcCalls).toHaveLength(0);
+  });
+
+  it.each([
+    "event_coordinator",
+    "event_coordinator_lead",
+    "venue_staff",
+    "technical_support_staff",
+    "safety_officer",
+    "attendee",
+  ])("answers 403 for a %s and stores nothing", async (role) => {
+    const fake = createFake();
+    const user = fake.signIn(role);
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", user.cookie).send({ name: "Not allowed" });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "You are not allowed to create event requests." });
+    expect(fake.rpcCalls).toHaveLength(0);
+    expect(fake.tables.events).toHaveLength(0);
+  });
+
+  it("answers 403 for a signed-in user with no profile row", async () => {
+    const fake = createFake();
+    const user = fake.signIn("event_organiser");
+    fake.tables.users.length = 0;
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", user.cookie).send({});
+
+    expect(res.status).toBe(403);
+    expect(fake.rpcCalls).toHaveLength(0);
+  });
+
+  it("checks the role before validating the body", async () => {
+    const fake = createFake();
+    const user = fake.signIn("attendee");
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", user.cookie).send({ expected_attendance: -1 });
+
+    expect(res.status).toBe(403);
+  });
+});

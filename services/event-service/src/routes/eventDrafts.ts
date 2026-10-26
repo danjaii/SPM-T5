@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { parseEventRequestDraft } from "@spm-t5/shared";
+import { canCreateEventRequests, parseEventRequestDraft } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
+import { lookUpRole } from "./events";
 
 /** SCRUM-53: an event organiser saves an incomplete event request as a draft. */
 export function eventDraftRoutes(deps: SupabaseDeps) {
@@ -10,7 +11,15 @@ export function eventDraftRoutes(deps: SupabaseDeps) {
   // SCRUM-53/AC1: store the request with status draft. No organiser or organisation argument is sent: the database function
   // takes both from the caller's verified token (supabase/migrations/52_event_drafts.sql).
   router.post("/drafts", requireSession(deps), async (req, res) => {
-    const { token } = res.locals.user as SessionUser;
+    const user = res.locals.user as SessionUser;
+    const { token } = user;
+
+    // SCRUM-53/AC4: only event organisers save drafts. RLS enforces this too (migration 52: organiser-only INSERT on events);
+    // this check is defence-in-depth and gives a clean 403 instead of a raw 42501 from the database.
+    const role = await lookUpRole(deps, user);
+    if (role === undefined || !canCreateEventRequests(role)) {
+      return res.status(403).json({ error: "You are not allowed to create event requests." });
+    }
 
     const parsed = parseEventRequestDraft(req.body);
     if (!parsed.ok) {
