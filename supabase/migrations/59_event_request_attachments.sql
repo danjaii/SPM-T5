@@ -1,0 +1,75 @@
+-- ConnectSphere: supporting documents on an event request (SCRUM-51). Affects event-service and apps/web.
+--
+-- Files go in the existing private bucket event-attachments (migration 08, SCRUM-28), in the folder "<event id>/...". This table
+-- is the list of what is attached to a request. As with events (see 54_event_draft_update_definer.sql), authenticated has no
+-- write privilege on it: a row is written only by add_event_attachment() and removed only by remove_event_attachment(), which
+-- check the caller themselves (an event organiser, their own request, still a draft; Week 9: organisers cannot edit a submitted
+-- request). The same SQLSTATEs as the draft functions: DR001 not the caller's request or not found, DR002 not a draft any more.
+-- AT001: the storage path is not in the request's own folder.
+
+create table event_request_attachments (
+  id            uuid primary key default gen_random_uuid(),
+  event_id      uuid not null references events(id) on delete cascade,
+  file_name     text not null check (btrim(file_name) <> ''),
+  storage_path  text not null unique,
+  content_type  text not null,
+  size_bytes    bigint not null check (size_bytes >= 0),
+  uploaded_by   uuid not null references users(id),
+  created_at    timestamptz not null default now()
+);
+
+create index idx_event_request_attachments_event on event_request_attachments(event_id);
+
+alter table event_request_attachments enable row level security;
+
+-- Same readers as the files themselves (08): the event's own organiser and coordinators.
+create policy event_request_attachments_select on event_request_attachments
+  for select to authenticated
+  using (public.user_can_access_event(auth.uid(), event_id));
+
+revoke all on event_request_attachments from anon, authenticated;
+grant select on event_request_attachments to authenticated;
+
+create function public.add_event_attachment(
+  p_event_id     uuid,
+  p_file_name    text,
+  p_storage_path text,
+  p_content_type text,
+  p_size_bytes   bigint
+)
+returns event_request_attachments
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_event events;
+  v_row   event_request_attachments;
+begin
+  if auth.uid() is null or public.current_user_role() is distinct from 'event_organiser' then
+    raise exception 'Only an event organiser can attach files to a request' using errcode = '42501';
+  end if;
+
+  select * into v_event from events where id = p_event_id and organiser_id = auth.uid() for update;
+  if not found then
+    raise exception 'Draft not found' using errcode = 'DR001';
+  end if;
+  if v_event.status is distinct from 'draft' or v_event.is_draft is not true then
+    raise exception 'This request has already been submitted' using errcode = 'DR002';
+  end if;
+
+  -- the file must sit in this request's own folder, the one the storage policies check
+  if public.storage_path_event_id(p_storage_path) is distinct from p_event_id then
+    raise exception 'The file is not in this request''s folder' using errcode = 'AT001';
+  end if;
+
+  insert into event_request_attachments (event_id, file_name, storage_path, content_type, size_bytes, uploaded_by)
+  values (p_event_id, btrim(p_file_name), p_storage_path, p_content_type, p_size_bytes, auth.uid())
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+revoke execute on function public.add_event_attachment(uuid, text, text, text, bigint) from public, anon;
+grant execute on function public.add_event_attachment(uuid, text, text, text, bigint) to authenticated;
