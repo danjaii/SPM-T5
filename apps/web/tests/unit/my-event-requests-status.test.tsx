@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
 
 import { MyEventRequestsTable } from "@/components/MyEventRequestsTable";
+import { MyEventRequestsList } from "@/components/MyEventRequestsList";
 import type { MyEventRequest } from "@/lib/myEventRequests";
 
 const make = (id: string, name: string, status: string, over: Partial<MyEventRequest> = {}): MyEventRequest => ({
@@ -69,5 +70,65 @@ describe("SCRUM-55/AC2 drafts are visually distinguished", () => {
   it("SCRUM-55/AC2 keeps a real draft name as it is", () => {
     render(<MyEventRequestsTable requests={[make("1", "Half done", "draft")]} />);
     expect(screen.getByRole("link", { name: "Half done" })).toBeTruthy();
+  });
+});
+
+describe("SCRUM-55/AC3 filter by status", () => {
+  const REQUESTS = [
+    make("1", "Alpha", "draft"),
+    make("2", "Beta", "submitted"),
+    make("3", "Gamma", "draft"),
+    make("4", "Delta", "approved"),
+  ];
+  const names = () => screen.queryAllByRole("link").map((a) => a.textContent);
+
+  it("SCRUM-55/AC3 shows everything at first, with an All chip chosen and one chip per status present with its count", () => {
+    render(<MyEventRequestsList requests={REQUESTS} />);
+
+    expect(names()).toEqual(["Alpha", "Beta", "Gamma", "Delta"]);
+    expect(screen.getByRole("button", { name: "All 4" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Draft 2" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "Submitted 1" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Approved 1" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Rejected/ })).toBeNull();
+  });
+
+  it("SCRUM-55/AC3 choosing a status shows only the requests with that status, and All brings the rest back", () => {
+    render(<MyEventRequestsList requests={REQUESTS} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Draft 2" }));
+    expect(names()).toEqual(["Alpha", "Gamma"]);
+    expect(screen.getByRole("button", { name: "Draft 2" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "All 4" }).getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Approved 1" }));
+    expect(names()).toEqual(["Delta"]);
+    expect(screen.getByRole("button", { name: "Draft 2" }).getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "All 4" }));
+    expect(names()).toEqual(["Alpha", "Beta", "Gamma", "Delta"]);
+  });
+
+  it("SCRUM-55/AC3 orders the chips by the request lifecycle, not by the list order", () => {
+    render(<MyEventRequestsList requests={[make("1", "A", "approved"), make("2", "B", "draft"), make("3", "C", "mystery")]} />);
+
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["All 3", "Draft 1", "Approved 1", "mystery 1"]);
+  });
+
+  it("SCRUM-55/AC3 offers no filter when there are no requests, and says so", () => {
+    render(<MyEventRequestsList requests={[]} />);
+
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("You have not created any event requests yet.")).toBeTruthy();
+  });
+
+  it("SCRUM-55/AC3 says so when the chosen status has no requests left (for example after a refresh)", () => {
+    const { rerender } = render(<MyEventRequestsList requests={REQUESTS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Approved 1" }));
+
+    rerender(<MyEventRequestsList requests={REQUESTS.filter((r) => r.status !== "approved")} />);
+
+    expect(screen.getByText("No requests match this status.")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
   });
 });
