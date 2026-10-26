@@ -27,6 +27,19 @@ function mockDelete(status: number, body?: unknown) {
   return fetchMock;
 }
 
+/** Chooses Delete on a draft's row; the confirmation dialog (SCRUM-56/AC3) opens. */
+async function chooseDelete(name = "Tech Summit") {
+  fireEvent.click(screen.getByRole("button", { name: `Delete draft ${name}` }));
+  return screen.findByRole("dialog", { name: "Delete this draft?" });
+}
+
+/** Chooses Delete on a draft's row and confirms. */
+async function deleteAndConfirm(name = "Tech Summit") {
+  const dialog = await chooseDelete(name);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+  return dialog;
+}
+
 beforeEach(() => router.refresh.mockClear());
 afterEach(() => vi.unstubAllGlobals());
 
@@ -35,7 +48,7 @@ describe("SCRUM-56/AC1 deleting a draft from My event requests", () => {
     const fetchMock = mockDelete(204);
     render(<MyEventRequestsTable requests={[request()]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete draft Tech Summit" }));
+    await deleteAndConfirm();
 
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
     expect(fetchMock).toHaveBeenCalledWith(`${EVENT_URL}/events/drafts/evt-1`, { method: "DELETE", credentials: "include" });
@@ -45,7 +58,7 @@ describe("SCRUM-56/AC1 deleting a draft from My event requests", () => {
     const fetchMock = mockDelete(204);
     render(<MyEventRequestsTable requests={[request({ id: "a/b" })]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete draft Tech Summit" }));
+    await deleteAndConfirm();
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(fetchMock.mock.calls[0][0]).toBe(`${EVENT_URL}/events/drafts/a%2Fb`);
@@ -55,9 +68,9 @@ describe("SCRUM-56/AC1 deleting a draft from My event requests", () => {
     mockDelete(409, { code: "NOT_A_DRAFT", error: "This request has been submitted, so it can no longer be deleted." });
     render(<MyEventRequestsTable requests={[request()]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete draft Tech Summit" }));
+    const dialog = await deleteAndConfirm();
 
-    expect((await screen.findByRole("alert")).textContent).toBe("This request has been submitted, so it can no longer be deleted.");
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("This request has been submitted, so it can no longer be deleted.");
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
@@ -65,9 +78,9 @@ describe("SCRUM-56/AC1 deleting a draft from My event requests", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     render(<MyEventRequestsTable requests={[request()]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete draft Tech Summit" }));
+    const dialog = await deleteAndConfirm();
 
-    expect((await screen.findByRole("alert")).textContent).toBe("We couldn't reach the server. Please try again.");
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("We couldn't reach the server. Please try again.");
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
@@ -76,9 +89,9 @@ describe("SCRUM-56/AC1 deleting a draft from My event requests", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<MyEventRequestsTable requests={[request()]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete draft Tech Summit" }));
+    const dialog = await deleteAndConfirm();
 
-    expect((await screen.findByRole("alert")).textContent).toBe("Could not delete the draft.");
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("Could not delete the draft.");
   });
 
   it("SCRUM-56/AC1 shows progress and sends the delete only once while it is under way", async () => {
@@ -87,16 +100,76 @@ describe("SCRUM-56/AC1 deleting a draft from My event requests", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<MyEventRequestsTable requests={[request()]} />);
 
-    const button = screen.getByRole("button", { name: "Delete draft Tech Summit" });
-    fireEvent.click(button);
+    const dialog = await deleteAndConfirm();
 
-    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(true));
-    expect(button.textContent).toBe("Deleting…");
+    const button = await within(dialog).findByRole("button", { name: "Deleting…" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(button);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     finish({ ok: true, status: 204, json: async () => undefined });
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+  });
+});
+
+describe("SCRUM-56/AC3 confirmation prompt", () => {
+  it("SCRUM-56/AC3 asks the organiser to confirm, naming the draft and saying it cannot be undone, before anything is sent", async () => {
+    const fetchMock = mockDelete(204);
+    render(<MyEventRequestsTable requests={[request()]} />);
+
+    const dialog = await chooseDelete();
+
+    expect(dialog.textContent).toContain("Tech Summit");
+    expect(dialog.textContent).toContain("This can't be undone");
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("SCRUM-56/AC3 closes on Cancel without sending anything, and the draft stays in the list", async () => {
+    const fetchMock = mockDelete(204);
+    render(<MyEventRequestsTable requests={[request()]} />);
+    const dialog = await chooseDelete();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Delete draft Tech Summit" })).toBeTruthy();
+  });
+
+  it("SCRUM-56/AC3 closes the dialog once the draft is deleted", async () => {
+    mockDelete(204);
+    render(<MyEventRequestsTable requests={[request()]} />);
+
+    await deleteAndConfirm();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("SCRUM-56/AC3 keeps the dialog open with the reason when the delete fails, and Cancel still works", async () => {
+    mockDelete(404, { error: "Draft not found." });
+    render(<MyEventRequestsTable requests={[request()]} />);
+
+    const dialog = await deleteAndConfirm();
+
+    expect((await within(dialog).findByRole("alert")).textContent).toBe("Draft not found.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("SCRUM-56/AC3 starts clean when the dialog is opened again after a failure", async () => {
+    mockDelete(500, { error: "Could not delete the draft." });
+    render(<MyEventRequestsTable requests={[request()]} />);
+    const first = await deleteAndConfirm();
+    await within(first).findByRole("alert");
+    fireEvent.click(within(first).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const second = await chooseDelete();
+
+    expect(within(second).queryByRole("alert")).toBeNull();
   });
 });
 
