@@ -99,3 +99,34 @@ describe("SCRUM-56/AC1 deleting a draft from My event requests", () => {
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
   });
 });
+
+describe("SCRUM-56/AC2 only drafts have a Delete control", () => {
+  it("SCRUM-56/AC2 offers Delete on a draft", () => {
+    render(<MyEventRequestsTable requests={[request()]} />);
+    expect(screen.getByRole("button", { name: "Delete draft Tech Summit" })).toBeTruthy();
+  });
+
+  it.each(["submitted", "under_review", "returned", "approved", "planning", "confirmed", "completed", "cancelled", "rejected", "something_new"])(
+    "SCRUM-56/AC2 offers no Delete at all on a %s request",
+    (status) => {
+      render(<MyEventRequestsTable requests={[request({ status, submitted_at: "2031-01-01T00:00:00Z" })]} />);
+      const row = screen.getByRole("row", { name: /Tech Summit/ });
+      expect(within(row).queryByRole("button")).toBeNull();
+      expect(row.textContent).not.toMatch(/delete/i);
+    },
+  );
+
+  it("SCRUM-56/AC2 shows Delete only on the draft rows of a mixed list, and names each draft", () => {
+    render(
+      <MyEventRequestsTable
+        requests={[
+          request({ id: "evt-1", name: "Draft A" }),
+          request({ id: "evt-2", name: "Sent B", status: "submitted" }),
+          request({ id: "evt-3", name: "Draft C" }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Delete draft Draft A", "Delete draft Draft C"]);
+  });
+});

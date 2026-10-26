@@ -37,7 +37,8 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
             <TableCell>{request.expected_attendance ?? "—"}</TableCell>
             <TableCell>{formatDate(request.submitted_at)}</TableCell>
             <TableCell>
-              <DeleteDraftButton id={request.id} name={request.name} />
+              {/* SCRUM-56/AC2: only a draft can be deleted, so any other status has no Delete control at all */}
+              {request.status === "draft" && <DeleteDraftButton id={request.id} name={request.name} />}
             </TableCell>
           </TableRow>
         ))}
