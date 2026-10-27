@@ -2,7 +2,7 @@
 
 | Workflow | Triggers | What it runs |
 |---|---|---|
-| `ci.yml` | push to `main`, PRs into `main` | job `test`: migration numbers are unique (`scripts/check-migration-numbers.sh`) → install → Vitest version check (4.1.11) → lint → typecheck → **`pnpm vitest run`** (every workspace's tests, plus a coverage report uploaded as the `coverage` artefact) → build; then job `e2e`: Playwright tests for `apps/web`. On push to `main` only, job `migrate` (after `test` and `integration`) runs `supabase db push` against the hosted Supabase project |
+| `ci.yml` | push to `main`, PRs into `main` | job `test`: migration numbers are unique (`scripts/check-migration-numbers.sh`) → install → Vitest version check (4.1.11) → lint → typecheck → **`pnpm vitest run`** (every workspace's tests, plus a coverage report uploaded as the `coverage` artefact) → build; then job `e2e`: Playwright tests for `apps/web`. In parallel, job `integration`: every service's `tests/integration` against a local Supabase (`supabase start`). On push to `main` only, job `migrate` (after `test` and `integration`) runs `supabase db push` against the hosted Supabase project |
 | `c4-diagrams.yml` | `docs/architecture/c4/**` on push to `main` / PRs into `main` | renders `.puml` → SVG, commits rendered output on push, uploads as artifact on PR |
 
 ## Why one workflow
@@ -16,15 +16,31 @@ There are deliberately no `paths:` filters. The whole suite takes seconds, and f
 whenever a filtered workflow was skipped. If CI gets slow, `pnpm --filter "...[origin/main]"` runs only
 the workspaces changed since `main` (plus anything that depends on them) without adding files.
 
-## Recommended branch protection (Settings → Branches)
+## Branch protection (Settings → Rules → "Protect main branch")
 
-Protect `main` and require these status checks before merge:
+`main` is protected by a repository ruleset, not the older Settings → Branches page. A PR into `main` needs
+one approval and these status checks to pass before it can merge:
 
-- `CI / test`
-- `CI / e2e`
+- `test`
+- `integration`
+- `e2e`
+
+The names are the job names in `ci.yml`, not "CI / test". Add a check by its job name with the source
+"GitHub Actions", and rename it here and in the ruleset together: a check renamed only in the workflow
+leaves the ruleset waiting for a name that never reports.
+
+The branch must also be up to date with `main` before merging. Two PRs can each pass on their own and still
+break `main` together, for example two migrations with the same number, so a PR re-runs CI against the latest
+`main` first.
+
+Deliberately not required:
+
+- `migrate` runs only on push to `main`, so on a PR it is always skipped.
+- `render` (`c4-diagrams.yml`) runs only when diagram files change, so requiring it would leave every
+  other PR stuck on "Pending".
 
 This is what makes "automated testing after each feature implementation" enforced rather
-than just available — a PR can't merge until both pass.
+than just available — a PR can't merge until all three pass (SCRUM-152).
 
 ## Secrets required
 
