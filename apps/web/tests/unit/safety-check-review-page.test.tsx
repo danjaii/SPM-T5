@@ -1,6 +1,6 @@
 // SCRUM-99 — the Safety Officer's review page for one event (/safety-checks/[id])
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { cookieValue, redirect } = vi.hoisted(() => ({
@@ -54,9 +54,53 @@ describe("SCRUM-99/AC3 + AC4 review an event", () => {
       "http://localhost:4002/safety-checks/evt-1",
       expect.objectContaining({ headers: { cookie: "cs_session=token-safety" }, cache: "no-store" }),
     );
-    expect(screen.getByRole("heading", { level: 1, name: "Safety check: Tech Summit" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Expected attendance" }).textContent).toContain("120");
-    for (const name of ["Approve", "Reject", "Request changes"]) expect(screen.getByRole("button", { name })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Operational safety check" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Six factors" }).textContent).toContain("Expected attendance: 120");
+    for (const name of ["Approve", "Reject", "Request changes"]) expect(screen.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeTruthy();
+  });
+
+  it("SCRUM-142/AC2 lists all six factors, each with Meets and Concern", async () => {
+    mockServer(200, details());
+
+    await open();
+
+    const factors = screen.getByRole("region", { name: "Six factors" });
+    for (const title of ["Attendance vs capacity", "Emergency access", "Accessibility", "Equipment placement", "Crowd movement", "Known venue restrictions"]) {
+      expect(within(factors).getByRole("heading", { name: title })).toBeTruthy();
+      expect(within(factors).getByRole("group", { name: `${title} result` })).toBeTruthy();
+    }
+    expect(factors.textContent).toContain("6 meet · 0 concerns");
+  });
+
+  it("SCRUM-142/AC3 asks what needs to change when a factor is marked Concern, with an icon and the word, and counts it", async () => {
+    mockServer(200, details());
+    await open();
+
+    fireEvent.click(within(screen.getByRole("group", { name: "Equipment placement result" })).getByRole("button", { name: "Concern" }));
+
+    expect(screen.getByLabelText("What needs to change")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Six factors" }).textContent).toContain("5 meet · 1 concern");
+    fireEvent.click(within(screen.getByRole("group", { name: "Equipment placement result" })).getByRole("button", { name: "Meets" }));
+    expect(screen.queryByLabelText("What needs to change")).toBeNull();
+  });
+
+  it("SCRUM-142/AC3 sends a flagged factor's note with Request changes", async () => {
+    mockServer(200, details());
+    await open();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ decision: "changes_requested", reason: "r", officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z", label: "Changes Requested" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    fireEvent.click(within(screen.getByRole("group", { name: "Crowd movement result" })).getByRole("button", { name: "Concern" }));
+    fireEvent.change(screen.getByLabelText("What needs to change"), { target: { value: "Stagger breakouts" } });
+    fireEvent.click(screen.getByRole("radio", { name: /^Request changes/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit decision" }));
+
+    await screen.findByRole("status");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ decision: "changes_requested", reason: "Crowd movement: Stagger breakouts" });
   });
 
   it.each([
@@ -68,7 +112,7 @@ describe("SCRUM-99/AC3 + AC4 review an event", () => {
     await open();
 
     expect(screen.getByRole("alert").textContent).toBe(error);
-    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /^Approve/ })).toBeNull();
   });
 
   it("SCRUM-99/AC8 shows the recorded decision, and no choices, once the event has been decided", async () => {
@@ -83,7 +127,7 @@ describe("SCRUM-99/AC3 + AC4 review an event", () => {
     const record = screen.getByRole("region", { name: "Safety decision" }).textContent;
     expect(record).toContain("Safety Rejected by Farah Ismail on 2031-06-01 10:00");
     expect(record).toContain("Fire exit blocked by the stage");
-    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /^Approve/ })).toBeNull();
   });
 });
 
@@ -98,7 +142,7 @@ describe("SCRUM-100/AC6 repeat the safety check", () => {
 
     await open();
 
-    for (const name of ["Approve", "Reject", "Request changes"]) expect(screen.getByRole("button", { name })).toBeTruthy();
+    for (const name of ["Approve", "Reject", "Request changes"]) expect(screen.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Safety decision" }).textContent).toContain("Move the stage clear of fire exit B");
   });
 
@@ -113,7 +157,7 @@ describe("SCRUM-100/AC6 repeat the safety check", () => {
     await open();
 
     expect(screen.getByRole("region", { name: "Safety decision" }).textContent).toContain("Move the stage clear of fire exit B");
-    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /^Approve/ })).toBeNull();
   });
 });
 
@@ -131,7 +175,7 @@ describe("SCRUM-100/AC9 repeat the safety check after an important change", () =
 
     await open();
 
-    for (const name of ["Approve", "Reject", "Request changes"]) expect(screen.getByRole("button", { name })).toBeTruthy();
+    for (const name of ["Approve", "Reject", "Request changes"]) expect(screen.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeTruthy();
   });
 
   it("SCRUM-100/AC9 marks the earlier approval as no longer applying, and when", async () => {
