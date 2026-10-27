@@ -1,27 +1,13 @@
-import { SAFETY_DECISION_LABELS, type SafetyDecision } from "@spm-t5/shared";
-import { formatSgt } from "@/lib/bookingQueue";
+import { EventSection } from "@/components/event/EventSection";
+import { SafetyDecisionList } from "@/components/EventSafetyDecisions";
 import type { SafetyDecisionRecord } from "@/lib/safetyCheckServer";
 
 // SCRUM-99/AC8: the recorded safety decisions, newest first: the decision, the Safety Officer, the date and time, and
-// any reason or comments.
+// any reason or comments. SCRUM-142: the same list the event page's Safety tab shows.
 export function SafetyDecisionHistory({ decisions }: { decisions: SafetyDecisionRecord[] }) {
   return (
-    <section className="event-section" aria-labelledby="safety-decision-heading">
-      <h2 id="safety-decision-heading">Safety decision</h2>
-      <div className="event-detail-card">
-        <ul>
-          {decisions.map((d) => (
-            <li key={d.decided_at}>
-              <p>
-                {`${SAFETY_DECISION_LABELS[d.decision as SafetyDecision] ?? d.decision} by ${d.officer_name} on ${formatSgt(d.decided_at)}`}
-              </p>
-              {d.reason && <p>{d.reason}</p>}
-              {/* SCRUM-100/AC9 */}
-              {d.revoked_at && <p>{`No longer applies: an important change was made on ${formatSgt(d.revoked_at)}.`}</p>}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+    <EventSection id="safety-decision-heading" title="Safety decision">
+      <SafetyDecisionList decisions={decisions} />
+    </EventSection>
   );
 }
