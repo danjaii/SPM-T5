@@ -343,10 +343,11 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
-  `11_event_registrations.sql` for `event_registrations` and `35_notifications_own_rows.sql` for `notifications`; the
-  other tables are still blanket
-  (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
+  new migration. `events` and its history tables (SCRUM-91), `venue_bookings`, `event_registrations` and `notifications`
+  already have per-role policies; the tables still on the blanket policy, the order to fix them in and what is deliberately
+  left open are in [ADR 0003](docs/architecture/adr/0003-row-level-security-as-authorisation.md) (SCRUM-154 users,
+  SCRUM-155 catalogues, SCRUM-153 equipment reservations, SCRUM-156 coordinator reads; SCRUM-92 and SCRUM-93 no longer
+  exist in Jira).
 
 
 ## 
