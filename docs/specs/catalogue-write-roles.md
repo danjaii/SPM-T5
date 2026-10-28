@@ -28,8 +28,8 @@ These override the text of the Jira ticket where they conflict.
 - **Who owns what [DECIDED].**
   - `venues`, `venue_supported_layouts`, `venue_facilities`, `room_layouts`, `facilities`: Venue Staff.
   - `equipment`: Technical Support Staff.
-  - `organisations`, `event_categories`: nobody through the API. Organisations come from sign-up and the seed; categories
-    from the seed. The secret key still writes them.
+  - `organisations`, `event_categories`: nobody through the API. Nothing in the app creates either today (both come from
+    the seed). The secret key still writes them.
 - **How a refusal looks [DECIDED].** The role check is `current_user_role() = 'venue_staff'` (or
   `'technical_support_staff'`), the helper from migration 07, in `using` and `with check`. For the two tables nobody writes,
   and for DELETE on `venues` and `equipment`, the table privilege is revoked as well (`revoke insert, update, delete ... from
