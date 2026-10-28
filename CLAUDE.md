@@ -212,8 +212,10 @@ acceptance criterion — part of what the Scrum project is graded on.
   `describe('SCRUM-14/AC2 venue capacity filter', ...)` (see Keep tests traceable above).
 
 ### Pull requests
-- Target `main`. PRs are **squash-merged**, so the PR title becomes the single commit on `main` —
-  it must follow the commit-title format and summarise the whole PR.
+- Target `main`. The `main` ruleset allows merge commits, squash and rebase, and the person merging
+  picks: both merge commits and squashes are in `main`'s history. So every commit on the branch can end up
+  on `main` and must follow the commit-title format, and so must the PR title, which becomes the
+  commit when the PR is squashed — it should summarise the whole PR.
 - Before opening, run `pnpm vitest run` (what CI runs) plus typecheck/lint for the workspaces you
   touched, and report any failures in the PR rather than hiding them.
 - Open with `gh pr create --base main`. The body follows `.github/pull_request_template.md` — fill
