@@ -281,6 +281,22 @@ describe("SCRUM-53/AC3 the last-saved time is recorded and returned", () => {
     expect(fake.tables.events[0].updated_at).toBe(res.body.updated_at);
   });
 
+  it("ignores an updated_at or created_at sent in the body: the saved time is the server's", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    fake.clock.now = () => new Date("2031-03-04T05:06:07.000Z");
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/drafts")
+      .set("Cookie", organiser.cookie)
+      .send({ name: "Back-dated", updated_at: "2001-01-01T00:00:00.000Z", created_at: "2001-01-01T00:00:00.000Z" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.updated_at).toBe("2031-03-04T05:06:07.000Z");
+    expect(res.body.created_at).toBe("2031-03-04T05:06:07.000Z");
+    expect(JSON.stringify(fake.rpcCalls[0].args)).not.toContain("2001");
+  });
+
   it("returns created_at as well, so a later save can be told apart from the first", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser");

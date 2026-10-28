@@ -159,6 +159,28 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
     });
   });
 
+  describe("SCRUM-53/AC3 a client cannot choose the last-saved time", () => {
+    it("ignores an updated_at and created_at sent to POST /events/drafts: both are the server's, and the stored row agrees", async () => {
+      const before = Date.now();
+      const res = await postAs(who.organiser, {
+        name: "IT-53-AC3-backdated",
+        updated_at: "2001-01-01T00:00:00.000Z",
+        created_at: "2001-01-01T00:00:00.000Z",
+      });
+      const after = Date.now();
+      expect(res.status).toBe(201);
+      track(res.body.id);
+      for (const field of ["updated_at", "created_at"] as const) {
+        const returned = new Date(res.body[field]).getTime();
+        expect(returned).toBeGreaterThanOrEqual(before - 10_000);
+        expect(returned).toBeLessThanOrEqual(after + 10_000);
+      }
+      const { data: stored } = await admin.from("events").select("updated_at, created_at").eq("id", res.body.id).single();
+      expect(new Date(stored!.updated_at).getTime()).toBe(new Date(res.body.updated_at).getTime());
+      expect(new Date(stored!.created_at).getTime()).toBe(new Date(res.body.created_at).getTime());
+    });
+  });
+
   describe("SCRUM-53/AC4 a draft is private to the organiser who created it", () => {
     let draftId: string;
     const DRAFT_NAME = "IT-53-AC4-private-draft";
