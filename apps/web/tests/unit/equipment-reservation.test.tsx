@@ -361,15 +361,15 @@ describe("SCRUM-138 equipment reservation redesign", () => {
     expect(screen.queryByText(/\d+ of 10/)).toBeNull();
   });
 
-  it("SCRUM-138/AC2 the confirmation links to the event's Equipment tab", async () => {
+  it("SCRUM-138/AC2 the confirmation links to the Inventory for the reserved period", async () => {
     const reserve = vi.fn().mockResolvedValue({ ok: true, data: confirmation });
     render(<EquipmentReservationForm events={events} equipment={equipment} reserve={reserve} />);
 
     fillValid();
     submit();
 
-    const link = await screen.findByRole("link", { name: /Equipment tab/ });
-    expect(link.getAttribute("href")).toBe("/events/evt-devops?tab=equipment");
+    const link = await screen.findByRole("link", { name: /Inventory/ });
+    expect(link.getAttribute("href")).toBe("/equipment-inventory?date=2099-10-15&startTime=09%3A00&endTime=17%3A00");
   });
 
   it("SCRUM-138/AC5 each item's status is a badge with an icon and a label", () => {

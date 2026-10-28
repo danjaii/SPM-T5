@@ -166,9 +166,9 @@ export function EquipmentReservationForm({ events, equipment, reserve = reserveE
               </p>
               {/* AC3 */}
               <p>{confirmation.availableAfter} still available for that period.</p>
-              {/* SCRUM-138/AC2: where the reservation shows with its status */}
-              <Link href={`/events/${eventId}?tab=equipment`} className="font-semibold underline underline-offset-4 focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring">
-                See it on the event&apos;s Equipment tab
+              {/* SCRUM-138/AC2: Technical Support Staff cannot open event pages, so the link goes to the Inventory for the same period, which names the event holding the units */}
+              <Link href={`/equipment-inventory?${new URLSearchParams({ date: confirmation.date, startTime: confirmation.startTime, endTime: confirmation.endTime })}`} className="font-semibold underline underline-offset-4 focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring">
+                See it in the Inventory for that period
               </Link>
             </section>
           )}
