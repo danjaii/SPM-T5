@@ -88,6 +88,70 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       const res = await getDraft(who.organiser, "00000000-0000-4000-8000-000000000000");
       expect(res.status).toBe(404);
     });
+
+    it("changes nothing by opening it: the row, its last-saved time and the history are as they were", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC1-readonly", p_purpose: "Look, don't touch" });
+      const before = await stored(draft.id);
+
+      await getDraft(who.organiser, draft.id);
+      await getDraft(who.organiser, draft.id);
+
+      expect(await stored(draft.id)).toEqual(before);
+      const { data: history } = await admin.from("event_status_history").select("id").eq("event_id", draft.id);
+      expect(history).toHaveLength(0);
+    });
+
+    it("round-trips all 14 draft fields through the database: save them, open the draft, get them back", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC1-roundtrip" });
+      const fields = {
+        name: "IT-54-AC1-roundtrip-full",
+        purpose: "Showcase",
+        description: "A day of demos",
+        preferred_start_datetime: "2031-05-03T09:00:00.000Z",
+        preferred_end_datetime: "2031-05-03T17:00:00.000Z",
+        expected_attendance: 250,
+        venue_requirements: "A stage and two screens",
+        preferred_room_layout_id: layoutId,
+        accessibility_requirements: "Step-free access",
+        equipment_requirements_notes: "Two microphones",
+        registration_required: true,
+        registration_capacity: 200,
+        registration_opens_at: "2031-04-01T09:00:00.000Z",
+        registration_closes_at: "2031-04-20T09:00:00.000Z",
+      };
+      const saved = await request(app).put(`/events/drafts/${draft.id}`).set("Cookie", cookie(who.organiser)).send(fields);
+      expect(saved.status).toBe(200);
+
+      const res = await getDraft(who.organiser, draft.id);
+
+      expect(res.status).toBe(200);
+      for (const [key, value] of Object.entries(fields)) {
+        if (key.endsWith("_datetime") || key.endsWith("_at")) expect(new Date(res.body[key]).getTime(), key).toBe(new Date(value as string).getTime());
+        else expect(res.body[key], key).toEqual(value);
+      }
+    });
+
+    it("lists the draft in the owner's My event requests as a draft, and not in another organiser's", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC1-listed" });
+
+      const mine = await request(app).get("/events/my-requests").set("Cookie", cookie(who.organiser));
+      const theirs = await request(app).get("/events/my-requests").set("Cookie", cookie(who.otherOrganiser));
+
+      expect(mine.status).toBe(200);
+      expect(mine.body.find((r: { id: string }) => r.id === draft.id)).toMatchObject({ id: draft.id, status: "draft" });
+      expect(theirs.status).toBe(200);
+      expect(theirs.body.map((r: { id: string }) => r.id)).not.toContain(draft.id);
+    });
+
+    it("answers another organiser's GET with a 404 that carries no part of the draft", async () => {
+      const draft = await newDraft(who.organiser, { p_name: "IT-54-AC1-secret-name", p_purpose: "IT-54-secret-purpose" });
+
+      const res = await getDraft(who.otherOrganiser, draft.id);
+
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ error: expect.any(String) });
+      expect(JSON.stringify(res.body)).not.toMatch(/IT-54/);
+    });
   });
 
   describe("SCRUM-54/AC2 re-save a draft", () => {
@@ -181,17 +245,26 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       expect(await stored(draft.id)).toMatchObject({ name: "IT-54-AC2-role" });
     });
 
+    // status is a column authenticated may update, so the row-level policy hides the row (no error, 0 rows); is_draft and
+    // submitted_at have no UPDATE privilege at all (42501). Both are asserted exactly, so neither can pass as the other.
     it.each([
-      ["status", "submitted"],
-      ["is_draft", false],
-      ["submitted_at", "2031-01-01T00:00:00Z"],
-    ])("refuses the owner setting %s by a plain update, so a draft cannot submit itself", async (column, value) => {
+      ["status", "submitted", null],
+      ["is_draft", false, DENIED],
+      ["submitted_at", "2031-01-01T00:00:00Z", DENIED],
+    ])("refuses the owner setting %s by a plain update, so a draft cannot submit itself", async (column, value, code) => {
       const draft = await newDraft(who.organiser, { p_name: `IT-54-AC2-plain-${column}` });
+      const before = await stored(draft.id);
 
       const res = await who.organiser.client.from("events").update({ [column]: value }).eq("id", draft.id).select("id");
 
-      expect(res.data ?? []).toEqual([]);
-      expect(await stored(draft.id)).toMatchObject({ status: "draft", is_draft: true, submitted_at: null });
+      if (code === null) {
+        expect(res.error).toBeNull();
+        expect(res.data).toEqual([]);
+      } else {
+        expect(res.error?.code).toBe(code);
+        expect(res.data).toBeNull();
+      }
+      expect(await stored(draft.id)).toEqual(before);
     });
   });
 
@@ -221,8 +294,33 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ id: draft.id, status: "submitted", is_draft: false, assigned_coordinator_id: null });
-      expect(res.body.submitted_at).toEqual(expect.any(String));
+      const submittedAt = new Date(res.body.submitted_at).getTime();
+      expect(Math.abs(Date.now() - submittedAt)).toBeLessThan(15_000);
       expect(await stored(draft.id)).toMatchObject({ status: "submitted", is_draft: false, assigned_coordinator_id: null });
+      // the same row was submitted: there is still exactly one event with this name, and it has the draft's id
+      const { data: rows } = await admin.from("events").select("id").eq("name", "IT-54-AC3-submit");
+      expect(rows).toEqual([{ id: draft.id }]);
+    });
+
+    it("shows the submitted request in the organiser's My event requests as submitted", async () => {
+      const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-listed"));
+      await submitAs(who.organiser, draft.id);
+
+      const mine = await request(app).get("/events/my-requests").set("Cookie", cookie(who.organiser));
+
+      expect(mine.status).toBe(200);
+      expect(mine.body.filter((r: { id: string }) => r.id === draft.id)).toEqual([expect.objectContaining({ id: draft.id, status: "submitted" })]);
+    });
+
+    it("lets two simultaneous submits through exactly once: one 200, one 409, one history row", async () => {
+      const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-race"));
+
+      const results = await Promise.all([submitAs(who.organiser, draft.id), submitAs(who.organiser, draft.id)]);
+
+      expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+      expect(results.find((r) => r.status === 409)?.body.code).toBe("NOT_A_DRAFT");
+      const { data: history } = await admin.from("event_status_history").select("old_status, new_status").eq("event_id", draft.id);
+      expect(history).toEqual([{ old_status: "draft", new_status: "submitted" }]);
     });
 
     it("writes one draft -> submitted history row in the organiser's name", async () => {
@@ -239,9 +337,10 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-notify"));
       await submitAs(who.organiser, draft.id);
 
-      const { data } = await admin.from("notifications").select("id").eq("event_id", draft.id);
+      const { data, error } = await admin.from("notifications").select("id").eq("event_id", draft.id);
 
-      expect(data ?? []).toHaveLength(0);
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
     });
 
     it("puts the request in the Event Coordinator Lead's unassigned queue", async () => {
@@ -335,14 +434,12 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
     beforeAll(async () => {
       draftId = (await newDraft(who.organiser, { p_name: "IT-54-AC4-draft", p_purpose: "Private" })).id;
       submittedId = (await newDraft(who.organiser, { p_name: "IT-54-AC4-submitted" })).id;
-      const { error } = await who.organiser.client.rpc("submit_event_draft", { p_event_id: submittedId });
-      // the draft above is incomplete on purpose, so submit this one through the service with the complete fields
-      expect(error?.code).toBe("DR003");
+      // submitted through the service with the complete fields (an incomplete draft is refused: see the AC3 DR003 test)
       const res = await request(app)
         .post(`/events/drafts/${submittedId}/submit`)
         .set("Cookie", cookie(who.organiser))
         .send({ ...FIELDS, preferred_room_layout_id: layoutId });
-      expect(res.status).toBe(200);
+      if (res.status !== 200) throw new Error(`could not set up the submitted request: ${res.status} ${JSON.stringify(res.body)}`);
     });
 
     it("answers 404 to another organiser reading, re-saving or submitting the draft, and changes nothing", async () => {
@@ -367,8 +464,8 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
 
     it.each(["otherOrganiser", "coordinator", "attendee"] as const)("lets a %s neither update nor submit the draft in the database", async (key) => {
       const direct = await who[key].client.from("events").update({ name: "IT-54-AC4-hijacked" }).eq("id", draftId).select("id");
-      expect(direct.data ?? []).toEqual([]);
       expect(direct.error?.code).toBe(DENIED);
+      expect(direct.data).toBeNull();
       const resave = await who[key].client.rpc("update_event_draft", { p_event_id: draftId, p_name: "IT-54-AC4-hijacked" });
       expect(resave.error?.code).toBe(key === "otherOrganiser" ? "DR001" : DENIED);
       const submit = await who[key].client.rpc("submit_event_draft", { p_event_id: draftId });
@@ -392,9 +489,20 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
     });
 
     it("leaves a submitted request untouched by the owner's direct updates, so it cannot go back to draft", async () => {
-      for (const change of [{ name: "IT-54-AC4-edited" }, { status: "draft" }, { is_draft: true }, { submitted_at: null }]) {
+      // name, is_draft and submitted_at have no UPDATE privilege (42501); status does, but the row-level policy hides the row
+      for (const [change, code] of [
+        [{ name: "IT-54-AC4-edited" }, DENIED],
+        [{ status: "draft" }, null],
+        [{ is_draft: true }, DENIED],
+        [{ submitted_at: null }, DENIED],
+      ] as const) {
         const res = await who.organiser.client.from("events").update(change).eq("id", submittedId).select("id");
-        expect(res.data ?? []).toEqual([]);
+        if (code === null) {
+          expect(res.error).toBeNull();
+          expect(res.data).toEqual([]);
+        } else {
+          expect(res.error?.code).toBe(code);
+        }
       }
       const resave = await who.organiser.client.rpc("update_event_draft", { p_event_id: submittedId, p_name: "IT-54-AC4-edited" });
       expect(resave.error?.code).toBe("DR002");
@@ -405,8 +513,48 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
 
     it("still gives the organiser no way to delete an event", async () => {
       const del = await who.organiser.client.from("events").delete().eq("id", draftId).select("id");
-      expect(del.data ?? []).toEqual([]);
-      expect(await stored(draftId)).toMatchObject({ status: "draft" });
+      expect(del.error).toBeNull(); // the privilege exists; the row-level policy leaves nothing to delete
+      expect(del.data).toEqual([]);
+      expect(await stored(draftId)).toMatchObject({ name: "IT-54-AC4-draft", status: "draft" });
     });
+
+    it("answers 404, not 409, when another organiser asks about someone's submitted request (nothing reveals it exists)", async () => {
+      for (const res of [
+        await send("get", who.otherOrganiser, submittedId),
+        await send("put", who.otherOrganiser, submittedId).send({ name: "IT-54-AC4-hijacked" }),
+        await send("post", who.otherOrganiser, submittedId, "/submit"),
+      ]) {
+        expect(res.status).toBe(404);
+        expect(JSON.stringify(res.body)).not.toMatch(/IT-54/);
+      }
+      expect(await stored(submittedId)).toMatchObject({ name: "IT-54-AC4-complete", status: "submitted" });
+    });
+
+    // (confirmed is left out: the events_safety_gate trigger refuses setting it without an approved safety check, SC001.)
+    // The request reaches each of these statuses after submission. The draft flow must be closed in every one, in the service
+    // (409) and in the database (DR002), so it cannot depend on the status being "submitted".
+    it.each(["submitted", "under_review", "returned", "approved", "planning", "awaiting_arrangements", "completed", "cancelled", "rejected"])(
+      "answers 409 NOT_A_DRAFT on GET, PUT and submit for a %s request, and the database refuses the functions (DR002)",
+      async (status) => {
+        const draft = await newDraft(who.organiser, { p_name: `IT-54-AC4-status-${status}` });
+        const moved = await admin.from("events").update({ status, is_draft: false }).eq("id", draft.id);
+        expect(moved.error).toBeNull();
+        const before = await stored(draft.id);
+
+        for (const res of [
+          await send("get", who.organiser, draft.id),
+          await send("put", who.organiser, draft.id).send({ name: "IT-54-AC4-edited" }),
+          await send("post", who.organiser, draft.id, "/submit"),
+        ]) {
+          expect(res.status).toBe(409);
+          expect(res.body.code).toBe("NOT_A_DRAFT");
+        }
+        const resave = await who.organiser.client.rpc("update_event_draft", { p_event_id: draft.id, p_name: "IT-54-AC4-edited" });
+        const submit = await who.organiser.client.rpc("submit_event_draft", { p_event_id: draft.id });
+        expect(resave.error?.code).toBe("DR002");
+        expect(submit.error?.code).toBe("DR002");
+        expect(await stored(draft.id)).toEqual(before);
+      },
+    );
   });
 });

@@ -359,13 +359,15 @@ describe("SCRUM-54/AC3 submit a draft (POST /events/drafts/:id/submit)", () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser");
     const draft = fake.addEvent(organiser.id, COMPLETE);
+    fake.clock.now = () => new Date("2031-03-04T05:06:07.000Z");
 
     const res = await submit(fake, organiser.cookie, draft.id as string);
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id: draft.id, status: "submitted", is_draft: false, assigned_coordinator_id: null });
-    expect(typeof res.body.submitted_at).toBe("string");
-    expect(fake.tables.events[0]).toMatchObject({ status: "submitted", is_draft: false });
+    expect(res.body.submitted_at).toBe(fake.clock.now().toISOString());
+    expect(fake.tables.events).toHaveLength(1); // the same row is submitted, no second event is made
+    expect(fake.tables.events[0]).toMatchObject({ id: draft.id, status: "submitted", is_draft: false });
   });
 
   it("records one draft -> submitted history row in the organiser's name and leaves no coordinator", async () => {
@@ -510,7 +512,12 @@ describe("SCRUM-54/AC3 submit a draft (POST /events/drafts/:id/submit)", () => {
     const draft = fake.addEvent(organiser.id, COMPLETE);
     fake.failure.submitCode = "DR001";
 
-    expect((await submit(fake, organiser.cookie, draft.id as string)).status).toBe(404);
+    const res = await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: expect.any(String) });
+    expect(fake.tables.events[0]).toMatchObject({ status: "draft", is_draft: true, submitted_at: null });
+    expect(fake.tables.event_status_history).toHaveLength(0);
   });
 
   it("answers 500 when the database refuses the submission for another reason", async () => {
@@ -641,5 +648,90 @@ describe("SCRUM-54/AC4 the draft flow is not available once a request is submitt
     const res = await request(createApp(fake.deps)).get(`/events/drafts/${theirs.id}`).set("Cookie", organiser.cookie);
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Added after an independent review of this file's tests (gaps it found)
+// ---------------------------------------------------------------------------------------------------------------------
+describe("SCRUM-54/AC1 opening a draft writes nothing and says nothing to anyone else", () => {
+  it("makes no database function call and leaves the draft, its last-saved time and the history as they were", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, { name: "Tech Summit", updated_at: "2031-02-03T04:05:06.000Z" });
+    const before = JSON.stringify(fake.tables);
+    const app = createApp(fake.deps);
+
+    for (let i = 0; i < 2; i++) await request(app).get(`/events/drafts/${draft.id}`).set("Cookie", organiser.cookie);
+
+    expect(fake.rpcCalls).toEqual([]);
+    expect(JSON.stringify(fake.tables)).toBe(before);
+  });
+
+  it("answers another organiser's GET with a 404 that carries no part of the draft", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const other = fake.signIn("event_organiser");
+    const theirs = fake.addEvent(other.id, { name: "Secret product launch", purpose: "Stealth" });
+
+    const res = await request(createApp(fake.deps)).get(`/events/drafts/${theirs.id}`).set("Cookie", organiser.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: expect.any(String) });
+    expect(JSON.stringify(res.body)).not.toMatch(/Secret|Stealth|launch/);
+  });
+});
+
+describe("SCRUM-54/AC3 a submission follows the same rules as a new request", () => {
+  const submit = (fake: ReturnType<typeof createFake>, cookie: string, id: string, body?: unknown) => {
+    const req = request(createApp(fake.deps)).post(`/events/drafts/${id}/submit`).set("Cookie", cookie);
+    return body === undefined ? req : req.send(body as object);
+  };
+
+  it.each([
+    ["an end before the start", { preferred_end_datetime: "2031-05-01T08:00:00.000Z" }, ["preferred_end_datetime"]],
+    ["no attendance", { expected_attendance: 0 }, ["expected_attendance"]],
+    ["a negative attendance", { expected_attendance: -4 }, ["expected_attendance"]],
+    [
+      "registration wanted but no capacity or window",
+      { registration_required: true, registration_capacity: null, registration_opens_at: null, registration_closes_at: null },
+      ["registration_capacity", "registration_closes_at", "registration_opens_at"],
+    ],
+  ] as const)("refuses %s, naming exactly the fields at fault, and leaves the draft a draft", async (_label, change, keys) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const draft = fake.addEvent(organiser.id, { ...COMPLETE, ...change });
+
+    const res = await submit(fake, organiser.cookie, draft.id as string);
+
+    expect(res.status).toBe(422);
+    expect(Object.keys(res.body.fieldErrors).sort()).toEqual([...keys].sort());
+    expect(fake.rpcCalls).toHaveLength(0);
+    expect(fake.tables.events[0]).toMatchObject({ status: "draft", is_draft: true, submitted_at: null });
+    expect(fake.tables.event_status_history).toHaveLength(0);
+  });
+});
+
+describe("SCRUM-54/AC4 no draft route is open to a request in any other status", () => {
+  const NON_DRAFT = ["submitted", "under_review", "returned", "approved", "planning", "awaiting_arrangements", "confirmed", "completed", "cancelled", "rejected"];
+
+  it.each(NON_DRAFT)("answers 409 NOT_A_DRAFT to GET, PUT and submit on a %s request, and changes nothing", async (status) => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, { ...COMPLETE, name: "Already in", status, is_draft: false });
+    const before = JSON.stringify(fake.tables);
+    const app = createApp(fake.deps);
+    const as = (req: request.Test) => req.set("Cookie", organiser.cookie);
+
+    const get = await as(request(app).get(`/events/drafts/${event.id}`));
+    const put = await as(request(app).put(`/events/drafts/${event.id}`)).send({ name: "Edited" });
+    const submit = await as(request(app).post(`/events/drafts/${event.id}/submit`));
+
+    for (const res of [get, put, submit]) {
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe("NOT_A_DRAFT");
+    }
+    expect(fake.rpcCalls).toEqual([]);
+    expect(JSON.stringify(fake.tables)).toBe(before);
   });
 });
