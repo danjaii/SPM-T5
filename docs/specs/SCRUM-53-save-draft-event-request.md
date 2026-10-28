@@ -104,10 +104,6 @@ Scenarios:
   event-service only. No existing migration is edited.
 - `services/event-service`: `routes/eventDrafts.ts`, mounted in `app.ts` before `eventRoutes`.
 - `packages/shared`: `eventDraft.ts` (`parseEventRequestDraft`), exported from `index.ts`. Shared by services and web.
-- `services/event-service/tests/integration/eventsRls.test.ts`: one existing test, `SCRUM-91 nobody creates … an event through the
-  API yet`, inserted an event in the default (draft) state as an organiser and expected it to be refused. That is now allowed on
-  purpose, so the insert asks for `status: "approved"`, which neither organiser policy permits (found when the integration suite
-  was first run against migration 52).
 - No C4 or ADR change: the container diagram already shows event-service owning event requests.
 
 ## Out of scope
