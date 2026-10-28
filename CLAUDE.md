@@ -158,9 +158,9 @@ venue 4003, equipment 4004, notification 4005).
   `src/components/`, browser helpers in `src/lib/`.
 - **Architecture changes need a diagram or ADR update.** Flag it in the PR;
   `docs/architecture/c4/rendered/` is CI-generated, so edit the `.puml` source only.
-  `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and one C3
-  (`component-event-service.puml`) — add a component diagram per service as it gets built out,
-  rather than a C4 code diagram.
+  `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and a C3
+  `component-<service>.puml` for each of the five services — keep each one current as its service
+  grows, rather than adding a C4 code diagram.
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
   on unit tests (only `test:unit` gets `--coverage`, per Commands above).
