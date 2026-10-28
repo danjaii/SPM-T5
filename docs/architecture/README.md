@@ -31,6 +31,9 @@ has meaningful internal complexity — trivial services don't need one.
 
 ## Architecture Decision Records (`adr/`)
 
+Current ADRs: 0001 microservice architecture, 0002 in-app notifications outbox, 0003 row-level security as the
+authorisation model.
+
 One markdown file per significant decision (e.g. "why microservices per domain instead of a
 monolith", "why Supabase Row-Level Security instead of an authorization service"). Use
 `adr/0000-template.md` as the starting point for each new ADR; number them sequentially.
