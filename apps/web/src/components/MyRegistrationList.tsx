@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import type { MyRegistration } from "@/lib/eventRegistration";
 import { RegistrationStatusBadge } from "@/components/RegistrationStatusBadge";
@@ -27,7 +28,10 @@ export function MyRegistrationList({ registrations }: { registrations: MyRegistr
       <TableBody>
         {registrations.map((r) => (
           <TableRow key={r.id}>
-            <TableCell className="font-semibold text-foreground">{r.event.name}</TableCell>
+            {/* SCRUM-139: the event's name opens its details */}
+            <TableCell className="font-semibold text-foreground">
+              <Link className="underline-offset-4 hover:underline" href={`/dashboard/attendee/${r.event.id}`}>{r.event.name}</Link>
+            </TableCell>
             <TableCell>{formatEventDateTime(r.event.start_at, r.event.end_at)}</TableCell>
             {/* SCRUM-72/AC4: the location, the venue's name and address (as on the List of events, SCRUM-71/AC3) */}
             <TableCell>{r.event.venue.name ? `${r.event.venue.name}, ${r.event.venue.address}` : "Venue to be confirmed"}</TableCell>
