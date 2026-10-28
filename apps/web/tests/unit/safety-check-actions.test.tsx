@@ -6,13 +6,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SafetyCheckActions } from "@/components/SafetyCheckActions";
 
+/** The radio for an outcome; its name also holds the line that says what it does, so match the start. */
+const outcome = (label: string) => screen.getByRole("radio", { name: new RegExp(`^${label}`) });
+const submitButton = () => screen.getByRole("button", { name: "Submit decision" });
+
 describe("SCRUM-116/AC1 — Safety Officers can make safety decisions", () => {
   it("SCRUM-116/AC1 offers a Safety Officer Approve, Reject and Request changes", () => {
     render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
 
-    expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Request changes" })).toBeTruthy();
+    expect(outcome("Approve")).toBeTruthy();
+    expect(outcome("Reject")).toBeTruthy();
+    expect(outcome("Request changes")).toBeTruthy();
   });
 });
 
@@ -29,19 +33,17 @@ describe("SCRUM-116/AC2 — Other roles cannot make safety decisions", () => {
 // SCRUM-99 — the Safety Officer records the safety check decision
 // ---------------------------------------------------------------------------
 describe("SCRUM-99/AC4 the chosen outcome stands out", () => {
-  /** Which outcome buttons are filled (the primary style); the others are outlined (btn--secondary). */
-  const filled = () =>
-    ["Approve", "Reject", "Request changes"].filter(
-      (name) => !screen.getByRole("button", { name }).classList.contains("btn--secondary"),
-    );
+  /** Which outcomes are selected: one radio is checked at most. */
+  const checked = () =>
+    ["Approve", "Reject", "Request changes"].filter((label) => outcome(label).getAttribute("aria-checked") === "true");
 
-  it("SCRUM-99/AC4 fills only the outcome the Safety Officer has chosen", () => {
+  it("SCRUM-99/AC4 selects only the outcome the Safety Officer has chosen", () => {
     render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
-    expect(filled()).toEqual([]);
+    expect(checked()).toEqual([]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    fireEvent.click(outcome("Reject"));
 
-    expect(filled()).toEqual(["Reject"]);
+    expect(checked()).toEqual(["Reject"]);
   });
 });
 
@@ -57,8 +59,8 @@ describe("SCRUM-99/AC4 + AC6 choose an outcome; Reject needs a reason", () => {
     const fetchMock = mockServer(201, {});
     render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
-    fireEvent.click(screen.getByRole("button", { name: "Submit decision" }));
+    fireEvent.click(outcome("Reject"));
+    fireEvent.click(submitButton());
 
     expect(screen.getByRole("alert").textContent).toBe("Give a reason for rejecting this event.");
     expect(fetchMock).not.toHaveBeenCalled();
@@ -76,9 +78,9 @@ describe("SCRUM-99/AC5 + AC8 approve an event", () => {
     });
     render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    fireEvent.click(outcome("Approve"));
     fireEvent.change(screen.getByLabelText("Comments (optional)"), { target: { value: "Exits clear" } });
-    fireEvent.click(screen.getByRole("button", { name: "Submit decision" }));
+    fireEvent.click(submitButton());
 
     await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Safety Approved"));
     const [url, options] = fetchMock.mock.calls[0];
@@ -97,14 +99,14 @@ describe("SCRUM-99/AC5 + AC8 approve an event", () => {
     });
     render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Request changes" }));
+    fireEvent.click(outcome("Request changes"));
     fireEvent.change(screen.getByLabelText("Reason or comments"), { target: { value: "Move the PA away from the east exit" } });
-    fireEvent.click(screen.getByRole("button", { name: "Submit decision" }));
+    fireEvent.click(submitButton());
 
     const status = await screen.findByRole("status");
     expect(status.textContent).toContain("Changes Requested");
     expect(status.textContent).toContain("by Farah Ismail on 2031-06-01 10:00");
-    expect(status.textContent).toContain("Move the PA away from the east exit");
+    expect(screen.getByText("Move the PA away from the east exit")).toBeTruthy();
   });
 });
 
@@ -113,10 +115,56 @@ describe("SCRUM-99/AC4 when event-service refuses the decision", () => {
     mockServer(409, { error: "This event isn't waiting for a safety check." });
     render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-    fireEvent.click(screen.getByRole("button", { name: "Submit decision" }));
+    fireEvent.click(outcome("Approve"));
+    fireEvent.click(submitButton());
 
     expect((await screen.findByRole("alert")).textContent).toBe("This event isn't waiting for a safety check.");
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("SCRUM-142/AC3 confirm a decision", () => {
+  it("SCRUM-142/AC3 shows the submit button in the destructive style only for Reject", () => {
+    render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
+    const isDestructive = () => submitButton().className.includes("bg-destructive");
+
+    fireEvent.click(outcome("Approve"));
+    expect(isDestructive()).toBe(false);
+    fireEvent.click(outcome("Request changes"));
+    expect(isDestructive()).toBe(false);
+    fireEvent.click(outcome("Reject"));
+    expect(isDestructive()).toBe(true);
+  });
+
+  it("SCRUM-142/AC3 stops Request changes without a note before anything is sent", () => {
+    const fetchMock = mockServer(201, {});
+    render(<SafetyCheckActions role="safety_officer" eventId="evt-1" />);
+
+    fireEvent.click(outcome("Request changes"));
+    fireEvent.click(submitButton());
+
+    expect(screen.getByRole("alert").textContent).toBe("Say what needs to change.");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("SCRUM-142/AC3 sends the notes on flagged factors as the reason for Request changes", async () => {
+    const fetchMock = mockServer(201, {
+      decision: "changes_requested",
+      reason: "Equipment placement: Keep aisle 3 clear",
+      officer_name: "Farah Ismail",
+      decided_at: "2031-06-01T02:00:00Z",
+      label: "Changes Requested",
+    });
+    render(<SafetyCheckActions role="safety_officer" eventId="evt-1" concerns={[{ title: "Equipment placement", note: "Keep aisle 3 clear" }]} />);
+
+    fireEvent.click(outcome("Request changes"));
+    expect(screen.getByText("Planning · venue and equipment")).toBeTruthy();
+    fireEvent.click(submitButton());
+
+    await screen.findByRole("status");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      decision: "changes_requested",
+      reason: "Equipment placement: Keep aisle 3 clear",
+    });
   });
 });
