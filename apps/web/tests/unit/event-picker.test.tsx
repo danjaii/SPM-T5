@@ -39,5 +39,13 @@ describe("SCRUM-74 — Event picker", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/registrations-overview?event=evt-2"));
   });
   // end of AC3
+
+  // SCRUM-139/AC15: the chosen event's date and status sit beside the dropdown
+  it("SCRUM-139/AC15 shows the chosen event's date and status next to the dropdown", () => {
+    render(<EventPicker events={[anEvent("evt-1", "Tech Summit")]} selectedId="evt-1" />);
+
+    expect(screen.getByText("Fri, 20 Nov 2026, 9:00 AM")).toBeTruthy();
+    expect(screen.getByText("Confirmed")).toBeTruthy();
+  });
 });
 // end of SCRUM-74

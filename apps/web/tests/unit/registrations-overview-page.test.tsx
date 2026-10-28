@@ -68,9 +68,10 @@ describe("SCRUM-74 — Registrations overview page", () => {
 
     expect(getEventRegistrations).toHaveBeenCalledWith("evt-1");
     expect(screen.getByText("Alicia Fernandez")).toBeTruthy();
-    // SCRUM-139/AC4: the count against capacity, on the Slots remaining card (the last one)
+    // SCRUM-139/AC4: the count against capacity, on the Slots remaining card
     const summary = screen.getByRole("list", { name: "Registration summary" });
-    expect(within(within(summary).getAllByRole("listitem").at(-1)!).getByText("9 of 10")).toBeTruthy();
+    const slots = within(summary).getByText("Slots remaining").closest("li")!;
+    expect(within(slots).getByText("9 of 10")).toBeTruthy();
   });
 
   // AC3: the chosen event's registrations couldn't load: say so, rather than an empty page

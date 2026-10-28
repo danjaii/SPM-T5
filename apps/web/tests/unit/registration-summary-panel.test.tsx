@@ -73,8 +73,9 @@ describe("SCRUM-74 — Registration summary panel", () => {
   });
   // end of AC6
 
-  // SCRUM-139/AC4: one card for each figure, in the order the Figma mock-up reads, with the count against capacity
-  it("SCRUM-139/AC4 shows one card per figure and the confirmed count against capacity", () => {
+  // SCRUM-139/AC4, AC15: one card for each figure, with the count against capacity. The figures about places (total, confirmed,
+  // slots remaining) come first as one group, then the statuses that do not use a place.
+  it("SCRUM-139/AC4,AC15 shows one card per figure and the confirmed count against capacity", () => {
     render(
       <RegistrationSummary
         registrations={[aRegistration("reg-1", "pending"), aRegistration("reg-2", "confirmed")]}
@@ -85,11 +86,11 @@ describe("SCRUM-74 — Registration summary panel", () => {
     const list = screen.getByRole("list", { name: "Registration summary" });
     expect(within(list).getAllByRole("listitem").map((li) => li.querySelector("p")?.textContent)).toEqual([
       "Total registrations",
-      "Pending",
       "Confirmed",
+      "Slots remaining",
+      "Pending",
       "Rejected",
       "Withdrawn",
-      "Slots remaining",
     ]);
     expect(figure("Confirmed")).toBe("1");
     expect(within(list).getByText("of 20 places")).toBeTruthy();
