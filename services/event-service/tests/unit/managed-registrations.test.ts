@@ -44,14 +44,21 @@ function eventRow(overrides: Row = {}): Row {
  * Pretends to be Supabase: the users, events and event_registrations tables hold the given rows.
  * Each .eq() narrows a read; awaiting it gives the list, maybeSingle() the first row.
  */
-function createFake({ events = [], registrations = [] }: { events?: Row[]; registrations?: Row[] } = {}) {
+function createFake({
+  events = [],
+  registrations = [],
+  contacts = [],
+  contactsError = null,
+}: { events?: Row[]; registrations?: Row[]; contacts?: Row[]; contactsError?: { message: string } | null } = {}) {
   const tables: Record<string, Row[]> = { users: USERS, events, event_registrations: registrations };
+  // every database function the route called (SCRUM-154: event_registration_contacts), with its arguments
+  const rpcCalls: { fn: string; args: unknown }[] = [];
   const query = (rows: Row[]) => ({
     eq: (column: string, value: unknown) => query(rows.filter((row) => row[column] === value)),
     maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
     then: (resolve: (result: unknown) => void) => resolve({ data: rows, error: null }),
   });
-  return {
+  const deps = {
     anon: {
       auth: {
         getUser: async (token: string) =>
@@ -60,8 +67,16 @@ function createFake({ events = [], registrations = [] }: { events?: Row[]; regis
             : { data: { user: null }, error: { message: "bad token" } },
       },
     },
-    forUser: () => ({ from: (table: string) => ({ select: () => query(tables[table] ?? []) }) }),
+    forUser: () => ({
+      from: (table: string) => ({ select: () => query(tables[table] ?? []) }),
+      rpc: async (fn: string, args: unknown) => {
+        rpcCalls.push({ fn, args });
+        if (fn !== "event_registration_contacts") throw new Error(`fake has no function ${fn}`);
+        return contactsError ? { data: null, error: contactsError } : { data: contacts, error: null };
+      },
+    }),
   } as unknown as SupabaseDeps;
+  return Object.assign(deps, { rpcCalls });
 }
 // end of fake Supabase
 
@@ -147,11 +162,15 @@ describe("SCRUM-74 — Event registrations (GET /events/:id/registrations)", () 
   // email and contact number come from their profile instead
   it("SCRUM-74/AC5 shows the attendee's profile details when a registration has no form details", async () => {
     const deps = createFake({
-      registrations: [
+      registrations: [{ ...registrationRow("reg-1", "unused", "2026-10-01T02:00:00Z"), registration_details: null }],
+      // SCRUM-154: the profile now comes from event_registration_contacts(), not from an embed of users
+      contacts: [
         {
-          ...registrationRow("reg-1", "unused", "2026-10-01T02:00:00Z"),
-          registration_details: null,
-          attendee: { full_name: "Daniel Ong", email: "daniel.ong@example.com", phone: "+65 9876 5432" },
+          registration_id: "reg-1",
+          attendee_id: "attendee-1",
+          full_name: "Daniel Ong",
+          email: "daniel.ong@example.com",
+          phone: "+65 9876 5432",
         },
       ],
     });
@@ -162,5 +181,42 @@ describe("SCRUM-74 — Event registrations (GET /events/:id/registrations)", () 
     expect(res.body[0]).toMatchObject({ name: "Daniel Ong", email: "daniel.ong@example.com", phone: "+65 9876 5432" });
   });
   // end of AC5
+
+  // SCRUM-154/AC3: attendee contact details come from the database function that checks the caller manages the event
+  it("SCRUM-154/AC3 (154-S8) asks event_registration_contacts for this event's contacts", async () => {
+    const deps = createFake({ registrations: [registrationRow("reg-1", "Daniel Ong", "2026-10-01T02:00:00Z")] });
+
+    const res = await request(createApp(deps)).get("/events/evt-1/registrations").set("Cookie", COORDINATOR);
+
+    expect(res.status).toBe(200);
+    expect(deps.rpcCalls).toEqual([{ fn: "event_registration_contacts", args: { p_event_id: "evt-1" } }]);
+  });
+
+  // SCRUM-154/AC4: for someone who doesn't manage the event the function returns nothing, so the list keeps what the
+  // attendee typed on the form and shows no profile contact details
+  it("SCRUM-154/AC4 (154-S8) shows no profile details when the function returns none", async () => {
+    const deps = createFake({
+      registrations: [{ ...registrationRow("reg-1", "unused", "2026-10-01T02:00:00Z"), registration_details: null }],
+      contacts: [],
+    });
+
+    const res = await request(createApp(deps)).get("/events/evt-1/registrations").set("Cookie", COORDINATOR);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ name: null, email: null, phone: null });
+  });
+
+  // an empty contact list must not look like "no profile" when the lookup failed
+  it("SCRUM-154/AC3 (154-S8) is an error, not a half-filled list, when the contacts lookup fails", async () => {
+    const deps = createFake({
+      registrations: [registrationRow("reg-1", "Daniel Ong", "2026-10-01T02:00:00Z")],
+      contactsError: { message: "db down" },
+    });
+
+    const res = await request(createApp(deps)).get("/events/evt-1/registrations").set("Cookie", COORDINATOR);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't load this event's registrations. Please try again." });
+  });
 });
 // end of SCRUM-74

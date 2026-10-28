@@ -1,7 +1,14 @@
 "use client";
 
+import { CalendarDays, MapPin } from "lucide-react";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { validateRegistrationForm } from "@spm-t5/shared";
+import { RegistrationStatusBadge } from "@/components/RegistrationStatusBadge";
+import { Alert } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { InputField } from "@/components/ui/input-field";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import {
   STATUS_LABELS,
@@ -9,7 +16,6 @@ import {
   type RegistrationFormData,
   type RegistrationStatus,
 } from "@/lib/eventRegistration";
-import { Field } from "./Field";
 
 // SCRUM-83/AC3, AC4: why registration isn't open, shown instead of the form ("open" shows the form)
 const UNAVAILABLE: Record<RegistrationFormData["event"]["availability"], string | null> = {
@@ -42,7 +48,7 @@ export function EventRegistrationForm({ data }: { data: RegistrationFormData }) 
 
     setSubmitting(true);
     const { ok, data } = await submitRegistration(event.id, result.form);
-    // SCRUM-83/AC14: confirm with the event's name and the new registration's status
+    // SCRUM-83/AC14, SCRUM-139/AC2: confirm with the event's name and the new registration's status
     // (the in-app notification is the notification-service story's)
     if (ok) setRegistered(data);
     // SCRUM-83/AC17: full, closed or cancelled since the form opened (or any refusal): event-service's clear message
@@ -51,40 +57,64 @@ export function EventRegistrationForm({ data }: { data: RegistrationFormData }) 
   }
 
   return (
-    <section className="event">
+    <section className="space-y-4">
       {/* SCRUM-83/AC7: the event's name, date and time, and location, as its List of events card shows them */}
-      <h1>{event.name}</h1>
-      <p className="event-card__when">
-        <time dateTime={event.start_at}>{formatEventDateTime(event.start_at, event.end_at)}</time>
-      </p>
-      <p className="event-card__location">
-        {event.venue.name ? `${event.venue.name}, ${event.venue.address}` : "Venue to be confirmed"}
-      </p>
+      <Card>
+        <CardContent className="space-y-2">
+        <h1 className="font-heading text-2xl font-bold text-foreground">{event.name}</h1>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <CalendarDays aria-hidden="true" className="size-4 shrink-0" />
+          <time dateTime={event.start_at}>{formatEventDateTime(event.start_at, event.end_at)}</time>
+        </p>
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <MapPin aria-hidden="true" className="size-4 shrink-0" />
+          {event.venue.name ? `${event.venue.name}, ${event.venue.address}` : "Venue to be confirmed"}
+        </p>
+        {event.my_registration && (
+          // SCRUM-83/AC5: an active registration is shown instead of the form (worded as on the card, SCRUM-71/AC10)
+          <p className="flex items-center gap-2 border-t border-border pt-3 text-sm font-semibold text-foreground">
+            Your registration:
+            <RegistrationStatusBadge status={event.my_registration} />
+          </p>
+        )}
+        </CardContent>
+      </Card>
 
-      {error && <div className="alert alert--error" role="alert">{error}</div>}
+      {error && <Alert variant="danger">{error}</Alert>}
       {registered && (
-        <div className="alert alert--ok" role="status">
-          {`You're registered for ${registered.event_name}. Status: ${STATUS_LABELS[registered.status]}.`}
-        </div>
+        // SCRUM-139/AC2: the confirmed state, with a way to the new row in My registrations
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <RegistrationStatusBadge status={registered.status} />
+            <p role="status" className="text-sm font-medium text-foreground">
+              {`You're registered for ${registered.event_name}. Status: ${STATUS_LABELS[registered.status]}.`}
+            </p>
+            <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/registrations">
+              View my registrations
+            </Link>
+          </CardContent>
+        </Card>
       )}
 
-      {event.my_registration ? (
-        // SCRUM-83/AC5: an active registration is shown instead of the form (worded as on the card, SCRUM-71/AC10)
-        <p className="event-card__registration">Your registration: {STATUS_LABELS[event.my_registration]}</p>
-      ) : UNAVAILABLE[event.availability] ? (
-        <p className="empty">{UNAVAILABLE[event.availability]}</p>
+      {event.my_registration ? null : UNAVAILABLE[event.availability] ? (
+        <p className="rounded-xl border border-dashed border-border-strong p-8 text-center text-muted-foreground">{UNAVAILABLE[event.availability]}</p>
       ) : (
-        <form className="event__form" onSubmit={onSubmit} noValidate>
-          {/* Each Field shows its own error right under its input ("an error next to the field") */}
-          <Field id="name" label="Name" autoComplete="name" value={name} error={fieldErrors.name}
-            onChange={(e) => setName(e.target.value)} />
-          <Field id="email" label="Email" type="email" autoComplete="email" value={email} error={fieldErrors.email}
-            onChange={(e) => setEmail(e.target.value)} />
-          <Field id="phone" label="Contact number" type="tel" autoComplete="tel" value={phone} error={fieldErrors.phone}
-            onChange={(e) => setPhone(e.target.value)} />
-
-          <button className="btn" type="submit" disabled={submitting}>{submitting ? "Registering…" : "Register"}</button>
-        </form>
+        !registered && (
+          <Card>
+            <CardContent>
+              <form className="space-y-4" onSubmit={onSubmit} noValidate>
+                {/* Each field shows its own error right under its input ("an error next to the field") */}
+                <InputField id="name" label="Name" autoComplete="name" value={name} error={fieldErrors.name}
+                  onChange={(e) => setName(e.target.value)} />
+                <InputField id="email" label="Email" type="email" autoComplete="email" value={email} error={fieldErrors.email}
+                  onChange={(e) => setEmail(e.target.value)} />
+                <InputField id="phone" label="Contact number" type="tel" autoComplete="tel" value={phone} error={fieldErrors.phone}
+                  onChange={(e) => setPhone(e.target.value)} />
+                <Button type="submit" disabled={submitting}>{submitting ? "Registering…" : "Register"}</Button>
+              </form>
+            </CardContent>
+          </Card>
+        )
       )}
     </section>
   );

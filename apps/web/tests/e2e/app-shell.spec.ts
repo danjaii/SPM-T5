@@ -17,17 +17,20 @@ const ACCOUNTS = {
 } as const;
 
 for (const [role, email] of Object.entries(ACCOUNTS)) {
+  // SCRUM-139/AC1: the attendee's home item reads Browse events
+  const home = role === "attendee" ? "Browse events" : "Home";
+
   test.describe(`SCRUM-121 ${role}`, () => {
     test.beforeEach(async ({ context }) => {
       const login = await context.request.post(`${AUTH_URL}/auth/login`, { data: { email, password: PASSWORD, role } });
       expect(login.ok()).toBe(true);
     });
 
-    test("SCRUM-121/AC1 the home page shows the sidebar with Home highlighted", async ({ page }) => {
+    test("SCRUM-121/AC1 the home page shows the sidebar with the home item highlighted", async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto(`/dashboard/${role}`);
       const nav = page.getByRole("navigation", { name: "Main" });
-      await expect(nav.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+      await expect(nav.getByRole("link", { name: home })).toHaveAttribute("aria-current", "page");
       await expect(nav.locator('a[aria-current="page"]')).toHaveCount(1);
     });
 
@@ -38,7 +41,7 @@ for (const [role, email] of Object.entries(ACCOUNTS)) {
       const widths = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, window: window.innerWidth }));
       expect(widths.page).toBeLessThanOrEqual(widths.window);
       await page.getByRole("button", { name: "Open menu" }).click();
-      await expect(page.getByRole("dialog", { name: "Menu" }).getByRole("link", { name: "Home" })).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Menu" }).getByRole("link", { name: home })).toBeVisible();
     });
   });
 }
