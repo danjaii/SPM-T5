@@ -35,6 +35,17 @@ function createFake() {
   const createEventDraft = (callerId: string | undefined, args: Row) => {
     const caller = tables.users.find((u) => u.id === callerId);
     const name = typeof args.p_name === "string" && args.p_name.trim() !== "" ? args.p_name.trim() : "Untitled draft";
+    // Like the table: a layout id that is not in room_layouts breaks the foreign key.
+    const layoutId = args.p_preferred_room_layout_id;
+    if (typeof layoutId === "string" && layoutId !== THEATRE_LAYOUT_ID) {
+      return {
+        data: null,
+        error: {
+          code: "23503",
+          message: 'insert or update on table "events" violates foreign key constraint "events_preferred_room_layout_id_fkey"',
+        },
+      };
+    }
     const stamp = clock.now().toISOString();
     const event: Row = {
       id: crypto.randomUUID(),
@@ -337,5 +348,34 @@ describe("SCRUM-53/AC4 only an event organiser saves a draft", () => {
     const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", user.cookie).send({ expected_attendance: -1 });
 
     expect(res.status).toBe(403);
+  });
+});
+
+describe("SCRUM-53/AC2 an unknown room layout is refused", () => {
+  const UNKNOWN_LAYOUT_ID = "11111111-1111-4111-8111-111111111111";
+
+  it("answers 422 on preferred_room_layout_id and stores nothing", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/drafts")
+      .set("Cookie", organiser.cookie)
+      .send({ name: "Wrong layout", preferred_room_layout_id: UNKNOWN_LAYOUT_ID });
+
+    expect(res.status).toBe(422);
+    expect(res.body).toMatchObject({ code: "VALIDATION_FAILED", error: "Check the highlighted fields." });
+    expect(Object.keys(res.body.fieldErrors)).toEqual(["preferred_room_layout_id"]);
+    expect(fake.tables.events).toHaveLength(0);
+  });
+
+  it("still answers 500 for a database error that is not about the room layout", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    fake.failure.createEventDraft = true;
+
+    const res = await request(createApp(fake.deps)).post("/events/drafts").set("Cookie", organiser.cookie).send({ name: "Db down" });
+
+    expect(res.status).toBe(500);
   });
 });

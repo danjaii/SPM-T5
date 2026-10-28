@@ -111,6 +111,14 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       expect(data).toHaveLength(0);
     });
 
+    it("answers 422 on preferred_room_layout_id, and stores nothing, for a layout that does not exist", async () => {
+      const res = await postAs(who.organiser, { name: "IT-53-AC2-layout", preferred_room_layout_id: "11111111-1111-4111-8111-111111111111" });
+      expect(res.status).toBe(422);
+      expect(res.body.fieldErrors).toHaveProperty("preferred_room_layout_id");
+      const { data } = await admin.from("events").select("id").eq("name", "IT-53-AC2-layout");
+      expect(data).toHaveLength(0);
+    });
+
     it("leaves the table's own check constraints in force (negative attendance is refused by the database)", async () => {
       const { error } = await who.organiser.client.rpc("create_event_draft", params("IT-53-AC2-check", { p_expected_attendance: -1 }));
       expect(error?.code).toBe("23514");

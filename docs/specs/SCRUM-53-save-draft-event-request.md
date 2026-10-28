@@ -46,6 +46,7 @@ Exactly what is and is not enforced for a draft (`parseEventRequestDraft` in `pa
 | `expected_attendance`, `registration_capacity` given but not a whole number, or negative | 422 (the table has `>= 0`; 0 is allowed for a draft) |
 | `preferred_start_datetime`, `preferred_end_datetime`, `registration_opens_at`, `registration_closes_at` given but not a parseable date | 422 |
 | `preferred_room_layout_id` given but not a uuid | 422 |
+| `preferred_room_layout_id` a uuid that is not in `room_layouts` | 422 on `preferred_room_layout_id` (from the foreign key, not the parser) |
 | `registration_required` given but not a boolean | 422; missing means `false` |
 | Both start and end given and end not after start | 422 on `preferred_end_datetime` (table check) |
 | Both registration opens and closes given and closes not after opens | 422 on `registration_closes_at` (table check) |
@@ -54,7 +55,8 @@ Exactly what is and is not enforced for a draft (`parseEventRequestDraft` in `pa
 
 Registration capacity, opening and closing are kept as typed even when `registration_required` is false, so toggling the
 switch does not lose what the organiser entered; submission clears them (`parseEventRequest`). A valid room layout uuid that
-does not exist is refused by the foreign key, which is a 500 here (the form offers only real layouts).
+does not exist is refused by the foreign key (Postgres 23503, constraint `events_preferred_room_layout_id_fkey`); the route
+maps that to a 422 on `preferred_room_layout_id`, as it is the organiser's input.
 
 ### AC3 — Record last-saved details
 - **Given** a draft has been saved
