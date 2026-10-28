@@ -163,7 +163,7 @@ describe("SCRUM-83 — Registration form", () => {
   it("SCRUM-83/AC5 shows the attendee's active registration instead of the form", () => {
     render(<EventRegistrationForm data={formData({ event: { my_registration: "pending" } })} />);
 
-    expect(screen.getByText("Your registration: Pending")).toBeTruthy();
+    expect(screen.getByText("Your registration:").textContent).toBe("Your registration:Pending");
     expect(screen.queryByRole("button", { name: "Register" })).toBeNull();
   });
   // end of AC5
