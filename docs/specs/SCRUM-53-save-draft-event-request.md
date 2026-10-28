@@ -46,6 +46,7 @@ Exactly what is and is not enforced for a draft (`parseEventRequestDraft` in `pa
 | `expected_attendance`, `registration_capacity` given but not a whole number, or negative | 422 (the table has `>= 0`; 0 is allowed for a draft) |
 | `preferred_start_datetime`, `preferred_end_datetime`, `registration_opens_at`, `registration_closes_at` given but not a parseable date | 422 |
 | `preferred_room_layout_id` given but not a uuid | 422 |
+| `preferred_room_layout_id` a uuid that is not in `room_layouts` | 422 on `preferred_room_layout_id` (from the foreign key, not the parser) |
 | `registration_required` given but not a boolean | 422; missing means `false` |
 | Both start and end given and end not after start | 422 on `preferred_end_datetime` (table check) |
 | Both registration opens and closes given and closes not after opens | 422 on `registration_closes_at` (table check) |
@@ -54,7 +55,8 @@ Exactly what is and is not enforced for a draft (`parseEventRequestDraft` in `pa
 
 Registration capacity, opening and closing are kept as typed even when `registration_required` is false, so toggling the
 switch does not lose what the organiser entered; submission clears them (`parseEventRequest`). A valid room layout uuid that
-does not exist is refused by the foreign key, which is a 500 here (the form offers only real layouts).
+does not exist is refused by the foreign key (Postgres 23503, constraint `events_preferred_room_layout_id_fkey`); the route
+maps that to a 422 on `preferred_room_layout_id`, as it is the organiser's input.
 
 ### AC3 — Record last-saved details
 - **Given** a draft has been saved
@@ -71,12 +73,16 @@ response includes it. On creation it equals the save time. SCRUM-54's re-save wi
 Scenarios:
 - Another organiser, a coordinator (not assigned), and an attendee cannot read the draft (migration 14 select policies;
   `GET /events/:id` answers 404, `GET /events/my-requests` omits it) and cannot update or delete it.
-- The owner cannot update or delete it directly either: there is no organiser UPDATE or DELETE policy yet. Intended; SCRUM-54 adds it.
-- `POST /events/drafts` is organiser-only: 401 without a session, 403 for every other role. RLS refuses the insert too (42501).
-- The insert policy refuses a draft row that names a different organiser, a status other than `draft`, `is_draft = false`, a
-  `submitted_at`, an assigned coordinator, or any of the confirmed/cancelled/completed timestamps.
+- The owner cannot update or delete it directly either: there is no organiser UPDATE or DELETE policy. Intended; SCRUM-54 re-saves through a function.
+- `POST /events/drafts` is organiser-only: 401 without a session, 403 for every other role. `create_event_draft()` refuses a caller who is not an organiser too (42501).
+- There is no organiser INSERT policy for drafts (decision below): a direct insert of a draft, of any shape, is refused (42501),
+  so the function is the only way in. It fixes the organiser, organisation, status, `is_draft` and every timestamp itself, so
+  none of them can be named by the caller.
 
 ## Decisions (already made by the team)
+- Drafts are created by a security definer function only, with no direct organiser INSERT policy. An earlier version of migration 52
+  had the policy, which made the SCRUM-91 test "nobody creates an event through the API" fail and led to that test being weakened
+  (1cdfde7); that change is reverted and the migration, not yet merged, was edited instead.
 - Last-saved time is `events.updated_at`.
 - A draft with no name (missing, empty or whitespace) is stored as "Untitled draft" (`events.name` is NOT NULL). The database
   function does this, so every caller gets it.
@@ -98,14 +104,10 @@ Scenarios:
 | AC4 | `services/event-service/tests/integration/eventDraftCreateRls.test.ts` | `SCRUM-53/AC4 ...` |
 
 ## Affected workspaces
-- `supabase/migrations/52_event_drafts.sql` (new): organiser INSERT policy for drafts and `create_event_draft()`. Affects
-  event-service only. No existing migration is edited.
+- `supabase/migrations/52_event_drafts.sql` (new): `create_event_draft()`, security definer, with no organiser INSERT
+  policy (events are written through functions, SCRUM-91). Affects event-service only. No merged migration is edited.
 - `services/event-service`: `routes/eventDrafts.ts`, mounted in `app.ts` before `eventRoutes`.
 - `packages/shared`: `eventDraft.ts` (`parseEventRequestDraft`), exported from `index.ts`. Shared by services and web.
-- `services/event-service/tests/integration/eventsRls.test.ts`: one existing test, `SCRUM-91 nobody creates … an event through the
-  API yet`, inserted an event in the default (draft) state as an organiser and expected it to be refused. That is now allowed on
-  purpose, so the insert asks for `status: "approved"`, which neither organiser policy permits (found when the integration suite
-  was first run against migration 52).
 - No C4 or ADR change: the container diagram already shows event-service owning event requests.
 
 ## Out of scope

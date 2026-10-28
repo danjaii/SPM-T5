@@ -122,6 +122,14 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
       .forUser(token)
       .rpc("create_event_draft", draftArguments(parsed.data))
       .single();
+    // SCRUM-53/AC2: a layout id that is not in room_layouts breaks the foreign key; that is the organiser's input, not a failure.
+    if (error?.code === "23503" && error.message.includes("events_preferred_room_layout_id_fkey")) {
+      return res.status(422).json({
+        code: "VALIDATION_FAILED",
+        error: "Check the highlighted fields.",
+        fieldErrors: { preferred_room_layout_id: "Choose one of the room layouts on offer." },
+      });
+    }
     if (error || !draft) return res.status(500).json({ error: "Could not save the draft." });
 
     res.status(201).json(draft);

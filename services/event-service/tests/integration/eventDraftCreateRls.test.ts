@@ -2,7 +2,8 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import { createSupabaseDeps } from "../../src/supabase";
-import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { adminClient, DB_ENV, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-53: saving a draft (migration 52: create_event_draft() and the organiser draft INSERT policy) against the real
@@ -111,6 +112,14 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       expect(data).toHaveLength(0);
     });
 
+    it("answers 422 on preferred_room_layout_id, and stores nothing, for a layout that does not exist", async () => {
+      const res = await postAs(who.organiser, { name: "IT-53-AC2-layout", preferred_room_layout_id: "11111111-1111-4111-8111-111111111111" });
+      expect(res.status).toBe(422);
+      expect(res.body.fieldErrors).toHaveProperty("preferred_room_layout_id");
+      const { data } = await admin.from("events").select("id").eq("name", "IT-53-AC2-layout");
+      expect(data).toHaveLength(0);
+    });
+
     it("leaves the table's own check constraints in force (negative attendance is refused by the database)", async () => {
       const { error } = await who.organiser.client.rpc("create_event_draft", params("IT-53-AC2-check", { p_expected_attendance: -1 }));
       expect(error?.code).toBe("23514");
@@ -150,6 +159,28 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
     });
   });
 
+  describe("SCRUM-53/AC3 a client cannot choose the last-saved time", () => {
+    it("ignores an updated_at and created_at sent to POST /events/drafts: both are the server's, and the stored row agrees", async () => {
+      const before = Date.now();
+      const res = await postAs(who.organiser, {
+        name: "IT-53-AC3-backdated",
+        updated_at: "2001-01-01T00:00:00.000Z",
+        created_at: "2001-01-01T00:00:00.000Z",
+      });
+      const after = Date.now();
+      expect(res.status).toBe(201);
+      track(res.body.id);
+      for (const field of ["updated_at", "created_at"] as const) {
+        const returned = new Date(res.body[field]).getTime();
+        expect(returned).toBeGreaterThanOrEqual(before - 10_000);
+        expect(returned).toBeLessThanOrEqual(after + 10_000);
+      }
+      const { data: stored } = await admin.from("events").select("updated_at, created_at").eq("id", res.body.id).single();
+      expect(new Date(stored!.updated_at).getTime()).toBe(new Date(res.body.updated_at).getTime());
+      expect(new Date(stored!.created_at).getTime()).toBe(new Date(res.body.created_at).getTime());
+    });
+  });
+
   describe("SCRUM-53/AC4 a draft is private to the organiser who created it", () => {
     let draftId: string;
     const DRAFT_NAME = "IT-53-AC4-private-draft";
@@ -160,8 +191,41 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       draftId = track(data.id);
     });
 
-    const stored = async () => (await admin.from("events").select("name, status").eq("id", draftId)).data ?? [];
-    const stillUntouched = async () => expect(await stored()).toEqual([{ name: DRAFT_NAME, status: "draft" }]);
+    // The whole stored row, read as admin, before and after every attempt: a refusal that left the row alone is the only pass.
+    const storedRow = async () => (await admin.from("events").select("*").eq("id", draftId).single()).data;
+    let snapshot: Record<string, unknown> | null;
+    beforeAll(async () => {
+      snapshot = await storedRow();
+      expect(snapshot).toMatchObject({ name: DRAFT_NAME, status: "draft" });
+    });
+    const stillUntouched = async () => expect(await storedRow()).toEqual(snapshot);
+    /** The one filter every attempt uses, so the control below checks the very filter that was tried. */
+    const byDraft = <Q extends { eq(column: string, value: string): Q }>(query: Q): Q => query.eq("id", draftId);
+    /** The attempts' filter must find the row as admin, or "0 rows affected" would prove nothing. */
+    const filterFindsTheRow = async () => expect((await byDraft(admin.from("events").select("id"))).data).toEqual([{ id: draftId }]);
+    /**
+     * What each write attempt does today, measured against the database: the organiser/coordinator/attendee role has no UPDATE
+     * privilege on the name column (42501, no rows), may be allowed to update status but sees no row to change (no error, 0 rows),
+     * and has a delete privilege but no row to delete (no error, 0 rows). Each is asserted exactly, so an unexpected error or a
+     * wrong filter cannot pass as "nothing happened".
+     */
+    async function attemptWrites(client: SupabaseClient) {
+      const rename = await byDraft(client.from("events").update({ name: "IT-53-AC4-hijacked" })).select("id");
+      expect(rename.error?.code).toBe(DENIED);
+      expect(rename.data).toBeNull();
+      await stillUntouched();
+
+      const status = await byDraft(client.from("events").update({ status: "approved" })).select("id");
+      expect(status.error).toBeNull();
+      expect(status.data).toEqual([]);
+      await stillUntouched();
+
+      const del = await byDraft(client.from("events").delete()).select("id");
+      expect(del.error).toBeNull();
+      expect(del.data).toEqual([]);
+      await stillUntouched();
+      await filterFindsTheRow();
+    }
 
     it("lets the owner read it", async () => {
       const { data } = await who.organiser.client.from("events").select("id").eq("id", draftId);
@@ -187,13 +251,7 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
     });
 
     it.each(["otherOrganiser", "coordinator", "attendee"] as const)("lets a %s neither update nor delete it", async (key) => {
-      const update = await who[key].client.from("events").update({ name: "IT-53-AC4-hijacked" }).eq("id", draftId).select("id");
-      expect(update.data ?? []).toEqual([]);
-      const status = await who[key].client.from("events").update({ status: "approved" }).eq("id", draftId).select("id");
-      expect(status.data ?? []).toEqual([]);
-      const del = await who[key].client.from("events").delete().eq("id", draftId).select("id");
-      expect(del.data ?? []).toEqual([]);
-      await stillUntouched();
+      await attemptWrites(who[key].client);
     });
 
     it("cannot be edited through the API by another organiser (no PATCH route reaches it)", async () => {
@@ -205,11 +263,16 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       await stillUntouched();
     });
 
-    // SCRUM-54 (migration 53) added the owner's update policy, tested in eventDraftResumeDb.test.ts; there is still no delete policy
-    it("does not let the owner delete it directly", async () => {
-      const del = await who.organiser.client.from("events").delete().eq("id", draftId).select("id");
-      expect(del.data ?? []).toEqual([]);
-      await stillUntouched();
+    it("does not let the owner update or delete it directly yet (SCRUM-54 re-saves through a function)", async () => {
+      await attemptWrites(who.organiser.client);
+    });
+
+    it("answers 401 to a signed-out GET /events/:id for a draft, and says nothing about it", async () => {
+      const res = await request(app).get(`/events/${draftId}`);
+      expect(res.status).toBe(401);
+      expect(JSON.stringify(res.body)).not.toContain(DRAFT_NAME);
+      // the same request with the owner's session does find it, so the 401 is about the session and not the id
+      expect((await request(app).get(`/events/${draftId}`).set("Cookie", `cs_session=${who.organiser.token}`)).status).toBe(200);
     });
 
     it.each(["coordinator", "attendee"] as const)("refuses a %s saving a draft: 403 from the API, 42501 from the database", async (key) => {
@@ -250,17 +313,26 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       expect(data).toHaveLength(0);
     });
 
-    it("accepts a plain direct draft insert by the organiser (the policy allows exactly this)", async () => {
+    // The requirement changed (SCRUM-91 keeps events writable only through functions): this test used to expect the insert to
+    // be accepted, when migration 52 had a direct organiser INSERT policy. create_event_draft() is now the only way in.
+    it("refuses a plain direct draft insert by the organiser (create_event_draft is the only way to save one)", async () => {
       const { error } = await who.organiser.client.from("events").insert({
         name: "IT-53-AC4-plain-insert",
         organiser_id: who.organiser.userId,
         status: "draft",
         is_draft: true,
       });
-      expect(error).toBeNull();
+      expect(error?.code).toBe(DENIED);
       const { data } = await admin.from("events").select("id").eq("name", "IT-53-AC4-plain-insert");
-      expect(data).toHaveLength(1);
-      track(data![0].id as string);
+      expect(data).toHaveLength(0);
+    });
+
+    it("refuses create_event_draft to a caller who is not signed in", async () => {
+      const anonymous = createClient(DB_ENV.url!, DB_ENV.publishableKey!, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { error } = await anonymous.rpc("create_event_draft", params("IT-53-AC4-anonymous-rpc"));
+      expect(error?.code).toBe(DENIED);
+      const { data } = await admin.from("events").select("id").eq("name", "IT-53-AC4-anonymous-rpc");
+      expect(data).toHaveLength(0);
     });
   });
 });

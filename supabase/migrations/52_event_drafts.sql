@@ -1,8 +1,9 @@
 -- ConnectSphere: save an event request as a draft (SCRUM-53)
 -- Follows 51_lead_queue_summary.sql. Affects event-service only.
 --
--- 49_create_event_request.sql left a note: "Draft requests will need their own policy for status = 'draft'".
--- This adds it, and a function that stores a draft with every field optional.
+-- 49_create_event_request.sql left a note: "Draft requests will need their own policy for status = 'draft'". That policy is
+-- deliberately not added: events are written through security definer functions (14_events_rls.sql), so that nothing can
+-- bypass them (SCRUM-91). This adds the function that stores a draft with every field optional, and nothing else.
 --
 -- AC1/AC2: create_event_draft() stores whatever the organiser has filled in. Only events.name is NOT NULL, so a missing or
 -- blank name becomes 'Untitled draft'. The table's own check constraints still apply (attendance and capacity >= 0, end after
@@ -10,11 +11,10 @@
 -- AC3: the last-saved time is events.updated_at, which trg_events_updated_at keeps current; the function returns the row.
 -- No event_status_history row: history starts when the request is submitted (create_event_request writes null -> submitted).
 --
--- security invoker, like create_event_request: runs as the caller, so RLS applies. organiser_id comes from auth.uid() and the
--- client organisation from the caller's users row, so neither can be spoofed by the request body.
---
--- AC4: the policy only lets an event_organiser insert a draft that is theirs. It refuses any other status, a non-draft flag,
--- a submitted_at, an assigned coordinator, or a confirmed/cancelled/completed time, so a draft insert cannot smuggle state.
+-- security definer, like submit_event_draft (53): it is the ONLY way to create a draft, because there is no organiser INSERT
+-- policy for one. It therefore checks the caller itself (AC4): signed in, and an event organiser, else 42501. organiser_id
+-- comes from auth.uid() and the client organisation from the caller's users row, and status, is_draft and the timestamps are
+-- fixed here, so nothing in the request can spoof them or smuggle state in.
 -- There is still no organiser UPDATE or DELETE policy on events: re-saving a draft is SCRUM-54.
 
 create function create_event_draft(
@@ -35,11 +35,16 @@ create function create_event_draft(
 )
 returns events
 language plpgsql
-security invoker
+security definer
+set search_path = public, pg_temp
 as $$
 declare
   v_event events;
 begin
+  if auth.uid() is null or public.current_user_role() is distinct from 'event_organiser' then
+    raise exception 'Only an event organiser can save a draft' using errcode = '42501';
+  end if;
+
   insert into events (
     name, purpose, description,
     preferred_start_datetime, preferred_end_datetime, expected_attendance,
@@ -64,22 +69,9 @@ begin
 end;
 $$;
 
+revoke execute on function create_event_draft(
+  text, text, text, timestamptz, timestamptz, int, text, uuid, text, text, boolean, int, timestamptz, timestamptz
+) from public, anon;
 grant execute on function create_event_draft(
   text, text, text, timestamptz, timestamptz, int, text, uuid, text, text, boolean, int, timestamptz, timestamptz
 ) to authenticated;
-
--- Adds to events_insert_organiser (49, status = 'submitted'); permissive policies are OR-ed.
-drop policy if exists events_insert_organiser_draft on events;
-create policy events_insert_organiser_draft on events
-  for insert to authenticated
-  with check (
-    public.current_user_role() = 'event_organiser'
-    and organiser_id = auth.uid()
-    and status = 'draft'
-    and is_draft = true
-    and submitted_at is null
-    and assigned_coordinator_id is null
-    and confirmed_at is null
-    and cancelled_at is null
-    and completed_at is null
-  );
