@@ -7,11 +7,18 @@ import type { PortsFactory } from "../ports";
 import { assertMayRequestFor, BookingService } from "../services/bookingService";
 import type { VenueSearchReader } from "../readers/venueSearchReader";
 import { DecisionService } from "../services/decisionService";
+import { HoldService } from "../services/holdService";
+import type { HoldExpiryWriter } from "../readers/holdExpiryWriter";
 import { ReplacementService } from "../services/replacementService";
 import { TrackingService } from "../services/trackingService";
 
 /** Routes for SCRUM-32 (submit), SCRUM-33 (track), SCRUM-38 (approve) and SCRUM-39 (reject). Session middleware is mounted by the caller. */
-export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date, searchFor: (accessToken: string) => VenueSearchReader) {
+export function venueBookingRoutes(
+  portsFor: PortsFactory,
+  now: () => Date,
+  searchFor: (accessToken: string) => VenueSearchReader,
+  holdsFor: (accessToken: string) => HoldExpiryWriter,
+) {
   const router = Router();
 
   /** Builds the service and the caller (with role) for this request. */
@@ -24,6 +31,7 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date, sear
       service: new BookingService({ ...ports, now }),
       tracking: new TrackingService(ports),
       decisions: new DecisionService({ ...ports, now }),
+      holds: new HoldService({ bookings: ports.bookings, holds: () => holdsFor(user.token), now }),
       // the search reader is only built when a replacement is asked for, so other requests never touch it
       replacements: new ReplacementService({
         ...ports,
@@ -135,6 +143,16 @@ export function venueBookingRoutes(portsFor: PortsFactory, now: () => Date, sear
     asyncHandler(async (req, res) => {
       const { caller, decisions } = await context(res.locals.user as SessionUser);
       res.json(toDecisionDto(await decisions.approve(caller, String(req.params.id))));
+    }),
+  );
+
+  // SCRUM-97/AC1: Venue Staff set or update a hold's expiry (body { expiresAt }).
+  router.put(
+    "/venue-bookings/:id/hold-expiry",
+    asyncHandler(async (req, res) => {
+      const { caller, holds } = await context(res.locals.user as SessionUser);
+      const saved = await holds.setExpiry(caller, String(req.params.id), req.body);
+      res.json({ id: saved.id, status: saved.status, holdExpiresAt: saved.holdExpiresAt.toISOString() });
     }),
   );
 

@@ -2,6 +2,7 @@ import express from "express";
 import { errorHandler } from "./middlewares/errors";
 import { requireSession } from "./middlewares/session";
 import type { BookingRepository } from "./repositories/bookingRepository";
+import { SupabaseHoldExpiryWriter, type HoldExpiryWriter } from "./readers/holdExpiryWriter";
 import type { VenueTimingWriter } from "./readers/venueTimingWriter";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "./readers/venueSearchReader";
 import type { VenueUnavailabilityStore } from "./readers/venueUnavailabilityStore";
@@ -26,6 +27,8 @@ export interface AppOptions {
   venueAvailability?: (accessToken: string) => Pick<BookingRepository, "occupiedPeriods">;
   /** Where unavailability blocks are read and saved (SCRUM-105); tests pass a fake. Defaults to the table and mark_venue_unavailable as the caller. */
   venueUnavailability?: (accessToken: string) => VenueUnavailabilityStore;
+  /** Where a hold's expiry is saved (SCRUM-97); tests pass a fake. Defaults to the set_hold_expiry function as the caller. */
+  holdExpiry?: (accessToken: string) => HoldExpiryWriter;
 }
 
 // Exported separately from listen() so tests can mount the app without opening a port.
@@ -60,7 +63,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
-  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));
+  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor, options.holdExpiry ?? ((token: string) => new SupabaseHoldExpiryWriter(deps.forUser(token)))), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));
 
   app.use(errorHandler);
   return app;
