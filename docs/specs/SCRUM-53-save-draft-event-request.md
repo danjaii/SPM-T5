@@ -73,12 +73,16 @@ response includes it. On creation it equals the save time. SCRUM-54's re-save wi
 Scenarios:
 - Another organiser, a coordinator (not assigned), and an attendee cannot read the draft (migration 14 select policies;
   `GET /events/:id` answers 404, `GET /events/my-requests` omits it) and cannot update or delete it.
-- The owner cannot update or delete it directly either: there is no organiser UPDATE or DELETE policy yet. Intended; SCRUM-54 adds it.
-- `POST /events/drafts` is organiser-only: 401 without a session, 403 for every other role. RLS refuses the insert too (42501).
-- The insert policy refuses a draft row that names a different organiser, a status other than `draft`, `is_draft = false`, a
-  `submitted_at`, an assigned coordinator, or any of the confirmed/cancelled/completed timestamps.
+- The owner cannot update or delete it directly either: there is no organiser UPDATE or DELETE policy. Intended; SCRUM-54 re-saves through a function.
+- `POST /events/drafts` is organiser-only: 401 without a session, 403 for every other role. `create_event_draft()` refuses a caller who is not an organiser too (42501).
+- There is no organiser INSERT policy for drafts (decision below): a direct insert of a draft, of any shape, is refused (42501),
+  so the function is the only way in. It fixes the organiser, organisation, status, `is_draft` and every timestamp itself, so
+  none of them can be named by the caller.
 
 ## Decisions (already made by the team)
+- Drafts are created by a security definer function only, with no direct organiser INSERT policy. An earlier version of migration 52
+  had the policy, which made the SCRUM-91 test "nobody creates an event through the API" fail and led to that test being weakened
+  (1cdfde7); that change is reverted and the migration, not yet merged, was edited instead.
 - Last-saved time is `events.updated_at`.
 - A draft with no name (missing, empty or whitespace) is stored as "Untitled draft" (`events.name` is NOT NULL). The database
   function does this, so every caller gets it.
@@ -100,8 +104,8 @@ Scenarios:
 | AC4 | `services/event-service/tests/integration/eventDraftCreateRls.test.ts` | `SCRUM-53/AC4 ...` |
 
 ## Affected workspaces
-- `supabase/migrations/52_event_drafts.sql` (new): organiser INSERT policy for drafts and `create_event_draft()`. Affects
-  event-service only. No existing migration is edited.
+- `supabase/migrations/52_event_drafts.sql` (new): `create_event_draft()`, security definer, with no organiser INSERT
+  policy (events are written through functions, SCRUM-91). Affects event-service only. No merged migration is edited.
 - `services/event-service`: `routes/eventDrafts.ts`, mounted in `app.ts` before `eventRoutes`.
 - `packages/shared`: `eventDraft.ts` (`parseEventRequestDraft`), exported from `index.ts`. Shared by services and web.
 - No C4 or ADR change: the container diagram already shows event-service owning event requests.

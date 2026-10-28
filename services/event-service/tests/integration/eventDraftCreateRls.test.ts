@@ -2,7 +2,8 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import { createSupabaseDeps } from "../../src/supabase";
-import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
+import { createClient } from "@supabase/supabase-js";
+import { adminClient, DB_ENV, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-53: saving a draft (migration 52: create_event_draft() and the organiser draft INSERT policy) against the real
@@ -259,17 +260,26 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
       expect(data).toHaveLength(0);
     });
 
-    it("accepts a plain direct draft insert by the organiser (the policy allows exactly this)", async () => {
+    // The requirement changed (SCRUM-91 keeps events writable only through functions): this test used to expect the insert to
+    // be accepted, when migration 52 had a direct organiser INSERT policy. create_event_draft() is now the only way in.
+    it("refuses a plain direct draft insert by the organiser (create_event_draft is the only way to save one)", async () => {
       const { error } = await who.organiser.client.from("events").insert({
         name: "IT-53-AC4-plain-insert",
         organiser_id: who.organiser.userId,
         status: "draft",
         is_draft: true,
       });
-      expect(error).toBeNull();
+      expect(error?.code).toBe(DENIED);
       const { data } = await admin.from("events").select("id").eq("name", "IT-53-AC4-plain-insert");
-      expect(data).toHaveLength(1);
-      track(data![0].id as string);
+      expect(data).toHaveLength(0);
+    });
+
+    it("refuses create_event_draft to a caller who is not signed in", async () => {
+      const anonymous = createClient(DB_ENV.url!, DB_ENV.publishableKey!, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { error } = await anonymous.rpc("create_event_draft", params("IT-53-AC4-anonymous-rpc"));
+      expect(error?.code).toBe(DENIED);
+      const { data } = await admin.from("events").select("id").eq("name", "IT-53-AC4-anonymous-rpc");
+      expect(data).toHaveLength(0);
     });
   });
 });
