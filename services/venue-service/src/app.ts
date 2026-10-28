@@ -4,11 +4,13 @@ import { requireSession } from "./middlewares/session";
 import type { BookingRepository } from "./repositories/bookingRepository";
 import type { VenueTimingWriter } from "./readers/venueTimingWriter";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "./readers/venueSearchReader";
+import type { VenueCalendarReader } from "./readers/venueCalendarReader";
 import type { VenueUnavailabilityStore } from "./readers/venueUnavailabilityStore";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { bookingQueueRoutes } from "./routes/bookingQueue";
 import { suitabilityRoutes } from "./routes/suitability";
 import { venueBookingRoutes } from "./routes/venueBookings";
+import { venueCalendarRoutes } from "./routes/venueCalendar";
 import { venueRoutes } from "./routes/venues";
 import type { SupabaseDeps } from "./supabase";
 import { healthCheck } from "./index";
@@ -26,6 +28,8 @@ export interface AppOptions {
   venueAvailability?: (accessToken: string) => Pick<BookingRepository, "occupiedPeriods">;
   /** Where unavailability blocks are read and saved (SCRUM-105); tests pass a fake. Defaults to the table and mark_venue_unavailable as the caller. */
   venueUnavailability?: (accessToken: string) => VenueUnavailabilityStore;
+  /** Where the venue availability calendar (SCRUM-84) reads venues, bookings and blocks from; tests pass a fake. */
+  venueCalendar?: (accessToken: string) => VenueCalendarReader;
 }
 
 // Exported separately from listen() so tests can mount the app without opening a port.
@@ -58,6 +62,9 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
 
   // SCRUM-29: the read-only venue catalogue, GET /venues and /venues/:id (coordinators and venue staff).
   app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability));
+
+  // SCRUM-84: the venue availability calendar. Outside the /venues gate (which keeps out Technical Support Staff).
+  app.use("/venue-calendar", venueCalendarRoutes(deps, now, options.venueCalendar));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
   app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));
