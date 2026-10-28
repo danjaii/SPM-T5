@@ -5,7 +5,6 @@ import { periodFormatErrors, periodMissing, periodTimingError, quantityError } f
 import Link from "next/link";
 import { AlertCircle, CalendarDays, Lock, PackageOpen } from "lucide-react";
 import { toast } from "sonner";
-import EventStatusBadge from "@/components/EventStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputField } from "@/components/ui/input-field";
@@ -138,10 +137,7 @@ export function EquipmentReservationForm({ events, equipment, reserve = reserveE
                 eventId === event.id ? "border-2 border-primary" : "border-border",
               )}
             >
-              <span className="flex w-full items-start justify-between gap-2">
-                <span className="font-semibold text-foreground">{event.name}</span>
-                <EventStatusBadge status={event.status} />
-              </span>
+              <span className="font-semibold text-foreground">{event.name}</span>
               <span className="text-sm text-muted-foreground">{event.date} · {event.startTime} to {event.endTime}</span>
               {event.coordinatorName && <span className="text-sm text-muted-foreground">Coordinator {event.coordinatorName}</span>}
             </button>
