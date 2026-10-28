@@ -30,7 +30,7 @@ const submit = () => fireEvent.click(screen.getByRole("button", { name: "Reserve
 
 /** Fills in a valid form: DevOps Summit (15 Oct 2099, 09:00 to 17:00), the Projector Unit card, quantity 4. */
 function fillValid() {
-  fireEvent.change(screen.getByLabelText("Event"), { target: { value: "evt-devops" } });
+  fireEvent.click(screen.getByRole("button", { name: /DevOps Summit/ }));
   fireEvent.click(screen.getByRole("button", { name: /Projector Unit/ }));
   fireEvent.change(screen.getByLabelText("Quantity required"), { target: { value: "4" } });
 }
@@ -154,7 +154,7 @@ describe("SCRUM-19 equipment reservation form", () => {
     // we want to automatically fill in the event start time and end time and date 
     render(<EquipmentReservationForm events={events} equipment={equipment} reserve={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("Event"), { target: { value: "evt-devops" } });
+    fireEvent.click(screen.getByRole("button", { name: /DevOps Summit/ }));
 
     expect((screen.getByLabelText("Date") as HTMLInputElement).value).toBe("2099-10-15");
     expect((screen.getByLabelText("Start time") as HTMLInputElement).value).toBe("09:00");
@@ -168,7 +168,7 @@ describe("SCRUM-19 equipment reservation form", () => {
     const reserve = vi.fn();
     render(<EquipmentReservationForm events={events} equipment={equipment} reserve={reserve} />);
 
-    fireEvent.change(screen.getByLabelText("Event"), { target: { value: "evt-devops" } }); // fills 09:00 to 17:00
+    fireEvent.click(screen.getByRole("button", { name: /DevOps Summit/ })); // fills 09:00 to 17:00
     fireEvent.click(screen.getByRole("button", { name: /Projector Unit/ }));
     fireEvent.change(screen.getByLabelText("Quantity required"), { target: { value: "4" } });
     fireEvent.change(screen.getByLabelText("End time"), { target: { value: "08:00" } });
@@ -185,7 +185,7 @@ describe("SCRUM-19 equipment reservation form", () => {
     const reserve = vi.fn().mockResolvedValue({ ok: true, data: {} });
     render(<EquipmentReservationForm events={events} equipment={equipment} reserve={reserve} />);
 
-    fireEvent.change(screen.getByLabelText("Event"), { target: { value: "evt-devops" } }); // fills 15 Oct 2099, 09:00 to 17:00
+    fireEvent.click(screen.getByRole("button", { name: /DevOps Summit/ })); // fills 15 Oct 2099, 09:00 to 17:00
     fireEvent.click(screen.getByRole("button", { name: /Projector Unit/ }));
     fireEvent.change(screen.getByLabelText("Quantity required"), { target: { value: "4" } });
     submit();
@@ -333,3 +333,57 @@ describe("SCRUM-19 reserveEquipment", () => {
   // end of unreachable
 });
 // end of SCRUM-19 reserveEquipment
+
+// ----------------------------------------------------------------------------
+// SCRUM-138: the redesigned reservation page
+// ----------------------------------------------------------------------------
+describe("SCRUM-138 equipment reservation redesign", () => {
+  it("SCRUM-138/AC1 the item's free count drops straight after a reservation, with a confirmation", async () => {
+    const reserve = vi.fn().mockResolvedValue({ ok: true, data: confirmation });
+    render(<EquipmentReservationForm events={events} equipment={equipment} reserve={reserve} />);
+    expect(screen.getByText("10 in total")).toBeTruthy();
+
+    fillValid();
+    submit();
+
+    expect(await screen.findByText("6 of 10")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Projector Unit: 4 reserved");
+  });
+
+  it("SCRUM-138/AC1 a refused reservation leaves the count alone", async () => {
+    const reserve = vi.fn().mockResolvedValue({ ok: false, data: { code: "INSUFFICIENT", error: "Only 6 available for that period, but you asked for 8." } });
+    render(<EquipmentReservationForm events={events} equipment={equipment} reserve={reserve} />);
+
+    fillValid();
+    submit();
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Only 6 available");
+    expect(screen.queryByText(/\d+ of 10/)).toBeNull();
+  });
+
+  it("SCRUM-138/AC2 the confirmation links to the Inventory for the reserved period", async () => {
+    const reserve = vi.fn().mockResolvedValue({ ok: true, data: confirmation });
+    render(<EquipmentReservationForm events={events} equipment={equipment} reserve={reserve} />);
+
+    fillValid();
+    submit();
+
+    const link = await screen.findByRole("link", { name: /Inventory/ });
+    expect(link.getAttribute("href")).toBe("/equipment-inventory?date=2099-10-15&startTime=09%3A00&endTime=17%3A00");
+  });
+
+  it("SCRUM-138/AC5 each item's status is a badge with an icon and a label", () => {
+    render(<EquipmentReservationForm events={events} equipment={equipment} />);
+
+    expect(screen.getByText("Available")).toBeTruthy();
+    expect(screen.getByText("Damaged")).toBeTruthy();
+    expect(screen.getAllByTestId("status-icon").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("SCRUM-138/AC9 shows an empty state when there is nothing to reserve", () => {
+    render(<EquipmentReservationForm events={[]} equipment={[]} />);
+
+    expect(screen.getByText("Nothing to reserve yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reserve equipment" })).toBeNull();
+  });
+});
