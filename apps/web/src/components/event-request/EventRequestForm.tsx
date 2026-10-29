@@ -125,7 +125,7 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
           <Button type="button" variant="outline" disabled={savingDraft || submitting} onClick={() => void onSaveDraft()}>
             {savingDraft ? "Saving…" : "Save as draft"}
           </Button>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting || savingDraft}>
             {last ? (submitting ? "Submitting…" : "Submit request") : `Continue to ${STEPS[step + 1].label}`}
           </Button>
         </div>
