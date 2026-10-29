@@ -9,7 +9,7 @@ import {
   EMPTY_VALUES, REVIEW_STEP, STEPS, firstStepWithError, toDraftBody, toRequestBody, validateRequest, validateStep,
   type EventRequestFormValues,
 } from "@/lib/eventRequestForm";
-import { saveEventDraft, submitEventRequest, type RoomLayoutOption } from "@/lib/eventRequests";
+import { saveEventDraft, submitEventRequest, updateEventDraft, type RoomLayoutOption } from "@/lib/eventRequests";
 import { RequestStepper } from "./RequestStepper";
 import { ReviewStep } from "./ReviewStep";
 import { StepFields } from "./StepFields";
@@ -25,6 +25,8 @@ export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [saved, setSaved] = useState<string>();
+  // SCRUM-54/AC2: the draft this form is editing: the one it was opened from, or the one its first Save as draft created.
+  const [draftId, setDraftId] = useState(draft?.id);
 
   // The newest values, kept in step with every change as it happens: a select closes in the same event that picks its
   // option, before React re-renders, so onBlurField reads these rather than the `values` of the render it was made in.
@@ -91,8 +93,10 @@ export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption
     setMessage(undefined);
     setSaved(undefined);
     setSavingDraft(true);
-    const { ok, data } = await saveEventDraft(toDraftBody(latest.current));
+    const body = toDraftBody(latest.current);
+    const { ok, data } = draftId ? await updateEventDraft(draftId, body) : await saveEventDraft(body);
     setSavingDraft(false);
+    if (ok && data.id) setDraftId(data.id);
     if (ok) setSaved("Draft saved. You can find it in My event requests.");
     else setMessage(data.error ?? "We couldn't save the draft. Please try again.");
   }
