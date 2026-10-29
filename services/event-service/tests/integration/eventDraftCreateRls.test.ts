@@ -6,7 +6,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { adminClient, DB_ENV, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-53: saving a draft (migration 52: create_event_draft() and the organiser draft INSERT policy) against the real
+ * SCRUM-53: saving a draft (migration 60: create_event_draft() and the organiser draft INSERT policy) against the real
  * database, as seeded users so RLS applies. Fixtures are named "IT-53-" and removed afterwards (events, then history). The
  * seeded organisers have other events too, so these tests only look at rows they create.
  */
@@ -314,7 +314,7 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
     });
 
     // The requirement changed (SCRUM-91 keeps events writable only through functions): this test used to expect the insert to
-    // be accepted, when migration 52 had a direct organiser INSERT policy. create_event_draft() is now the only way in.
+    // be accepted, when migration 60 had a direct organiser INSERT policy. create_event_draft() is now the only way in.
     it("refuses a plain direct draft insert by the organiser (create_event_draft is the only way to save one)", async () => {
       const { error } = await who.organiser.client.from("events").insert({
         name: "IT-53-AC4-plain-insert",

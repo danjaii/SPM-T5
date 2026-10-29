@@ -3,12 +3,12 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * SCRUM-53/AC4: how migration 52 defines create_event_draft. The suite has no way to read the database catalogue (no SQL driver),
+ * SCRUM-53/AC4: how migration 60 defines create_event_draft. The suite has no way to read the database catalogue (no SQL driver),
  * so this reads the migration text, which is what the CI migrate job applies. The database behaviour that follows from it (a
  * direct insert is refused, an anonymous caller cannot execute the function, a coordinator gets 42501) is asserted in
  * tests/integration/eventDraftCreateRls.test.ts. The real catalogue was also checked by hand: see the SCRUM-53 report.
  */
-const SQL = readFileSync(resolve(__dirname, "../../../../supabase/migrations/52_event_drafts.sql"), "utf8");
+const SQL = readFileSync(resolve(__dirname, "../../../../supabase/migrations/60_event_drafts.sql"), "utf8");
 const SIGNATURE = "text, text, text, timestamptz, timestamptz, int, text, uuid, text, text, boolean, int, timestamptz, timestamptz";
 
 /** The text of one statement, from its first line to its terminating semicolon (or $$; for a function body). */
