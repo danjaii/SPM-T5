@@ -119,7 +119,7 @@ export function toDraftBody(v: EventRequestFormValues): Record<string, unknown> 
   const body = toRequestBody(v);
   if (v.accessibility.length === 0 && v.accessibilityNotes.trim() === "") delete body.accessibility_requirements;
   for (const [field, value] of Object.entries(body)) {
-    if (typeof value === "string" && value.trim() === "") delete body[field];
+    if (value === undefined || (typeof value === "string" && value.trim() === "")) delete body[field];
   }
   return body;
 }

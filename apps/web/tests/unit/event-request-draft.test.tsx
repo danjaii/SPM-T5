@@ -75,6 +75,32 @@ describe("SCRUM-53/AC1 Save as draft button", () => {
   });
 });
 
+describe("SCRUM-53/AC1 Save as draft on later steps", () => {
+  it("saves what is on the form from step 2, with the later boxes still empty", async () => {
+    render(<EventRequestForm layouts={layouts} />);
+    type(/Event name/, "A");
+    type(/^Purpose/, "B");
+    type(/^Description/, "C");
+    fireEvent.click(screen.getByRole("button", { name: /^Continue to/ }));
+    saveDraft();
+    await waitFor(() => expect(api.save).toHaveBeenCalledTimes(1));
+    expect(api.save.mock.calls[0][0]).toMatchObject({ name: "A", purpose: "B", description: "C" });
+    expect(api.save.mock.calls[0][0]).not.toHaveProperty("preferred_start_datetime");
+  });
+
+  it("does not let Submit request run while a draft save is in flight, so no second request is made", async () => {
+    let finish!: (v: unknown) => void;
+    api.save.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    render(<EventRequestForm layouts={layouts} />);
+    saveDraft();
+    const next = screen.getByRole("button", { name: /^Continue to/ }) as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+    finish({ ok: true, data: { id: "d1" } });
+    await screen.findByRole("status");
+    expect((screen.getByRole("button", { name: /^Continue to/ }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
 describe("SCRUM-53/AC1 toDraftBody", () => {
   it("leaves an untouched form entirely empty, including the accessibility answer", () => {
     expect(toDraftBody(EMPTY_VALUES)).toEqual({ registration_required: undefined, accessibility_requirements: undefined });
