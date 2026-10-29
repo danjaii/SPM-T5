@@ -20,6 +20,7 @@ export default async function NewEventRequestPage({ searchParams }: { searchPara
         <p role="alert" className="rounded-lg bg-status-danger p-4 text-sm font-medium text-status-danger-fg">{opened.error}</p>
       ) : "roomLayouts" in options ? (
         <EventRequestForm
+          key={opened?.draft.id ?? "new"}
           layouts={options.roomLayouts}
           draft={opened ? { id: opened.draft.id, values: draftToValues(opened.draft) } : undefined}
         />
