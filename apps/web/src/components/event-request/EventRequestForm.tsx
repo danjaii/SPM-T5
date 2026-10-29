@@ -10,6 +10,7 @@ import {
   type EventRequestFormValues,
 } from "@/lib/eventRequestForm";
 import { saveEventDraft, submitEventRequest, type RoomLayoutOption } from "@/lib/eventRequests";
+import { formatLastSaved } from "@/lib/formatLastSaved";
 import { RequestStepper } from "./RequestStepper";
 import { ReviewStep } from "./ReviewStep";
 import { StepFields } from "./StepFields";
@@ -93,7 +94,8 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
     setSavingDraft(true);
     const { ok, data } = await saveEventDraft(toDraftBody(latest.current));
     setSavingDraft(false);
-    if (ok) setSaved("Draft saved. You can find it in My event requests.");
+    // SCRUM-53/AC3: say when it was saved, using the time the server recorded
+    if (ok) setSaved(`Draft saved.${data.updated_at ? ` Last saved ${formatLastSaved(data.updated_at)}.` : ""} You can find it in My event requests.`);
     else setMessage(data.error ?? "We couldn't save the draft. Please try again.");
   }
 
