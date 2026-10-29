@@ -158,9 +158,9 @@ venue 4003, equipment 4004, notification 4005).
   `src/components/`, browser helpers in `src/lib/`.
 - **Architecture changes need a diagram or ADR update.** Flag it in the PR;
   `docs/architecture/c4/rendered/` is CI-generated, so edit the `.puml` source only.
-  `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and one C3
-  (`component-event-service.puml`) — add a component diagram per service as it gets built out,
-  rather than a C4 code diagram.
+  `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and a C3
+  `component-<service>.puml` for each of the five services — keep each one current as its service
+  grows, rather than adding a C4 code diagram.
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
   on unit tests (only `test:unit` gets `--coverage`, per Commands above).
@@ -343,10 +343,12 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration. `07_venue_bookings_rls.sql` does this for `venue_bookings` and
-  `11_event_registrations.sql` for `event_registrations` and `35_notifications_own_rows.sql` for `notifications`; the
-  other tables are still blanket
-  (tracked in SCRUM-91, SCRUM-92 and SCRUM-93).
+  new migration. `events` and its history tables (SCRUM-91), `venue_bookings`, `event_registrations`, `notifications` and
+  the catalogues (SCRUM-155, migration 53: Venue Staff write venues, layouts and facilities, Technical Support Staff write
+  equipment, nobody writes `organisations` or `event_categories` through the API) already have per-role policies; the
+  tables still on the blanket policy, the order to fix them in and what is deliberately left open are in
+  [ADR 0003](docs/architecture/adr/0003-row-level-security-as-authorisation.md) (SCRUM-154 users, SCRUM-153 equipment
+  reservations, SCRUM-156 coordinator reads; SCRUM-92 and SCRUM-93 no longer exist in Jira).
 
 
 ## 

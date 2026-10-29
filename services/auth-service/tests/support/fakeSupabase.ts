@@ -104,7 +104,21 @@ export function createFake() {
     },
   };
 
-  const deps = { anon, admin, forUser: () => ({ from: (t: string) => query(t) }) } as unknown as SupabaseDeps;
+  // SCRUM-154: the caller's own email, phone and preferences come from my_contact_details(), a one-row table
+  // (users.email and users.phone are not readable through the user's token any more)
+  const rpcCalls: string[] = [];
+  const forUser = (token: string) => ({
+    from: (t: string) => query(t),
+    rpc: async (fn: string) => {
+      rpcCalls.push(fn);
+      if (fn !== "my_contact_details") throw new Error(`fake has no function ${fn}`);
+      const me = tables.users.find((u) => u.id === sessions.get(token));
+      return me
+        ? { data: [{ email: me.email, phone: me.phone ?? null, communication_preferences: me.communication_preferences ?? {} }], error: null }
+        : { data: [], error: null };
+    },
+  });
+  const deps = { anon, admin, forUser } as unknown as SupabaseDeps;
 
   /** Seeds an account that can log in (verified email + profile row). */
   const seedUser = (email: string, role: string, extra: Partial<AuthUser> & { isActive?: boolean } = {}) => {
@@ -114,5 +128,5 @@ export function createFake() {
     return id;
   };
 
-  return { deps, tables, authUsers, sessions, calls, selects, seedUser, failProfileInsert, failReads, failUpdates, signUpError };
+  return { deps, tables, authUsers, sessions, calls, selects, rpcCalls, seedUser, failProfileInsert, failReads, failUpdates, signUpError };
 }

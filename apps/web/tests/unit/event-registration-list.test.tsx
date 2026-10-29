@@ -77,14 +77,14 @@ describe("SCRUM-74 — Event registration list", () => {
   it("SCRUM-74/AC10 makes a list of 16 registrations scrollable", () => {
     render(<EventRegistrationList registrations={registrations(16)} />);
 
-    expect(screen.getByRole("table").parentElement?.classList.contains("table-wrap--scroll")).toBe(true);
+    expect(screen.getByTestId("registration-scroll").className).toContain("overflow-y-auto");
   });
 
   // AC10: 15 rows or fewer show in full, with no scrolling
   it("SCRUM-74/AC10 shows a list of 15 registrations in full, without scrolling", () => {
     render(<EventRegistrationList registrations={registrations(15)} />);
 
-    expect(screen.getByRole("table").parentElement?.classList.contains("table-wrap--scroll")).toBe(false);
+    expect(screen.getByTestId("registration-scroll").className).not.toContain("overflow-y-auto");
   });
   // end of AC10
 

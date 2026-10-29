@@ -10,7 +10,11 @@ Source diagrams are [PlantUML](https://plantuml.com/) using the
 |---|---|---|
 | `context.puml` | 1 — System Context | ConnectSphere as a box, its user roles, and external systems (Supabase, email provider) |
 | `container.puml` | 2 — Container | The web app, each microservice, and the database |
-| `component-event-service.puml` | 3 — Component | Internal structure of one service (use as a template for the others) |
+| `component-auth-service.puml` | 3 — Component | Auth service: routes, session middleware, and which Supabase client (anon, caller, secret key) each call uses |
+| `component-event-service.puml` | 3 — Component | Event service (use as a template for the others) |
+| `component-venue-service.puml` | 3 — Component | Venue service |
+| `component-equipment-service.puml` | 3 — Component | Equipment service |
+| `component-notification-service.puml` | 3 — Component | Notification service |
 
 Rendered SVGs land in `c4/rendered/` automatically — see
 [`c4-diagrams.yml`](../../.github/workflows/c4-diagrams.yml). Don't hand-edit files in
@@ -30,6 +34,9 @@ manager/service classes, its repository layer). Keep one component diagram per s
 has meaningful internal complexity — trivial services don't need one.
 
 ## Architecture Decision Records (`adr/`)
+
+Current ADRs: 0001 microservice architecture, 0002 in-app notifications outbox, 0003 row-level security as the
+authorisation model.
 
 One markdown file per significant decision (e.g. "why microservices per domain instead of a
 monolith", "why Supabase Row-Level Security instead of an authorization service"). Use
