@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MyEventRequest } from "@/lib/myEventRequests";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatLastSaved } from "@/lib/formatLastSaved";
 import EventStatusBadge from "./EventStatusBadge";
 
 // Event dates are shown in Singapore time, like the rest of the app
@@ -33,7 +34,10 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
             </TableCell>
             <TableCell>{formatDate(request.preferred_start_datetime)}</TableCell>
             <TableCell>{request.expected_attendance ?? "—"}</TableCell>
-            <TableCell>{formatDate(request.submitted_at)}</TableCell>
+            {/* SCRUM-53/AC3: a draft has not been submitted, so its column says when it was last saved */}
+            <TableCell>
+              {request.status === "draft" && request.updated_at ? `Last saved ${formatLastSaved(request.updated_at)}` : formatDate(request.submitted_at)}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

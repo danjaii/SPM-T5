@@ -159,6 +159,38 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
     });
   });
 
+  describe("SCRUM-53/AC1 a client cannot choose the status, submission time or owner of a draft", () => {
+    it("ignores status, submitted_at, organiser_id and assigned_coordinator_id sent to POST /events/drafts", async () => {
+      const res = await postAs(who.organiser, {
+        name: "IT-53-AC1-spoofed",
+        status: "approved",
+        is_draft: false,
+        submitted_at: "2001-01-01T00:00:00.000Z",
+        organiser_id: who.otherOrganiser.userId,
+        assigned_coordinator_id: who.coordinator.userId,
+      });
+      expect(res.status).toBe(201);
+      track(res.body.id);
+      expect(res.body).toMatchObject({ status: "draft", is_draft: true, submitted_at: null, organiser_id: who.organiser.userId, assigned_coordinator_id: null });
+      const { data: stored } = await admin.from("events").select("status, is_draft, submitted_at, organiser_id, assigned_coordinator_id").eq("id", res.body.id).single();
+      expect(stored).toEqual({ status: "draft", is_draft: true, submitted_at: null, organiser_id: who.organiser.userId, assigned_coordinator_id: null });
+      const { data: history } = await admin.from("event_status_history").select("id").eq("event_id", res.body.id);
+      expect(history).toHaveLength(0);
+    });
+
+    it("has no way to pass a status or submission time to create_event_draft: the database refuses the unknown arguments and stores nothing", async () => {
+      const client = createClient(DB_ENV.url!, DB_ENV.publishableKey!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${who.organiser.token}` } },
+      });
+      const { data, error } = await client.rpc("create_event_draft", params("IT-53-AC1-rpc-spoof", { p_status: "approved", p_submitted_at: "2001-01-01T00:00:00.000Z" }));
+      expect(data).toBeNull();
+      expect(error?.code).toBe("PGRST202");
+      const { data: rows } = await admin.from("events").select("id").eq("name", "IT-53-AC1-rpc-spoof");
+      expect(rows).toHaveLength(0);
+    });
+  });
+
   describe("SCRUM-53/AC3 a client cannot choose the last-saved time", () => {
     it("ignores an updated_at and created_at sent to POST /events/drafts: both are the server's, and the stored row agrees", async () => {
       const before = Date.now();
