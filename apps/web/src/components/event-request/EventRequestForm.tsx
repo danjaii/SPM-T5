@@ -16,10 +16,10 @@ import { StepFields } from "./StepFields";
 
 // SCRUM-123: the step-by-step new event request. AC2: Continue is blocked by the current step's errors only. AC3: the
 // Review step lists everything with Edit links. AC4: Submit sends it to event-service (SCRUM-49) and lands on the event page.
-export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
+export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption[]; draft?: { id: string; values: EventRequestFormValues } }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [values, setValues] = useState<EventRequestFormValues>(EMPTY_VALUES);
+  const [values, setValues] = useState<EventRequestFormValues>(draft?.values ?? EMPTY_VALUES);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string>();
   const [submitting, setSubmitting] = useState(false);

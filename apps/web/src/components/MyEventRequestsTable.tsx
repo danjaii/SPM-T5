@@ -7,7 +7,7 @@ import EventStatusBadge from "./EventStatusBadge";
 const formatDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Singapore" }) : "—";
 
-/** SCRUM-52/AC1: the organiser's requests with their current status; each name opens the request (AC3). */
+/** SCRUM-52/AC1: the organiser's requests with their current status; each name opens the request (AC3); a draft opens the form with it loaded (SCRUM-54/AC1). */
 export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] }) {
   return (
     <Table>
@@ -24,7 +24,7 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
         {requests.map((request) => (
           <TableRow key={request.id}>
             <TableCell className="font-semibold text-foreground">
-              <Link href={`/events/${encodeURIComponent(request.id)}`} className="underline-offset-4 hover:underline">
+              <Link href={request.status === "draft" ? `/events/new?draft=${encodeURIComponent(request.id)}` : `/events/${encodeURIComponent(request.id)}`} className="underline-offset-4 hover:underline">
                 {request.name}
               </Link>
             </TableCell>
