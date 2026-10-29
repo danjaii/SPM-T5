@@ -1,7 +1,7 @@
 -- ConnectSphere: resume editing a draft event request (SCRUM-54)
--- Follows 52_event_drafts.sql. Affects event-service; the replaced status guard below is shared by every status change.
+-- Follows 60_event_drafts.sql. Affects event-service; the replaced status guard below is shared by every status change.
 --
--- 52 left the organiser with no UPDATE policy on events ("re-saving a draft is SCRUM-54"). This adds it, for the organiser's
+-- 60 left the organiser with no UPDATE policy on events ("re-saving a draft is SCRUM-54"). This adds it, for the organiser's
 -- own drafts only, and the functions that re-save and submit one.
 --
 -- AC2 (re-save): update_event_draft() is security invoker, so the policy below is what decides which rows it can touch.

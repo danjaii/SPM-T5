@@ -34,6 +34,11 @@ export function canViewVenueCatalogue(role: Role): boolean {
   return role === "event_coordinator" || role === "venue_staff";
 }
 
+/** SCRUM-84/AC8: the venue availability calendar is for coordinators, venue staff and technical support staff only */
+export function canViewVenueCalendar(role: Role): boolean {
+  return role === "event_coordinator" || role === "venue_staff" || role === "technical_support_staff";
+}
+
 /** SCRUM-49: only event organisers create event requests */
 export function canCreateEventRequests(role: Role): boolean {
   return role === "event_organiser";

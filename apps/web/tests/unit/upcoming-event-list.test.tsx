@@ -172,8 +172,8 @@ describe("SCRUM-71 — List of events cards", () => {
     );
 
     const [confirmed, pending] = screen.getAllByRole("article");
-    expect(within(confirmed).getByText("Your registration: Confirmed")).toBeTruthy();
-    expect(within(pending).getByText("Your registration: Pending")).toBeTruthy();
+    expect(within(confirmed).getByText("Your registration:").textContent).toBe("Your registration:Confirmed");
+    expect(within(pending).getByText("Your registration:").textContent).toBe("Your registration:Pending");
     expect(screen.queryByRole("link", { name: "Register" })).toBeNull();
   });
   // end of AC10

@@ -1,4 +1,4 @@
-import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, ListChecks, Package, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, Home, ListChecks, Package, Search, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { Role } from "@spm-t5/shared";
 
 /** The queues whose size is shown beside a nav item (SCRUM-121/AC2). */
@@ -53,7 +53,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "Safety checks", href: "/safety-checks", icon: ShieldCheck, queue: "safetyQueue" },
   ],
   attendee: [
-    dashboard("attendee"),
+    // SCRUM-139/AC1: the attendee's home is the List of events, so the item reads Browse events, not Home
+    { ...dashboard("attendee"), label: "Browse events", icon: Search },
     { label: "My registrations", href: "/registrations", icon: ClipboardList },
   ],
 };

@@ -1,16 +1,17 @@
 // SCRUM-99 — the Safety Officer's list of events waiting for an Operational Safety Check
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { cookieValue, redirect } = vi.hoisted(() => ({
+const { cookieValue, redirect, push } = vi.hoisted(() => ({
   cookieValue: { current: "token-safety" as string | undefined },
   redirect: vi.fn((url: string) => { throw new Error(`redirect:${url}`); }),
+  push: vi.fn(),
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => (cookieValue.current ? { value: cookieValue.current } : undefined) }),
 }));
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ push }) }));
 
 import SafetyCheckQueuePage from "@/app/safety-checks/page";
 import { SafetyCheckQueue } from "@/components/SafetyCheckQueue";
@@ -35,6 +36,7 @@ function mockServer(status: number, body: unknown) {
 beforeEach(() => {
   cookieValue.current = "token-safety";
   redirect.mockClear();
+  push.mockClear();
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -48,7 +50,22 @@ describe("SCRUM-99/AC2 view events waiting for review", () => {
     expect(screen.getAllByText("120")).toHaveLength(2);
   });
 
-  it("SCRUM-99/AC2 says so when no events are waiting for a safety check", () => {
+  it("SCRUM-142/AC1 lists the event with its status as an icon and a label", () => {
+    render(<SafetyCheckQueue events={[item()]} />);
+
+    expect(screen.getByText("Safety check")).toBeTruthy();
+    expect(screen.getByTestId("status-icon")).toBeTruthy();
+  });
+
+  it("SCRUM-142/AC1 opens the safety check from anywhere on the row", () => {
+    render(<SafetyCheckQueue events={[item()]} />);
+
+    fireEvent.click(screen.getByText("Riverside Hall, Orchid Room"));
+
+    expect(push).toHaveBeenCalledWith("/safety-checks/evt-1");
+  });
+
+  it("SCRUM-142/AC11 says so when no events are waiting for a safety check", () => {
     render(<SafetyCheckQueue events={[]} />);
 
     expect(screen.getByText("No events are waiting for a safety check.")).toBeTruthy();
@@ -64,11 +81,11 @@ describe("SCRUM-99/AC2 view events waiting for review", () => {
       "http://localhost:4002/safety-checks",
       expect.objectContaining({ headers: { cookie: "cs_session=token-safety" }, cache: "no-store" }),
     );
-    expect(screen.getByRole("heading", { name: "Events waiting for a safety check" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Events waiting for a safety check" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Review Tech Summit" })).toBeTruthy();
   });
 
-  it("SCRUM-99/AC2 shows the refusal, and no events, when event-service denies access", async () => {
+  it("SCRUM-142/AC11 shows the refusal, and no events, when event-service denies access", async () => {
     mockServer(403, { error: "Only a Safety Officer can do this." });
 
     render(await SafetyCheckQueuePage());

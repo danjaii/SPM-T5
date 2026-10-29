@@ -1,5 +1,5 @@
-import { LeadPageSkeleton } from "@/components/LeadPage";
+import { PageFrameSkeleton } from "@/components/PageFrame";
 
 export default function Loading() {
-  return <LeadPageSkeleton label="Loading unassigned requests" />;
+  return <PageFrameSkeleton label="Loading unassigned requests" />;
 }
