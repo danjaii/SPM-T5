@@ -41,7 +41,7 @@ function draftArguments(b: EventDraftInput) {
   };
 }
 
-/** The name the database gives a draft saved without one (migration 52). It is a placeholder, not an answer. */
+/** The name the database gives a draft saved without one (migration 60). It is a placeholder, not an answer. */
 const UNTITLED = "Untitled draft";
 
 /**
