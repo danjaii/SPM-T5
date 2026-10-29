@@ -1,7 +1,7 @@
 -- ConnectSphere: supporting documents on an event request (SCRUM-51). Affects event-service and apps/web.
 --
 -- Files go in the existing private bucket event-attachments (migration 08, SCRUM-28), in the folder "<event id>/...". This table
--- is the list of what is attached to a request. As with events (see 54_event_draft_update_definer.sql), authenticated has no
+-- is the list of what is attached to a request. As with events (see 62_event_draft_update_definer.sql), authenticated has no
 -- write privilege on it: a row is written only by add_event_attachment() and removed only by remove_event_attachment(), which
 -- check the caller themselves (an event organiser, their own request, still a draft; Week 9: organisers cannot edit a submitted
 -- request). The same SQLSTATEs as the draft functions: DR001 not the caller's request or not found, DR002 not a draft any more.
