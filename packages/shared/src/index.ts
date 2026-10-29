@@ -16,6 +16,7 @@ export * from "./sentBack";
 export * from "./supabaseClient";
 export * from "./technicalAssignment";
 export * from "./venueBooking";
+export * from "./venueCalendar";
 export * from "./venueBookingFlags";
 export * from "./venueSearch";
 export * from "./venueSuitability";

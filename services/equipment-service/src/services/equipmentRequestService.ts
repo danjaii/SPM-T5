@@ -265,14 +265,16 @@ export class EquipmentRequestService {
   /**
    * AC2, AC3: the event's requests, each with its own status, and SCRUM-87/AC5, AC6 the Cannot Fulfil reason and
    * whether the equipment is ready. The assigned coordinator sees them, and Technical Support Staff, who act on them
-   * (SCRUM-87). Open question 4 (the Lead and Safety Officer) is decided here. AC6, AC7: canCreate says whether the
+   * (SCRUM-87), and SCRUM-153/AC5 the event's organiser, read-only (the same people migration 54 lets read the rows).
+   * Open question 4 (the Lead and Safety Officer) is decided here. AC6, AC7: canCreate says whether the
    * caller may add one; SCRUM-88: canEdit on each request whether they may change it.
    */
   async forEvent(caller: Caller, eventId: string): Promise<EventEquipmentRequests> {
     const event = await this.ports.events.find(eventId);
     if (!event) throw notFound("Event not found.");
     const isAssigned = caller.role === "event_coordinator" && event.assignedCoordinatorId === caller.id;
-    if (!isAssigned && caller.role !== "technical_support_staff") throw forbidden();
+    const isOrganiser = caller.role === "event_organiser" && event.organiserId === caller.id;
+    if (!isAssigned && !isOrganiser && caller.role !== "technical_support_staff") throw forbidden();
 
     // SCRUM-88/AC4, AC6: the same people who may add a request may change one
     const mayChange = isAssigned && canRequestEquipment(event.status);

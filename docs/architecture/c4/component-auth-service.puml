@@ -1,0 +1,58 @@
+@startuml component-auth-service
+!include <C4/C4_Component>
+
+title ConnectSphere — Component Diagram: Auth Service (C4 Level 3)
+' Built so far: login, register, password reset, who-am-I and logout (SCRUM-12 to 17), the role dashboard
+' (US3) and a user's own profile (SCRUM-68, 69; docs/specs/user-profile.md). Supabase Auth owns every credential:
+' this service wraps it and never hashes passwords or issues its own tokens (ADR 0001).
+' Authorisation is RLS (ADR 0003): reads run as the caller (forUser). The secret key (admin) is used only where
+' there is no caller yet, or where the caller is deliberately not allowed to write the column themselves.
+
+Container(web, "Web App", "Next.js, React", "Login, register, forgot/reset password pages; the route guard (/auth/me); role dashboards; profile page")
+System_Ext(supabaseAuth, "Supabase Auth", "GoTrue: credentials, email confirmation, password-reset email, session tokens")
+ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "users (role and email not writable by the user: migration 03), organisations, role_responsibilities; the dashboard reads events, venue_bookings, venues, equipment, technical_support_requests, event_registrations")
+
+Container_Boundary(authSvc, "Auth Service") {
+  Component(app, "App", "Express (app.ts, server.ts)", "JSON body parsing; injectable Supabase clients; /health; mounts /auth, /dashboard, /profile. createApp is exported apart from listen() so tests mount it without a port")
+  Component(cors, "CORS", "middlewares/cors.ts", "Only the configured WEB_ORIGIN, with credentials (never a wildcard); GET, POST, PATCH; answers preflight")
+  Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie, asks Supabase Auth who the caller is, then requires an active users row with a valid role; puts the caller on res.locals.user (authentication only)")
+  Component(authRoutes, "Auth Routes", "routes/auth.ts", "POST /auth/login (one message for every failure, role must match), POST /auth/register (attendee only), POST /auth/forgot-password (same reply either way), POST /auth/reset-password, GET /auth/me, POST /auth/logout. Sets and clears the httpOnly session cookie")
+  Component(dashboardRoutes, "Dashboard Routes", "routes/dashboard.ts", "GET /dashboard: the sections for the caller's role (organiser, coordinator, venue staff, technical support, attendee; Lead and Safety Officer get an empty one)")
+  Component(profileRoutes, "Profile Routes", "routes/profile.ts", "GET /profile and PATCH /profile (SCRUM-68): name, contact email, phone, communication preferences; staff also see department and role responsibilities (SCRUM-69). Duplicate contact email -> 409")
+  Component(validation, "Validation", "validation.ts", "zod schemas for login, register (SCRUM-12 password rules, one message per rule), forgot and reset password; first error per field")
+  Component(shared, "Shared Rules", "@spm-t5/shared", "ROLES, isRole, isInternalRole, validateProfileUpdate, registrationStatus")
+
+  Component(anon, "Anon Client", "supabase.ts (publishable key, no user)", "Sign-in, sign-up, password-reset email, and checking a token")
+  Component(forUser, "Caller Client", "supabase.ts forUser(token) (publishable key + caller's token)", "Every read made on a signed-in caller's behalf; RLS applies")
+  Component(admin, "Admin Client", "supabase.ts (secret key)", "Bypasses RLS. Used only for what a user cannot do themselves")
+}
+
+Rel(web, cors, "Calls (browser)", "HTTPS/JSON, session cookie")
+Rel(cors, app, "Allowed origin only")
+Rel(app, authRoutes, "Routes /auth")
+Rel(app, dashboardRoutes, "Routes /dashboard")
+Rel(app, profileRoutes, "Routes /profile")
+
+Rel(authRoutes, session, "/me requires a signed-in caller")
+Rel(dashboardRoutes, session, "Requires a signed-in caller")
+Rel(profileRoutes, session, "Requires a signed-in caller")
+Rel(session, anon, "Checks the token")
+Rel(session, forUser, "Reads the caller's users row")
+
+Rel(authRoutes, validation, "Parses each form")
+Rel(validation, shared, "Role list")
+Rel(dashboardRoutes, shared, "Registration status labels")
+Rel(profileRoutes, shared, "Validates the update; is the role internal?")
+
+Rel(authRoutes, anon, "Sign in, sign up, send reset email, check reset token")
+Rel(authRoutes, forUser, "Login: reads the new session's users row (role, active)")
+Rel(authRoutes, admin, "Bypass: sign-up has no caller yet, so checks for a duplicate email and writes the attendee users row (role is not user-writable, migration 03), deleting the auth user if that fails; sets the new password on reset; revokes the session on logout or a refused login")
+Rel(dashboardRoutes, forUser, "Reads the role's sections")
+Rel(profileRoutes, forUser, "Reads the profile, organisation and role responsibilities")
+Rel(profileRoutes, admin, "Bypass: saves the caller's own row only (users.email is not user-writable, migration 03)")
+
+Rel(anon, supabaseAuth, "signInWithPassword, signUp, resetPasswordForEmail, getUser", "HTTPS")
+Rel(admin, supabaseAuth, "admin.signOut, admin.updateUserById, admin.deleteUser", "HTTPS")
+Rel(forUser, db, "Selects as the caller (RLS)", "PostgREST")
+Rel(admin, db, "Selects and writes users, bypassing RLS", "PostgREST")
+@enduml

@@ -48,6 +48,21 @@ describe("SCRUM-68/AC1 view profile", () => {
       responsibilities: [], // none stored in this test
     });
   });
+  // SCRUM-154/AC5: contact email, phone and preferences are not readable from users with the caller's token any more, so the
+  // profile gets them from my_contact_details() and never selects those columns from the table
+  it("SCRUM-154/AC5 (154-S9): reads the caller's own email, phone and preferences through my_contact_details()", async () => {
+    const id = fake.seedUser("rachel@example.com", "event_coordinator");
+    Object.assign(fake.tables.users.find((u) => u.id === id)!, { phone: "+65 8100 2000", communication_preferences: { email: true } });
+    fake.selects.length = 0;
+
+    const res = await request(app).get("/profile").set("Cookie", await signInAs("rachel@example.com", "event_coordinator"));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ email: "rachel@example.com", phone: "+65 8100 2000", communicationPreferences: { email: true } });
+    expect(fake.rpcCalls).toContain("my_contact_details");
+    const columnsRead = fake.selects.filter((s) => s.table === "users").map((s) => s.columns).join(",");
+    expect(columnsRead).not.toMatch(/\b(email|phone|communication_preferences)\b/);
+  });
   // An Event Organiser also sees which organisation they belong to (by name, as plain information).
   it("68-S2: also shows an Event Organiser's organisation", async () => {
     const id = fake.seedUser("jason@techconnect.example.com", "event_organiser");
