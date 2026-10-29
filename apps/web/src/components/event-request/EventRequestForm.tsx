@@ -9,7 +9,7 @@ import {
   EMPTY_VALUES, REVIEW_STEP, STEPS, firstStepWithError, toDraftBody, toRequestBody, validateRequest, validateStep,
   type EventRequestFormValues,
 } from "@/lib/eventRequestForm";
-import { saveEventDraft, submitEventRequest, updateEventDraft, type RoomLayoutOption } from "@/lib/eventRequests";
+import { saveEventDraft, submitEventDraft, submitEventRequest, updateEventDraft, type RoomLayoutOption } from "@/lib/eventRequests";
 import { RequestStepper } from "./RequestStepper";
 import { ReviewStep } from "./ReviewStep";
 import { StepFields } from "./StepFields";
@@ -73,7 +73,9 @@ export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption
     }
 
     setSubmitting(true);
-    const { ok, data } = await submitEventRequest(toRequestBody(values));
+    const body = toRequestBody(values);
+    // SCRUM-54/AC3: a request that began as a draft is submitted as that draft, so it stays one request
+    const { ok, data } = draftId ? await submitEventDraft(draftId, body) : await submitEventRequest(body);
     if (ok && data.id) {
       router.push(`/events/${data.id}?submitted=1`);
       return;

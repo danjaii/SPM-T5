@@ -49,3 +49,18 @@ export async function updateEventDraft(id: string, body: Record<string, unknown>
     return { ok: false, data: { error: "We couldn't reach the server. Please try again." } };
   }
 }
+
+/** SCRUM-54/AC3: submit the draft with the form as it stands now (POST /events/drafts/:id/submit): the same request, not a second one. */
+export async function submitEventDraft(id: string, body: Record<string, unknown>): Promise<ApiResult<{ id?: string }>> {
+  try {
+    const res = await fetch(`${EVENT_URL}/events/drafts/${encodeURIComponent(id)}/submit`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } };
+  }
+}
