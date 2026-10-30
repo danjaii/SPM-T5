@@ -73,7 +73,7 @@ function StatusCard({ id, title, viewAll, empty, groups }: { id: string; title: 
             <p className="text-base text-muted-foreground">{empty}</p>
           ) : (
             <Tabs defaultValue={groups[0].key} className="gap-0">
-              <TabsList variant="line" className="h-auto w-full flex-wrap justify-start gap-2 pb-1">
+              <TabsList variant="line" className="w-full flex-wrap justify-start gap-2 pb-1 group-data-horizontal/tabs:h-auto">
                 {groups.map((g) => (
                   <TabsTrigger
                     key={g.key}
