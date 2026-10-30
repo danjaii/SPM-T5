@@ -15,6 +15,12 @@ import { StatusStepper } from "./event/StatusStepper";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 
+/** The statuses that need a reason: what to say when it is missing, and who will be told it. */
+const REASON_REQUIRED: Partial<Record<string, { missing: string; toldTo: string }>> = {
+  cancelled: { missing: "A reason is required to cancel an event.", toldTo: "The organiser and registered attendees will be told this reason." },
+  rejected: { missing: "A reason is required to reject an event.", toldTo: "The organiser will be told this reason." },
+};
+
 // SCRUM-6/7: shows an event's current status. SCRUM-8: the assigned coordinator can also change it.
 // SCRUM-45: the assigned coordinator starts the review. SCRUM-24: they also approve or reject it.
 /** SCRUM-127: `activeTab` is the page's tab (the review actions and Change status belong to the overview), `meta` the line under the title. */
@@ -47,13 +53,14 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, notice, 
     setSaving(false);
   }
 
-  // SCRUM-174/AC1: a cancellation needs a reason, because the organiser and attendees are told it (AC6)
-  const reasonRequired = newStatus === "cancelled";
+  // SCRUM-174/AC1: a cancellation needs a reason, because the organiser and attendees are told it (AC6). SCRUM-47/AC10:
+  // so does a rejection, which the organiser is told. event-service refuses both without one, with the same words.
+  const reasonRule = REASON_REQUIRED[newStatus];
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (reasonRequired && !reason.trim()) {
-      setMessage({ kind: "error", text: "A reason is required to cancel an event." });
+    if (reasonRule && !reason.trim()) {
+      setMessage({ kind: "error", text: reasonRule.missing });
       return;
     }
     return save(newStatus, reason);
@@ -134,20 +141,16 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, notice, 
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="reason" className="text-sm font-semibold">{reasonRequired ? "Reason (required)" : "Reason (optional)"}</label>
+              <label htmlFor="reason" className="text-sm font-semibold">{reasonRule ? "Reason (required)" : "Reason (optional)"}</label>
               <Textarea
                 id="reason"
                 rows={3}
                 value={reason}
-                required={reasonRequired}
-                aria-describedby={reasonRequired ? "reason-helper" : undefined}
+                required={Boolean(reasonRule)}
+                aria-describedby={reasonRule ? "reason-helper" : undefined}
                 onChange={(e) => setReason(e.target.value)}
               />
-              {reasonRequired && (
-                <p id="reason-helper" className="text-sm text-muted-foreground">
-                  The organiser and registered attendees will be told this reason.
-                </p>
-              )}
+              {reasonRule && <p id="reason-helper" className="text-sm text-muted-foreground">{reasonRule.toldTo}</p>}
             </div>
             <Button className="self-start" type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
           </form>
