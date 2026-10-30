@@ -59,3 +59,20 @@ describe("SCRUM-170 — Slots remaining past the cap", () => {
     expect(registrationSummary([confirmed, confirmed], 1).slotsRemaining).toBe(0);
   });
 });
+
+// SCRUM-170: why Confirmed can be past the capacity: only VIPs who still hold a place count
+describe("SCRUM-170 — VIP count", () => {
+  it("SCRUM-170/AC1 counts only Confirmed VIPs", () => {
+    const summary = registrationSummary(
+      [
+        { ...aRegistration("confirmed"), is_vip: true },
+        { ...aRegistration("withdrawn"), is_vip: true },
+        { ...aRegistration("rejected"), is_vip: true },
+        aRegistration("confirmed"),
+      ],
+      1,
+    );
+
+    expect(summary.vipConfirmed).toBe(1);
+  });
+});
