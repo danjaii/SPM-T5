@@ -123,4 +123,117 @@ describe.skipIf(!hasDb)("SCRUM-97 tentative hold expiry (migration 65)", () => {
       expect(error?.code).toBe(DENIED);
     });
   });
+
+  /** Whether coordinator B (not the holder) is told the slot is taken, and what a second request for it meets. */
+  const slotHeld = async (venue: string, p: { start: Date; end: Date }) =>
+    (await who.coordinatorB.client.rpc("venue_slot_is_held", { p_venue_id: venue, p_start: p.start.toISOString(), p_end: p.end.toISOString() })).data as boolean;
+  const secondRequest = async (venue: string, p: { start: Date; end: Date }) => {
+    const eventId = await fixtures.event("approved", who.coordinatorB.userId);
+    return admin.from("venue_bookings").insert({
+      event_id: eventId, venue_id: venue, requested_by: who.coordinatorB.userId, status: "requested",
+      event_start_datetime: p.start.toISOString(), event_end_datetime: p.end.toISOString(),
+    }).select("id").single();
+  };
+
+  describe("SCRUM-97/AC2 a live hold blocks its slot", () => {
+    it("tells another coordinator the slot is taken and refuses their request, until the expiry", async () => {
+      const venue = await fixtures.venue("IT-hold-live");
+      await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(2).toISOString() });
+      expect(await slotHeld(venue, slot("10:00", "12:00"))).toBe(true);
+      const { error } = await secondRequest(venue, slot("10:00", "12:00"));
+      expect(error).not.toBeNull();
+    });
+
+    it("keeps a hold that has no expiry blocking, exactly as before (D4)", async () => {
+      const venue = await fixtures.venue("IT-hold-none");
+      await hold(venue, slot("10:00", "12:00"));
+      expect(await slotHeld(venue, slot("10:00", "12:00"))).toBe(true);
+      expect((await secondRequest(venue, slot("10:00", "12:00"))).error).not.toBeNull();
+    });
+  });
+
+  describe("SCRUM-97/AC3 an expired hold frees the slot", () => {
+    it("no longer blocks, and the next coordinator's request is created as a new pending request", async () => {
+      const venue = await fixtures.venue("IT-hold-expired");
+      const first = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(-1).toISOString() });
+      expect(await slotHeld(venue, slot("10:00", "12:00"))).toBe(false);
+      const second = await secondRequest(venue, slot("10:00", "12:00"));
+      expect(second.error).toBeNull();
+      expect(second.data!.id).not.toBe(first.id);
+    });
+
+    it("also frees the padded setup and turnaround time around it", async () => {
+      const venue = await fixtures.venue("IT-hold-expired-pad");
+      await admin.from("venues").update({ setup_minutes: 30, turnaround_minutes: 45 }).eq("id", venue);
+      await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(-1).toISOString() });
+      expect(await slotHeld(venue, slot("12:30", "14:00"))).toBe(false);
+    });
+  });
+
+  describe("SCRUM-97/AC5 an expired hold cannot be confirmed", () => {
+    it("refuses approving it (CS097) and leaves it pending, even with the secret key", async () => {
+      const venue = await fixtures.venue("IT-hold-confirm");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(-1).toISOString() });
+      const { error } = await admin.from("venue_bookings").update({ status: "approved" }).eq("id", h.id);
+      expect(error?.code).toBe("CS097");
+      expect(((await admin.from("venue_bookings").select("status").eq("id", h.id).single()).data as { status: string }).status).toBe("requested");
+    });
+
+    it("still lets a live hold be approved", async () => {
+      const venue = await fixtures.venue("IT-hold-confirm-live");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(2).toISOString() });
+      const { error } = await admin.from("venue_bookings").update({ status: "approved" }).eq("id", h.id);
+      expect(error).toBeNull();
+    });
+  });
+
+  describe("SCRUM-97/AC6 confirming before the expiry ends the countdown", () => {
+    it("keeps an approved booking holding its slot after the old expiry has passed", async () => {
+      const venue = await fixtures.venue("IT-hold-approved");
+      await hold(venue, slot("10:00", "12:00"), { status: "approved", hold_expires_at: inHours(-1).toISOString() });
+      expect(await slotHeld(venue, slot("10:00", "12:00"))).toBe(true);
+      expect((await secondRequest(venue, slot("10:00", "12:00"))).error).not.toBeNull();
+    });
+  });
+
+  describe("SCRUM-97/AC7 Venue Staff extend or shorten a live hold; an expired one cannot be extended", () => {
+    it("lets Venue Staff move a live expiry later and earlier", async () => {
+      const venue = await fixtures.venue("IT-hold-extend");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(10).toISOString() });
+      const later = inHours(30);
+      expect((await setExpiry(who.venueStaff, h.id, later)).error).toBeNull();
+      expect(new Date((await expiryOf(h.id))!).getTime()).toBe(later.getTime());
+      const earlier = inHours(5);
+      expect((await setExpiry(who.venueStaff, h.id, earlier)).error).toBeNull();
+      expect(new Date((await expiryOf(h.id))!).getTime()).toBe(earlier.getTime());
+    });
+
+    it("refuses extending a hold that has already expired (HE003) and keeps its old expiry", async () => {
+      const venue = await fixtures.venue("IT-hold-extend-expired");
+      const old = inHours(-2);
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: old.toISOString() });
+      const { error } = await setExpiry(who.venueStaff, h.id, inHours(24));
+      expect(error?.code).toBe("HE003");
+      expect(new Date((await expiryOf(h.id))!).getTime()).toBe(old.getTime());
+    });
+  });
+
+  describe("SCRUM-97 the venue calendar shows an expired hold as Available", () => {
+    const entriesFor = async (venue: string) => {
+      const { data, error } = await who.venueStaff.client.rpc("venue_calendar_entries", {
+        p_from: sgtToUtc(DAY, "00:00").toISOString(), p_to: new Date(sgtToUtc(DAY, "00:00").getTime() + 24 * HOUR).toISOString(),
+      });
+      expect(error).toBeNull();
+      return (data as { venue_id: string; entry: string; status: string }[]).filter((e) => e.venue_id === venue);
+    };
+
+    it("lists a live hold as a booking entry and an expired hold as none", async () => {
+      const live = await fixtures.venue("IT-cal-live");
+      const dead = await fixtures.venue("IT-cal-expired");
+      await hold(live, slot("10:00", "12:00"), { hold_expires_at: inHours(2).toISOString() });
+      await hold(dead, slot("10:00", "12:00"), { hold_expires_at: inHours(-1).toISOString() });
+      expect((await entriesFor(live)).filter((e) => e.entry !== "block")).toHaveLength(1);
+      expect((await entriesFor(dead)).filter((e) => e.entry !== "block")).toHaveLength(0);
+    });
+  });
 });
