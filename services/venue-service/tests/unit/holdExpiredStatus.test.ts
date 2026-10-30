@@ -3,7 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { VENUE_BOOKING_MESSAGES } from "@spm-t5/shared";
-import { toBookingDto } from "../../src/domain/dto";
+import { toBookingDto, toBookingListItem } from "../../src/domain/dto";
 import type { BookingRecord } from "../../src/domain/types";
 import { SupabaseHoldExpiryWriter } from "../../src/readers/holdExpiryWriter";
 import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookingRepository";
@@ -65,5 +65,21 @@ describe("SCRUM-97/AC5 and AC7 the database's refusals become 409 HOLD_EXPIRED",
     chain.maybeSingle = async () => ({ data: null, error: { code: "CS097", message: "expired" } });
     const repo = new SupabaseBookingRepository({ from: () => chain } as unknown as SupabaseClient);
     await expect(repo.decide("b1", { outcome: "approved" }, "staff", new Date())).rejects.toMatchObject({ code: "HOLD_EXPIRED", httpStatus: 409, message });
+  });
+});
+
+describe("SCRUM-97/AC4 the coordinator's list and an event's bookings show Expired too", () => {
+  it("shows an expired hold as EXPIRED with its expiry, and leaves a live one PENDING", () => {
+    const dead = toBookingListItem(record(), "Orchid Hall", [], NOW);
+    expect(dead.status).toBe("EXPIRED");
+    expect(dead.holdExpiresAt).toBe(EXPIRY.toISOString());
+    const live = toBookingListItem(record({ holdExpiresAt: new Date("2030-11-02T09:00:00Z") }), "Orchid Hall", [], NOW);
+    expect(live.status).toBe("PENDING");
+  });
+
+  it("does not give an approved booking an Expired status or a decision date change", () => {
+    const approved = toBookingListItem(record({ status: "approved", reviewedAt: new Date("2030-10-30T00:00:00Z") }), "Orchid Hall", [], NOW);
+    expect(approved.status).toBe("APPROVED");
+    expect(approved.decidedAt).toBe("2030-10-30T00:00:00.000Z");
   });
 });
