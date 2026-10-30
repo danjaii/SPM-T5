@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { parseCalendarRange } from "@spm-t5/shared";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { VenueUnavailabilityForm } from "@/components/VenueUnavailabilityForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchVenueCalendar, type CalendarQuery, type VenueCalendarData } from "@/lib/venueCalendar";
 import { VenueCalendarRangeForm } from "./VenueCalendarRangeForm";
@@ -13,12 +15,13 @@ import { VenueCalendarVenue } from "./VenueCalendarVenue";
 
 // SCRUM-84/AC1 + AC5: the venue availability calendar. Opens on the current week (no dates sent); choosing dates asks venue-service
 // again. The last good answer stays on screen while a new one loads.
-export function VenueCalendar() {
+export function VenueCalendar({ canMarkUnavailable = false }: { canMarkUnavailable?: boolean }) {
   const router = useRouter();
   const [calendar, setCalendar] = useState<VenueCalendarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [marking, setMarking] = useState<{ id: string; name: string } | null>(null); // SCRUM-130/AC3: the venue being marked unavailable
   const shown = useRef<CalendarQuery>({}); // the dates last applied, so Reload asks for the same ones
   const pending = useRef<AbortController | null>(null);
   const routerRef = useRef(router); // read when a reply arrives, so a new router object never re-runs the first load
@@ -75,10 +78,27 @@ export function VenueCalendar() {
       ) : (
         <div aria-busy={loading} className="flex flex-col gap-4">
           {calendar.venues.map((venue) => (
-            <VenueCalendarVenue key={venue.id} venue={venue} />
+            <VenueCalendarVenue key={venue.id} venue={venue} onMarkUnavailable={canMarkUnavailable ? () => setMarking({ id: venue.id, name: venue.name }) : undefined} />
           ))}
         </div>
       )}
+      <Dialog open={marking !== null} onOpenChange={(open) => !open && setMarking(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark {marking?.name} unavailable</DialogTitle>
+            <DialogDescription>Bookings in this period are flagged and their coordinators told. Times are Singapore time.</DialogDescription>
+          </DialogHeader>
+          {marking && (
+            <VenueUnavailabilityForm
+              venueId={marking.id}
+              onSaved={() => {
+                setMarking(null);
+                void load(shown.current); // SCRUM-130/AC3: show the new block straight away
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

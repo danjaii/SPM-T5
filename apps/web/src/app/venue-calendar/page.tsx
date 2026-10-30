@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { VenueCalendar } from "@/components/venue-calendar/VenueCalendar";
+import { Suspense } from "react";
+import { VenueCalendarForRole } from "@/components/venue-calendar/VenueCalendarForRole";
+import { CalendarSkeleton } from "@/components/venue-calendar/VenueCalendar";
 
 export const metadata: Metadata = { title: "Venue calendar · ConnectSphere" };
 
@@ -11,7 +13,9 @@ export default function VenueCalendarPage() {
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Venue calendar</h1>
         <p className="text-sm text-muted-foreground">Every venue&apos;s status across the dates you choose. Times are Singapore time.</p>
       </div>
-      <VenueCalendar />
+      <Suspense fallback={<CalendarSkeleton />}>
+        <VenueCalendarForRole />
+      </Suspense>
     </main>
   );
 }
