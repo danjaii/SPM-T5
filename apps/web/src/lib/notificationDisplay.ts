@@ -33,6 +33,8 @@ const BY_TYPE: Record<NotificationType, NotificationDisplay> = {
   technical_assignment_cancelled: { icon: XCircle, tone: "danger" },
   event_approved: { icon: CheckCircle2, tone: "success" },
   event_rejected: { icon: XCircle, tone: "danger" },
+  // SCRUM-174: like a rejection, the event will not go ahead
+  event_cancelled: { icon: XCircle, tone: "danger" },
   comment_mention: { icon: MessageSquare, tone: "info" },
   comment_reply: { icon: MessageSquare, tone: "info" },
   safety_approved: { icon: ShieldCheck, tone: "success" },

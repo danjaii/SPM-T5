@@ -26,6 +26,8 @@ export const NOTIFICATION_TYPES = [
   "clarification_answered",
   // SCRUM-126: the coordinator an event was taken from (migration 50)
   "coordinator_reassigned",
+  // SCRUM-174: an event was cancelled, told to its organiser and active attendees (migration 63)
+  "event_cancelled",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

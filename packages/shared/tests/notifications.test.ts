@@ -42,6 +42,8 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
       "clarification_requested",
       "clarification_answered",
       "coordinator_reassigned",
+      // SCRUM-174: written by migration 63
+      "event_cancelled",
     ]);
   });
 });
