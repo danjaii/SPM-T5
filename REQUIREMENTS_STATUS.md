@@ -27,7 +27,7 @@ Before the Week 4 and Week 9 customer answers were added these were 11 / 8 / 1 a
 5a. **Two built behaviours contradict the Week 9 answers.** A Confirmed event whose venue becomes unavailable must revert to Planning (W9 r44, r51), but the code leaves the event untouched. The Lead must see and assign across all coordinators (W9 r16, r37), but the code limits the Lead to their own supervised coordinators.
 6. **Notifications are in-app only** (no email or SMS). The missing producers were added by SCRUM-172 (Mig/65), except a notice when a venue block is lifted, which needs a way to lift one first.
 7. **Blanket RLS remains** on some reference tables. A coordinator now reads only the events assigned to them (SCRUM-156).
-8. **Process and documentation gaps:** no coverage threshold (100% is a rubric target), no traceability matrix, C4 and README out of date, and no instructor-access note.
+8. **Process and documentation gaps:** coverage below the rubric's 100% target (reasons in `docs/testing/coverage.md`, with 39 files still needing tests), no traceability matrix, C4 and README out of date, and no instructor-access note.
 
 ## 2. Week 4 core features
 
@@ -92,7 +92,7 @@ Browser (Playwright) tests in `apps/web/tests/e2e/` cover sign-in, the app shell
 | C4 model | 🟡 | `docs/architecture/c4/`: `context.puml`, `container.puml`, and component diagrams for all five services (auth-service added by SCRUM-166). `context.puml` and `container.puml` show only the 5 original roles (no Lead or Safety Officer). `c4/rendered/` holds only `.gitkeep`. `docs/architecture/README.md` lists all 7 diagrams |
 | ADRs | 🟡 | 0001 (microservices), 0002 (notification outbox). None for RLS as authorisation, the shared database choice detail or the UI stack |
 | Test traceability | 🟡 | About 288 test files; about 264 carry a story ID, 236 in the `SCRUM-xx/ACn` form. No traceability matrix document exists. Three files have no story reference: the `health.test.ts` files for auth-service and notification-service, and `venue-service/tests/unit/supabaseEventReader.test.ts` |
-| Coverage (rubric: 100% unless stated why) | ❌ | v8 coverage is configured only in the root `vitest.config.mts`, with no thresholds anywhere, so CI cannot fail on coverage. Current coverage was not measured |
+| Coverage (rubric: 100% unless stated why) | 🟡 | Unit test coverage measured at 93.66% statements, 89.50% branches, 91.54% functions and 94.52% lines (30 October 2026). `docs/testing/coverage.md` gives a reason for each of the 218 files below 100%, but for 39 of them the reason is a missing test. No thresholds on purpose (SCRUM-173), so CI does not fail on coverage |
 | CI | ✅ | `.github/workflows/ci.yml`: migration-number check, lint, typecheck, Vitest with coverage artefact, build, integration job (`supabase start`), Playwright e2e, `supabase db push` on `main`; `c4-diagrams.yml` renders the diagrams |
 | README | 🟡 | Setup, env, seeded accounts, tests and CI are covered. No git repository link and no note that both instructors have access (deliverable 7). Stale: lists 5 roles, no Lead or Safety Officer seeded accounts, migration table stops near 35 of 51, says SCRUM-37 to 40 are not built |
 | Scrum evidence (backlog, estimation, sprint artefacts, recordings, slide deck) | not assessable from the repo | Deliverables 1, 4 and 5 live outside the codebase |
@@ -143,7 +143,7 @@ This is for the slide deck and is not a pass/fail item. Evidence in the repo tha
 - **Rules enforced in the database, not left to generated application code:** the padded-overlap trigger (Mig/27), the safety gate (Mig/37), the assignment guard (Mig/23, 24), atomic reserve and change functions.
 - **Recorded decisions:** ADR 0001 and 0002, and the conventions in `CLAUDE.md` (append-only migrations, tests only assert on data they create, story and AC in every commit and test name).
 - **Quality gates:** lint, typecheck, unit, integration and e2e in CI, with about 90% of test files traceable to a story.
-- **Weak spots to prepare for in Q&A:** no coverage threshold, no traceability matrix, and the Week 7 #4 hold expiry, which has a display but no mechanism.
+- **Weak spots to prepare for in Q&A:** coverage below 100% with 39 files still needing tests, no traceability matrix, and the Week 7 #4 hold expiry, which has a display but no mechanism.
 
 ## 10. Next steps and suggested owners
 
