@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { CoordinatorChoiceList } from "@/components/CoordinatorChoiceList";
+import { useShell } from "@/components/shell/ShellContext";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { leadChangeCoordinator } from "@/lib/lead";
 import type { LeadCoordinatorChoice } from "@/lib/leadServer";
@@ -66,6 +67,7 @@ export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinato
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [assignedTo, setAssignedTo] = useState<string>();
+  const shell = useShell();
 
   // SCRUM-78/AC7, SCRUM-79/AC6: nobody to choose, so nothing to confirm
   if (coordinators.length === 0) {
@@ -91,8 +93,11 @@ export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinato
     setBusy(true);
     setError(undefined);
     const { ok, data } = await leadChangeCoordinator(mode, eventId, choice);
-    if (ok) setAssignedTo(coordinators.find((c) => c.id === choice)?.full_name);
-    else setError(data.error ?? text.failed);
+    if (ok) {
+      setAssignedTo(coordinators.find((c) => c.id === choice)?.full_name);
+      // SCRUM-178/AC2: not router.refresh(), which would re-render the page without this form and lose the message above
+      shell?.refreshCounts();
+    } else setError(data.error ?? text.failed);
     setBusy(false);
   }
 
