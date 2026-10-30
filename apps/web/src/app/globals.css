@@ -347,42 +347,7 @@ tr:last-child td { border-bottom: 0; }
 .outcome__reason { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .outcome__reason h3 { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); margin-bottom: 6px; }
 .outcome__reason p { white-space: pre-wrap; overflow-wrap: anywhere; }
-/* SCRUM-25: comments on an event request, oldest first */
-.comments { list-style: none; margin: 0; padding: 0; }
-.comment + .comment { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-.comment .comment__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
-.comment__author { font-weight: 600; }
-.comment__meta time { color: var(--subtle); font-size: 14px; }
-.comment .comment__body { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
-/* SCRUM-26/AC2: replies indented under the comment they answer */
-.comments--replies { margin: 12px 0 0; padding-left: 16px; border-left: 2px solid var(--border); }
-.comments--replies .comment + .comment { margin-top: 12px; padding-top: 12px; }
-.comment__reply { margin-top: 8px; padding: 0; background: none; border: 0; color: var(--steel-dark); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-.comment__reply:hover { text-decoration: underline; }
-.comment__reply:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
-.comment-form > .alert { margin: 0 0 12px; }
-/* SCRUM-47/AC2: the clarification checkbox sits inline with its label (same fix as .venue-search below: `.field input`
-   would stretch it across the row and push the text onto the next line). */
-.comment-form .field label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.comment-form .field input[type="checkbox"] { width: 16px; height: 16px; padding: 0; flex: none; accent-color: var(--steel-dark); }
-/* SCRUM-27: @mentions, set apart in posted comments (AC3) and offered as you type (AC1) */
-.mention { padding: 0 3px; background: var(--selected); color: var(--steel-dark); font-weight: 600; }
-.mention-field { position: relative; }
-.mention-menu { position: absolute; left: 0; right: 0; z-index: 10; margin-top: 4px; background: #fff; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-height: 220px; overflow-y: auto; }
-.mention-menu ul { list-style: none; margin: 0; padding: 4px 0; }
-.mention-menu li { padding: 8px 12px; cursor: pointer; }
-.mention-menu li[aria-selected="true"], .mention-menu li:hover { background: var(--selected); color: var(--steel-dark); }
-.mention-menu__empty { padding: 8px 12px; color: var(--subtle); }
-/* SCRUM-28: files on a posted comment (AC2, AC3) and files staged in the box (AC1) */
-.attachments { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; padding: 0; }
-.attachment { max-width: 100%; padding: 4px 10px; background: var(--field); border: 1px solid var(--border); color: var(--steel-dark); font: inherit; font-size: 14px; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
-.attachment::before { content: "📎 "; }
-.attachment:hover { border-color: var(--steel); text-decoration: underline; }
-.attachment:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
-.staged-files { list-style: none; margin: 8px 0 0; padding: 0; }
-.staged-files li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
-.staged-files .comment__reply { margin-top: 0; }
-.staged-files__size { color: var(--subtle); font-size: 13px; }
+/* SCRUM-25 to 28, SCRUM-47: the comments box is styled in EventComments.tsx with theme classes since SCRUM-159. */
 .alert--info { background: var(--selected); color: var(--steel-dark); border-color: var(--steel); }
 
 /* Fact lists: label column beside the value on wide screens, stacked on phones */
