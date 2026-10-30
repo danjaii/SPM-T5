@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // SCRUM-122: the sign-in page itself needs no backend, but signing in and the access-denied page need the local stack
 // (supabase start + seed and auth-service), which CI's e2e job doesn't run. Opt in with E2E_FULL_STACK=1.
@@ -15,6 +15,38 @@ test.describe("SCRUM-122 sign in", () => {
     await page.getByRole("option", { name: "Attendee" }).click();
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/dashboard\/attendee$/);
+  });
+
+  const signInAsAttendee = async (page: Page) => {
+    await page.getByLabel("Work email").fill("alicia.fernandez@example.com");
+    await page.getByLabel("Password").fill(PASSWORD);
+    await page.getByRole("combobox", { name: "Continue as" }).click();
+    await page.getByRole("option", { name: "Attendee" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
+  };
+  const sidebar = (page: Page) => page.getByRole("complementary");
+
+  test("SCRUM-177/AC1 the sidebar is shown straight after signing in, without a refresh", async ({ page }) => {
+    await page.goto("/login");
+    await signInAsAttendee(page);
+    await expect(page).toHaveURL(/\/dashboard\/attendee$/);
+    await expect(sidebar(page)).toBeVisible();
+  });
+
+  test("SCRUM-177/AC2 signing in from a next address lands there, with the sidebar", async ({ page }) => {
+    await page.goto("/login?next=/profile");
+    await signInAsAttendee(page);
+    await expect(page).toHaveURL(/\/profile$/);
+    await expect(sidebar(page)).toBeVisible();
+  });
+
+  test("SCRUM-177/AC3 Back does not return to the filled-in sign-in form", async ({ page }) => {
+    await page.goto("/forgot-password");
+    await page.goto("/login");
+    await signInAsAttendee(page);
+    await expect(page).toHaveURL(/\/dashboard\/attendee$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/forgot-password$/); // the page before the sign-in form, which was replaced
   });
 
   test("SCRUM-122/AC2 a wrong password shows an inline error and keeps the email", async ({ page }) => {
