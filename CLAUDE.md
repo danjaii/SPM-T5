@@ -101,6 +101,8 @@ pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"        #
 pnpm --filter @spm-t5/auth-service run typecheck   # tsc --noEmit (apps/web runs `next typegen` first)
 pnpm run lint:all                            # apps/web uses ESLint flat config (eslint.config.mjs)
 pnpm --filter @spm-t5/web run test:e2e        # Playwright
+pnpm run traceability                        # regenerate docs/traceability.md (runs every test; local Supabase up)
+pnpm run test:scripts                        # tests for scripts/traceability
 ```
 
 Local full stack: create a root `.env` (variables listed in README → Getting started), then `supabase start` (the Supabase CLI stack runs
@@ -177,6 +179,10 @@ venue 4003, equipment 4004, notification 4005).
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
   on unit tests (coverage is switched on in the root `vitest.config.mts`, so only CI's unit run counts).
+  [docs/traceability.md](docs/traceability.md) maps every story's ACs to their tests (SCRUM-175). It is generated, never
+  edited by hand: after a story's tests pass, run `pnpm run traceability` (local Supabase running; it runs every test and
+  writes the file only when all pass) and commit the result. A test is matched only when its name cites
+  `SCRUM-<story>/AC<n>` or a spec scenario ID, so an AC with no such test shows as Not covered when the story has a spec.
 - **Keep a service's code split by job**, as the existing services do: `routes/`, `services/` for
   business logic, `middlewares/`, and `readers/` or `repositories/` for database access, rather than
   one growing file.
