@@ -435,7 +435,7 @@ describe("SCRUM-99/AC7 an event cannot skip the safety check", () => {
 
 // ---------------------------------------------------------------------------
 // SCRUM-174 — Cancel an Event and Release Its Arrangements (docs/specs/cancel-event.md). The releases happen in the
-// database (migration 60); the route checks the reason and reports what the database refuses.
+// database (migrations 60 to 64); the route checks the reason and reports what the database refuses.
 // ---------------------------------------------------------------------------
 describe("SCRUM-174 — Cancel an event", () => {
   const planningEvent = (coordinatorId: string) => ({
