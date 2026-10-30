@@ -64,7 +64,7 @@ describe("SCRUM-55/AC2 drafts are visually distinguished", () => {
     render(<MyEventRequestsTable requests={[make("1", "", "draft"), make("2", "Untitled draft", "draft"), make("3", "  ", "draft")]} />);
 
     const links = screen.getAllByRole("link", { name: "Untitled draft" });
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/events/1", "/events/2", "/events/3"]);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/events/new?draft=1", "/events/new?draft=2", "/events/new?draft=3"]); // a draft opens the form (SCRUM-54/AC1)
   });
 
   it("SCRUM-55/AC2 keeps a real draft name as it is", () => {
@@ -112,7 +112,9 @@ describe("SCRUM-55/AC3 filter by status", () => {
   it("SCRUM-55/AC3 orders the chips by the request lifecycle, not by the list order", () => {
     render(<MyEventRequestsList requests={[make("1", "A", "approved"), make("2", "B", "draft"), make("3", "C", "mystery")]} />);
 
-    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["All 3", "Draft 1", "Approved 1", "mystery 1"]);
+    // the status chips only: a draft row also has its own Delete button (SCRUM-56)
+    const chips = screen.getAllByRole("button").filter((b) => !b.getAttribute("aria-label")?.startsWith("Delete draft"));
+    expect(chips.map((b) => b.textContent)).toEqual(["All 3", "Draft 1", "Approved 1", "mystery 1"]);
   });
 
   it("SCRUM-55/AC3 offers no filter when there are no requests, and says so", () => {
