@@ -46,7 +46,7 @@ export class FakeBookingRepository implements BookingRepository {
   /** The trigger on venue_bookings: a booking that stops holding, or moves so the pair no longer clashes, clears its flags. */
   private afterBookingChange(row: BookingRecord, moved: boolean): void {
     const involves = (f: FakeFlag) => f.bookingId === row.id || f.otherBookingId === row.id;
-    if (!isHoldingDbStatus(row.status)) {
+    if (!isHoldingDbStatus(row.status, row.holdExpiresAt, this.now())) {
       this.resolveFlags(involves, "booking_closed");
     } else if (moved) {
       this.resolveFlags((f) => {
@@ -63,7 +63,7 @@ export class FakeBookingRepository implements BookingRepository {
   /** refresh_buffer_flags(): flag every pair of holding, future bookings whose padded periods overlap, both ways; resolve the rest. */
   refreshBufferFlags(venueId: string): void {
     const venue = this.venueOf(venueId);
-    const live = this.rows.filter((r) => r.venueId === venueId && isHoldingDbStatus(r.status) && r.end.getTime() > this.now().getTime());
+    const live = this.rows.filter((r) => r.venueId === venueId && isHoldingDbStatus(r.status, r.holdExpiresAt, this.now()) && r.end.getTime() > this.now().getTime());
     const pairs: [BookingRecord, BookingRecord][] = [];
     for (const x of live) for (const y of live) if (x.id < y.id && periodsOverlap(paddedPeriod(x, venue), paddedPeriod(y, venue))) pairs.push([x, y]);
     const has = (a: string, b: string) => this.flagRows.some((f) => f.resolvedAt === null && f.bookingId === a && f.otherBookingId === b);
@@ -178,7 +178,7 @@ export class FakeBookingRepository implements BookingRepository {
     const venue = this.venueOf(venueId);
     const wanted = paddedPeriod(p, venue);
     return this.rows
-      .filter((r) => r.id !== excludeId && r.venueId === venueId && isHoldingDbStatus(r.status) && periodsOverlap(paddedPeriod(r, venue), wanted))
+      .filter((r) => r.id !== excludeId && r.venueId === venueId && isHoldingDbStatus(r.status, r.holdExpiresAt, this.now()) && periodsOverlap(paddedPeriod(r, venue), wanted))
       .sort((a, b) => a.start.getTime() - b.start.getTime());
   }
 
@@ -226,7 +226,7 @@ export class FakeBookingRepository implements BookingRepository {
   async occupiedPeriods(venueId: string, from: Date, to: Date): Promise<SlotConflict[]> {
     const venue = this.venueOf(venueId);
     return this.rows
-      .filter((r) => r.venueId === venueId && isHoldingDbStatus(r.status) && periodsOverlap(paddedPeriod(r, venue), { start: from, end: to }))
+      .filter((r) => r.venueId === venueId && isHoldingDbStatus(r.status, r.holdExpiresAt, this.now()) && periodsOverlap(paddedPeriod(r, venue), { start: from, end: to }))
       .sort((a, b) => a.start.getTime() - b.start.getTime())
       .map((r) => this.occupied(r, venue));
   }
@@ -329,7 +329,7 @@ export class FakeBookingRepository implements BookingRepository {
 
   async insert(input: NewBooking): Promise<BookingRecord> {
     // migration 28 (98-S20): one active replacement per rejected venue booking
-    if (input.amendsBookingId && this.rows.some((r) => r.amendsBookingId === input.amendsBookingId && isHoldingDbStatus(r.status))) {
+    if (input.amendsBookingId && this.rows.some((r) => r.amendsBookingId === input.amendsBookingId && isHoldingDbStatus(r.status, r.holdExpiresAt, this.now()))) {
       throw bookingError("ACTIVE_REQUEST_EXISTS");
     }
     if (

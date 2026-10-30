@@ -31,8 +31,14 @@ export function dbStatusToApi(dbStatus: string): VenueBookingStatus | undefined 
 /** DR5: a request holds its venue and period only in these DB statuses. */
 export const HOLDING_DB_STATUSES = ["requested", "tentative", "approved", "confirmed"] as const;
 
-export function isHoldingDbStatus(dbStatus: string): boolean {
-  return (HOLDING_DB_STATUSES as readonly string[]).includes(dbStatus);
+/**
+ * SCRUM-97: a pending request (the hold) stops holding its slot the moment its expiry passes; no expiry means it holds until it is
+ * decided or withdrawn. Approved and confirmed bookings never expire. The database does the same in venue_booking_holds_slot().
+ */
+export function isHoldingDbStatus(dbStatus: string, holdExpiresAt?: Date | null, now: Date = new Date()): boolean {
+  if (!(HOLDING_DB_STATUSES as readonly string[]).includes(dbStatus)) return false;
+  if (dbStatus === "requested" && holdExpiresAt != null) return holdExpiresAt.getTime() > now.getTime();
+  return true;
 }
 
 // ---------------------------------------------------------------------------
