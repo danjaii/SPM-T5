@@ -12,6 +12,9 @@ const EMAILS = {
   coordinator: "rachel.tan@connectsphere.example.com",
   organiser: "jason.chua@techconnect.example.com",
   technician: "aaron.koh@connectsphere.example.com",
+  registered: "alicia.fernandez@example.com",
+  waitlisted: "amanda.seah@example.com",
+  withdrawn: "brandon.teo@example.com",
 };
 
 const START = "2031-03-03T01:00:00+00:00";
@@ -245,6 +248,28 @@ describe.skipIf(!hasDb)("SCRUM-174 cancel an event (migrations 60 to 64)", () =>
       status: "rejected",
       review_notes: "Closed automatically: the event was completed.",
     });
+  });
+
+  // ----------------------------------------------------------------------------
+  // AC6 the organiser and active attendees told why
+  // ----------------------------------------------------------------------------
+
+  it("174-S9 SCRUM-174/AC6 tells the organiser and each active attendee once, with the reason; not a withdrawn attendee or the coordinator", async () => {
+    const eventId = await planningEvent();
+    await insert("event_registrations", { event_id: eventId, attendee_id: who.registered.userId, status: "registered" });
+    await insert("event_registrations", { event_id: eventId, attendee_id: who.waitlisted.userId, status: "waitlisted" });
+    await insert("event_registrations", {
+      event_id: eventId, attendee_id: who.withdrawn.userId, status: "withdrawn", withdrawn_at: "2031-02-01T00:00:00+00:00",
+    });
+
+    await changeStatus(who.coordinator, eventId, "cancelled", "Organiser withdrew the event");
+
+    const told = ((await admin.from("notifications").select("user_id, type, title, message").eq("event_id", eventId).eq("type", "event_cancelled")).data ?? []) as Row[];
+    expect(told.map((n) => n.user_id).sort()).toEqual([who.organiser.userId, who.registered.userId, who.waitlisted.userId].sort());
+    for (const n of told) {
+      expect(n.title).toBe("An event was cancelled");
+      expect(n.message).toMatch(/^IT-174-\w+ was cancelled\. Reason: Organiser withdrew the event$/);
+    }
   });
 });
 
