@@ -69,6 +69,6 @@ one I have not processed yet, so that I never approve two contradicting changes 
 | 176-S5 | AC3 | his attendance request was approved, and another was rejected | he asks to change attendance | accepted |
 | 176-S6 | AC1 | a pending request changes attendance | two attendance requests arrive in the database at once, or one is inserted directly | the database refuses the one that conflicts (`CS176`); one pending request remains |
 | 176-S7 | AC1 | another event of his has a pending attendance request | he asks to change this event's attendance | accepted: requests on different events never conflict |
-| 176-S8 | AC4 | a pending request changes the start time and attendance | he opens the form | it says "Waiting for your coordinator: date and time, expected attendance" |
+| 176-S8 | AC4 | a pending request changes the start time and attendance | he opens the form | it says "Already waiting for your coordinator: expected attendance, date and time. A new request can't change these until your coordinator has decided." |
 | 176-S9 | AC4 | no request is pending (only decided ones) | he opens the form | no waiting notice |
 | 176-S10 | AC1 | the form is open | the server refuses as conflicting | the refusal is shown and the form keeps what he typed |
