@@ -77,3 +77,68 @@ describe("SCRUM-130/AC3 Venue Staff mark a venue unavailable from the calendar",
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+// Added after the independent review
+describe("SCRUM-130/AC3 review gaps", () => {
+  beforeEach(() => post.mockReset());
+  afterEach(() => vi.unstubAllGlobals());
+
+  const fill = (dialog: HTMLElement) => {
+    for (const [label, value] of [["Start date", "2026-11-14"], ["Start time", "09:00"], ["End date", "2026-11-14"], ["End time", "11:00"]]) {
+      fireEvent.change(within(dialog).getByLabelText(label), { target: { value } });
+    }
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "maintenance" } });
+  };
+
+  it("reloads the same dates the organiser had chosen, not the current week", async () => {
+    const urls: string[] = [];
+    const fetchMock = vi.fn(async (url: string) => { urls.push(url); return jsonReply(200, calendarFixture({ venues: [venueFixture({ periods: [openPeriod()] })] })); });
+    vi.stubGlobal("fetch", fetchMock);
+    post.mockResolvedValue({ ok: true, data: { affectedBookings: 0 } });
+    render(<VenueCalendar canMarkUnavailable />);
+    await screen.findByText("Available");
+    fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-11-16" } });
+    fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-11-22" } });
+    fireEvent.click(screen.getByRole("button", { name: "Show calendar" }));
+    await waitFor(() => expect(urls).toHaveLength(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark Orchid Hall unavailable" }));
+    fill(await screen.findByRole("dialog"));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save unavailable period" }));
+
+    await waitFor(() => expect(urls).toHaveLength(3));
+    expect(urls[2]).toBe(urls[1]);
+    expect(urls[2]).toContain("from=2026-11-16");
+    expect(urls[2]).toContain("to=2026-11-22");
+  });
+
+  it("shows why a save failed, keeps what was typed, and leaves the calendar unchanged", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonReply(200, calendarFixture({ venues: [venueFixture({ periods: [openPeriod()] })] }))));
+    post.mockResolvedValue({ ok: false, data: { error: "Only venue staff can mark a venue unavailable." } });
+    render(<VenueCalendar canMarkUnavailable />);
+    await screen.findByText("Available");
+    fireEvent.click(screen.getByRole("button", { name: "Mark Orchid Hall unavailable" }));
+    const dialog = await screen.findByRole("dialog");
+    fill(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save unavailable period" }));
+
+    expect((await within(dialog).findByRole("alert")).textContent).toContain("Only venue staff can mark a venue unavailable.");
+    expect((within(dialog).getByLabelText("End time") as HTMLInputElement).value).toBe("11:00");
+    expect(screen.getAllByText("Available").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Blocked")).toBeNull();
+  });
+
+  it("posts to the venue whose button was clicked, and names it in the dialog", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonReply(200, calendarFixture())));
+    post.mockResolvedValue({ ok: true, data: { affectedBookings: 0 } });
+    render(<VenueCalendar canMarkUnavailable />);
+    await screen.findByText("Jasmine Room");
+    fireEvent.click(screen.getByRole("button", { name: "Mark Jasmine Room unavailable" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Mark Jasmine Room unavailable")).toBeTruthy();
+    fill(dialog);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save unavailable period" }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect(post.mock.calls[0][0]).toBe("jasmine");
+  });
+});
