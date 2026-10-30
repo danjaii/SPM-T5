@@ -1,10 +1,7 @@
 // this test file checks the sign-in form: where it takes the user once they have signed in, and the reset password link
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LoginForm } from "@/components/LoginForm";
 
@@ -22,6 +19,13 @@ function signIn() {
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 }
 
+// SCRUM-177: signing in is a full page load, so the browser's location.replace is watched instead of navigating
+const replace = vi.fn();
+
+beforeEach(() => {
+  vi.stubGlobal("location", { ...window.location, replace });
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   replace.mockClear();
@@ -32,7 +36,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 describe("SCRUM-83 — Sign-in returns a guest to the registration form", () => {
   // AC2: the route guard sent the guest here with ?next=/events/<id>/register; signing in takes them back there
-  it("SCRUM-83/AC2 returns the user to the registration form after signing in", async () => {
+  it("SCRUM-83/AC2 SCRUM-177/AC2 returns the user to the registration form after signing in", async () => {
     mockSuccessfulSignIn();
     render(<LoginForm next="/events/evt-1/register" />);
 
@@ -63,7 +67,7 @@ describe("SCRUM-83 — Sign-in returns a guest to the registration form", () => 
 // ---------------------------------------------------------------------------
 describe("SCRUM-122 — Sign-in form", () => {
   // AC1: valid credentials land on the home page auth-service names for the role
-  it("SCRUM-122/AC1 lands on the role's home page after a valid sign-in", async () => {
+  it("SCRUM-122/AC1 SCRUM-177/AC1 SCRUM-177/AC3 lands on the role's home page after a valid sign-in, replacing the sign-in page", async () => {
     mockSuccessfulSignIn();
     render(<LoginForm />);
 
@@ -73,7 +77,7 @@ describe("SCRUM-122 — Sign-in form", () => {
   });
 
   // AC2: wrong credentials show an inline error and keep the email the user typed
-  it("SCRUM-122/AC2 shows an inline error and keeps the email after a failed sign-in", async () => {
+  it("SCRUM-122/AC2 SCRUM-177/AC4 shows an inline error and keeps the email after a failed sign-in", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "Invalid email, password or role." }) }));
     render(<LoginForm />);
 

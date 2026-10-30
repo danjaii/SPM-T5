@@ -1,7 +1,6 @@
 "use client";
 
 import { Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { isRole, type Role } from "@spm-t5/shared";
 import { AuthAlert, AuthHeader, AuthLink } from "@/components/auth/AuthParts";
@@ -26,7 +25,6 @@ interface Props {
 const ROLE_ITEMS = ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }));
 
 export function LoginForm({ next, passwordReset }: Props = {}) {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("event_coordinator");
@@ -39,8 +37,9 @@ export function LoginForm({ next, passwordReset }: Props = {}) {
     setSubmitting(true);
     const { ok, data } = await postJson<{ redirectTo: string }>("/auth/login", { email, password, role });
     if (ok) {
-      // replace, so "Back" from the dashboard never returns to a filled-in sign-in form
-      router.replace(isSafePath(next) ? next : data.redirectTo);
+      // replace, so "Back" from the dashboard never returns to a filled-in sign-in form. SCRUM-177: a full page load,
+      // because the sidebar is in the root layout, which a client-side navigation would leave as signed out.
+      window.location.replace(isSafePath(next) ? next : data.redirectTo);
       return;
     }
     // SCRUM-122/AC2: the email stays as typed; only the password is cleared so the user retypes just that
