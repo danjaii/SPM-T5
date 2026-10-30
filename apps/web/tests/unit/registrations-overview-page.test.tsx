@@ -128,3 +128,21 @@ describe("SCRUM-169 — Registrations overview page", () => {
   });
 });
 // end of SCRUM-169
+
+// ---------------------------------------------------------------------------
+// SCRUM-170 — The organiser adds VIPs from this page
+// ---------------------------------------------------------------------------
+describe("SCRUM-170 — Registrations overview page", () => {
+  it.each([
+    ["offers the organiser the Add VIP form", true, 1],
+    ["hides it from the coordinator", false, 0],
+  ])("SCRUM-170/AC3 %s", async (_name, can_decide, forms) => {
+    getManagedEvents.mockResolvedValue({ events: [{ ...TECH_SUMMIT, can_decide }] });
+    getEventRegistrations.mockResolvedValue({ registrations: [] });
+
+    await renderPage({ event: "evt-1" });
+
+    expect(screen.queryAllByRole("button", { name: "Add VIP" })).toHaveLength(forms);
+  });
+});
+// end of SCRUM-170

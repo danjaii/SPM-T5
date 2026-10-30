@@ -87,6 +87,7 @@ function createFake(
     registerError = null,
     registerStatus = "registered",
     decideError = null,
+    vipError = null,
     readError = null,
     profile = PROFILE,
     registrations = [],
@@ -95,6 +96,7 @@ function createFake(
     registerError?: { code: string; message: string } | null;
     registerStatus?: string;
     decideError?: { code: string; message: string } | null;
+    vipError?: { code: string; message: string; details?: string } | null;
     readError?: { message: string } | null;
     profile?: Row;
     registrations?: Row[];
@@ -108,6 +110,7 @@ function createFake(
   };
   const registerCalls: Row[] = [];
   const decideCalls: Row[] = [];
+  const vipCalls: Row[] = [];
   const updates: { table: string; id: unknown; fields: Row }[] = [];
   // A read of `rows`: each .eq() narrows them; then read as one row (maybeSingle) or as a list (await)
   const query = (rows: Row[]) => ({
@@ -157,6 +160,11 @@ function createFake(
           if (decideError) return { data: null, error: decideError };
           return { data: args.p_decision === "confirm" ? "registered" : "cancelled", error: null };
         }
+        // SCRUM-170: the organiser's VIP add, answered with the status it saved
+        if (fn === "add_vip_registration") {
+          vipCalls.push(args);
+          return vipError ? { data: null, error: vipError } : { data: "registered", error: null };
+        }
         // SCRUM-154: the caller's own email and phone come from my_contact_details(), as a one-row table
         if (fn === "my_contact_details") {
           return { data: [{ email: profile.email, phone: profile.phone, communication_preferences: {} }], error: null };
@@ -170,7 +178,7 @@ function createFake(
       },
     }),
   } as unknown as SupabaseDeps;
-  return { deps, registerCalls, decideCalls, updates };
+  return { deps, registerCalls, decideCalls, vipCalls, updates };
 }
 // end of fake Supabase
 
@@ -478,6 +486,114 @@ describe("SCRUM-169 — The organiser confirms or declines a Pending registratio
 });
 
 // ---------------------------------------------------------------------------
+// SCRUM-170 — The organiser adds a VIP (POST /events/:id/vip-registrations)
+// ---------------------------------------------------------------------------
+describe("SCRUM-170 — The organiser adds a VIP past the registration cap", () => {
+  const addVip = (fake: ReturnType<typeof createFake>, body: Row) =>
+    request(createApp(fake.deps)).post("/events/evt-1/vip-registrations").set("Cookie", ORGANISER).send(body);
+
+  it("SCRUM-170/AC1 reports the VIP as Confirmed", async () => {
+    const fake = createFake([]);
+
+    const res = await addVip(fake, { email: "  vip@example.com " });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ status: "confirmed" });
+    expect(fake.vipCalls).toEqual([{ p_event_id: "evt-1", p_email: "vip@example.com" }]);
+  });
+
+  it.each([{ email: "not-an-email" }, { email: "" }, {}])("SCRUM-170/AC1 refuses %j before asking the database", async (body) => {
+    const fake = createFake([]);
+
+    const res = await addVip(fake, body);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ errors: { email: expect.any(String) } });
+    expect(fake.vipCalls).toEqual([]);
+  });
+
+  // AC2: a clear message, naming the limit
+  it("SCRUM-170/AC2 explains a refusal at the venue's capacity", async () => {
+    const fake = createFake([], { vipError: { code: "CS170", message: "VENUE_FULL", details: "120" } });
+
+    const res = await addVip(fake, { email: "vip@example.com" });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This would take the event past its venue's capacity of 120." });
+  });
+
+  it("SCRUM-170/AC2 explains a refusal when the event has no approved venue", async () => {
+    const fake = createFake([], { vipError: { code: "CS170", message: "NO_VENUE" } });
+
+    const res = await addVip(fake, { email: "vip@example.com" });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This event has no approved venue yet, so a VIP can't be checked against its capacity." });
+  });
+
+  // AC3: refused by the database; the route only reports it, with the same answer as an unknown event
+  it("SCRUM-170/AC3 answers not found for someone who isn't the event's organiser", async () => {
+    const fake = createFake([], { vipError: { code: "CS170", message: "NOT_FOUND" } });
+
+    const res = await addVip(fake, { email: "vip@example.com" });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Event not found." });
+  });
+
+  it("SCRUM-170/AC1 says so when no attendee account uses the email", async () => {
+    const fake = createFake([], { vipError: { code: "CS170", message: "ACCOUNT_NOT_FOUND" } });
+
+    const res = await addVip(fake, { email: "vip@example.com" });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "No attendee account uses that email." });
+  });
+
+  // AC4: already Confirmed, or a duplicate the database's one-active-registration rule turned away
+  it.each([
+    ["already Confirmed", { code: "CS170", message: "ALREADY_REGISTERED" }],
+    ["a duplicate", { code: "23505", message: "duplicate key" }],
+  ])("SCRUM-170/AC4 explains a refusal for %s", async (_name, vipError) => {
+    const fake = createFake([], { vipError });
+
+    const res = await addVip(fake, { email: "vip@example.com" });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This attendee already has an active registration for this event." });
+  });
+
+  it("SCRUM-170/AC1 explains a refusal for an event no longer taking registrations", async () => {
+    const fake = createFake([], { vipError: { code: "CS170", message: "EVENT_CLOSED" } });
+
+    const res = await addVip(fake, { email: "vip@example.com" });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "This event is no longer taking registrations." });
+  });
+
+  it("SCRUM-170/AC1 reports an error when the database fails", async () => {
+    const fake = createFake([], { vipError: { code: "08006", message: "connection failure" } });
+
+    const res = await addVip(fake, { email: "vip@example.com" });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't add this VIP. Please try again." });
+  });
+
+  // The label on the organiser's and coordinator's list
+  it("SCRUM-170/AC1 marks a VIP in the event's registrations", async () => {
+    const vip = registrationRow({ id: "reg-vip", status: "registered", is_vip: true });
+    const normal = registrationRow({ id: "reg-normal", status: "registered", is_vip: false, registered_at: "2026-09-01T02:00:00Z" });
+    const fake = createFake([], { registrations: [vip, normal] });
+
+    const res = await request(createApp(fake.deps)).get("/events/evt-1/registrations").set("Cookie", ORGANISER);
+
+    expect(res.body.map((r: Row) => [r.id, r.is_vip])).toEqual([["reg-vip", true], ["reg-normal", false]]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SCRUM-83 — The registration form's data (GET /events/:id/registration-form)
 // ---------------------------------------------------------------------------
 describe("SCRUM-83 — Registration form data (GET /events/:id/registration-form)", () => {
@@ -685,6 +801,7 @@ describe("SCRUM-83 — Event registrations (GET /events/:id/registrations)", () 
         {
           id: "reg-1",
           status: "pending",
+          is_vip: false,
           registered_at: "2026-10-01T02:00:00Z",
           name: "Alicia Fernandez",
           email: "alicia.fernandez@example.com",
@@ -693,6 +810,7 @@ describe("SCRUM-83 — Event registrations (GET /events/:id/registrations)", () 
         {
           id: "reg-2",
           status: "confirmed",
+          is_vip: false,
           registered_at: "2026-10-02T02:00:00Z",
           name: "Ben Lim",
           email: "ben.lim@example.com",

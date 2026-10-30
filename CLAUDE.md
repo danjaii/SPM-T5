@@ -101,6 +101,8 @@ pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"        #
 pnpm --filter @spm-t5/auth-service run typecheck   # tsc --noEmit (apps/web runs `next typegen` first)
 pnpm run lint:all                            # apps/web uses ESLint flat config (eslint.config.mjs)
 pnpm --filter @spm-t5/web run test:e2e        # Playwright
+pnpm run traceability                        # regenerate docs/traceability.md (runs every test; local Supabase up)
+pnpm run test:scripts                        # tests for scripts/traceability
 ```
 
 Local full stack: create a root `.env` (variables listed in README → Getting started), then `supabase start` (the Supabase CLI stack runs
@@ -177,6 +179,10 @@ venue 4003, equipment 4004, notification 4005).
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
   on unit tests (coverage is switched on in the root `vitest.config.mts`, so only CI's unit run counts).
+  [docs/traceability.md](docs/traceability.md) maps every story's ACs to their tests (SCRUM-175). It is generated, never
+  edited by hand: after a story's tests pass, run `pnpm run traceability` (local Supabase running; it runs every test and
+  writes the file only when all pass) and commit the result. A test is matched only when its name cites
+  `SCRUM-<story>/AC<n>` or a spec scenario ID, so an AC with no such test shows as Not covered when the story has a spec.
 - **Keep a service's code split by job**, as the existing services do: `routes/`, `services/` for
   business logic, `middlewares/`, and `readers/` or `repositories/` for database access, rather than
   one growing file.
@@ -355,6 +361,10 @@ straight away while places remain and Pending once the event is full (SCRUM-169,
 row so two attendees can't both take the last place, and a full event still offers Register (`can_register`). On that page the event's
 organiser confirms or declines each Pending one (`POST /events/:id/registrations/:registrationId/decision`, `decide_registration()`);
 confirming on a full event is refused (`EVENT_FULL`, SQLSTATE `CS169`), and withdrawing frees a place without promoting anyone.
+The organiser can also add a VIP past the cap there, by the email of an attendee account (SCRUM-170, migration 69): `POST
+/events/:id/vip-registrations` calls `add_vip_registration()`, which only the event's organiser can use and which refuses at the smallest
+approved venue's capacity (`VENUE_FULL`, SQLSTATE `CS170`). A Pending attendee is confirmed on their own row, the VIP gets the usual status
+notification, and `event_registrations.is_vip` shows a VIP label to the organiser and coordinator. A VIP uses a place like anyone else.
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,

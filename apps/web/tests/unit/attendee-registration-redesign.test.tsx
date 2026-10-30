@@ -120,6 +120,7 @@ describe("SCRUM-139/AC3 withdrawing", () => {
 
 describe("SCRUM-139/AC4 registrations against capacity", () => {
   const aRegistration = (id: string, status: EventRegistration["status"]): EventRegistration => ({
+    is_vip: false,
     id,
     status,
     registered_at: "2026-10-01T02:00:00Z",

@@ -53,6 +53,13 @@ export function validateRegistrationForm(
   return { ok: false, errors };
 }
 
+/** SCRUM-170: the email the organiser types to add a VIP, by the same rule as the registration form's (SCRUM-83/AC11). */
+export function validateVipEmail(input: unknown): { ok: true; email: string } | { ok: false; error: string } {
+  const parsed = registrationFormSchema.shape.email.safeParse(input);
+  if (parsed.success) return { ok: true, email: parsed.data };
+  return { ok: false, error: "Enter a valid email address." };
+}
+
 /**
  * SCRUM-73/AC7: whether a registration's attendee gets the event's updates and reminders. notification-service
  * doesn't send any yet; this is the rule it uses to pick an event's recipients.
