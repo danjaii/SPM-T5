@@ -1,7 +1,7 @@
 // SCRUM-175 — Traceability matrix from user stories to tests. Run: node --test "scripts/traceability/*.test.mjs"
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseSpec, refsOf } from "./lib.mjs";
+import { buildMatrix, lineOf, parseSpec, refsOf, renderMarkdown } from "./lib.mjs";
 
 describe("SCRUM-175/AC1 which story and AC a test checks, from its name", () => {
   it("reads a story and its AC", () => {
@@ -74,5 +74,100 @@ describe("SCRUM-175/AC2 a story's full list of ACs, and its scenarios, from its 
     const { scenarios } = parseSpec(spec, "x.md");
 
     assert.deepEqual(scenarios, { "174-S1": [1], "174-S13": [1, 2], "36-S4": [] });
+  });
+});
+
+describe("SCRUM-175/AC1 where each test is, so the matrix can link to it", () => {
+  const source = [
+    'describe("SCRUM-174 — Cancel an event", () => {',
+    '  it("174-S2 SCRUM-174/AC2 cancels the event", async () => {});',
+    '  it.each(["", "   "])("174-S1 SCRUM-174/AC1 refuses no reason (%j)", async (reason) => {});',
+    '  it(`SCRUM-12/AC1: shows an error next to ${field} when empty`, () => {});',
+    "});",
+  ].join("\n");
+
+  it("finds a test's line from the last part of its name", () => {
+    assert.equal(lineOf(source, "SCRUM-174 — Cancel an event > 174-S2 SCRUM-174/AC2 cancels the event"), 2);
+  });
+
+  it("finds an it.each test, whose name has the value filled in", () => {
+    assert.equal(lineOf(source, 'SCRUM-174 — Cancel an event > 174-S1 SCRUM-174/AC1 refuses no reason ("   ")'), 3);
+  });
+
+  it("finds a test named with a template string", () => {
+    assert.equal(lineOf(source, "x > SCRUM-12/AC1: shows an error next to email when empty"), 4);
+  });
+
+  it("gives no line when the name cannot be found", () => {
+    assert.equal(lineOf(source, "x > a test that is not here"), null);
+  });
+});
+
+describe("SCRUM-175/AC1,AC2 the matrix: each story's ACs with their tests, and what is not covered", () => {
+  const specs = {
+    stories: { 174: { title: "Cancel an Event", acs: { 1: "Reason required", 2: "Recorded", 3: "Bookings released" }, file: "cancel-event.md" } },
+    scenarios: {},
+  };
+  const test = (name, line, file = "services/event-service/tests/unit/event-status.test.ts") => ({ name, file, line });
+
+  const matrix = buildMatrix(
+    [
+      test("SCRUM-174/AC1 refuses no reason (\"\")", 3),
+      test("SCRUM-174/AC1 refuses no reason (\"   \")", 3),
+      test("SCRUM-174/AC2 records the reason", 7),
+      test("SCRUM-174 — a story-level test", 9),
+      test("SCRUM-68/AC1 shows the profile", 26, "services/auth-service/tests/unit/profile.test.ts"),
+      test("health > reports ok", 4, "services/auth-service/tests/unit/health.test.ts"),
+    ],
+    specs,
+  );
+
+  it("lists the stories in number order, with the spec's title where there is one", () => {
+    assert.deepEqual(matrix.stories.map((s) => [s.story, s.title]), [[68, null], [174, "Cancel an Event"]]);
+  });
+
+  it("gives each AC its text and tests; an it.each test's cases count once, with how many there are", () => {
+    const ac1 = matrix.stories[1].acs[0];
+    assert.equal(ac1.text, "Reason required");
+    assert.deepEqual(ac1.tests, [{ file: "services/event-service/tests/unit/event-status.test.ts", line: 3, name: 'SCRUM-174/AC1 refuses no reason ("")', cases: 2 }]);
+  });
+
+  it("marks an AC in the spec with no test as not covered, rather than leaving it out (AC2)", () => {
+    assert.deepEqual(matrix.stories[1].acs.map((a) => [a.ac, a.covered]), [[1, true], [2, true], [3, false]]);
+  });
+
+  it("keeps tests that name the story but no AC apart, and counts tests that name no story", () => {
+    assert.deepEqual(matrix.stories[1].storyLevel.map((t) => t.line), [9]);
+    assert.equal(matrix.untraced, 1);
+    assert.equal(matrix.total, 6);
+  });
+
+  it("says whether a story's AC list came from its spec, since only then can a gap be shown", () => {
+    assert.deepEqual(matrix.stories.map((s) => s.fromSpec), [false, true]);
+  });
+});
+
+describe("SCRUM-175/AC1,AC3 the matrix as Markdown", () => {
+  const matrix = buildMatrix(
+    [
+      { name: "SCRUM-174/AC1 refuses no reason", file: "services/event-service/tests/unit/event-status.test.ts", line: 3 },
+    ],
+    { stories: { 174: { title: "Cancel an Event", acs: { 1: "Reason required", 2: "Recorded" }, file: "cancel-event.md" } }, scenarios: {} },
+  );
+  const md = renderMarkdown(matrix, { date: "2026-10-30", commit: "abc1234", passed: 4425 });
+
+  it("says at the top when it was made, from which commit, that the tests passed, and how to rerun one story's tests (AC3)", () => {
+    assert.match(md, /Generated 2026-10-30 from commit `abc1234`/);
+    assert.match(md, /4425 tests passed/);
+    assert.match(md, /pnpm vitest run -t "SCRUM-68\|68-S\[0-9\]"/);
+    assert.match(md, /pnpm run traceability/);
+  });
+
+  it("links each test to its file and line, relative to docs/ (AC1)", () => {
+    assert.match(md, /\[event-status\.test\.ts:3\]\(\.\.\/services\/event-service\/tests\/unit\/event-status\.test\.ts#L3\)/);
+  });
+
+  it("writes Not covered for an AC with no test (AC2)", () => {
+    assert.match(md, /\| AC2 \| Recorded \| \*\*Not covered\*\* \|/);
   });
 });
