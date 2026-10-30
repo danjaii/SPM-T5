@@ -6,6 +6,7 @@ const { getVenues, getVenueSearchOptions, getEvent } = vi.hoisted(() => ({ getVe
 vi.mock("@/lib/getVenues", () => ({ getVenues }));
 vi.mock("@/lib/venueSearchServer", () => ({ getVenueSearchOptions }));
 vi.mock("@/lib/getEvent", () => ({ getEvent }));
+vi.mock("@/lib/venueCatalogueServer", () => ({ canAddVenue: vi.fn(async () => false) })); // SCRUM-57: tested in venue-add.test.tsx
 vi.mock("@/lib/venueSearch", () => ({ searchVenues: vi.fn(async () => ({ ok: true, data: { venues: [] } })) }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn() }) }));
 
