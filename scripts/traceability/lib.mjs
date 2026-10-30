@@ -33,7 +33,8 @@ export function refsOf(name, scenarios) {
  * A spec's stories (title and every AC with its text) and its scenario table (scenario ID -> AC numbers). The specs write
  * ACs four ways: `*AC1.* …`, `**AC1** …` (optionally numbered), and `| AC1 | … |` table rows. A story's section starts at
  * `## SCRUM-<n> <title>`; a spec with no such heading takes its story from its key table (`| SCRUM-<n> | <title> |`) or its
- * file name. Only stories with at least one AC are returned.
+ * file name. An AC the spec wraps onto following lines keeps them, up to a blank line. Only stories with at least one AC
+ * are returned.
  */
 export function parseSpec(text, fileName) {
   const all = {};
@@ -41,31 +42,43 @@ export function parseSpec(text, fileName) {
   const story = (n) => (all[n] ??= { title: null, acs: {}, file: fileName });
   let current = /SCRUM-(\d+)/.exec(fileName)?.[1] ?? null;
   let sawHeading = false;
+  let wrapping = null; // the AC whose text may continue on the next line
 
   for (const line of text.split(/\r?\n/)) {
     const heading = /^##\s+SCRUM-(\d+)\s+(.+?)\s*$/.exec(line);
     if (heading) {
       current = heading[1];
       sawHeading = true;
+      wrapping = null;
       story(current).title = heading[2];
       continue;
     }
     const key = /^\|\s*SCRUM-(\d+)\s*\|\s*([^|]+?)\s*\|/.exec(line);
     if (key) {
+      wrapping = null;
       story(key[1]).title ??= key[2];
       if (!sawHeading) current = key[1];
       continue;
     }
     const scenario = /^\|\s*(\d+-S\d+)\s*\|([^|]*)\|/.exec(line);
     if (scenario) {
+      wrapping = null;
       scenarios[scenario[1]] = [...scenario[2].matchAll(/AC(\d+)/g)].map((m) => Number(m[1]));
       continue;
     }
-    const ac =
-      /^\*AC(\d+)\.\*\s*(.*)$/.exec(line) ??
-      /^(?:\d+\.\s+)?\*\*AC(\d+)\*\*\s*(.*)$/.exec(line) ??
-      /^\|\s*AC(\d+)\s*\|\s*([^|]*?)\s*\|/.exec(line);
-    if (ac && current) story(current).acs[Number(ac[1])] = ac[2].trim();
+    const prose = /^\*AC(\d+)\.\*\s*(.*)$/.exec(line) ?? /^(?:\d+\.\s+)?\*\*AC(\d+)\*\*\s*(.*)$/.exec(line);
+    const row = /^\|\s*AC(\d+)\s*\|\s*([^|]*?)\s*\|/.exec(line);
+    if ((prose || row) && current) {
+      const [, n, words] = prose ?? row;
+      story(current).acs[Number(n)] = words.trim();
+      wrapping = prose ? { story: current, n: Number(n) } : null; // a table row ends at its line
+      continue;
+    }
+    // a wrapped AC goes on until a blank line, a table row or a heading
+    if (wrapping && line.trim() !== "" && !/^\s*[|#]/.test(line)) {
+      const acs = all[wrapping.story].acs;
+      acs[wrapping.n] = `${acs[wrapping.n]} ${line.trim()}`.trim();
+    } else wrapping = null;
   }
 
   const stories = {};
@@ -120,6 +133,11 @@ export function buildMatrix(tests, specs) {
   for (const test of tests) {
     const refs = refsOf(test.name, specs.scenarios);
     if (refs.length === 0) untraced += 1;
+    // a story with no spec takes its title from its tests' group name, e.g. "SCRUM-6 — View event status as event coordinator"
+    for (const part of test.name.split(" > ")) {
+      const named = /^SCRUM-(\d+)(?!\/)\s*[—–:-]?\s+(.+)$/.exec(part);
+      if (named && !/^AC\d/.test(named[2])) entry(Number(named[1])).title ??= named[2].trim();
+    }
     for (const { story, ac } of refs) {
       const s = entry(story);
       if (ac === null) addTest(s.storyLevel, test);
@@ -137,7 +155,10 @@ export function buildMatrix(tests, specs) {
       const numbers = [...new Set([...specAcs, ...acTests.keys()])].sort((a, b) => a - b);
       const acs = numbers.map((ac) => {
         const list = acTests.get(ac) ?? [];
-        return { ac, text: specs.stories[s.story]?.acs[ac] ?? null, tests: list, covered: list.length > 0 };
+        const text = specs.stories[s.story]?.acs[ac] ?? null;
+        // an AC the spec itself drops (e.g. SCRUM-102 AC3) is not a gap in the tests
+        const dropped = /^[*(\s]*Dropped\b/i.test(text ?? "");
+        return { ac, text, tests: list, covered: list.length > 0, dropped };
       });
       return { ...s, acs };
     });
@@ -173,7 +194,7 @@ export function renderMarkdown(matrix, meta) {
   ];
   for (const s of matrix.stories) {
     const covered = s.acs.filter((a) => a.covered).length;
-    const acs = s.fromSpec ? `${covered} of ${s.acs.length}` : `${covered} (no spec)`;
+    const acs = s.fromSpec ? `${covered} of ${s.acs.filter((a) => !a.dropped).length}` : `${covered} (no spec)`;
     const tests = s.acs.reduce((n, a) => n + caseCount(a.tests), 0) + caseCount(s.storyLevel);
     out.push(`| [SCRUM-${s.story}](#scrum-${s.story}) | ${cell(s.title ?? "")} | ${acs} | ${tests} |`);
   }
@@ -184,7 +205,7 @@ export function renderMarkdown(matrix, meta) {
     if (s.acs.length > 0) {
       out.push("| AC | What it checks | Tests |", "| --- | --- | --- |");
       for (const a of s.acs) {
-        const tests = a.covered ? a.tests.map(link).join("<br>") : "**Not covered**";
+        const tests = a.covered ? a.tests.map(link).join("<br>") : a.dropped ? "Dropped (see the spec)" : "**Not covered**";
         out.push(`| AC${a.ac} | ${cell(a.text ?? "")} | ${tests} |`);
       }
     }
