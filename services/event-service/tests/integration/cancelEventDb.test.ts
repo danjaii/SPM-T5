@@ -271,5 +271,42 @@ describe.skipIf(!hasDb)("SCRUM-174 cancel an event (migrations 60 to 64)", () =>
       expect(n.message).toMatch(/^IT-174-\w+ was cancelled\. Reason: Organiser withdrew the event$/);
     }
   });
+
+  // ----------------------------------------------------------------------------
+  // AC7 a cancelled event stays cancelled; AC1 a closed event cannot be cancelled
+  // ----------------------------------------------------------------------------
+
+  it.each(["planning", "confirmed", "completed"])("174-S10 SCRUM-174/AC7 keeps a cancelled event cancelled: moving it to %s is refused (CS174)", async (status) => {
+    const eventId = await planningEvent("cancelled");
+
+    const { error } = await changeStatus(who.coordinator, eventId, status, null);
+
+    expect(error?.code).toBe("CS174");
+    expect((await eventRow(eventId)).status).toBe("cancelled");
+    expect(await history(eventId)).toEqual([]);
+  });
+
+  it("174-S10 SCRUM-174/AC7 refuses an edit to a cancelled event's details (CS112, SCRUM-111)", async () => {
+    const eventId = await planningEvent("cancelled");
+    const name = (await eventRow(eventId)).name as string;
+
+    const { error } = await who.coordinator.client.rpc("update_event_details", {
+      p_event_id: eventId,
+      p_changes: { name: { from: name, to: `${name} again` } },
+    });
+
+    expect(error?.code).toBe("CS112");
+    expect((await eventRow(eventId)).name).toBe(name);
+  });
+
+  it.each(["completed", "rejected"])("174-S11 SCRUM-174/AC1 refuses to cancel a %s event (CS174)", async (status) => {
+    const eventId = await planningEvent(status);
+
+    const { error } = await changeStatus(who.coordinator, eventId, "cancelled", "Organiser withdrew the event");
+
+    expect(error?.code).toBe("CS174");
+    expect((await eventRow(eventId)).status).toBe(status);
+    expect(await history(eventId)).toEqual([]);
+  });
 });
 
