@@ -294,7 +294,10 @@ the event's assigned coordinator reviews it (SCRUM-67; spec in `docs/specs/revie
 (`readChangeRequest()` in `packages/shared/src/changeRequestReview.ts`), and `review_change_request()` either rejects it with a
 required reason or approves it through `update_event_details()` in the same transaction, so an approval is recorded in the
 change history and sends the affected arrangements back for review (SCRUM-112/113). A request the event has moved on from, or
-one with a field the system cannot apply, can only be rejected. The assigned coordinator edits an event's details
+one with a field the system cannot apply, can only be rejected. An organiser cannot send a request that changes what one of
+their pending requests already changes (SCRUM-176; spec in `docs/specs/conflicting-change-request.md`, migration 67): the
+shared `changeRequestConflicts()` counts start and end time as one thing, the route answers 409 `CONFLICTING_REQUEST` naming what
+waits, a database trigger refuses the same insert (CS176), and the form says up front what is waiting. The assigned coordinator edits an event's details
 (SCRUM-111; spec in `docs/specs/edit-event-details.md`, `routes/eventDetails.ts`, migration 34): ordinary fields (name, description,
 purpose, category) and important ones (dates and times, attendance, layout, accessibility, venue and equipment requirements; the
 lists are in `packages/shared/src/eventDetails.ts`), not for a completed, cancelled or rejected event. `update_event_details()` saves

@@ -2,19 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { CHANGE_REQUEST_MESSAGES, parseEventChangeRequestInput, utcToSgt } from "@spm-t5/shared";
+import { CHANGE_REQUEST_MESSAGES, parseEventChangeRequestInput, pendingChangeThings, utcToSgt } from "@spm-t5/shared";
 import { EventSection } from "@/components/event/EventSection";
 import { InlineMessage } from "@/components/event/InlineMessage";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { Textarea } from "@/components/ui/textarea";
-import { submitChangeRequest, type EventDetailView } from "@/lib/events";
+import { submitChangeRequest, type ChangeRequestView, type EventDetailView } from "@/lib/events";
 
 // SCRUM-66/AC1, AC8: the organiser edits attendance, date, times and venue/equipment requirements, starting from
 // the event's current details. Validation is the shared parseEventChangeRequestInput, so the form and
 // event-service agree (AC4, AC5, AC9, AC10). The event itself is not changed (AC6).
-export function EventChangeRequestForm({ event }: { event: EventDetailView }) {
+// SCRUM-176/AC4: `requests` are the event's change requests (the page's list); what the pending ones change is said up front,
+// with the shared rule event-service refuses a conflicting request by (AC1).
+export function EventChangeRequestForm({ event, requests = [] }: { event: EventDetailView; requests?: ChangeRequestView[] }) {
   const router = useRouter();
+  const waiting = pendingChangeThings(requests.filter((r) => r.status === "pending").map((r) => r.proposed_changes));
   const start = event.preferred_start_datetime ? utcToSgt(new Date(event.preferred_start_datetime)) : undefined;
   const end = event.preferred_end_datetime ? utcToSgt(new Date(event.preferred_end_datetime)) : undefined;
 
@@ -77,6 +80,12 @@ export function EventChangeRequestForm({ event }: { event: EventDetailView }) {
       <p className="text-sm text-muted-foreground">
         The event keeps its current details until your request is approved.
       </p>
+
+      {waiting.length > 0 && (
+        <InlineMessage kind="warning">
+          {`Already waiting for your coordinator: ${waiting.join(", ")}. A new request can't change these until your coordinator has decided.`}
+        </InlineMessage>
+      )}
 
       {message && <InlineMessage kind={message.kind}>{message.text}</InlineMessage>}
 
