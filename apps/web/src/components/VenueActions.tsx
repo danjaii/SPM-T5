@@ -1,7 +1,8 @@
 "use client";
 
-import { CalendarOff, Pencil } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CalendarOff, Pencil, Timer } from "lucide-react";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { VenueTimingForm } from "./VenueTimingForm";
 import { VenueUnavailabilityForm } from "./VenueUnavailabilityForm";
@@ -15,14 +16,16 @@ interface Props {
   canEdit: boolean;
   /** SCRUM-105: Venue Staff only. */
   canMarkUnavailable: boolean;
+  /** SCRUM-58: Venue Staff only; edit the venue's details on its own page. */
+  canManage?: boolean;
 }
 
 const FORM_DIALOG = "max-h-[90dvh] overflow-y-auto sm:max-w-lg";
 
 // SCRUM-129/AC2, AC3: the venue's action buttons. Each opens its form in a dialog; a role that cannot use an action gets
 // no button for it (the server and the database refuse them as well).
-export function VenueActions({ venueId, venueName, setupMinutes, turnaroundMinutes, canEdit, canMarkUnavailable }: Props) {
-  if (!canEdit && !canMarkUnavailable) return null;
+export function VenueActions({ venueId, venueName, setupMinutes, turnaroundMinutes, canEdit, canMarkUnavailable, canManage = false }: Props) {
+  if (!canEdit && !canMarkUnavailable && !canManage) return null;
   return (
     <div className="flex flex-wrap gap-2">
       {canMarkUnavailable && (
@@ -44,13 +47,13 @@ export function VenueActions({ venueId, venueName, setupMinutes, turnaroundMinut
       )}
       {canEdit && (
         <Dialog>
-          <DialogTrigger render={<Button />}>
-            <Pencil aria-hidden="true" />
-            Edit venue
+          <DialogTrigger render={<Button variant="outline" />}>
+            <Timer aria-hidden="true" />
+            Edit times
           </DialogTrigger>
           <DialogContent className={FORM_DIALOG}>
             <DialogHeader>
-              <DialogTitle>Edit {venueName}</DialogTitle>
+              <DialogTitle>Edit times for {venueName}</DialogTitle>
               <DialogDescription>
                 Setup and turnaround are added to every booking when checking availability and conflicts. Changing them flags existing
                 bookings that no longer fit; nothing is removed.
@@ -59,6 +62,12 @@ export function VenueActions({ venueId, venueName, setupMinutes, turnaroundMinut
             <VenueTimingForm venueId={venueId} setupMinutes={setupMinutes} turnaroundMinutes={turnaroundMinutes} />
           </DialogContent>
         </Dialog>
+      )}
+      {canManage && (
+        <Link href={`/venues/${encodeURIComponent(venueId)}/edit`} className={buttonVariants()}>
+          <Pencil aria-hidden="true" />
+          Edit venue
+        </Link>
       )}
     </div>
   );
