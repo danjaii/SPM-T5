@@ -1,21 +1,13 @@
-import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
+import { PageFrame } from "@/components/PageFrame";
 import { ReviewQueue } from "@/components/ReviewQueue";
 
 export const metadata = { title: "Event requests · ConnectSphere" };
 
+// Same frame (width, padding, title) as the dashboard; the sidebar's Home item replaces the old "Back to dashboard" link.
 export default function ReviewQueuePage() {
   return (
-    <>
-      <AppHeader>
-        <Link href="/dashboard/event_coordinator" className="text-sm underline">
-          Back to dashboard
-        </Link>
-      </AppHeader>
-      <main className="dash__main">
-        <h1 className="mb-4">Review event requests</h1>
-        <ReviewQueue />
-      </main>
-    </>
+    <PageFrame title="Event requests" description="Review the event requests assigned to you.">
+      <ReviewQueue />
+    </PageFrame>
   );
 }

@@ -26,8 +26,14 @@ export const NOTIFICATION_TYPES = [
   "clarification_answered",
   // SCRUM-126: the coordinator an event was taken from (migration 50)
   "coordinator_reassigned",
-  // SCRUM-174: an event was cancelled, told to its organiser and active attendees (migration 63)
+  // SCRUM-172: venue decisions, important changes, registrations, cancellations and replacements (migration 65), which also
+  // writes event_submitted and event_confirmed
+  "venue_booking_approved",
+  "venue_booking_rejected",
+  "event_changed",
+  "registration_status_changed",
   "event_cancelled",
+  "venue_replaced",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -80,7 +86,8 @@ export interface NotificationAcknowledgement {
  * uses the booking page. (Whether they may open it is decided by row level security, not here.)
  */
 export function notificationHref(kind: NotificationTargetKind, id: string, role?: string): string {
-  if (kind === "event") return `/events/${id}`;
+  // SCRUM-172: the event page refuses attendees (GET /events/:id), so their event notifications open My registrations
+  if (kind === "event") return role === "attendee" ? "/registrations" : `/events/${id}`;
   return role === "venue_staff" ? `/booking-queue/${id}` : `/venue-bookings/${id}`;
 }
 
@@ -91,6 +98,8 @@ const ACTION_REQUIRED_TYPES: ReadonlySet<string> = new Set([
   "safety_changes_requested", // AC12
   "clarification_requested", // AC2: the organiser answers
   "clarification_answered", // AC3: the coordinator reads the answer
+  "event_submitted", // SCRUM-172/AC1: a Lead assigns a coordinator
+  "venue_booking_rejected", // SCRUM-172/AC2: the coordinator finds another venue
 ]);
 
 /** SCRUM-47/AC11: whether a notification needs the reader to act, shown as "Action needed". */

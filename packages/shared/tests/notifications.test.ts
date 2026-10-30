@@ -19,6 +19,12 @@ describe("SCRUM-46/AC5 notificationHref maps a target to its page (46-S5)", () =
   });
 });
 
+describe("SCRUM-172 an attendee's event notification opens a page they can use", () => {
+  it("SCRUM-172/AC4,AC6,AC8: an attendee opens My registrations, because the event page refuses them", () => {
+    expect(notificationHref("event", "e-1", "attendee")).toBe("/registrations");
+  });
+});
+
 describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
   it("46-S2: lists the seeded types and the booking flag type", () => {
     expect(NOTIFICATION_TYPES).toEqual([
@@ -42,8 +48,13 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
       "clarification_requested",
       "clarification_answered",
       "coordinator_reassigned",
-      // SCRUM-174: written by migration 63
+      // SCRUM-172: written by migration 65
+      "venue_booking_approved",
+      "venue_booking_rejected",
+      "event_changed",
+      "registration_status_changed",
       "event_cancelled",
+      "venue_replaced",
     ]);
   });
 });
@@ -67,6 +78,14 @@ describe("SCRUM-47/AC11 whether a notification needs the reader to act (47-S11)"
     ["clarification_requested", true], // 47-S2
     ["clarification_answered", true], // 47-S3
     ["coordinator_reassigned", false], // SCRUM-126/AC3: information only
+    ["event_submitted", true], // SCRUM-172/AC1: a Lead assigns a coordinator
+    ["venue_booking_rejected", true], // SCRUM-172/AC2: the coordinator finds another venue
+    ["venue_booking_approved", false],
+    ["event_changed", false],
+    ["registration_status_changed", false],
+    ["event_confirmed", false],
+    ["event_cancelled", false],
+    ["venue_replaced", false],
   ])("47-S11: %s → %s", (type, expected) => {
     expect(notificationRequiresAction(type)).toBe(expected);
   });
@@ -89,7 +108,7 @@ describe("SCRUM-46/AC1 parseNotificationLimit (46-S1)", () => {
 });
 
 describe("SCRUM-174/AC6 the cancellation notification type", () => {
-  it("174-S9: knows event_cancelled, written by migration 63", () => {
+  it("174-S9: knows event_cancelled, written by migration 65 (SCRUM-172)", () => {
     expect(NOTIFICATION_TYPES).toContain("event_cancelled");
   });
 

@@ -33,8 +33,6 @@ const BY_TYPE: Record<NotificationType, NotificationDisplay> = {
   technical_assignment_cancelled: { icon: XCircle, tone: "danger" },
   event_approved: { icon: CheckCircle2, tone: "success" },
   event_rejected: { icon: XCircle, tone: "danger" },
-  // SCRUM-174: like a rejection, the event will not go ahead
-  event_cancelled: { icon: XCircle, tone: "danger" },
   comment_mention: { icon: MessageSquare, tone: "info" },
   comment_reply: { icon: MessageSquare, tone: "info" },
   safety_approved: { icon: ShieldCheck, tone: "success" },
@@ -42,6 +40,12 @@ const BY_TYPE: Record<NotificationType, NotificationDisplay> = {
   safety_changes_requested: { icon: ShieldAlert, tone: "danger" },
   clarification_requested: { icon: MessageSquare, tone: "warning" },
   clarification_answered: { icon: MessageSquare, tone: "info" },
+  venue_booking_approved: { icon: CheckCircle2, tone: "success" },
+  venue_booking_rejected: { icon: XCircle, tone: "danger" },
+  event_changed: { icon: RefreshCw, tone: "info" },
+  registration_status_changed: { icon: Users, tone: "info" },
+  event_cancelled: { icon: XCircle, tone: "danger" },
+  venue_replaced: { icon: RefreshCw, tone: "info" },
 };
 
 export const notificationDisplay = (type: string): NotificationDisplay =>
