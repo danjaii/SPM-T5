@@ -73,8 +73,8 @@ see #5). Attendee registration (#18) is owned by `event-service` (SCRUM-83: regi
 registrations, and an event's registrations for its organiser and coordinator) and SCRUM-73
 (withdraw from My registrations: `POST /events/my-registrations/:id/withdraw`, with migration 29's
 update policy letting an attendee change only their own active registration, and only to withdrawn).
-`receivesEventUpdates()` in `packages/shared` is the rule notification-service should use so a
-withdrawn attendee gets no more updates or reminders.
+`receivesEventUpdates()` in `packages/shared` is the rule that a withdrawn attendee gets no more
+updates or reminders; migration 65's `event_update_attendees()` is its database copy (SCRUM-172).
 
 ## Commands
 
@@ -335,7 +335,13 @@ Users can view and manage their own in-app notifications (SCRUM-46; spec in `doc
 its change: a coordinator's assignment, an event request's approval or rejection, a comment mention or reply (one per person,
 never the author; comments are saved through `post_event_comment()`), a clarification request and the organiser's answer (a
 comment the assigned coordinator flags, `event_comments.is_clarification_request`), and a safety decision. Each item carries
-`actionRequired` (`notificationRequiresAction()` in `packages/shared`).
+`actionRequired` (`notificationRequiresAction()` in `packages/shared`). SCRUM-172 (same spec, migration 65) adds the remaining
+producers, also triggers: a submitted request tells every active Lead; a venue booking approved or rejected tells the assigned
+coordinator; an important change tells the organiser and coordinator; a registration status change tells the attendee; a confirmed
+event tells the organiser and coordinator; a cancelled one tells them and the attendees; a buffer conflict tells the coordinator of
+each flagged booking; a replacement venue tells the organiser and attendees. Nobody is told about their own action, and a withdrawn
+attendee hears nothing (`event_update_attendees()`, kept equal to `receivesEventUpdates()` by a test). An attendee's event
+notification opens `/registrations`, because the event page refuses them.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
