@@ -207,4 +207,44 @@ describe.skipIf(!hasDb)("SCRUM-174 cancel an event (migrations 60 to 64)", () =>
     const told = (await admin.from("notifications").select("type").eq("event_id", eventId).eq("user_id", who.technician.userId)).data;
     expect(told?.map((n) => n.type)).toContain("technical_assignment_cancelled");
   });
+
+  // ----------------------------------------------------------------------------
+  // AC5 pending change requests closed
+  // ----------------------------------------------------------------------------
+
+  /** A change request the organiser made for the event, asking to raise attendance to 150. */
+  const changeRequest = (eventId: string, status: string) =>
+    insert("event_change_requests", {
+      event_id: eventId,
+      requested_by: who.organiser.userId,
+      change_description: "Changed: expected attendance",
+      proposed_changes: { expected_attendance: { from: 120, to: 150 } },
+      status,
+    });
+
+  it("174-S7 SCRUM-174/AC5 closes a pending change request when the event is cancelled, and leaves a decided one alone", async () => {
+    const eventId = await planningEvent();
+    const pending = await changeRequest(eventId, "pending");
+    const approved = await changeRequest(eventId, "approved");
+
+    await changeStatus(who.coordinator, eventId, "cancelled", "Organiser withdrew the event");
+
+    const closed = await statusOf("event_change_requests", pending);
+    expect(closed).toMatchObject({ status: "rejected", review_notes: "Closed automatically: the event was cancelled." });
+    expect(closed.reviewed_at).not.toBeNull();
+    expect((await statusOf("event_change_requests", approved)).status).toBe("approved");
+  });
+
+  it("174-S8 SCRUM-174/AC5 closes a pending change request when the event is marked completed", async () => {
+    const eventId = await planningEvent();
+    const pending = await changeRequest(eventId, "pending");
+
+    await changeStatus(who.coordinator, eventId, "completed", null);
+
+    expect(await statusOf("event_change_requests", pending)).toMatchObject({
+      status: "rejected",
+      review_notes: "Closed automatically: the event was completed.",
+    });
+  });
 });
+
