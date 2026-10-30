@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VenueInput } from "@spm-t5/shared";
 
@@ -143,7 +144,7 @@ describe("SCRUM-58/AC4 a capacity cut that leaves a booking over capacity asks f
   ];
   const asks = { ok: false, data: { code: "CONFIRM_IMPACT", error: "These bookings expect more people than the venue would hold. Check them before saving.", affected } };
 
-  function cutTo100(submit: ReturnType<typeof vi.fn>) {
+  function cutTo100(submit: NonNullable<ComponentProps<typeof VenueForm>["submit"]>) {
     render(<VenueForm options={options} venueId="orchid" initial={orchid()} submit={submit} />);
     type("Capacity (required)", "100");
     type("Capacity for Theatre", "100");

@@ -56,7 +56,7 @@ function when(b: BookingAtVenue): string {
 export function VenueForm({ options, venueId, initial, submit }: Props) {
   const router = useRouter();
   const editing = venueId !== undefined;
-  const send = submit ?? (editing ? (body: VenueInput & { confirmImpact?: boolean }) => putVenue(venueId, body) : postVenue);
+  const send: NonNullable<Props["submit"]> = submit ?? (editing ? (body: VenueInput & { confirmImpact?: boolean }) => putVenue(venueId, body) : postVenue);
   const [name, setName] = useState(initial?.name ?? "");
   const [address, setAddress] = useState(initial?.address ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
