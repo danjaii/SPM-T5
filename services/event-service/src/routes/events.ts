@@ -647,6 +647,10 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (status === "rejected" && !reason) {
       return res.status(400).json({ error: "A reason is required to reject an event." });
     }
+    // SCRUM-174/AC1: so is cancelling, because the reason is sent to the organiser and attendees (AC6)
+    if (status === "cancelled" && !reason) {
+      return res.status(400).json({ error: "A reason is required to cancel an event." });
+    }
 
     // SCRUM-8 AC6: only the coordinator assigned to this event may change its status
     const { data: target } = await deps
@@ -673,6 +677,13 @@ export function eventRoutes(deps: SupabaseDeps) {
     // SCRUM-99/AC7: the events_safety_gate trigger (migration 37) refuses preparation before a Safety Approved check
     if (error?.code === "SC001") {
       return res.status(409).json({ error: "This event can't move to preparation until it is Safety Approved." });
+    }
+    // SCRUM-174/AC7: migration 63 keeps a cancelled event cancelled, and a completed or rejected one from being cancelled
+    if (error?.code === "CS174") {
+      return res.status(409).json({
+        code: "EVENT_CLOSED",
+        error: "A cancelled event can't change status, and a completed or rejected event can't be cancelled.",
+      });
     }
 
     // SCRUM-8 AC2: confirm the change by sending back the updated event

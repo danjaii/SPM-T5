@@ -195,12 +195,15 @@ describe.skipIf(!hasDb)("SCRUM-172 Notify on the remaining changes (migration 65
     }
   });
 
+  // SCRUM-174/AC1: change_event_status() refuses a cancellation without a reason (migration 60), so these tests give one
+  const CANCEL_REASON = "Organiser withdrew the event";
+
   // AC6, AC9: the database's rule must be the shared one, for all four statuses: Pending and Confirmed hear, Withdrawn and Rejected don't
   it("SCRUM-172/AC6,AC9 a cancellation reaches exactly the attendees receivesEventUpdates() allows", async () => {
     const eventId = await newEvent();
     await registerOneInEachStatus(eventId);
 
-    const { error } = await admin.rpc("change_event_status", { p_event_id: eventId, p_new_status: "cancelled" }).maybeSingle();
+    const { error } = await admin.rpc("change_event_status", { p_event_id: eventId, p_new_status: "cancelled", p_reason: CANCEL_REASON }).maybeSingle();
 
     expect(error).toBeNull();
     for (const [dbStatus, key] of Object.entries(ATTENDEE_BY_DB_STATUS)) {
@@ -347,7 +350,7 @@ describe.skipIf(!hasDb)("SCRUM-172 Notify on the remaining changes (migration 65
   it("SCRUM-172/AC6 cancelling an already cancelled event notifies nobody", async () => {
     const eventId = await newEvent({ status: "cancelled" });
 
-    const { error } = await admin.rpc("change_event_status", { p_event_id: eventId, p_new_status: "cancelled" }).maybeSingle();
+    const { error } = await admin.rpc("change_event_status", { p_event_id: eventId, p_new_status: "cancelled", p_reason: CANCEL_REASON }).maybeSingle();
 
     expect(error).toBeNull();
     expect(await notificationsOf(who.organiser, eventId, "event_cancelled")).toEqual([]);
