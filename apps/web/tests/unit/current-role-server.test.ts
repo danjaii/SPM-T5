@@ -29,7 +29,7 @@ describe("SCRUM-130/AC3 getCurrentRole", () => {
   });
 
   it("returns nothing when auth-service refuses or cannot be reached", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, json: async () => ({}) })));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, json: async () => ({ role: "venue_staff" }) }))); // even a refused answer must not grant the button
     expect(await getCurrentRole()).toBeUndefined();
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("down"); }));
     expect(await getCurrentRole()).toBeUndefined();
