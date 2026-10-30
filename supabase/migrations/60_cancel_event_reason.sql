@@ -1,9 +1,10 @@
--- SCRUM-174 (docs/specs/cancel-event.md), part 1 of 5: a cancellation needs a reason, and is stamped.
+-- SCRUM-174 (docs/specs/cancel-event.md), part 1 of 4: a cancellation needs a reason, and is stamped.
 -- Follows 59_coordinator_event_reads.sql.
 --
 -- 1. change_event_status() (migration 04) refuses Cancelled without a reason (22023, AC1), because the reason is sent to the
---    organiser and the attendees (AC6, migration 63). The rest of the function is unchanged: it still runs as the caller, so
---    RLS and the status guards (migrations 14, 37) apply as before, and it writes the status history row with the reason (AC2).
+--    organiser and the attendees (AC6; the notification is written by SCRUM-172's migration 65). The rest of the function is
+--    unchanged: it still runs as the caller, so RLS and the status guards (migrations 14, 37) apply as before, and it writes
+--    the status history row with the reason (AC2).
 -- 2. events_stamp_cancelled() (trigger): the moment an event becomes Cancelled, events.cancelled_at is set (AC2). A trigger,
 --    because the coordinator may only update an event's status and coordinator directly (migration 14's column grant).
 --

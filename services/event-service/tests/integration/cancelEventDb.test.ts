@@ -22,7 +22,7 @@ const END = "2031-03-03T09:00:00+00:00";
 
 type Row = Record<string, unknown>;
 
-describe.skipIf(!hasDb)("SCRUM-174 cancel an event (migrations 60 to 64)", () => {
+describe.skipIf(!hasDb)("SCRUM-174 cancel an event (migrations 60 to 63; the notification is migration 65, SCRUM-172)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const who = {} as Record<keyof typeof EMAILS, Actor>;
   const eventIds: string[] = [];

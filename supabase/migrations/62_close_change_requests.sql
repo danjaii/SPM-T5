@@ -1,4 +1,4 @@
--- SCRUM-174 (docs/specs/cancel-event.md), part 3 of 5: an event that ends closes its pending change requests.
+-- SCRUM-174 (docs/specs/cancel-event.md), part 3 of 4: an event that ends closes its pending change requests.
 -- Follows 61_cancel_event_release.sql.
 --
 -- The customer said in the Week 9 Q&A that "if an event is cancelled or completed, any open pending change request for

@@ -678,7 +678,7 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (error?.code === "SC001") {
       return res.status(409).json({ error: "This event can't move to preparation until it is Safety Approved." });
     }
-    // SCRUM-174/AC7: migration 64 keeps a cancelled event cancelled, and a completed or rejected one from being cancelled
+    // SCRUM-174/AC7: migration 63 keeps a cancelled event cancelled, and a completed or rejected one from being cancelled
     if (error?.code === "CS174") {
       return res.status(409).json({
         code: "EVENT_CLOSED",

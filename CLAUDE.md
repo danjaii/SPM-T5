@@ -325,9 +325,9 @@ arrangements complete, it is back in the queue for another check. The event's co
 safety decision on the event page (`GET /events/:id/safety-decisions`, `event_safety_decisions()`). An important change to an
 approved event revokes the approval (`safety_checks.revoked_at`, migration 43's trigger), so it needs another check; a
 confirmed event goes back to awaiting arrangements. The assigned coordinator cancels an event by setting it to Cancelled with a
-required reason (SCRUM-174; spec in `docs/specs/cancel-event.md`, migrations 60 to 64): in the same transaction, triggers cancel its
+required reason (SCRUM-174; spec in `docs/specs/cancel-event.md`, migrations 60 to 63): in the same transaction, triggers cancel its
 active venue bookings, release its equipment requests and on-site technician assignments, close its pending change requests (as
-`rejected`, also when the event is completed), and notify the organiser and every registered or waitlisted attendee
+`rejected`, also when the event is completed), and SCRUM-172's migration 65 notifies the organiser and every registered or waitlisted attendee
 (`event_cancelled`); a cancelled event cannot change status again, and a completed or rejected one cannot be cancelled (CS174).
 Guarded status transitions were considered and not built, because the customer said status progression is flexible; see
 `docs/scope-decisions.md`. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`

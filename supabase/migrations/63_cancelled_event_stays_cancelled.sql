@@ -1,5 +1,5 @@
--- SCRUM-174 (docs/specs/cancel-event.md), part 5 of 5: a cancelled event stays cancelled.
--- Follows 63_notify_event_cancelled.sql.
+-- SCRUM-174 (docs/specs/cancel-event.md), part 4 of 4: a cancelled event stays cancelled.
+-- Follows 62_close_change_requests.sql.
 --
 -- events_closed_guard() (trigger) refuses, with CS174 ("EVENT_CLOSED"):
 --   - any status change away from Cancelled (AC7), because its venues, equipment and technicians were released (migration

@@ -1,4 +1,4 @@
--- SCRUM-174 (docs/specs/cancel-event.md), part 2 of 5: a cancelled event releases its arrangements.
+-- SCRUM-174 (docs/specs/cancel-event.md), part 2 of 4: a cancelled event releases its arrangements.
 -- Follows 60_cancel_event_reason.sql.
 --
 -- events_release_on_cancel() (trigger) runs in the same transaction as the status change (ADR 0002), the moment an event

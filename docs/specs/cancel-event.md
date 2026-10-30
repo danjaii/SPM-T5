@@ -7,7 +7,7 @@ User story for **Cancel an Event and Release Its Arrangements** (ConnectSphere, 
 
 | Key | Title | Depends on |
 | --- | --- | --- |
-| SCRUM-174 | Cancel an Event and Release Its Arrangements | SCRUM-8 (change an event's status, `change_event_status()`, migration 04), SCRUM-102 (cancel one venue booking, `docs/specs/change-cancel-venue-booking.md`), SCRUM-20 (on-site technician assignments, migration 41), SCRUM-47 (notification producers, migration 44), SCRUM-66 and SCRUM-67 (change requests) |
+| SCRUM-174 | Cancel an Event and Release Its Arrangements | SCRUM-8 (change an event's status, `change_event_status()`, migration 04), SCRUM-102 (cancel one venue booking, `docs/specs/change-cancel-venue-booking.md`), SCRUM-20 (on-site technician assignments, migration 41), SCRUM-47 and SCRUM-172 (notification producers, migrations 44 and 65), SCRUM-66 and SCRUM-67 (change requests) |
 
 ## Why
 
@@ -32,7 +32,8 @@ What the customer said this story follows:
 1. **[DECIDED] Cancelling is a status change, not a new screen.** The assigned coordinator chooses Cancelled on the event's
    status panel, as before, and must now give a reason, as Rejected already needs one. `PATCH /events/:id/status` and
    `change_event_status()` both refuse a cancellation without a reason, so the rule holds however the status is changed.
-2. **[DECIDED] The releases happen in the database, in the same transaction as the status change** (the ADR 0002 pattern).
+2. **[DECIDED] The releases happen in the database, in the same transaction as the status change** (the ADR 0002 pattern,
+   migrations 60 to 63).
    A trigger on `events` runs when the status becomes `cancelled` and:
    - cancels every active venue booking (`requested`, `tentative`, `approved`, `confirmed`), recording who, when and
      "The event was cancelled." as the reason, so the venues are free for other requests;
@@ -48,8 +49,11 @@ What the customer said this story follows:
 4. **[DECIDED] Who is told.** The organiser, and every attendee whose registration is still active (`waitlisted` or
    `registered`, the same rule as `receivesEventUpdates()` in `packages/shared`), get an `event_cancelled` notification
    with the event's name and the reason. Withdrawn attendees are not told. The coordinator made the change, so they are not
-   told either. Each technician is told by the existing assignment notification (decision 2). Written by migration 44's
-   `notify_event_decision()`, which already announces approvals and rejections from `event_status_history`.
+   told either. Each technician is told by the existing assignment notification (decision 2). **Delivered by SCRUM-172**
+   (Caleb, merged while this story was in progress): its migration 65, `notify_event_status_change()` on
+   `event_status_history`, already writes exactly this notification (the organiser, the assigned coordinator unless they made
+   the change, and the active attendees, with the reason). This story first wrote its own trigger (an earlier migration 63)
+   and removed it before merging, so a cancellation is announced once, not twice; 174-S9 checks the result.
 5. **[DECIDED] A cancelled event stays cancelled.** Its details were already locked (`update_event_details()` refuses a
    closed event, CS112). A new guard refuses any status change away from `cancelled` (CS174), and cancelling an event that
    is already completed, cancelled or rejected is refused too. Nobody in the customer's answers asked to re-open an event.
