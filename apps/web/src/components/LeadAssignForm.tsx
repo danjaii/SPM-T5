@@ -1,11 +1,13 @@
 "use client";
 
+import { CircleCheck, Info, TriangleAlert } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useState } from "react";
+import { CoordinatorChoiceList } from "@/components/CoordinatorChoiceList";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { leadChangeCoordinator } from "@/lib/lead";
-import type { LeadCoordinator } from "@/lib/leadServer";
+import type { LeadCoordinatorChoice } from "@/lib/leadServer";
 
 interface Props {
   /** SCRUM-78 assigns an unassigned event; SCRUM-79 reassigns an assigned one. */
@@ -13,7 +15,7 @@ interface Props {
   eventId: string;
   eventName: string;
   /** The Lead's eligible coordinators; for a reassignment, without the current one (SCRUM-79/AC2). */
-  coordinators: LeadCoordinator[];
+  coordinators: LeadCoordinatorChoice[];
   /** The coordinator a reassignment takes the event from; they are told too (SCRUM-126/AC3). */
   currentName?: string;
   /** Where Cancel goes (SCRUM-78/AC8, SCRUM-79/AC7). */
@@ -37,12 +39,27 @@ const TEXT = {
   },
 };
 
-/** SCRUM-78/AC1, SCRUM-79/AC2, SCRUM-126/AC2: a coordinator's current workload. */
-const workloadText = (c: LeadCoordinator) => `${c.workload} active ${c.workload === 1 ? "event" : "events"}`;
+const TONES = {
+  info: { classes: "border-status-info-fg bg-status-info text-status-info-fg", icon: Info },
+  success: { classes: "border-status-success-fg bg-status-success text-status-success-fg", icon: CircleCheck },
+  danger: { classes: "border-status-danger-fg bg-status-danger text-status-danger-fg", icon: TriangleAlert },
+};
 
-// The Lead picks one of their eligible coordinators, each shown with their workload (SCRUM-78/AC1, SCRUM-79/AC2), then
-// confirms (SCRUM-78/AC2-AC3, SCRUM-79/AC3) or cancels, which sends nothing (SCRUM-78/AC8, SCRUM-79/AC7). event-service
-// and the database decide whether the change stands (SCRUM-78/AC5, AC7, AC9; SCRUM-79/AC5, AC6, AC9).
+/** A tinted message with an icon, so it is never told apart by colour alone. */
+function Notice({ tone, role, children }: { tone: keyof typeof TONES; role: "status" | "alert"; children: ReactNode }) {
+  const { classes, icon: Icon } = TONES[tone];
+  return (
+    <div role={role} className={`flex items-start gap-2 rounded-lg border p-4 text-sm ${classes}`}>
+      <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <p>{children}</p>
+    </div>
+  );
+}
+
+// The Lead picks one of their eligible coordinators, each shown with their workload and any clash with this event
+// (SCRUM-78/AC1, SCRUM-79/AC2, SCRUM-168), then confirms (SCRUM-78/AC2-AC3, SCRUM-79/AC3) or cancels, which sends nothing
+// (SCRUM-78/AC8, SCRUM-79/AC7). event-service and the database decide whether the change stands (SCRUM-78/AC5, AC7, AC9;
+// SCRUM-79/AC5, AC6, AC9).
 export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinators, currentName, cancelHref = "/lead/queue" }: Props) {
   const text = TEXT[mode];
   const [choice, setChoice] = useState<string | null>(null);
@@ -52,20 +69,20 @@ export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinato
 
   // SCRUM-78/AC7, SCRUM-79/AC6: nobody to choose, so nothing to confirm
   if (coordinators.length === 0) {
-    return <p className="alert alert--info" role="status">{text.none}</p>;
+    return <Notice tone="info" role="status">{text.none}</Notice>;
   }
 
   // SCRUM-78/AC3, SCRUM-79/AC3: done; the event now shows as assigned to the chosen coordinator
   if (assignedTo) {
     return (
-      <>
-        <p className="alert alert--success" role="status">
+      <div className="space-y-4">
+        <Notice tone="success" role="status">
           {eventName} is now assigned to {assignedTo}.{" "}
           {/* SCRUM-126/AC3: event-service's trigger notifies the new coordinator and, on a reassignment, the previous one */}
           {currentName ? `${assignedTo} and ${currentName} have been notified.` : `${assignedTo} has been notified.`}
-        </p>
-        <Link href={text.back.href}>{text.back.label}</Link>
-      </>
+        </Notice>
+        <Link className={buttonVariants({ variant: "outline" })} href={text.back.href}>{text.back.label}</Link>
+      </div>
     );
   }
 
@@ -80,35 +97,21 @@ export function LeadAssignForm({ mode = "assign", eventId, eventName, coordinato
   }
 
   return (
-    <>
-      {error && <div className="alert alert--error" role="alert">{error}</div>}
-      <div className="field">
-        <label id="coordinator-label">Event Coordinator</label>
-        <Select value={choice} onValueChange={setChoice}>
-          <SelectTrigger aria-labelledby="coordinator-label" className="w-full">
-            <SelectValue placeholder="Select a coordinator">
-              {(value: string | null) => coordinators.find((c) => c.id === value)?.full_name ?? "Select a coordinator"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent alignItemWithTrigger={false}>
-            {coordinators.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                <span className="flex flex-col">
-                  <span className="font-medium">{c.full_name}</span>
-                  <span className="text-xs text-muted-foreground">{workloadText(c)}</span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="field__hint">Active events is each coordinator&apos;s current workload.</p>
+    <div className="space-y-4">
+      {error && <Notice tone="danger" role="alert">{error}</Notice>}
+      <div className="space-y-2">
+        <p id="coordinator-label" className="text-sm font-medium">Event Coordinator</p>
+        <CoordinatorChoiceList coordinators={coordinators} value={choice} onChange={setChoice} labelledBy="coordinator-label" />
+        <p className="text-xs text-muted-foreground">
+          Clashes use each event&apos;s preferred date, which can still change. You can choose any coordinator.
+        </p>
       </div>
-      <div className="event-buttons">
+      <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={!choice || busy} onClick={confirm}>
           {busy ? text.busy : text.confirm}
         </Button>
-        <Link className={buttonVariants({ variant: "secondary" })} href={cancelHref}>Cancel</Link>
+        <Link className={buttonVariants({ variant: "outline" })} href={cancelHref}>Cancel</Link>
       </div>
-    </>
+    </div>
   );
 }

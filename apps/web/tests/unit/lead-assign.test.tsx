@@ -14,10 +14,10 @@ vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ refresh }) }))
 import LeadAssignPage from "@/app/lead/events/[id]/assign/page";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadQueueList } from "@/components/LeadQueueList";
-import type { LeadCoordinator, LeadQueueItem } from "@/lib/leadServer";
+import type { LeadCoordinatorChoice, LeadQueueItem } from "@/lib/leadServer";
 
-const rachel: LeadCoordinator = { id: "c-1", full_name: "Rachel Tan", workload: 2 };
-const marcus: LeadCoordinator = { id: "c-2", full_name: "Marcus Lim", workload: 0 };
+const rachel: LeadCoordinatorChoice = { id: "c-1", full_name: "Rachel Tan", workload: 2, total_attendance: 150, clash: { status: "free" } };
+const marcus: LeadCoordinatorChoice = { id: "c-2", full_name: "Marcus Lim", workload: 0, total_attendance: 0, clash: { status: "free" } };
 const queueItem: LeadQueueItem = {
   id: "evt-1",
   name: "Tech Summit",
@@ -41,22 +41,9 @@ function mockPost(status: number, body: unknown) {
   return fetchMock;
 }
 
-/** SCRUM-126/AC2: opens the coordinator dropdown, as the Lead does by clicking it. */
-function openList() {
-  fireEvent.click(screen.getByRole("combobox", { name: "Event Coordinator" }));
-}
-
-// Picks a coordinator from the dropdown by the text the Lead sees (name, then workload)
+/** SCRUM-168: picks a coordinator from the list by name, as the Lead does by clicking their row. */
 async function choose(label: string) {
-  openList();
-  const option = await screen.findByRole("option", { name: new RegExp(label.split(" — ")[0]) });
-  // Base UI ignores a click that follows opening too quickly, as a stray double click would
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  fireEvent.pointerDown(option);
-  fireEvent.mouseDown(option);
-  fireEvent.pointerUp(option);
-  fireEvent.mouseUp(option);
-  fireEvent.click(option);
+  fireEvent.click(screen.getByRole("radio", { name: new RegExp(label.split(" — ")[0]) }));
 }
 
 const renderForm = (coordinators = [rachel, marcus]) =>
@@ -81,12 +68,11 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
   });
 
   // AC1: the eligible coordinators are listed, each with their workload count
-  it("SCRUM-78/AC1 SCRUM-126/AC2 lists the eligible coordinators, each with their workload count", async () => {
+  it("SCRUM-78/AC1 SCRUM-126/AC2 lists the eligible coordinators, each with their workload count", () => {
     renderForm();
-    openList();
 
-    expect((await screen.findByRole("option", { name: /Rachel Tan/ })).textContent).toContain("2 active events");
-    expect(screen.getByRole("option", { name: /Marcus Lim/ }).textContent).toContain("0 active events");
+    expect(screen.getByRole("radio", { name: /Rachel Tan/ }).closest("label")!.textContent).toContain("2 active events");
+    expect(screen.getByRole("radio", { name: /Marcus Lim/ }).closest("label")!.textContent).toContain("0 active events");
   });
   // end of AC1
 
@@ -176,7 +162,7 @@ describe("SCRUM-78 — The assign page", () => {
     );
     expect(screen.getByRole("heading", { name: "Assign a coordinator to Tech Summit" })).toBeTruthy();
     expect(screen.getByText("Jason Chua")).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Event Coordinator" })).toBeTruthy();
+    expect(screen.getByRole("radiogroup", { name: "Event Coordinator" })).toBeTruthy();
   });
 
   // AC6: a closed event has no assign action
@@ -187,7 +173,7 @@ describe("SCRUM-78 — The assign page", () => {
 
     expect(screen.getByText("This event is closed, so a coordinator can't be assigned.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Confirm assignment" })).toBeNull();
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
   });
 
   it("SCRUM-78/AC3 offers no assign action for an event that already has a coordinator", async () => {
