@@ -91,6 +91,9 @@ export const fakeRoles = () =>
     // SCRUM-86: coord-1 is the default event's assigned coordinator; coord-2 is another coordinator.
     "coord-1": "event_coordinator",
     "coord-2": "event_coordinator",
+    // SCRUM-153/AC5: org-1 organises the default event; org-2 is another organiser.
+    "org-1": "event_organiser",
+    "org-2": "event_organiser",
     ...Object.fromEntries(ROLES.map((role) => [`${role}-user`, role])),
   });
 
@@ -147,6 +150,7 @@ export const anEvent = (overrides: Partial<EventInfo> = {}): EventInfo => ({
   end: new Date("2026-10-15T09:00:00Z"),
   coordinatorName: "Dana Lim",
   assignedCoordinatorId: "coord-1",
+  organiserId: "org-1",
   ...overrides,
 });
 

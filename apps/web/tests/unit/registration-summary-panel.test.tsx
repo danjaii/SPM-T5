@@ -15,11 +15,11 @@ const aRegistration = (id: string, status: RegistrationStatus): EventRegistratio
   phone: "+65 9123 4567",
 });
 
-/** The figure in the summary's `label` column. */
+/** The figure on the summary card headed `label`. */
 const figure = (label: string) => {
-  const table = screen.getByRole("table", { name: "Registration summary" });
-  const column = within(table).getAllByRole("columnheader").findIndex((th) => th.textContent === label);
-  return within(table).getAllByRole("cell")[column]?.textContent;
+  const list = screen.getByRole("list", { name: "Registration summary" });
+  const card = within(list).getByText(label, { selector: "p" }).closest("li")!;
+  return card.querySelectorAll("p")[1]?.textContent;
 };
 
 // ---------------------------------------------------------------------------
@@ -73,8 +73,9 @@ describe("SCRUM-74 — Registration summary panel", () => {
   });
   // end of AC6
 
-  // AC6: the figures sit side by side in one table row, a column for each, so they read at a glance
-  it("SCRUM-74/AC6 shows the summary as a table with one column per figure", () => {
+  // SCRUM-139/AC4, AC15: one card for each figure, with the count against capacity. The figures about places (total, confirmed,
+  // slots remaining) come first as one group, then the statuses that do not use a place.
+  it("SCRUM-139/AC4,AC15 shows one card per figure and the confirmed count against capacity", () => {
     render(
       <RegistrationSummary
         registrations={[aRegistration("reg-1", "pending"), aRegistration("reg-2", "confirmed")]}
@@ -82,17 +83,19 @@ describe("SCRUM-74 — Registration summary panel", () => {
       />,
     );
 
-    const table = screen.getByRole("table", { name: "Registration summary" });
-    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual([
+    const list = screen.getByRole("list", { name: "Registration summary" });
+    expect(within(list).getAllByRole("listitem").map((li) => li.querySelector("p")?.textContent)).toEqual([
       "Total registrations",
-      "Pending",
       "Confirmed",
+      "Slots remaining",
+      "Pending",
       "Rejected",
       "Withdrawn",
-      "Slots remaining",
     ]);
-    expect(within(table).getAllByRole("cell").map((td) => td.textContent)).toEqual(["2", "1", "1", "0", "0", "19 of 20"]);
+    expect(figure("Confirmed")).toBe("1");
+    expect(within(list).getByText("of 20 places")).toBeTruthy();
+    expect(figure("Slots remaining")).toBe("19 of 20");
   });
-  // end of AC6
+  // end of AC4
 });
 // end of SCRUM-74

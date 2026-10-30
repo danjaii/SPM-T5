@@ -1,33 +1,28 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { DashboardView } from "@/components/DashboardView";
+import { BfcacheGuard } from "@/components/BfcacheGuard";
 import { EventSearch } from "@/components/EventSearch";
-import { getDashboard } from "@/lib/dashboard";
+import { PageFrame } from "@/components/PageFrame";
 import { getUpcomingEvents } from "@/lib/getUpcomingEvents";
 
 // Rendered per request: the content depends on who is signed in.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Attendee dashboard · ConnectSphere" };
+export const metadata: Metadata = { title: "Browse events · ConnectSphere" };
 
+// SCRUM-71/AC1: the attendee's home is the List of events, one card per upcoming event.
+// SCRUM-139/AC1, AC5, AC11: inside the shared shell (its "Browse events" item), with an error state when the list can't load.
 export default async function AttendeeDashboard() {
-  // Both loaded at once: the tables come from auth-service, the List of events from event-service
-  const [data, upcoming] = await Promise.all([getDashboard("attendee"), getUpcomingEvents()]);
+  const upcoming = await getUpcomingEvents();
 
   return (
-    <DashboardView data={data}>
-      {/* SCRUM-71/AC1: the List of events, one card per upcoming event */}
-      <section className="dash__section">
-        <h2>List of events</h2>
-        {/* SCRUM-83/AC15: the attendee's registrations, from event-service */}
-        <Link href="/registrations">My registrations</Link>
-        {"events" in upcoming ? (
-          <EventSearch events={upcoming.events} />
-        ) : (
-          // SCRUM-71/AC11: couldn't load the list: say so, rather than "No upcoming events"
-          <div className="alert alert--error" role="alert">{upcoming.error}</div>
-        )}
-      </section>
-    </DashboardView>
+    <PageFrame
+      title="Browse events"
+      description="Find an upcoming event and register in a few clicks."
+      // SCRUM-71/AC11: couldn't load the list: say so, rather than "No upcoming events"
+      error={"error" in upcoming ? upcoming.error : undefined}
+    >
+      <BfcacheGuard />
+      {"events" in upcoming && <EventSearch events={upcoming.events} />}
+    </PageFrame>
   );
 }

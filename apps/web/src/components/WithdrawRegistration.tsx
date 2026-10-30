@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { withdrawRegistration, type MyRegistration } from "@/lib/eventRegistration";
 
@@ -30,18 +32,13 @@ export function WithdrawRegistration({ registration }: { registration: MyRegistr
   return (
     <>
       {withdrawn && (
-        <div className="alert alert--ok" role="status">You have withdrawn from {registration.event.name}.</div>
+        <p role="status" className="text-sm font-medium text-foreground">You have withdrawn from {registration.event.name}.</p>
       )}
       {active && (
         // SCRUM-73/AC5: disabled once the event has started, ended or been cancelled (event-service's can_withdraw)
-        <button
-          className="btn btn--secondary"
-          type="button"
-          disabled={!registration.can_withdraw}
-          onClick={() => setConfirming(true)}
-        >
+        <Button variant="outline" size="sm" disabled={!registration.can_withdraw} onClick={() => setConfirming(true)}>
           Withdraw
-        </button>
+        </Button>
       )}
       {/* SCRUM-73/AC3: a pop-up asks the attendee to confirm before anything is sent */}
       <Dialog open={confirming} onOpenChange={setConfirming}>
@@ -50,15 +47,15 @@ export function WithdrawRegistration({ registration }: { registration: MyRegistr
             <DialogTitle>Withdraw from {registration.event.name}?</DialogTitle>
             <DialogDescription>Your place will be given up so that someone else can attend.</DialogDescription>
           </DialogHeader>
-          {error && <div className="alert alert--error" role="alert">{error}</div>}
+          {error && <Alert variant="danger">{error}</Alert>}
           <DialogFooter>
             {/* SCRUM-73/AC4: the attendee can back out without changing anything */}
-            <button className="btn btn--secondary" type="button" onClick={() => setConfirming(false)}>
+            <Button variant="outline" onClick={() => setConfirming(false)}>
               Cancel
-            </button>
-            <button className="btn" type="button" onClick={withdraw}>
+            </Button>
+            <Button variant="destructive" onClick={withdraw}>
               Yes, withdraw
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
