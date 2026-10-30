@@ -341,6 +341,22 @@ describe("SCRUM-42/AC4 — Coordinator's active event list", () => {
     expect(res.body[0]).toMatchObject({ id: eventId, name: "Tech Summit", status: "planning" });
   });
 
+  it("SCRUM-160 returns the dates and attendance for the dashboard's peek, null when not set", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    fake.tables.events.push(
+      { id: crypto.randomUUID(), name: "Dated", status: "approved", organiser_id: crypto.randomUUID(), assigned_coordinator_id: coordinator.id,
+        preferred_start_datetime: "2026-12-12T11:00:00Z", preferred_end_datetime: "2026-12-12T13:00:00Z", expected_attendance: 80 },
+      { id: crypto.randomUUID(), name: "Undated", status: "approved", organiser_id: crypto.randomUUID(), assigned_coordinator_id: coordinator.id },
+    );
+
+    const res = await request(createApp(fake.deps)).get("/events/my-events").set("Cookie", coordinator.cookie);
+
+    const byName = Object.fromEntries((res.body as { name: string }[]).map((e) => [e.name, e]));
+    expect(byName.Dated).toMatchObject({ preferred_start_datetime: "2026-12-12T11:00:00Z", expected_attendance: 80 });
+    expect(byName.Undated).toMatchObject({ preferred_start_datetime: null, expected_attendance: null, organiser_name: null });
+  });
+
   it("returns 403 when caller is not an event_coordinator", async () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser");
