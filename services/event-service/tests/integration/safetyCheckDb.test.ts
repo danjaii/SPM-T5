@@ -169,7 +169,7 @@ describe.skipIf(!hasDb)("SCRUM-99 Operational Safety Check (database)", () => {
     expect(noReason.error?.code).toBe("23514"); // check_violation: the safety_checks reason rule
     expect(rejected.error).toBeNull();
     expect(confirm.error?.code).toBe("SC001");
-    expect(await statusOf(eventId)).toBe("awaiting_arrangements");
+    expect(await statusOf(eventId)).toBe("planning"); // SCRUM-171/AC1
   });
 
   it("SCRUM-99/AC1 refuses a decision on an event that isn't waiting for a safety check", async () => {

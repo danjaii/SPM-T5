@@ -15,6 +15,9 @@ Read before making structural changes:
 - Feature specs (user stories, acceptance criteria, shared rules): [docs/specs/](docs/specs/). Test
   names reference the spec's scenario IDs (e.g. `36-S4`); where a spec disagrees with the schema,
   its "Implementation decisions" section wins.
+- Requirements considered and deliberately not built, with the customer's reason:
+  [docs/scope-decisions.md](docs/scope-decisions.md). Check it before building a requirement that sounds missing (e.g.
+  guarded status transitions); it may have been dropped on purpose.
 
 ## Course context
 
@@ -41,7 +44,7 @@ there, not as a string literal in a service.
 ### Feature scope (release 1)
 
 The 20 features below define the release-1 backlog. They span the five services in Architecture
-below plus `apps/web`; none of them are implemented yet (see Current state).
+below plus `apps/web`. Most are built; Current state says what is and what is not.
 
 1. Authorisation/authentication — RBAC via Supabase Auth JWTs (see Architecture: this is
    RLS-enforced, not middleware-enforced).
@@ -50,7 +53,8 @@ below plus `apps/web`; none of them are implemented yet (see Current state).
 4. Event review and approval — coordinator amend/approve/reject workflow.
 5. Coordinator assignment/reassignment per event (owned by `event-service`, alongside review/approval).
 6. Event status state machine: `Draft → Submitted → Under Review → Approved → Planning →
-   Confirmed → Completed`, with `Cancelled`/`Rejected` off-ramps.
+   Awaiting Arrangements → Confirmed → Completed`, with `Cancelled`/`Rejected` off-ramps. The full list,
+   which also has `Returned`, is `EVENT_STATUSES` in `packages/shared/src/eventStatus.ts`.
 7. Event information management — minor edits vs. critical updates (date/time/attendance) that
    must re-trigger venue/equipment validation.
 8. Venue catalogue (location, capacity, layouts, operating hours, accessibility).
@@ -73,8 +77,8 @@ see #5). Attendee registration (#18) is owned by `event-service` (SCRUM-83: regi
 registrations, and an event's registrations for its organiser and coordinator) and SCRUM-73
 (withdraw from My registrations: `POST /events/my-registrations/:id/withdraw`, with migration 29's
 update policy letting an attendee change only their own active registration, and only to withdrawn).
-`receivesEventUpdates()` in `packages/shared` is the rule notification-service should use so a
-withdrawn attendee gets no more updates or reminders.
+`receivesEventUpdates()` in `packages/shared` is the rule that a withdrawn attendee gets no more
+updates or reminders; migration 65's `event_update_attendees()` is its database copy (SCRUM-172).
 
 ## Commands
 
@@ -91,8 +95,8 @@ pnpm run test:all                            # every workspace, one at a time
 pnpm --filter @spm-t5/web run test            # one workspace
 pnpm --filter @spm-t5/auth-service run test:unit   # unit only (vitest run tests/unit)
 pnpm --filter @spm-t5/auth-service run test:integration
-pnpm --filter @spm-t5/auth-service run test:unit tests/unit/health.test.ts   # single file
-pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"      # single test by name
+pnpm --filter @spm-t5/auth-service exec vitest run tests/unit/health.test.ts   # single file (test:unit would still run all of tests/unit)
+pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"        # single test by name
 
 pnpm --filter @spm-t5/auth-service run typecheck   # tsc --noEmit (apps/web runs `next typegen` first)
 pnpm run lint:all                            # apps/web uses ESLint flat config (eslint.config.mjs)
@@ -111,21 +115,23 @@ table — `auth-service` wraps Supabase Auth, it does not reimplement it.
 
 **Authorization is Row-Level Security, not application code.** ADR 0001 chose one Postgres
 instance for all five services with RLS enforcing per-role access. A service that queries with
-the service-role key bypasses RLS entirely, so reach for the anon/user-scoped client by default
-and use the service-role key only where bypassing is the actual intent. Express middleware may
+the secret key (`SUPABASE_SECRET_KEY`, the service role) bypasses RLS entirely, so reach for the
+user-scoped client (`SUPABASE_PUBLISHABLE_KEY` plus the caller's token) by default and use the secret
+key only where bypassing is the actual intent. Express middleware may
 still decode the Supabase JWT to identify the caller (`req.user`) — that's authentication, not
 authorization — but it should not re-implement role checks that RLS already enforces.
 
-**Notification service is event-driven, not polled.** Per the container diagram, `event-service`
-publishes status-change events and `notification-service` reacts to them and dispatches
-email/SMS — favor Supabase Realtime/webhooks or an explicit event call over having services poll
-each other for state changes.
+**Notifications are written with the change they announce, not polled.** Per ADR 0002, a trigger or
+`security definer` function writes the `notifications` row in the same transaction as the change, and
+`notification-service` serves those rows. Add a new notification the same way, not with an HTTP call
+to `notification-service` or by having services poll each other for state changes. Email and SMS
+are planned (see the container diagram) but not sent yet.
 
 **Every service is a workspace with its own `package.json`, `tests/`, and `Dockerfile`.** Docker
 builds use the repo root as context (the lockfile and `packages/shared` live there), and each
 service's `build` script bundles `packages/shared` in with esbuild. CI is a single workflow,
-`.github/workflows/ci.yml` (job `test`, then `e2e`), on push to `main` and PRs into it, with no path
-filters. The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run`
+`.github/workflows/ci.yml`, on push to `main` and PRs into it, with no path filters. Its jobs are
+`test` and `integration` side by side, `e2e` after `test`, and `migrate` after both on push to `main`. The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run`
 discovers every workspace's tests and a new service needs no CI change.
 
 **`packages/shared` exists to stop frontend and services drifting.** Role types, Supabase client
@@ -146,12 +152,15 @@ venue 4003, equipment 4004, notification 4005).
   merge to `main`; never apply migration SQL by hand (dashboard SQL editor, `psql`), since that skips the
   migration history and the next `db push` then re-runs or skips files.
 - **Tests live in `tests/unit` and `tests/integration` per workspace**, not colocated with source.
-  The CI template runs the two separately, and only `test:unit` gets `--coverage`.
+  CI's `test` job has no database, so its `pnpm vitest run` skips the integration suites; the
+  `integration` job runs them against a local Supabase, with coverage turned off.
 - **Integration tests only assert on data they create.** Vitest runs test files at the same time, all against one
   shared database, so another file may be adding, changing or deleting rows while yours runs. An exact count or list must
   come from rows and accounts the test made itself (its own Lead, its own venue bookings), never from seeded data or
   from a read of a whole table; checks on seeded data should say what is included or left out, not "exactly these". Two
   tests that broke this rule failed at random in CI (SCRUM-143).
+- **A file below 100% coverage needs a reason in [docs/testing/coverage.md](docs/testing/coverage.md).** CI has no coverage
+  threshold on purpose (SCRUM-173), so nothing else flags a gap: a PR that adds one updates that document.
 - **Export the Express app separately from `listen()`** so integration tests can mount it without
   binding a port.
 - **`src/app/` in `apps/web` is routes only** — every folder is a URL segment. Components go in
@@ -161,13 +170,16 @@ venue 4003, equipment 4004, notification 4005).
   `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and a C3
   `component-<service>.puml` for each of the five services — keep each one current as its service
   grows, rather than adding a C4 code diagram.
+- **Record a dropped or narrowed requirement in `docs/scope-decisions.md`.** When a story leaves out something the
+  customer briefing or Q&A mentions, add a row: the requirement, the decision, why (quote the customer as "the customer
+  said in the Week N Q&A", without naming who asked), and where it is recorded (the story's Out of scope, its spec). Then
+  anyone asked "why didn't you build X?" can find the answer by X's own name.
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
-  on unit tests (only `test:unit` gets `--coverage`, per Commands above).
-- **A stubbed service gains internal structure as it's built out**, not before: once a
-  `services/*/src/index.ts` grows past the `healthCheck()` stub, split it into `routes/`,
-  `controllers/` (or `services/` for business logic), and `middlewares/` rather than one growing
-  file — but keep the `tests/unit` + `tests/integration` split from the bullet above regardless.
+  on unit tests (coverage is switched on in the root `vitest.config.mts`, so only CI's unit run counts).
+- **Keep a service's code split by job**, as the existing services do: `routes/`, `services/` for
+  business logic, `middlewares/`, and `readers/` or `repositories/` for database access, rather than
+  one growing file.
 
 ## Git conventions
 
@@ -228,7 +240,7 @@ acceptance criterion — part of what the Scrum project is graded on.
   this lets them narrow it as they type, which is why the filtering runs in the browser."
 
 ## UI redesign (epic SCRUM-119)
-- One ticket per branch and per session: SCRUM-120 (theme tokens) → SCRUM-121 (app shell) → SCRUM-122…142 (features). Mock-ups: <https://www.figma.com/design/iHA0UaeAIYhfmfi0CrrJv6/ConnectSphere-UI-Mock-Ups?node-id=0-1&p=f&t=UZ5McDajOKDK0obz-0>.
+- One ticket per branch and per session: SCRUM-120 (theme tokens) → SCRUM-121 (app shell) → SCRUM-122…142 (features), then later restyle tickets such as SCRUM-160 and SCRUM-167. Mock-ups: <https://www.figma.com/design/iHA0UaeAIYhfmfi0CrrJv6/ConnectSphere-UI-Mock-Ups?node-id=0-1&p=f&t=UZ5McDajOKDK0obz-0>.
 - Stack: shadcn/ui + Tailwind in apps/web. Colors come from the Figma variables as CSS variables in globals.css; no hard-coded hex or arbitrary Tailwind values. shadcn components in src/components/ui, routes only in src/app.
 - Layout: every role has the same left sidebar and no top bar; keep it in one shared shell component.
 - Status is never color alone: always icon + label.
@@ -324,18 +336,33 @@ migration 43) moves the event back to planning; once the coordinator returns it 
 arrangements complete, it is back in the queue for another check. The event's coordinator and organiser see every
 safety decision on the event page (`GET /events/:id/safety-decisions`, `event_safety_decisions()`). An important change to an
 approved event revokes the approval (`safety_checks.revoked_at`, migration 43's trigger), so it needs another check; a
-confirmed event goes back to awaiting arrangements. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+confirmed event goes back to awaiting arrangements. Reject now returns the event to planning as Request Changes does, and the
+last venue booking or equipment request approved moves a planning event to awaiting arrangements by itself, so it enters the
+queue with no manual step (SCRUM-171; same spec, migration 66, `event_arrangements_complete()`).
+The assigned coordinator cancels an event by setting it to Cancelled with a
+required reason (SCRUM-174; spec in `docs/specs/cancel-event.md`, migrations 60 to 63): in the same transaction, triggers cancel its
+active venue bookings, release its equipment requests and on-site technician assignments, close its pending change requests (as
+`rejected`, also when the event is completed), and SCRUM-172's migration 65 notifies the organiser and every registered or waitlisted attendee
+(`event_cancelled`); a cancelled event cannot change status again, and a completed or rejected one cannot be cancelled (CS174).
+Guarded status transitions were considered and not built, because the customer said status progression is flexible; see
+`docs/scope-decisions.md`. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
 event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
-`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell in every signed-in page's header (`AppHeader`, `NotificationBell`) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
+`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell (`NotificationBell`, in the app shell's sidebar and in `AppHeader`, the top bar some pages still render) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
 `docs/specs/receive-notifications.md`, migration 44) adds the producers, triggers that write each row in the same transaction as
 its change: a coordinator's assignment, an event request's approval or rejection, a comment mention or reply (one per person,
 never the author; comments are saved through `post_event_comment()`), a clarification request and the organiser's answer (a
 comment the assigned coordinator flags, `event_comments.is_clarification_request`), and a safety decision. Each item carries
-`actionRequired` (`notificationRequiresAction()` in `packages/shared`).
+`actionRequired` (`notificationRequiresAction()` in `packages/shared`). SCRUM-172 (same spec, migration 65) adds the remaining
+producers, also triggers: a submitted request tells every active Lead; a venue booking approved or rejected tells the assigned
+coordinator; an important change tells the organiser and coordinator; a registration status change tells the attendee; a confirmed
+event tells the organiser and coordinator; a cancelled one tells them and the attendees; a buffer conflict tells the coordinator of
+each flagged booking; a replacement venue tells the organiser and attendees. Nobody is told about their own action, and a withdrawn
+attendee hears nothing (`event_update_attendees()`, kept equal to `receivesEventUpdates()` by a test). An attendee's event
+notification opens `/registrations`, because the event page refuses them.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
@@ -343,12 +370,13 @@ Known gaps to fix rather than work around:
   escalation on `users` specifically (column-level grant, not a row-level policy — see that
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
-  new migration. `events` and its history tables (SCRUM-91), `venue_bookings`, `event_registrations`, `notifications` and
-  the catalogues (SCRUM-155, migration 53: Venue Staff write venues, layouts and facilities, Technical Support Staff write
-  equipment, nobody writes `organisations` or `event_categories` through the API) already have per-role policies; the
-  tables still on the blanket policy, the order to fix them in and what is deliberately left open are in
-  [ADR 0003](docs/architecture/adr/0003-row-level-security-as-authorisation.md) (SCRUM-154 users, SCRUM-153 equipment
-  reservations, SCRUM-156 coordinator reads; SCRUM-92 and SCRUM-93 no longer exist in Jira).
+  new migration. `events` and its history tables (SCRUM-91; a coordinator reads only the events assigned to them, SCRUM-156,
+  migration 59), `users` (SCRUM-154), `venue_bookings`, `event_registrations`, `notifications`, `equipment_reservations` and
+  `technical_support_requests` (SCRUM-153) and the catalogues (SCRUM-155, migration 53: Venue Staff write venues, layouts and
+  facilities, Technical Support Staff write equipment, nobody writes `organisations` or `event_categories` through the API)
+  already have per-role policies; what is deliberately left open (reads of the reference data, `activity_log`), and that a
+  Lead reads only unassigned events and their own coordinators' rather than every event, are in
+  [ADR 0003](docs/architecture/adr/0003-row-level-security-as-authorisation.md).
 
 
 ## 

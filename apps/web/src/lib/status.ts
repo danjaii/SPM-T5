@@ -17,7 +17,9 @@ import { STATUS_LABELS as REGISTRATION_STATUS_LABELS } from "./eventRegistration
 // and label mean it is never colour alone. Adding a status to a shared list fails typecheck until it is mapped here.
 
 export type StatusTone = "neutral" | "info" | "warning" | "success" | "danger";
-export type StatusIconName = "circle" | "info" | "alert" | "check" | "x" | "pause" | "timer-off";
+export type StatusIconName =
+  | "circle" | "info" | "alert" | "check" | "x" | "pause" | "timer-off"
+  | "pencil" | "send" | "search" | "undo" | "clipboard" | "hourglass" | "calendar-check" | "badge-check" | "ban" | "clock" | "repeat";
 
 export interface StatusDisplay {
   tone: StatusTone;
@@ -36,16 +38,16 @@ export const TONE_ICONS: Record<StatusTone, StatusIconName> = {
 const display = (tone: StatusTone, label: string, icon: StatusIconName = TONE_ICONS[tone]): StatusDisplay => ({ tone, icon, label });
 
 export const EVENT_STATUS_DISPLAY: Record<EventStatus, StatusDisplay> = {
-  draft: display("neutral", "Draft"),
-  submitted: display("info", "Submitted"),
-  under_review: display("info", "Under Review"),
-  returned: display("warning", "Returned"),
+  draft: display("neutral", "Draft", "pencil"),
+  submitted: display("info", "Submitted", "send"),
+  under_review: display("info", "Under Review", "search"),
+  returned: display("warning", "Returned", "undo"),
   approved: display("success", "Approved"),
-  planning: display("info", "Planning"),
-  awaiting_arrangements: display("info", "Awaiting Arrangements"),
-  confirmed: display("success", "Confirmed"),
-  completed: display("success", "Completed"),
-  cancelled: display("neutral", "Cancelled"),
+  planning: display("info", "Planning", "clipboard"),
+  awaiting_arrangements: display("info", "Awaiting Arrangements", "hourglass"),
+  confirmed: display("success", "Confirmed", "calendar-check"),
+  completed: display("success", "Completed", "badge-check"),
+  cancelled: display("neutral", "Cancelled", "ban"),
   rejected: display("danger", "Rejected"),
 };
 
@@ -53,12 +55,12 @@ export const EVENT_STATUS_DISPLAY: Record<EventStatus, StatusDisplay> = {
 export type BookingStatusKey = VenueBookingStatus | "HOLD" | "EXPIRED";
 
 export const BOOKING_STATUS_DISPLAY: Record<BookingStatusKey, StatusDisplay> = {
-  PENDING: display("info", "Pending"),
+  PENDING: display("info", "Pending", "clock"),
   APPROVED: display("success", "Approved"),
   REJECTED: display("danger", "Rejected"),
-  WITHDRAWN: display("neutral", "Withdrawn"),
-  CANCELLED: display("neutral", "Cancelled"),
-  REPLACED: display("neutral", "Replaced"),
+  WITHDRAWN: display("neutral", "Withdrawn", "undo"),
+  CANCELLED: display("neutral", "Cancelled", "ban"),
+  REPLACED: display("neutral", "Replaced", "repeat"),
   HOLD: display("info", "Hold", "pause"),
   EXPIRED: display("danger", "Expired", "timer-off"),
 };

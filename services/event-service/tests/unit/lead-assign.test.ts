@@ -62,7 +62,10 @@ const lead = "cs_session=token-lead";
 describe("SCRUM-78 — The assign step (GET /lead/events/:id/assignment)", () => {
   // AC1: an unassigned, non-closed event offers the Lead's eligible coordinators with their workload counts
   it("SCRUM-78/AC1 offers the eligible coordinators, each with their workload count, for an unassigned event", async () => {
-    const { app, rpc } = makeApp({ event: unassigned, rpcs: { lead_coordinator_overview: { data: coordinators, error: null } } });
+    const { app, rpc } = makeApp({
+      event: unassigned,
+      rpcs: { lead_coordinator_overview: { data: coordinators, error: null }, lead_coordinator_events: { data: [], error: null } },
+    });
 
     const res = await request(app).get("/lead/events/evt-1/assignment").set("Cookie", lead);
 
@@ -80,7 +83,8 @@ describe("SCRUM-78 — The assign step (GET /lead/events/:id/assignment)", () =>
         submitted_at: "2031-01-02T03:04:05+00:00",
       },
       canAssign: true,
-      coordinators,
+      // SCRUM-168: each also carries their total attendance and whether they clash (none here: they have no events)
+      coordinators: coordinators.map((c) => ({ ...c, total_attendance: 0, clash: { status: "free" } })),
     });
   });
   // end of AC1
