@@ -20,6 +20,7 @@ const anEvent = (overrides: Partial<UpcomingEvent> = {}): UpcomingEvent => ({
   category: "Networking Event",
   coordinator: "Rachel Tan",
   available_slots: 40,
+  can_register: true,
   ...overrides,
 });
 
@@ -34,6 +35,7 @@ const events = [
     category: "Workshop",
     coordinator: "Marcus Lim",
     available_slots: 5,
+    can_register: true,
   }),
   anEvent({
     id: "evt-3",
@@ -44,6 +46,7 @@ const events = [
     category: "Seminar",
     coordinator: "Marcus Lim",
     available_slots: null,
+    can_register: true,
   }),
 ];
 

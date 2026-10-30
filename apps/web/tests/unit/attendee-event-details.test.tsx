@@ -24,6 +24,7 @@ function anEvent(overrides: Partial<UpcomingEvent> = {}): UpcomingEvent {
     category: "Conference",
     coordinator: "Rachel Tan",
     available_slots: 40,
+    can_register: (overrides.availability ?? "open") === "open",
     ...overrides,
   };
 }
@@ -89,8 +90,17 @@ describe("SCRUM-139 — attendee event details", () => {
     expect(screen.getByText("Your registration:")).toBeTruthy();
   });
 
-  it("SCRUM-139/AC13 says why there is no Register button on a full event", () => {
-    render(<EventDetails event={anEvent({ availability: "full", available_slots: 0 })} />);
+  // SCRUM-169/AC2 replaces SCRUM-139/AC13's hidden button: registering on a full event is saved as Pending
+  it("SCRUM-169/AC2 offers Register on a full event and says the organiser will decide", () => {
+    render(<EventDetails event={anEvent({ availability: "full", available_slots: 0, can_register: true })} />);
+
+    expect(screen.getByText("Event Full")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Register" })).toBeTruthy();
+    expect(screen.getByText("This event is full. You can still register, and the organiser will decide.")).toBeTruthy();
+  });
+
+  it("SCRUM-139/AC13 says why there is no Register button when registration isn't available", () => {
+    render(<EventDetails event={anEvent({ availability: "full", available_slots: 0, can_register: false })} />);
 
     expect(screen.getByText("Event Full")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Register" })).toBeNull();

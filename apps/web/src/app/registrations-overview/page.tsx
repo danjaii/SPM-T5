@@ -43,7 +43,8 @@ export default async function RegistrationsOverviewPage({ searchParams }: { sear
         ("registrations" in registrations ? (
           <>
             <RegistrationSummary registrations={registrations.registrations} capacity={selected?.registration_capacity ?? null} />
-            <EventRegistrationList registrations={registrations.registrations} />
+            {/* SCRUM-169/AC3: only the organiser's events can_decide; a coordinator's view stays read-only */}
+            <EventRegistrationList registrations={registrations.registrations} eventId={selected?.id} canDecide={selected?.can_decide} />
           </>
         ) : (
           // Couldn't load: say so, rather than an empty page

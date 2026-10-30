@@ -200,6 +200,195 @@ describe.skipIf(!hasDb)("SCRUM-83 event_registrations in the database (migration
   // end of AC12
 
   // -------------------------------------------------------------------------
+  // SCRUM-169 — Confirmed straight away up to capacity (migration 68)
+  // -------------------------------------------------------------------------
+  describe("SCRUM-169 confirming registrations up to capacity (migration 68)", () => {
+    /** Registers as the signed-in actor, the way POST /events/:id/registrations does. */
+    function registerThroughFunction(actor: Actor, eventId: string) {
+      return actor.client.rpc("register_for_event", { p_event_id: eventId, p_details: DETAILS });
+    }
+
+    /** The places the event's list row says are taken. */
+    async function placesTaken(eventId: string) {
+      const { data } = await otherAttendee.client.rpc("list_public_events");
+      return (data as { id: string; active_registrations: number }[]).find((row) => row.id === eventId)?.active_registrations;
+    }
+
+    // AC1: with a free place the registration is Confirmed at once and uses that place
+    it("SCRUM-169/AC1 confirms a registration at once while places remain, and it uses a place", async () => {
+      const eventId = await newEvent({ registration_capacity: 2 });
+
+      const { data, error } = await registerThroughFunction(attendee, eventId);
+
+      expect(error).toBeNull();
+      expect(data).toBe("registered");
+      expect(await placesTaken(eventId)).toBe(1);
+    });
+
+    // AC2: at capacity the registration is saved as Pending and doesn't use a place
+    it("SCRUM-169/AC2 saves a registration as Pending at capacity, using no place", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+
+      const { data, error } = await registerThroughFunction(attendee, eventId);
+
+      expect(error).toBeNull();
+      expect(data).toBe("waitlisted");
+      expect(await placesTaken(eventId)).toBe(1);
+    });
+
+    // AC5: two attendees on the last place at the same moment: each counts the places only after the other has finished
+    it("SCRUM-169/AC5 confirms only one of two attendees registering for the last place at the same moment", async () => {
+      // Repeated, because one lucky ordering would pass without the lock
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const eventId = await newEvent({ registration_capacity: 1 });
+
+        const results = await Promise.all([registerThroughFunction(attendee, eventId), registerThroughFunction(otherAttendee, eventId)]);
+
+        expect(results.map((result) => result.error)).toEqual([null, null]);
+        expect(results.map((result) => result.data as string).sort()).toEqual(["registered", "waitlisted"]);
+      }
+    });
+
+    // AC1: an attendee's token can call the function directly, and it can confirm, so it must check for itself that the
+    // event is open: otherwise an attendee could confirm themselves on a private, closed or cancelled event
+    it.each([
+      ["a private event", { registration_required: false }],
+      ["an event not yet confirmed", { status: "planning" }],
+      ["a cancelled event", { status: "cancelled" }],
+      ["an event whose registration has closed", { registration_closes_at: "2020-01-01T00:00:00+00:00" }],
+      ["an event whose registration hasn't opened", { registration_opens_at: "2030-01-01T00:00:00+00:00" }],
+      ["an event that has started", { preferred_start_datetime: "2020-01-01T00:00:00+00:00", preferred_end_datetime: "2020-01-01T02:00:00+00:00" }],
+    ])("SCRUM-169/AC1 refuses to register for %s", async (_name, fields) => {
+      const eventId = await newEvent(fields);
+
+      const { error } = await registerThroughFunction(attendee, eventId);
+
+      expect(error).toMatchObject({ code: "CS169", message: "REGISTRATION_CLOSED" });
+      const { data: rows } = await admin.from("event_registrations").select("id").eq("event_id", eventId);
+      expect(rows).toEqual([]);
+    });
+
+    // AC1: the one-active-registration rule still holds through the function (SCRUM-83/AC16)
+    it("SCRUM-169/AC1 refuses a second active registration for the same event", async () => {
+      const eventId = await newEvent();
+      await registerThroughFunction(attendee, eventId);
+
+      const { error } = await registerThroughFunction(attendee, eventId);
+
+      expect(error?.code).toBe("23505");
+    });
+
+    /** The organiser's decision on a Pending registration, the way the decision route makes it. */
+    function decideAs(actor: Actor, registrationId: string, decision: string) {
+      return actor.client.rpc("decide_registration", { p_registration_id: registrationId, p_decision: decision });
+    }
+
+    async function statusOf(registrationId: string) {
+      const { data } = await admin.from("event_registrations").select("status").eq("id", registrationId).single();
+      return data?.status;
+    }
+
+    // AC3: the event's organiser confirms a Pending registration
+    it("SCRUM-169/AC3 lets the event's organiser confirm a Pending registration, which then uses a place", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await decideAs(organiser, registrationId, "confirm");
+
+      expect(error).toBeNull();
+      expect(await statusOf(registrationId)).toBe("registered");
+      expect(await placesTaken(eventId)).toBe(1);
+    });
+
+    // AC3: declining is stored as 'cancelled', which every page shows as Rejected
+    it("SCRUM-169/AC3 lets the event's organiser decline a Pending registration", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await decideAs(organiser, registrationId, "decline");
+
+      expect(error).toBeNull();
+      expect(await statusOf(registrationId)).toBe("cancelled");
+    });
+
+    // AC3: the decision is the organiser's alone: not the attendee's, nor the assigned coordinator's, who can see the row
+    it("SCRUM-169/AC3 refuses a decision from anyone but the event's organiser", async () => {
+      const eventId = await newEvent({ assigned_coordinator_id: coordinator.userId });
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      for (const actor of [attendee, otherAttendee, coordinator]) {
+        const { error } = await decideAs(actor, registrationId, "confirm");
+        expect(error).toMatchObject({ code: "CS169", message: "NOT_FOUND" });
+      }
+      expect(await statusOf(registrationId)).toBe("waitlisted");
+    });
+
+    // AC3: only a Pending registration is waiting for a decision
+    it("SCRUM-169/AC3 refuses a decision on a registration that isn't Pending", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "withdrawn");
+
+      const { error } = await decideAs(organiser, registrationId, "confirm");
+
+      expect(error).toMatchObject({ code: "CS169", message: "NOT_PENDING" });
+      expect(await statusOf(registrationId)).toBe("withdrawn");
+    });
+
+    // AC3: a cancelled or completed event has nothing left to decide
+    it("SCRUM-169/AC3 refuses a decision on an event that is no longer confirmed", async () => {
+      const eventId = await newEvent({ status: "cancelled" });
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await decideAs(organiser, registrationId, "confirm");
+
+      expect(error).toMatchObject({ code: "CS169", message: "EVENT_CLOSED" });
+    });
+
+    // AC4: on a full event, confirming is refused until a place has been freed
+    it("SCRUM-169/AC4 refuses to confirm on a full event, and allows it once a place has been freed", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      const confirmedId = await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+      const pendingId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const refused = await decideAs(organiser, pendingId, "confirm");
+      expect(refused.error).toMatchObject({ code: "CS169", message: "EVENT_FULL" });
+      expect(await statusOf(pendingId)).toBe("waitlisted");
+
+      await otherAttendee.client.from("event_registrations").update({ status: "withdrawn" }).eq("id", confirmedId).select("id");
+
+      const allowed = await decideAs(organiser, pendingId, "confirm");
+      expect(allowed.error).toBeNull();
+      expect(await statusOf(pendingId)).toBe("registered");
+    });
+
+    // AC4: declining uses no place, so a full event doesn't stop it
+    it("SCRUM-169/AC4 still lets the organiser decline on a full event", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+      const pendingId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await decideAs(organiser, pendingId, "decline");
+
+      expect(error).toBeNull();
+      expect(await statusOf(pendingId)).toBe("cancelled");
+    });
+
+    // AC6: withdrawing frees the place, and the Pending attendee stays Pending until the organiser decides
+    it("SCRUM-169/AC6 frees the place when a Confirmed attendee withdraws, and promotes no one", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      const confirmedId = await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+      const pendingId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      await otherAttendee.client.from("event_registrations").update({ status: "withdrawn" }).eq("id", confirmedId).select("id");
+
+      expect(await statusOf(confirmedId)).toBe("withdrawn");
+      expect(await placesTaken(eventId)).toBe(0);
+      expect(await statusOf(pendingId)).toBe("waitlisted");
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // SCRUM-73 — Withdrawing a registration (migration 29)
   // -------------------------------------------------------------------------
   describe("SCRUM-73 withdrawing a registration (migration 29)", () => {

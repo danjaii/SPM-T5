@@ -9,12 +9,12 @@ const { getManagedEvents, getEventRegistrations } = vi.hoisted(() => ({
   getEventRegistrations: vi.fn(),
 }));
 vi.mock("@/lib/eventRegistrationServer", () => ({ getManagedEvents, getEventRegistrations }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }) }));
 
 import RegistrationsOverviewPage from "@/app/registrations-overview/page";
 
 /** One of the caller's events, as GET /events/managed sends it. */
-const TECH_SUMMIT = { id: "evt-1", name: "Tech Summit", status: "confirmed", start_at: "2026-11-20T01:00:00Z", registration_capacity: 10 };
+const TECH_SUMMIT = { id: "evt-1", name: "Tech Summit", status: "confirmed", start_at: "2026-11-20T01:00:00Z", registration_capacity: 10, can_decide: false };
 
 /** Renders the page as if the address's query string were `query` (e.g. { event: "evt-1" }). */
 const renderPage = async (query: { event?: string } = {}) =>
@@ -107,3 +107,24 @@ describe("SCRUM-74 — Registrations overview page", () => {
   // end of AC1
 });
 // end of SCRUM-74
+
+// ---------------------------------------------------------------------------
+// SCRUM-169 — The organiser decides on Pending registrations from this page
+// ---------------------------------------------------------------------------
+describe("SCRUM-169 — Registrations overview page", () => {
+  const PENDING = { id: "reg-1", status: "pending", registered_at: "2026-10-01T02:00:00Z", name: "Alicia", email: "a@example.com", phone: "91234567" };
+
+  it.each([
+    ["offers the organiser Confirm and Decline", true, 1],
+    ["keeps the coordinator's view read-only", false, 0],
+  ])("SCRUM-169/AC3 %s", async (_name, can_decide, buttons) => {
+    getManagedEvents.mockResolvedValue({ events: [{ ...TECH_SUMMIT, can_decide }] });
+    getEventRegistrations.mockResolvedValue({ registrations: [PENDING] });
+
+    await renderPage({ event: "evt-1" });
+
+    expect(screen.queryAllByRole("button", { name: "Confirm" })).toHaveLength(buttons);
+    expect(screen.queryAllByRole("button", { name: "Decline" })).toHaveLength(buttons);
+  });
+});
+// end of SCRUM-169
