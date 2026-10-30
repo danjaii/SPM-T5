@@ -10,7 +10,7 @@ import type { QueueCounts } from "@/lib/nav";
 
 const inShell = (role: Role, counts: QueueCounts) =>
   render(
-    <ShellContext.Provider value={{ user: { fullName: "A", role }, counts }}>
+    <ShellContext.Provider value={{ user: { fullName: "A", role }, counts, refreshCounts: () => {} }}>
       <NeedsAction />
     </ShellContext.Provider>,
   );
