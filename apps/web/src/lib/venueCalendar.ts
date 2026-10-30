@@ -24,6 +24,8 @@ export interface CalendarPeriod {
   event_end?: string;
   occupied_start?: string;
   occupied_end?: string;
+  setup_minutes?: number;
+  turnaround_minutes?: number;
 }
 
 export interface CalendarVenue {

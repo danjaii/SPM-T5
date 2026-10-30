@@ -21,7 +21,14 @@ export function VenueCalendarPeriod({ period, selected = false, onSelect }: { pe
   return (
     <li
       data-kind={period.kind}
-      className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm", padding ? "ml-4 border-dashed border-border-strong" : "border-border")}
+      // SCRUM-130/AC2: a block is striped and carries its reason as a hover title (the reason is also written out in the row)
+      title={period.kind === "block" ? (period.reason_label ? `${period.label}: ${period.reason_label}` : period.label) : undefined}
+      className={cn(
+        "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm",
+        // SCRUM-130/AC1: setup and turnaround are tinted and dashed, so they read as time around the event, not the event
+        padding ? "ml-4 border-dashed border-border-strong bg-muted/40" : "border-border",
+        period.kind === "block" && "calendar-block",
+      )}
     >
       <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-semibold", className)}>
         <Icon aria-hidden="true" className="size-4" />
@@ -30,6 +37,13 @@ export function VenueCalendarPeriod({ period, selected = false, onSelect }: { pe
       {KIND_NAME[period.kind] && <span className="font-medium text-foreground">{KIND_NAME[period.kind]}</span>}
       {period.reason_label && <span className="font-medium text-foreground">{period.reason_label}</span>}
       <span className="text-muted-foreground">{formatPeriodTimes(period.start, period.end)}</span>
+      {/* SCRUM-130/AC1: the whole time the booking holds the venue, setup and turnaround included */}
+      {period.kind === "event" && period.occupied_start && period.occupied_end && (
+        <span className="font-medium text-foreground">
+          Occupied {formatPeriodTimes(period.occupied_start, period.occupied_end)}
+          {period.setup_minutes !== undefined && period.turnaround_minutes !== undefined ? ` (setup ${period.setup_minutes} min, turnaround ${period.turnaround_minutes} min)` : ""}
+        </span>
+      )}
       {onSelect && (
         <Button type="button" variant="ghost" size="sm" className="ml-auto" aria-pressed={selected}
           aria-label={`Details: ${period.label}, ${formatPeriodTimes(period.start, period.end)}`} onClick={onSelect}>

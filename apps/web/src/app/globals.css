@@ -645,3 +645,8 @@ tr:last-child td { border-bottom: 0; }
 @layer components {
   .app-shell .dash__bar { display: none; }
 }
+
+/* SCRUM-130/AC2: a venue block on the calendar is striped (the word Blocked and its reason are the main cue, the stripes are a second one) */
+.calendar-block {
+  background-image: repeating-linear-gradient(135deg, transparent 0, transparent 8px, color-mix(in srgb, var(--status-danger-fg) 14%, transparent) 8px, color-mix(in srgb, var(--status-danger-fg) 14%, transparent) 16px);
+}
