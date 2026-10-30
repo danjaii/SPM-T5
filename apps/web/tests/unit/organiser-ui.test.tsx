@@ -60,8 +60,11 @@ beforeEach(() => {
 });
 
 describe("SCRUM-159/AC1 the organiser's home dashboard in the new design", () => {
+  // Option B (agreed 2026-10-31): the home page shows the organiser's full list, the same as My event requests, so the
+  // separate "My event requests" link under it is no longer needed. The sidebar item and page stay (SCRUM-52).
   it("SCRUM-159/AC1 sits in the shared app shell, without the old top bar, under the same title and line", async () => {
     getDashboard.mockResolvedValue(DASHBOARD);
+    getMyEventRequests.mockResolvedValue({ requests: [REQUEST] });
 
     render(await EventOrganiserDashboard());
 
@@ -70,44 +73,60 @@ describe("SCRUM-159/AC1 the organiser's home dashboard in the new design", () =>
     expect(screen.getByText("Signed in as Jason Chua")).toBeTruthy();
   });
 
-  it("SCRUM-159/AC1 shows My event requests as a card table, its status as a badge with an icon, and the whole row opens the event", async () => {
+  it("SCRUM-159/AC1 shows every event request in a card table with its submitted date, its status as a badge, and the whole row opens the event", async () => {
     getDashboard.mockResolvedValue(DASHBOARD);
+    getMyEventRequests.mockResolvedValue({ requests: [REQUEST] });
 
     render(await EventOrganiserDashboard());
 
     const card = screen.getByRole("heading", { level: 2, name: "My event requests" }).closest("[data-slot='card']") as HTMLElement;
     expect(card).toBeTruthy();
+    expect(within(card).getByRole("columnheader", { name: "Submitted" })).toBeTruthy();
     const row = within(card).getByRole("row", { name: /Tech Summit/ });
     expect(within(row).getByText("Under Review").closest("[data-tone]")).toBeTruthy();
+    expect(within(row).getByText("1 Oct 2026")).toBeTruthy();
     expect(within(row).getByRole("link", { name: "Tech Summit" }).getAttribute("href")).toBe("/events/evt-1");
     expect(row.className).toContain("cursor-pointer");
   });
 
-  it("SCRUM-159/AC1 keeps the link to the full list of event requests", async () => {
+  it("SCRUM-159/AC1 shows all of them, not only the newest 25", async () => {
     getDashboard.mockResolvedValue(DASHBOARD);
+    getMyEventRequests.mockResolvedValue({ requests: Array.from({ length: 30 }, (_, i) => ({ ...REQUEST, id: `evt-${i}`, name: `Event ${i}` })) });
 
     render(await EventOrganiserDashboard());
 
-    expect(screen.getByRole("link", { name: "My event requests" }).getAttribute("href")).toBe("/my-event-requests");
+    expect(screen.getAllByRole("row")).toHaveLength(31); // the header and 30 requests
   });
 
-  it("SCRUM-159/AC1 drops the old row of links the sidebar already gives (My profile, Event registrations)", async () => {
+  it("SCRUM-159/AC1 has no link to My event requests under the list, and no old row of links", async () => {
     getDashboard.mockResolvedValue(DASHBOARD);
+    getMyEventRequests.mockResolvedValue({ requests: [REQUEST] });
 
     render(await EventOrganiserDashboard());
 
     const main = screen.getByRole("main");
-    expect(within(main).queryByRole("link", { name: "My profile" })).toBeNull();
-    expect(within(main).queryByRole("link", { name: "Event registrations" })).toBeNull();
+    for (const name of ["My event requests", "My profile", "Event registrations"]) expect(within(main).queryByRole("link", { name })).toBeNull();
   });
 
-  it("SCRUM-159/AC1 says Nothing to show yet in a designed empty state when there are no requests", async () => {
-    getDashboard.mockResolvedValue({ ...DASHBOARD, sections: [{ ...DASHBOARD.sections[0], rows: [] }] });
+  it("SCRUM-159/AC1 says the same as My event requests, in a designed empty state, when there are none", async () => {
+    getDashboard.mockResolvedValue(DASHBOARD);
+    getMyEventRequests.mockResolvedValue({ requests: [] });
 
     render(await EventOrganiserDashboard());
 
-    expect(screen.getByText("Nothing to show yet.").closest("[data-state='empty']")).toBeTruthy();
+    expect(screen.getByText("You have not created any event requests yet.").closest("[data-state='empty']")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("SCRUM-159/AC1 shows event-service's message, with an icon, when the list cannot load", async () => {
+    getDashboard.mockResolvedValue(DASHBOARD);
+    getMyEventRequests.mockResolvedValue({ error: "We couldn't load your event requests." });
+
+    render(await EventOrganiserDashboard());
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe("We couldn't load your event requests.");
+    expect(alert.querySelector("svg")).toBeTruthy();
   });
 });
 

@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Inbox } from "lucide-react";
-import { AuthAlert } from "@/components/auth/AuthParts";
-import { MyEventRequestsTable } from "@/components/MyEventRequestsTable";
-import { Card } from "@/components/ui/card";
+import { MyEventRequestsList } from "@/components/MyEventRequestsList";
 import { getMyEventRequests } from "@/lib/myEventRequestsServer";
 
 export const dynamic = "force-dynamic";
@@ -26,19 +23,7 @@ export default async function MyEventRequestsPage() {
         </Link>
         <h1 className="font-heading text-2xl font-bold">My event requests</h1>
       </div>
-      {"error" in result ? (
-        // Refused (not an organiser) or couldn't load: say so, rather than "no requests"
-        <AuthAlert tone="error">{result.error}</AuthAlert>
-      ) : result.requests.length === 0 ? (
-        <div data-state="empty" className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border-strong px-6 py-10 text-center">
-          <Inbox aria-hidden="true" className="size-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">You have not created any event requests yet.</p>
-        </div>
-      ) : (
-        <Card className="p-2 sm:p-4">
-          <MyEventRequestsTable requests={result.requests} />
-        </Card>
-      )}
+      <MyEventRequestsList result={result} />
     </main>
   );
 }
