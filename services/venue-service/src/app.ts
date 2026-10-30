@@ -67,7 +67,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/venue-calendar", venueCalendarRoutes(deps, now, options.venueCalendar));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
-  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));
+  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor), bookingQueueRoutes(portsFor, now), suitabilityRoutes(portsFor));
 
   app.use(errorHandler);
   return app;
