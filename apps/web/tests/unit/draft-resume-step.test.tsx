@@ -48,6 +48,16 @@ describe("SCRUM-124/AC3 an opened draft resumes at the last step edited", () => 
     ["venue needs: an accessibility tick", { accessibility: ["Hearing loop"] }, 2],
     ["equipment", { equipment: "Two mics" }, 3],
     ["registration", { registrationRequired: "no" as const }, 4],
+    ["purpose", { purpose: "Showcase" }, 0],
+    ["description", { description: "A day" }, 0],
+    ["start", { start: "2031-05-01T09:00" }, 1],
+    ["end", { end: "2031-05-01T17:00" }, 1],
+    ["accessibility notes", { accessibilityNotes: "Seat near the exit" }, 2],
+    ["registration capacity", { registrationCapacity: "50" }, 4],
+    ["registration opens", { registrationOpens: "2031-04-01T09:00" }, 4],
+    ["registration closes", { registrationCloses: "2031-04-20T09:00" }, 4],
+    ["basics and equipment, nothing between", { name: "Summit", equipment: "Two mics" }, 3],
+    ["every step", { name: "Summit", attendance: "5", venueRequirements: "x", equipment: "y", registrationRequired: "yes" as const }, 4],
   ])("is the step of the last thing filled in: %s", (_label, patch, expected) => {
     expect(lastEditedStep(withValues(patch))).toBe(expected);
   });
@@ -64,6 +74,20 @@ describe("SCRUM-124/AC3 an opened draft resumes at the last step edited", () => 
     render(<EventRequestForm layouts={layouts} draft={{ id: "draft-1", values: draftToValues(stored), step: 3 }} />);
     expect(screen.getByText(/Step 4 of 6/)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Equipment" })).toBeTruthy();
+  });
+
+  it("shows what was saved on the step it resumes at", () => {
+    render(<EventRequestForm layouts={layouts} draft={{ id: "draft-1", values: draftToValues(stored), step: 3 }} />);
+    expect((screen.getByLabelText(/Equipment/) as HTMLTextAreaElement).value).toBe("Two mics");
+  });
+
+  it("stays on the resumed step, with what is typed there, after Save as draft", async () => {
+    api.update.mockResolvedValue({ ok: true, data: { id: "draft-1", updated_at: "2026-10-30T06:00:00Z" } });
+    render(<EventRequestForm layouts={layouts} draft={{ id: "draft-1", values: draftToValues(stored), step: 3 }} />);
+    click("Save as draft");
+    await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Draft saved/));
+    expect(screen.getByText(/Step 4 of 6/)).toBeTruthy();
+    expect((screen.getByLabelText(/Equipment/) as HTMLTextAreaElement).value).toBe("Two mics");
   });
 
   it("still lets the organiser go back to the earlier steps, with what was saved filled in", () => {

@@ -25,7 +25,10 @@ describe("SCRUM-124/AC3 the page resumes a draft at its last edited step", () =>
   it("gives the form the step of the last thing filled in", async () => {
     srv.draft.mockResolvedValue({ draft: { ...stored, registration_required: null, registration_capacity: null, registration_opens_at: null, registration_closes_at: null } });
     await open("draft-1");
-    expect((form.mock.calls[0][0] as { draft: { step: number } }).draft.step).toBe(3); // equipment is the last filled step
+    const { draft } = form.mock.calls[0][0] as { draft: { id: string; step: number; values: { name: string; equipment: string } } };
+    expect(draft.step).toBe(3); // equipment is the last filled step
+    expect(draft.id).toBe("draft-1");
+    expect(draft.values).toMatchObject({ name: "Tech Summit", equipment: "Two mics" });
   });
 
   it("starts a draft with nothing filled in at the first step", async () => {
