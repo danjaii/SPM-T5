@@ -27,7 +27,7 @@ whichever was approved last.
    new request shares with the pending ones, so the form and event-service agree. A seeded request that holds only the new
    value (`{ "expected_attendance": 220 }`) still names its field, so it counts too.
 3. **[DECIDED] Checked twice.** `POST /events/:id/change-requests` refuses a conflicting request with 409 `CONFLICTING_REQUEST`,
-   naming what is waiting (AC1). Migration 66's trigger refuses the same insert in the database (SQLSTATE `CS176`), so two
+   naming what is waiting (AC1). Migration 67's trigger refuses the same insert in the database (SQLSTATE `CS176`), so two
    submissions sent at the same moment cannot both get through; the route answers that refusal the same way.
 4. **[DECIDED] The organiser is not left stuck.** The refusal says to ask their coordinator. The customer said in the Week 9 Q&A
    that withdrawals must be requested through the Event Coordinator, so there is no withdraw button: the coordinator rejects the

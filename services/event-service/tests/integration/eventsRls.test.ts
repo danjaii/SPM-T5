@@ -243,9 +243,12 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
 
   describe("history tables", () => {
     it("SCRUM-91/AC4 status history is readable by the event's coordinator and organiser only", async () => {
-      await admin
+      // not to "submitted": that notifies every active Lead (migration 65), and fails if another test file is deleting its
+      // own Lead at that moment
+      const { error } = await admin
         .from("event_status_history")
-        .insert({ event_id: eventA, old_status: "draft", new_status: "submitted", changed_by: who.organiserA.userId });
+        .insert({ event_id: eventA, old_status: "submitted", new_status: "under_review", changed_by: who.organiserA.userId });
+      expect(error).toBeNull();
       expect(await visible(who.coordinatorA, eventA, "event_status_history")).toBeGreaterThan(0);
       expect(await visible(who.organiserA, eventA, "event_status_history")).toBeGreaterThan(0);
       for (const other of [who.coordinatorB, who.organiserB, who.attendee, who.venueStaff, who.technicalSupport]) {

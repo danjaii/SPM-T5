@@ -24,7 +24,7 @@ interface Props {
 const OUTCOMES: { decision: SafetyDecision; label: string; help: string }[] = [
   { decision: "approved", label: "Approve", help: "Event moves on to Confirmed." },
   { decision: "changes_requested", label: "Request changes", help: "Returns to Planning. The arrangements you flag are reviewed again." },
-  { decision: "rejected", label: "Reject", help: "Safety arrangement rejected; the coordinator must re-plan." },
+  { decision: "rejected", label: "Reject", help: "Returns to Planning. The coordinator must re-plan." },
 ];
 
 // SCRUM-116: only a Safety Officer is offered the decision. SCRUM-99: they choose an outcome (AC4), add a reason or

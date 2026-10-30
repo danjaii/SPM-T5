@@ -1,5 +1,5 @@
 -- SCRUM-176 (docs/specs/conflicting-change-request.md): a pending change request cannot be joined by another that changes the
--- same thing. Follows 65_notification_producers_remaining.sql.
+-- same thing. Follows 66_safety_reject_auto_start.sql.
 --
 -- The customer said in the Week 9 Q&A that "active change requests should be processed by the Coordinator before additional
 -- major conflicting change requests are submitted." POST /events/:id/change-requests already refuses such a request; this is

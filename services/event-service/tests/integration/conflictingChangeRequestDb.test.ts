@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-176 against Postgres (docs/specs/conflicting-change-request.md, migration 66): a pending change request cannot be
+ * SCRUM-176 against Postgres (docs/specs/conflicting-change-request.md, migration 67): a pending change request cannot be
  * joined by another that changes the same thing (start and end time count as one), even when the route's own check is
  * skipped or two arrive at once. Fixtures are made with the secret key, named "IT-176-", dated 2031 and removed afterwards;
  * every check reads only rows this file made (CLAUDE.md, SCRUM-143).
@@ -15,7 +15,7 @@ const START = { preferred_start_datetime: { from: "2031-03-03T01:00:00+00:00", t
 const END = { preferred_end_datetime: { from: "2031-03-03T09:00:00+00:00", to: "2031-03-04T09:00:00+00:00" } };
 const VENUE = { venue_requirements: { from: null, to: "Theatre" } };
 
-describe.skipIf(!hasDb)("SCRUM-176 conflicting change requests (migration 66)", () => {
+describe.skipIf(!hasDb)("SCRUM-176 conflicting change requests (migration 67)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   let organiser: Actor;
   const eventIds: string[] = [];

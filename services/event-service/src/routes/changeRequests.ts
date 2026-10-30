@@ -91,7 +91,7 @@ export function changeRequestRoutes(deps: SupabaseDeps) {
     }
 
     // SCRUM-176/AC1, AC2: not while a pending request changes the same thing; the customer said in the Week 9 Q&A that the
-    // coordinator processes it first. Migration 66 checks again, for two requests sent at the same moment.
+    // coordinator processes it first. Migration 67 checks again, for two requests sent at the same moment.
     const waiting = await waitingConflicts(token, event.id as string, parsed.data.proposed_changes);
     if (waiting.length > 0) return res.status(409).json(conflicting(waiting));
 

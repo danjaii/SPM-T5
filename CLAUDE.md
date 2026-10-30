@@ -295,7 +295,7 @@ the event's assigned coordinator reviews it (SCRUM-67; spec in `docs/specs/revie
 required reason or approves it through `update_event_details()` in the same transaction, so an approval is recorded in the
 change history and sends the affected arrangements back for review (SCRUM-112/113). A request the event has moved on from, or
 one with a field the system cannot apply, can only be rejected. An organiser cannot send a request that changes what one of
-their pending requests already changes (SCRUM-176; spec in `docs/specs/conflicting-change-request.md`, migration 66): the
+their pending requests already changes (SCRUM-176; spec in `docs/specs/conflicting-change-request.md`, migration 67): the
 shared `changeRequestConflicts()` counts start and end time as one thing, the route answers 409 `CONFLICTING_REQUEST` naming what
 waits, a database trigger refuses the same insert (CS176), and the form says up front what is waiting. The assigned coordinator edits an event's details
 (SCRUM-111; spec in `docs/specs/edit-event-details.md`, `routes/eventDetails.ts`, migration 34): ordinary fields (name, description,
@@ -339,7 +339,10 @@ migration 43) moves the event back to planning; once the coordinator returns it 
 arrangements complete, it is back in the queue for another check. The event's coordinator and organiser see every
 safety decision on the event page (`GET /events/:id/safety-decisions`, `event_safety_decisions()`). An important change to an
 approved event revokes the approval (`safety_checks.revoked_at`, migration 43's trigger), so it needs another check; a
-confirmed event goes back to awaiting arrangements. The assigned coordinator cancels an event by setting it to Cancelled with a
+confirmed event goes back to awaiting arrangements. Reject now returns the event to planning as Request Changes does, and the
+last venue booking or equipment request approved moves a planning event to awaiting arrangements by itself, so it enters the
+queue with no manual step (SCRUM-171; same spec, migration 66, `event_arrangements_complete()`).
+The assigned coordinator cancels an event by setting it to Cancelled with a
 required reason (SCRUM-174; spec in `docs/specs/cancel-event.md`, migrations 60 to 63): in the same transaction, triggers cancel its
 active venue bookings, release its equipment requests and on-site technician assignments, close its pending change requests (as
 `rejected`, also when the event is completed), and SCRUM-172's migration 65 notifies the organiser and every registered or waitlisted attendee
