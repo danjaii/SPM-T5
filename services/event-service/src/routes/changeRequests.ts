@@ -3,6 +3,8 @@ import {
   CHANGE_REQUEST_MESSAGES,
   canRequestChange,
   canReviewEvents,
+  changeRequestConflicts,
+  conflictingRequestMessage,
   parseEventChangeRequestInput,
 } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
@@ -16,6 +18,19 @@ const EVENT_FIELDS =
 // SCRUM-66: an event organiser asks for changes to an event after it has been submitted.
 export function changeRequestRoutes(deps: SupabaseDeps) {
   const router = Router();
+
+  /** SCRUM-176: what a new request shares with the event's pending ones (the shared rule; empty when it may go ahead). */
+  async function waitingConflicts(token: string, eventId: string, proposed: unknown): Promise<string[]> {
+    const { data: pending } = await deps
+      .forUser(token)
+      .from("event_change_requests")
+      .select("proposed_changes")
+      .eq("event_id", eventId)
+      .eq("status", "pending");
+    return changeRequestConflicts(proposed, ((pending ?? []) as { proposed_changes: unknown }[]).map((r) => r.proposed_changes));
+  }
+
+  const conflicting = (waiting: string[]) => ({ code: "CONFLICTING_REQUEST", error: conflictingRequestMessage(waiting), waiting });
 
   // SCRUM-66/AC7: list an event's change requests (newest first) with whether each is pending, approved or rejected
   router.get("/:id/change-requests", requireSession(deps), async (req, res) => {
@@ -75,6 +90,11 @@ export function changeRequestRoutes(deps: SupabaseDeps) {
         : res.status(422).json({ code: "VALIDATION_FAILED", error: "Check the highlighted fields.", fieldErrors: parsed.fieldErrors });
     }
 
+    // SCRUM-176/AC1, AC2: not while a pending request changes the same thing; the customer said in the Week 9 Q&A that the
+    // coordinator processes it first. Migration 66 checks again, for two requests sent at the same moment.
+    const waiting = await waitingConflicts(token, event.id as string, parsed.data.proposed_changes);
+    if (waiting.length > 0) return res.status(409).json(conflicting(waiting));
+
     // AC6: only the request is saved; the row-level policy (migration 14) re-checks organiser and status
     const { data: created, error } = await deps
       .forUser(token)
@@ -88,6 +108,10 @@ export function changeRequestRoutes(deps: SupabaseDeps) {
       })
       .select("id, change_description, proposed_changes, status, requested_at")
       .single();
+    if (error?.code === "CS176") {
+      // SCRUM-176/AC1: another request for the same thing was saved between the check above and this insert
+      return res.status(409).json(conflicting(await waitingConflicts(token, event.id as string, parsed.data.proposed_changes)));
+    }
     if (error || !created) {
       // Only say the status blocks it when it really does now (it changed between the check above and the insert).
       // Any other refusal (a missing policy, a constraint, the database being down) is not the organiser's doing.
