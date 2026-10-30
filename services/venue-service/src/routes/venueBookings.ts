@@ -29,7 +29,7 @@ export function venueBookingRoutes(
       ports,
       caller: { id: user.id, role },
       service: new BookingService({ ...ports, now }),
-      tracking: new TrackingService(ports),
+      tracking: new TrackingService({ ...ports, now }),
       decisions: new DecisionService({ ...ports, now }),
       holds: new HoldService({ bookings: ports.bookings, holds: () => holdsFor(user.token), now }),
       // the search reader is only built when a replacement is asked for, so other requests never touch it

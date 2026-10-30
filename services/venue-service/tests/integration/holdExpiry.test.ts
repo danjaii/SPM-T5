@@ -141,7 +141,7 @@ describe.skipIf(!hasDb)("SCRUM-97 tentative hold expiry (migration 65)", () => {
       await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(2).toISOString() });
       expect(await slotHeld(venue, slot("10:00", "12:00"))).toBe(true);
       const { error } = await secondRequest(venue, slot("10:00", "12:00"));
-      expect(error).not.toBeNull();
+      expect(error?.code).toBe("23P01"); // the overlap guard, not some other failure
     });
 
     it("keeps a hold that has no expiry blocking, exactly as before (D4)", async () => {
@@ -269,6 +269,47 @@ describe.skipIf(!hasDb)("SCRUM-97 tentative hold expiry (migration 65)", () => {
       expect((await setExpiry(who.venueStaff, h.id, inHours(20))).error).toBeNull();
       const { data } = await admin.from("notifications").select("id").eq("venue_booking_id", h.id).eq("type", "hold_expiry_changed");
       expect(data).toEqual([]);
+    });
+  });
+
+  describe("SCRUM-97 review gaps", () => {
+    it("AC6 a hold confirmed while live stays confirmed and keeps its slot after its old expiry has passed", async () => {
+      const venue = await fixtures.venue("IT-hold-age");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(2).toISOString() });
+      expect((await admin.from("venue_bookings").update({ status: "approved" }).eq("id", h.id)).error).toBeNull();
+      await admin.from("venue_bookings").update({ hold_expires_at: inHours(-1).toISOString() }).eq("id", h.id); // time passes
+      expect(((await admin.from("venue_bookings").select("status").eq("id", h.id).single()).data as { status: string }).status).toBe("approved");
+      expect(await slotHeld(venue, slot("10:00", "12:00"))).toBe(true);
+      expect((await secondRequest(venue, slot("10:00", "12:00"))).error?.code).toBe("23P01");
+    });
+
+    it("the rule changes exactly at the expiry moment (SQL boundary)", async () => {
+      const t = "2030-06-01T09:00:00Z";
+      const at = (p: string) => admin.rpc("venue_booking_holds_slot", { p_status: "requested", p_hold_expires_at: t, p_at: p }).then((r) => r.data);
+      expect(await at("2030-06-01T08:59:59.999Z")).toBe(true);
+      expect(await at("2030-06-01T09:00:00Z")).toBe(false);
+      expect(await at("2030-06-01T09:00:00.001Z")).toBe(false);
+      const approved = await admin.rpc("venue_booking_holds_slot", { p_status: "approved", p_hold_expires_at: t, p_at: "2031-01-01T00:00:00Z" });
+      expect(approved.data).toBe(true);
+      const none = await admin.rpc("venue_booking_holds_slot", { p_status: "requested", p_hold_expires_at: null, p_at: "2031-01-01T00:00:00Z" });
+      expect(none.data).toBe(true);
+    });
+
+    it("an expired hold can still be rejected or withdrawn (only confirming is blocked)", async () => {
+      const venue = await fixtures.venue("IT-hold-reject");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(-1).toISOString() });
+      expect((await admin.from("venue_bookings").update({ status: "rejected" }).eq("id", h.id)).error).toBeNull();
+    });
+
+    it("the expiry notification names the event and the new expiry time", async () => {
+      const venue = await fixtures.venue("IT-hold-msg");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(10).toISOString() });
+      const at = inHours(30);
+      await setExpiry(who.venueStaff, h.id, at);
+      const { data } = await who.coordinatorA.client.from("notifications").select("message").eq("venue_booking_id", h.id).eq("type", "hold_expiry_changed");
+      const msg = (data as { message: string }[])[0].message;
+      expect(msg).toMatch(/IT-hold-msg/);
+      expect(msg).toMatch(/now expires at/);
     });
   });
 });

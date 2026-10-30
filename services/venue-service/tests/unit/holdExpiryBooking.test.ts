@@ -83,3 +83,37 @@ describe("SCRUM-97 the shared holding rule", () => {
     expect(isHoldingDbStatus(status, expiry, now)).toBe(expected);
   });
 });
+
+// Review gap: the coordinator's lists use the service clock, so an expired hold reads EXPIRED there too
+describe("SCRUM-97/AC4 the lists use the service clock", () => {
+  function listSetup() {
+    const bookings = new FakeBookingRepository(() => NOW);
+    bookings.setVenue(ORCHID, { name: "Orchid Hall", setupMinutes: 0, turnaroundMinutes: 0 });
+    const dead = bookings.seed({ eventId: "summit-a", venueId: ORCHID, start: at("10:00"), end: at("12:00"), status: "requested", requestedBy: "coordinator-1", holdExpiresAt: new Date(NOW.getTime() - 60_000) });
+    const live = bookings.seed({ eventId: "summit-a", venueId: ORCHID, start: at("14:00"), end: at("16:00"), status: "requested", requestedBy: "coordinator-1", holdExpiresAt: new Date(NOW.getTime() + HOUR) });
+    const events = new FakeEventReader([anEvent({ id: "summit-a", name: "Summit A", assignedCoordinatorId: "coordinator-1" } as never)]);
+    const venues = new FakeVenueReader([aVenue({ id: ORCHID, name: "Orchid Hall" })]);
+    const roles = new FakeRoleReader({ "coordinator-1": "event_coordinator" });
+    const app = createApp(deps, { now: () => NOW, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader(), venueDetails: FakeVenueDetailsReader.from(venues) }) });
+    return { app, dead, live };
+  }
+
+  it("shows the expired hold as EXPIRED and the live one as PENDING in my venue bookings", async () => {
+    const { app, dead, live } = listSetup();
+    const res = await request(app).get("/venue-bookings").set("Cookie", "cs_session=tok-coordinator-1");
+    expect(res.status).toBe(200);
+    const byId = Object.fromEntries((res.body as { id: string; status: string }[]).map((b) => [b.id, b.status]));
+    expect(byId[dead.id]).toBe("EXPIRED");
+    expect(byId[live.id]).toBe("PENDING");
+  });
+
+  it("shows the same on the event's venue bookings", async () => {
+    const { app, dead, live } = listSetup();
+    const res = await request(app).get("/events/summit-a/venue-bookings").set("Cookie", "cs_session=tok-coordinator-1");
+    expect(res.status).toBe(200);
+    const list = (Array.isArray(res.body) ? res.body : res.body.bookings) as { id: string; status: string }[];
+    const byId = Object.fromEntries(list.map((b) => [b.id, b.status]));
+    expect(byId[dead.id]).toBe("EXPIRED");
+    expect(byId[live.id]).toBe("PENDING");
+  });
+});
