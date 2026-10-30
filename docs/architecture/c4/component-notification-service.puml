@@ -3,7 +3,7 @@
 
 title ConnectSphere — Component Diagram: Notification Service (C4 Level 3)
 ' Built so far: viewing and managing a user's own in-app notifications (docs/specs/notifications.md, SCRUM-46).
-' Rows are written by producers, not by this service (ADR 0002). Components marked "Planned" come with SCRUM-47.
+' Rows are written by producers, not by this service (ADR 0002): database triggers in migrations 41, 44, 46, 50 and 65. Components marked "Planned" are not built yet.
 
 Container(web, "Web App", "Next.js, React", "Notifications page (/notifications) and the Notifications (n unread) link on every dashboard")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
@@ -18,7 +18,7 @@ Container_Boundary(notificationSvc, "Notification Service") {
   Component(svc, "Notification Service", "services/notificationService.ts", "Turns rows into items with the related event or booking and its page; marks read idempotently; a target the caller can no longer see gets no link and the no-access wording (AC5, AC7). SCRUM-20: an on-site assignment notification says whether it can still be acknowledged (only the one about the current details, while the assignment is active) and when it was")
   Component(repo, "Notification Repository", "repositories/supabaseNotificationRepository.ts", "Lists, counts, finds and marks read the caller's rows, as the caller, so RLS applies; only is_read can be written. SCRUM-20: reads the technician's assignments and calls acknowledge_technical_assignment() (migration 41)")
   Component(access, "Access Reader", "readers/accessReader.ts", "Looks up the caller's role and the names of the events and venue bookings they can still see, as the caller")
-  Component(shared, "Shared Rules", "@spm-t5/shared notifications.ts", "NotificationItem, notificationHref, NO_ACCESS_LABEL, parseNotificationLimit")
+  Component(shared, "Shared Rules", "@spm-t5/shared notifications.ts", "NotificationItem, notificationHref (an attendee's event notification opens /registrations, SCRUM-172), NO_ACCESS_LABEL, parseNotificationLimit")
 
   Component(dispatch, "Email/SMS Dispatch", "Planned", "Reacts to new notification rows through a database webhook, not polling (ADR 0002)")
 }
