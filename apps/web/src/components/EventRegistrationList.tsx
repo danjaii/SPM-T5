@@ -1,3 +1,4 @@
+import { RegistrationDecision } from "@/components/RegistrationDecision";
 import { RegistrationStatusBadge } from "@/components/RegistrationStatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { EventRegistration } from "@/lib/eventRegistration";
@@ -11,7 +12,16 @@ const formatRegistered = (iso: string) =>
 
 // SCRUM-83/AC15: an event's registrations, for its organiser and assigned coordinator: the details each attendee
 // submitted on the form, and the registration's status. SCRUM-139/AC4, AC7: a Table with a StatusBadge for each status.
-export function EventRegistrationList({ registrations }: { registrations: EventRegistration[] }) {
+// SCRUM-169/AC3: given `eventId` and `canDecide` (the organiser, on /registrations-overview), Pending rows can be confirmed or declined.
+export function EventRegistrationList({
+  registrations,
+  eventId,
+  canDecide = false,
+}: {
+  registrations: EventRegistration[];
+  eventId?: string;
+  canDecide?: boolean;
+}) {
   if (registrations.length === 0) {
     return <p className="rounded-xl border border-dashed border-border-strong p-8 text-center text-muted-foreground">Nobody has registered for this event yet.</p>;
   }
@@ -27,6 +37,7 @@ export function EventRegistrationList({ registrations }: { registrations: EventR
             <TableHead>Contact number</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Registered</TableHead>
+            {canDecide && <TableHead>Decision</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -37,6 +48,9 @@ export function EventRegistrationList({ registrations }: { registrations: EventR
               <TableCell>{r.phone}</TableCell>
               <TableCell><RegistrationStatusBadge status={r.status} /></TableCell>
               <TableCell>{formatRegistered(r.registered_at)}</TableCell>
+              {canDecide && (
+                <TableCell>{eventId && r.status === "pending" && <RegistrationDecision eventId={eventId} registrationId={r.id} />}</TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

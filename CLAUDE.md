@@ -356,7 +356,11 @@ active venue bookings, release its equipment requests and on-site technician ass
 Guarded status transitions were considered and not built, because the customer said status progression is flexible; see
 `docs/scope-decisions.md`. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
-event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
+event's registrations newest first, with a summary in which only Confirmed registrations use a slot. A registration is Confirmed
+straight away while places remain and Pending once the event is full (SCRUM-169, migration 68): `register_for_event()` locks the event
+row so two attendees can't both take the last place, and a full event still offers Register (`can_register`). On that page the event's
+organiser confirms or declines each Pending one (`POST /events/:id/registrations/:registrationId/decision`, `decide_registration()`);
+confirming on a full event is refused (`EVENT_FULL`, SQLSTATE `CS169`), and withdrawing frees a place without promoting anyone.
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,

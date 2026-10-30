@@ -42,6 +42,7 @@ const formData = (): RegistrationFormData => ({
     category: null,
     coordinator: null,
     available_slots: 5,
+    can_register: true,
   },
   prefill: { name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "+65 9123 4567" },
 });

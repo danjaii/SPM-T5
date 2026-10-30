@@ -94,7 +94,7 @@ describe("SCRUM-74 — Events I manage (GET /events/managed)", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([
-      { id: "evt-1", name: "Tech Summit", status: "confirmed", start_at: "2026-11-20T01:00:00Z", registration_capacity: 100 },
+      { id: "evt-1", name: "Tech Summit", status: "confirmed", start_at: "2026-11-20T01:00:00Z", registration_capacity: 100, can_decide: false },
     ]);
   });
 
@@ -109,7 +109,8 @@ describe("SCRUM-74 — Events I manage (GET /events/managed)", () => {
   });
   // end of AC1
 
-  // AC2: an organiser has the same access as a coordinator: the events they organise, in the same shape
+  // AC2: an organiser has the same access as a coordinator: the events they organise, in the same shape.
+  // SCRUM-169/AC3: only the organiser's row says they can decide on Pending registrations
   it("SCRUM-74/AC2 lists only the events the calling organiser organises", async () => {
     const deps = createFake({
       events: [
@@ -122,7 +123,7 @@ describe("SCRUM-74 — Events I manage (GET /events/managed)", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([
-      { id: "evt-1", name: "Tech Summit", status: "confirmed", start_at: "2026-11-20T01:00:00Z", registration_capacity: 100 },
+      { id: "evt-1", name: "Tech Summit", status: "confirmed", start_at: "2026-11-20T01:00:00Z", registration_capacity: 100, can_decide: true },
     ]);
   });
   // end of AC2
