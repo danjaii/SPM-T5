@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { EventRequestForm } from "@/components/event-request/EventRequestForm";
-import { draftToValues } from "@/lib/eventRequestForm";
+import { draftToValues, lastEditedStep } from "@/lib/eventRequestForm";
 import { getDraftForEdit, getRequestOptions } from "@/lib/eventRequestsServer";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "New event request · ConnectSphere" };
+
+// SCRUM-124/AC3: the draft's boxes and the step it resumes at
+function resume(draft: Parameters<typeof draftToValues>[0]) {
+  const values = draftToValues(draft);
+  return { id: draft.id, values, step: lastEditedStep(values) };
+}
 
 // SCRUM-123: the Event Organiser's step-by-step request form. event-service (SCRUM-49) refuses anyone else.
 export default async function NewEventRequestPage({ searchParams }: { searchParams: Promise<{ draft?: string }> }) {
@@ -22,7 +28,7 @@ export default async function NewEventRequestPage({ searchParams }: { searchPara
         <EventRequestForm
           key={opened?.draft.id ?? "new"}
           layouts={options.roomLayouts}
-          draft={opened ? { id: opened.draft.id, values: draftToValues(opened.draft) } : undefined}
+          draft={opened ? resume(opened.draft) : undefined}
         />
       ) : (
         <p role="alert" className="rounded-lg bg-status-danger p-4 text-sm font-medium text-status-danger-fg">{options.error}</p>

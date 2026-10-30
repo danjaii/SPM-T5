@@ -18,9 +18,10 @@ import { SupportingDocuments } from "./SupportingDocuments";
 
 // SCRUM-123: the step-by-step new event request. AC2: Continue is blocked by the current step's errors only. AC3: the
 // Review step lists everything with Edit links. AC4: Submit sends it to event-service (SCRUM-49) and lands on the event page.
-export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption[]; draft?: { id: string; values: EventRequestFormValues } }) {
+export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption[]; draft?: { id: string; values: EventRequestFormValues; step?: number } }) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  // SCRUM-124/AC3: a reopened draft starts at the step the page gives it (the last one with something filled in)
+  const [step, setStep] = useState(draft?.step ?? 0);
   const [values, setValues] = useState<EventRequestFormValues>(draft?.values ?? EMPTY_VALUES);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string>();
