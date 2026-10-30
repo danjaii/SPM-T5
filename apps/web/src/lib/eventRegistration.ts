@@ -22,6 +22,9 @@ export const STATUS_LABELS: Record<RegistrationStatus, string> = {
   withdrawn: "Withdrawn",
 };
 
+/** SCRUM-169/AC2: what an attendee sees before registering for a full event. */
+export const FULL_EVENT_NOTE = "This event is full. You can still register, and the organiser will decide.";
+
 /** SCRUM-83/AC15: one of the attendee's registrations, as GET /events/my-registrations sends it. */
 export interface MyRegistration {
   id: string;
@@ -57,6 +60,8 @@ export interface ManagedEvent {
   status: string;
   start_at: string | null;
   registration_capacity: number | null;
+  /** SCRUM-169/AC3: whether the caller can confirm or decline Pending registrations: the organiser, not a coordinator. */
+  can_decide: boolean;
 }
 
 /** SCRUM-74/AC6: the summary above an event's registrations. */
@@ -101,4 +106,26 @@ export async function withdrawRegistration(registrationId: string): Promise<ApiR
     credentials: "include",
   });
   return { ok: res.ok, data: await res.json() };
+}
+
+/** SCRUM-169/AC3: the organiser confirms or declines a Pending registration, from the browser, sending the session cookie. */
+export async function decideRegistration(
+  eventId: string,
+  registrationId: string,
+  decision: "confirm" | "decline",
+): Promise<ApiResult<{ status: RegistrationStatus }>> {
+  try {
+    const res = await fetch(
+      `${EVENT_URL}/events/${encodeURIComponent(eventId)}/registrations/${encodeURIComponent(registrationId)}/decision`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      },
+    );
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
+  }
 }

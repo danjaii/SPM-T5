@@ -1,9 +1,12 @@
 // this test file checks the registration information page that organisers and coordinators see for one event
 
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventRegistrationList } from "@/components/EventRegistrationList";
 import type { EventRegistration } from "@/lib/eventRegistration";
+
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 // ---------------------------------------------------------------------------
 // SCRUM-83 — The event's registrations, for its organiser and coordinator
@@ -98,3 +101,79 @@ describe("SCRUM-74 — Event registration list", () => {
   // end of AC9
 });
 // end of SCRUM-74
+
+// ---------------------------------------------------------------------------
+// SCRUM-169 — The organiser confirms or declines a Pending registration
+// ---------------------------------------------------------------------------
+describe("SCRUM-169 — Confirm or decline in the registration list", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    refresh.mockClear();
+  });
+
+  function mockEventService(status: number, body: unknown) {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: status < 400, status, json: async () => body });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  // AC3: a decision is only waiting on a Pending registration
+  it("SCRUM-169/AC3 offers Confirm and Decline on Pending rows only", () => {
+    render(
+      <EventRegistrationList
+        eventId="evt-1"
+        canDecide
+        registrations={[aRegistration({ id: "reg-p" }), aRegistration({ id: "reg-c", status: "confirmed" })]}
+      />,
+    );
+
+    const [pending, confirmed] = screen.getAllByRole("row").slice(1);
+    expect(within(pending).getByRole("button", { name: "Confirm" })).toBeTruthy();
+    expect(within(pending).getByRole("button", { name: "Decline" })).toBeTruthy();
+    expect(within(confirmed).queryByRole("button")).toBeNull();
+  });
+
+  // AC3: the coordinator's view, and the event's own registrations page, stay read-only
+  it("SCRUM-169/AC3 shows no controls without canDecide", () => {
+    render(<EventRegistrationList registrations={[aRegistration()]} />);
+
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it.each([
+    ["Confirm", "confirm"],
+    ["Decline", "decline"],
+  ])("SCRUM-169/AC3 sends %s to event-service and reloads the list", async (button, decision) => {
+    const fetchMock = mockEventService(200, { status: "confirmed" });
+    render(<EventRegistrationList eventId="evt-1" canDecide registrations={[aRegistration()]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: button }));
+
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalled());
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/events\/evt-1\/registrations\/reg-1\/decision$/);
+    expect(init).toMatchObject({ method: "POST", credentials: "include", body: JSON.stringify({ decision }) });
+  });
+
+  // AC4: the refusal is shown, and the registration stays Pending
+  it("SCRUM-169/AC4 shows why confirming was refused on a full event", async () => {
+    const message = "This event is full. A place must be freed before you can confirm this registration.";
+    mockEventService(409, { error: message });
+    render(<EventRegistrationList eventId="evt-1" canDecide registrations={[aRegistration()]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(await screen.findByText(message)).toBeTruthy();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("SCRUM-169/AC3 says so when event-service can't be reached", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<EventRegistrationList eventId="evt-1" canDecide registrations={[aRegistration()]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Decline" }));
+
+    expect(await screen.findByText("We couldn't reach the server. Please try again.")).toBeTruthy();
+  });
+});
+// end of SCRUM-169

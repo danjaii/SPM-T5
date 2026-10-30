@@ -74,8 +74,9 @@ function registrationRow(overrides: Row = {}): Row {
 /**
  * Pretends to be Supabase: one signed-in attendee (attendee-1, whose users row is `profile`), and
  * list_public_events() answering with `events`. `registrations` are the event_registrations table's rows.
- * Every insert is recorded in `inserts`, so a test can check what would have been written to the database.
- * Given `insertError`, every insert fails with it, the way supabase-js reports a refused insert.
+ * Every register_for_event() call is recorded in `registerCalls`, so a test can check what would have been saved; it answers
+ * `registerStatus`, or fails with `registerError` the way supabase-js reports a refused call. decide_registration() is the same
+ * (`decideCalls`, `decideError`).
  * Given `readError`, every table read fails with it the same way (no data, and an error object).
  * Every update is recorded in `updates` (which row, and the fields written). Given `updateRefused`, an update changes
  * no row, the way RLS silently filters out rows the caller may not update.
@@ -83,13 +84,17 @@ function registrationRow(overrides: Row = {}): Row {
 function createFake(
   events: Row[],
   {
-    insertError = null,
+    registerError = null,
+    registerStatus = "registered",
+    decideError = null,
     readError = null,
     profile = PROFILE,
     registrations = [],
     updateRefused = false,
   }: {
-    insertError?: { code: string; message: string } | null;
+    registerError?: { code: string; message: string } | null;
+    registerStatus?: string;
+    decideError?: { code: string; message: string } | null;
     readError?: { message: string } | null;
     profile?: Row;
     registrations?: Row[];
@@ -101,7 +106,8 @@ function createFake(
     users: [{ id: "attendee-1", ...profile }],
     event_registrations: registrations,
   };
-  const inserts: { table: string; row: Row }[] = [];
+  const registerCalls: Row[] = [];
+  const decideCalls: Row[] = [];
   const updates: { table: string; id: unknown; fields: Row }[] = [];
   // A read of `rows`: each .eq() narrows them; then read as one row (maybeSingle) or as a list (await)
   const query = (rows: Row[]) => ({
@@ -138,12 +144,19 @@ function createFake(
           });
           return narrow(tables[table] ?? []);
         },
-        insert: async (row: Row) => {
-          inserts.push({ table, row });
-          return { data: null, error: insertError };
-        },
       }),
-      rpc: async (fn: string) => {
+      rpc: async (fn: string, args: Row) => {
+        // SCRUM-169: registering goes through register_for_event(), which answers with the status it saved
+        if (fn === "register_for_event") {
+          registerCalls.push(args);
+          return registerError ? { data: null, error: registerError } : { data: registerStatus, error: null };
+        }
+        // SCRUM-169/AC3: the organiser's decision, answered with the status it saved
+        if (fn === "decide_registration") {
+          decideCalls.push(args);
+          if (decideError) return { data: null, error: decideError };
+          return { data: args.p_decision === "confirm" ? "registered" : "cancelled", error: null };
+        }
         // SCRUM-154: the caller's own email and phone come from my_contact_details(), as a one-row table
         if (fn === "my_contact_details") {
           return { data: [{ email: profile.email, phone: profile.phone, communication_preferences: {} }], error: null };
@@ -157,7 +170,7 @@ function createFake(
       },
     }),
   } as unknown as SupabaseDeps;
-  return { deps, inserts, updates };
+  return { deps, registerCalls, decideCalls, updates };
 }
 // end of fake Supabase
 
@@ -165,9 +178,8 @@ function createFake(
 // SCRUM-83 — Register for an event (POST /events/:id/registrations)
 // ---------------------------------------------------------------------------
 describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", () => {
-  // AC12: a successful submission creates a registration with the status Pending
-  // (Pending is stored as 'waitlisted', the mapping agreed for SCRUM-71)
-  it("SCRUM-83/AC12 creates the registration as Pending", async () => {
+  // SCRUM-169/AC1 replaces SCRUM-83/AC12's "always Pending": with a free place the registration is Confirmed at once
+  it("SCRUM-169/AC1 reports the registration as Confirmed when the database confirmed it", async () => {
     const fake = createFake([eventRow()]);
 
     const res = await request(createApp(fake.deps))
@@ -176,15 +188,10 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
       .send(VALID_FORM);
 
     expect(res.status).toBe(201);
-    expect(res.body).toEqual({ event_name: "Tech Summit", status: "pending" });
-    expect(fake.inserts).toEqual([
-      {
-        table: "event_registrations",
-        row: { event_id: "evt-1", attendee_id: "attendee-1", status: "waitlisted", registration_details: VALID_FORM },
-      },
-    ]);
+    expect(res.body).toEqual({ event_name: "Tech Summit", status: "confirmed" });
+    expect(fake.registerCalls).toEqual([{ p_event_id: "evt-1", p_details: VALID_FORM }]);
   });
-  // end of AC12
+  // end of AC1
 
   // AC10: a missing required field is refused with an error for that field, and nothing is created
   it("SCRUM-83/AC10 refuses a form with no contact number and creates no registration", async () => {
@@ -197,7 +204,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
 
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ errors: { phone: "Contact number is required." } });
-    expect(fake.inserts).toEqual([]);
+    expect(fake.registerCalls).toEqual([]);
   });
   // end of AC10
 
@@ -212,7 +219,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
 
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ errors: { email: "Enter a valid email address." } });
-    expect(fake.inserts).toEqual([]);
+    expect(fake.registerCalls).toEqual([]);
   });
 
   // AC11: the contact number must be in a valid format: an optional +, then 8 to 15 digits (spaces and hyphens allowed)
@@ -226,7 +233,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
 
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ errors: { phone: "Enter a valid contact number." } });
-    expect(fake.inserts).toEqual([]);
+    expect(fake.registerCalls).toEqual([]);
   });
   // end of AC11
 
@@ -241,7 +248,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
 
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: "Registration closed." });
-    expect(fake.inserts).toEqual([]);
+    expect(fake.registerCalls).toEqual([]);
   });
 
   // AC3: with no registration deadline, registration closes when the event starts
@@ -256,13 +263,29 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
 
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: "Registration closed." });
-    expect(fake.inserts).toEqual([]);
+    expect(fake.registerCalls).toEqual([]);
   });
   // end of AC3
 
-  // AC4: once Confirmed registrations equal the capacity, the event is full and nobody else can register
-  it("SCRUM-83/AC4 refuses a registration when Confirmed registrations equal the capacity", async () => {
-    const fake = createFake([eventRow({ registration_capacity: 50, active_registrations: 50 })]);
+  // SCRUM-169/AC2 replaces SCRUM-83/AC4's refusal: a full event still takes the registration, as Pending
+  it("SCRUM-169/AC2 saves a registration on a full event and reports it as Pending", async () => {
+    const fake = createFake([eventRow({ registration_capacity: 50, active_registrations: 50 })], { registerStatus: "waitlisted" });
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ event_name: "Tech Summit", status: "pending" });
+    expect(fake.registerCalls).toHaveLength(1);
+  });
+
+  // SCRUM-169/AC2: the "Event Full" label outranks "Registration Closed" (SCRUM-71/AC7), but a closed window still refuses
+  it("SCRUM-169/AC2 refuses a registration on a full event whose registration has closed", async () => {
+    const fake = createFake([
+      eventRow({ registration_capacity: 50, active_registrations: 50, registration_closes_at: fromNow(-1 * HOUR) }),
+    ]);
 
     const res = await request(createApp(fake.deps))
       .post("/events/evt-1/registrations")
@@ -270,10 +293,22 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
       .send(VALID_FORM);
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ error: "Event full." });
-    expect(fake.inserts).toEqual([]);
+    expect(res.body).toEqual({ error: "Registration closed." });
+    expect(fake.registerCalls).toEqual([]);
   });
-  // end of AC4
+
+  // SCRUM-169/AC1: registration closed or the event was cancelled after the check above: the database's refusal, in the same words
+  it("SCRUM-169/AC1 reports the database's refusal when registration closed during the submit", async () => {
+    const fake = createFake([eventRow()], { registerError: { code: "CS169", message: "REGISTRATION_CLOSED" } });
+
+    const res = await request(createApp(fake.deps))
+      .post("/events/evt-1/registrations")
+      .set("Cookie", ATTENDEE)
+      .send(VALID_FORM);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Registration closed." });
+  });
 
   // AC17: the event was cancelled after the attendee opened the form, so the submission is refused.
   // (The full and closed cases of AC17 are the AC3 and AC4 tests: those are checked at submit time too.)
@@ -288,7 +323,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
 
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: "This event has been cancelled." });
-    expect(fake.inserts).toEqual([]);
+    expect(fake.registerCalls).toEqual([]);
   });
   // end of AC17
 
@@ -305,7 +340,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
 
       expect(res.status).toBe(409);
       expect(res.body).toEqual({ error: "You already have an active registration for this event." });
-      expect(fake.inserts).toEqual([]);
+      expect(fake.registerCalls).toEqual([]);
     },
   );
   // end of AC5
@@ -323,7 +358,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
         .send(VALID_FORM);
 
       expect(res.status).toBe(201);
-      expect(fake.inserts).toHaveLength(1);
+      expect(fake.registerCalls).toHaveLength(1);
     },
   );
   // end of AC6
@@ -333,7 +368,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
   // the attendee must get the AC5 message, not a server error or a false success.
   it("SCRUM-83/AC16 refuses a repeated submit that the database turned away as a duplicate", async () => {
     const duplicate = { code: "23505", message: "duplicate key value violates unique constraint" };
-    const fake = createFake([eventRow()], { insertError: duplicate });
+    const fake = createFake([eventRow()], { registerError: duplicate });
 
     const res = await request(createApp(fake.deps))
       .post("/events/evt-1/registrations")
@@ -348,7 +383,7 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
   // AC12: only a registration that was really saved is reported as Pending; any other database failure is an error
   it("SCRUM-83/AC12 reports an error, not a Pending registration, when the database fails to save it", async () => {
     const outage = { code: "08006", message: "connection failure" };
-    const fake = createFake([eventRow()], { insertError: outage });
+    const fake = createFake([eventRow()], { registerError: outage });
 
     const res = await request(createApp(fake.deps))
       .post("/events/evt-1/registrations")
@@ -370,7 +405,75 @@ describe("SCRUM-83 — Register for an event (POST /events/:id/registrations)", 
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: "Event not found." });
-    expect(fake.inserts).toEqual([]);
+    expect(fake.registerCalls).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-169 — The organiser's decision (POST /events/:id/registrations/:registrationId/decision)
+// ---------------------------------------------------------------------------
+describe("SCRUM-169 — The organiser confirms or declines a Pending registration", () => {
+  const decide = (fake: ReturnType<typeof createFake>, body: Row) =>
+    request(createApp(fake.deps)).post("/events/evt-1/registrations/reg-1/decision").set("Cookie", ORGANISER).send(body);
+
+  it("SCRUM-169/AC3 confirms a Pending registration", async () => {
+    const fake = createFake([]);
+
+    const res = await decide(fake, { decision: "confirm" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: "confirmed" });
+    expect(fake.decideCalls).toEqual([{ p_registration_id: "reg-1", p_decision: "confirm" }]);
+  });
+
+  it("SCRUM-169/AC3 declines a Pending registration, which shows as Rejected", async () => {
+    const fake = createFake([]);
+
+    const res = await decide(fake, { decision: "decline" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: "rejected" });
+  });
+
+  it("SCRUM-169/AC3 refuses a decision that is neither confirm nor decline, before asking the database", async () => {
+    const fake = createFake([]);
+
+    const res = await decide(fake, { decision: "maybe" });
+
+    expect(res.status).toBe(400);
+    expect(fake.decideCalls).toEqual([]);
+  });
+
+  it("SCRUM-169/AC3 answers not found for someone who isn't the event's organiser", async () => {
+    const fake = createFake([], { decideError: { code: "CS169", message: "NOT_FOUND" } });
+
+    const res = await decide(fake, { decision: "confirm" });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Registration not found." });
+  });
+
+  // AC4: a full event refuses, and the message says what would allow it
+  it.each([
+    ["EVENT_FULL", "This event is full. A place must be freed before you can confirm this registration."],
+    ["NOT_PENDING", "This registration is no longer Pending."],
+    ["EVENT_CLOSED", "This event is no longer taking registrations."],
+  ])("SCRUM-169/AC4 explains a %s refusal", async (code, message) => {
+    const fake = createFake([], { decideError: { code: "CS169", message: code } });
+
+    const res = await decide(fake, { decision: "confirm" });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: message });
+  });
+
+  it("SCRUM-169/AC3 reports an error when the database fails", async () => {
+    const fake = createFake([], { decideError: { code: "08006", message: "connection failure" } });
+
+    const res = await decide(fake, { decision: "confirm" });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't save your decision. Please try again." });
   });
 });
 
