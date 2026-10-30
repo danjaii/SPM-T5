@@ -144,6 +144,14 @@ function createFake(
         },
       }),
       rpc: async (fn: string) => {
+        // SCRUM-154: the caller's own email and phone come from my_contact_details(), as a one-row table
+        if (fn === "my_contact_details") {
+          return { data: [{ email: profile.email, phone: profile.phone, communication_preferences: {} }], error: null };
+        }
+        // SCRUM-154: the registrants' profile details; these rows carry their form details, so no profile contact is needed
+        if (fn === "event_registration_contacts") {
+          return readError ? { data: null, error: readError } : { data: [], error: null };
+        }
         if (fn !== "list_public_events") throw new Error(`fake has no function ${fn}`);
         return { data: events, error: null };
       },
@@ -423,6 +431,21 @@ describe("SCRUM-83 — Registration form data (GET /events/:id/registration-form
     expect(res.body.prefill.phone).toBe("");
   });
   // end of AC9
+
+  // SCRUM-154/AC1: the attendee's own email and phone are no longer readable from users, so they come through the
+  // database function that returns the caller's own details (154-S9)
+  it("SCRUM-154/AC5 (154-S9) reads the attendee's own email and phone through my_contact_details()", async () => {
+    const fake = createFake([eventRow()], { profile: { ...PROFILE, email: "from-function@example.com", phone: "+65 1111 2222" } });
+
+    const res = await request(createApp(fake.deps)).get("/events/evt-1/registration-form").set("Cookie", ATTENDEE);
+
+    expect(res.status).toBe(200);
+    expect(res.body.prefill).toEqual({
+      name: "Alicia Fernandez",
+      email: "from-function@example.com",
+      phone: "+65 1111 2222",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

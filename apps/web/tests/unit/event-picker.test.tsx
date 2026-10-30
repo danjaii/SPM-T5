@@ -1,6 +1,6 @@
 // this test file checks the dropdown organisers and coordinators use to pick one of their events
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
@@ -23,13 +23,29 @@ const anEvent = (id: string, name: string): ManagedEvent => ({
 // ---------------------------------------------------------------------------
 describe("SCRUM-74 — Event picker", () => {
   // AC3: organisers and coordinators select one of the events they manage to see its registrations
-  it("SCRUM-74/AC3 opens the registrations of the event chosen in the dropdown", () => {
+  it("SCRUM-74/AC3 opens the registrations of the event chosen in the dropdown", async () => {
     render(<EventPicker events={[anEvent("evt-1", "Tech Summit"), anEvent("evt-2", "Design Week")]} selectedId={null} />);
 
-    fireEvent.change(screen.getByLabelText("Event"), { target: { value: "evt-2" } });
+    fireEvent.click(screen.getByRole("combobox", { name: "Event" }));
+    const option = await screen.findByRole("option", { name: "Design Week" });
+    // Base UI ignores a click that follows opening too quickly, as a stray double click would
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    fireEvent.pointerDown(option);
+    fireEvent.mouseDown(option);
+    fireEvent.pointerUp(option);
+    fireEvent.mouseUp(option);
+    fireEvent.click(option);
 
-    expect(push).toHaveBeenCalledWith("/registrations-overview?event=evt-2");
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/registrations-overview?event=evt-2"));
   });
   // end of AC3
+
+  // SCRUM-139/AC15: the chosen event's date and status sit beside the dropdown
+  it("SCRUM-139/AC15 shows the chosen event's date and status next to the dropdown", () => {
+    render(<EventPicker events={[anEvent("evt-1", "Tech Summit")]} selectedId="evt-1" />);
+
+    expect(screen.getByText("Fri, 20 Nov 2026, 9:00 AM")).toBeTruthy();
+    expect(screen.getByText("Confirmed")).toBeTruthy();
+  });
 });
 // end of SCRUM-74

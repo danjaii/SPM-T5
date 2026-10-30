@@ -6,4 +6,6 @@ export interface MyEventRequest {
   preferred_start_datetime: string | null;
   expected_attendance: number | null;
   submitted_at: string | null;
+  /** SCRUM-53/AC3: when the request was last saved; shown for a draft. */
+  updated_at?: string | null;
 }

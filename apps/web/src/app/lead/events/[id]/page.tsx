@@ -3,7 +3,7 @@ import Link from "next/link";
 import { isClosedEventStatus } from "@spm-t5/shared";
 import EventStatusBadge from "@/components/EventStatusBadge";
 import { EventRequestDetails } from "@/components/EventRequestDetails";
-import { LeadPage } from "@/components/LeadPage";
+import { PageFrame } from "@/components/PageFrame";
 import { buttonVariants } from "@/components/ui/button";
 import { getEvent } from "@/lib/getEvent";
 
@@ -18,7 +18,7 @@ export default async function LeadEventPage({ params }: { params: Promise<{ id: 
   const result = await getEvent(id);
 
   if (!("event" in result)) {
-    return <LeadPage title="Event details" description="The request as the organiser submitted it." error={result.error} />;
+    return <PageFrame title="Event details" description="The request as the organiser submitted it." error={result.error} />;
   }
 
   const { event } = result;
@@ -26,7 +26,7 @@ export default async function LeadEventPage({ params }: { params: Promise<{ id: 
   const coordinator = event.point_of_contact_name;
 
   return (
-    <LeadPage
+    <PageFrame
       title={event.name}
       description="The request as the organiser submitted it."
       action={
@@ -42,6 +42,6 @@ export default async function LeadEventPage({ params }: { params: Promise<{ id: 
         <span>{coordinator ? `Coordinator: ${coordinator}` : "No coordinator assigned yet"}</span>
       </p>
       <EventRequestDetails event={event} />
-    </LeadPage>
+    </PageFrame>
   );
 }

@@ -327,6 +327,20 @@ describe("SCRUM-86/AC7 only the assigned coordinator", () => {
     expect((await list("coord-2")).status).toBe(403);
   });
 
+  it("153-S10 SCRUM-153/AC5: the event's organiser sees its requests but nothing they can change", async () => {
+    const { list } = setup({ stored: [anEquipmentRequest(), anEquipmentRequest({ id: "req-2" })] });
+    const res = await list("org-1");
+    expect(res.status).toBe(200);
+    expect(res.body.requests).toHaveLength(2);
+    expect(res.body.canCreate).toBe(false);
+    expect(res.body.requests.map((r: { canEdit: boolean }) => r.canEdit)).toEqual([false, false]);
+  });
+
+  it("153-S10 SCRUM-153/AC5: another organiser cannot see the event's requests", async () => {
+    const { list } = setup({ stored: [anEquipmentRequest()] });
+    expect((await list("org-2")).status).toBe(403);
+  });
+
   it("an event with no coordinator assigned: nobody can request for it", async () => {
     const { submit } = setup({ events: [anEvent({ assignedCoordinatorId: null })] });
     expect((await submit(valid)).status).toBe(403);

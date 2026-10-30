@@ -1,6 +1,8 @@
 "use client";
 
+import { Search, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { Input } from "@/components/ui/input";
 import { matchesSearch } from "@/lib/eventSearch";
 import type { UpcomingEvent } from "@/lib/getUpcomingEvents";
 import { UpcomingEventList } from "./UpcomingEventList";
@@ -22,12 +24,14 @@ export function EventSearch({ events }: { events: UpcomingEvent[] }) {
   }
 
   return (
-    <div className="event-search">
+    <div className="space-y-4">
       {/* SCRUM-9/AC1: one box that searches name, client organisation, date, venue, status, category and coordinator */}
-      <div className="event-search__box">
-        <input
+      <div className="relative">
+        <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
           ref={input}
           type="search"
+          className="pr-10 pl-9 [&::-webkit-search-cancel-button]:hidden"
           aria-label="Search events"
           placeholder="Search by name, organisation, date, venue, status, category or coordinator"
           autoComplete="off"
@@ -38,14 +42,19 @@ export function EventSearch({ events }: { events: UpcomingEvent[] }) {
           }}
         />
         {query !== "" && (
-          <button className="event-search__clear" type="button" aria-label="Clear search" onClick={clear}>
-            ×
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={clear}
+            className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X aria-hidden="true" className="size-4" />
           </button>
         )}
       </div>
       {/* SCRUM-9/AC3: events exist but none match: say so, and say what was typed */}
       {shown.length === 0 ? (
-        <p className="empty" role="status">{`No events match "${query.trim()}"`}</p>
+        <p role="status" className="rounded-xl border border-dashed border-border-strong p-8 text-center text-muted-foreground">{`No events match "${query.trim()}"`}</p>
       ) : (
         <UpcomingEventList events={shown} />
       )}

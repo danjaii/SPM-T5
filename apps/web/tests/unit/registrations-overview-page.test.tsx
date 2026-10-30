@@ -26,13 +26,14 @@ const renderPage = async (query: { event?: string } = {}) =>
 describe("SCRUM-74 — Registrations overview page", () => {
   beforeEach(() => getEventRegistrations.mockClear());
 
-  // AC2: organisers and coordinators reach this page from their dashboard, so it links back there
-  it("SCRUM-74/AC2 links back to the dashboard", async () => {
+  // AC2: organisers and coordinators reach this page from the sidebar (SCRUM-139/AC5), so it has its own heading, not a back link
+  it("SCRUM-74/AC2, SCRUM-139/AC5 shows the page heading inside the shell instead of a back link", async () => {
     getManagedEvents.mockResolvedValue({ events: [TECH_SUMMIT] });
 
     await renderPage();
 
-    expect(screen.getByRole("link", { name: "← Back to dashboard" }).getAttribute("href")).toBe("/dashboard");
+    expect(screen.getByRole("heading", { level: 1, name: "Event registrations" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "← Back to dashboard" })).toBeNull();
   });
   // end of AC2
 
@@ -67,8 +68,10 @@ describe("SCRUM-74 — Registrations overview page", () => {
 
     expect(getEventRegistrations).toHaveBeenCalledWith("evt-1");
     expect(screen.getByText("Alicia Fernandez")).toBeTruthy();
-    const summary = screen.getByRole("table", { name: "Registration summary" });
-    expect(within(summary).getAllByRole("cell").at(-1)?.textContent).toBe("9 of 10"); // Slots remaining, the last column
+    // SCRUM-139/AC4: the count against capacity, on the Slots remaining card
+    const summary = screen.getByRole("list", { name: "Registration summary" });
+    const slots = within(summary).getByText("Slots remaining").closest("li")!;
+    expect(within(slots).getByText("9 of 10")).toBeTruthy();
   });
 
   // AC3: the chosen event's registrations couldn't load: say so, rather than an empty page

@@ -4,6 +4,7 @@ import { changeRequestRoutes } from "./routes/changeRequests";
 import { changeRequestReviewRoutes } from "./routes/changeRequestReview";
 import { eventDetailsRoutes } from "./routes/eventDetails";
 import { eventDraftDeleteRoutes } from "./routes/eventDraftDelete";
+import { eventDraftRoutes } from "./routes/eventDrafts";
 import { eventRoutes } from "./routes/events";
 import { eventRequestRoutes } from "./routes/eventRequests";
 import { leadRoutes } from "./routes/lead";
@@ -38,6 +39,8 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/events", eventDetailsRoutes(deps, now));
   // SCRUM-52: before eventRoutes, whose GET /events/:id would otherwise treat "my-requests" as an event id
   app.use("/events", myEventRequestRoutes(deps));
+  // SCRUM-53: before eventRoutes, whose /:id routes would otherwise treat "drafts" as an event id
+  app.use("/events", eventDraftRoutes(deps, now));
   // SCRUM-56: an organiser deletes one of their drafts (DELETE /events/drafts/:id); before eventRoutes like the line above
   app.use("/events", eventDraftDeleteRoutes(deps));
   app.use("/events", eventRoutes(deps));
