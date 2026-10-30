@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview, type EventStatus } from "@spm-t5/shared";
+import { EVENT_STATUSES, VENUE_BOOKING_MESSAGES, canRequestVenue, canStartReview, isClosedEventStatus, type EventStatus } from "@spm-t5/shared";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { changeEventStatus, statusLabel, type EventStatusView } from "@/lib/events";
@@ -14,6 +14,12 @@ import { InlineMessage } from "./event/InlineMessage";
 import { StatusStepper } from "./event/StatusStepper";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+
+/** The statuses that need a reason: what to say when it is missing, and who will be told it. */
+const REASON_REQUIRED: Partial<Record<string, { missing: string; toldTo: string }>> = {
+  cancelled: { missing: "A reason is required to cancel an event.", toldTo: "The organiser and registered attendees will be told this reason." },
+  rejected: { missing: "A reason is required to reject an event.", toldTo: "The organiser will be told this reason." },
+};
 
 // SCRUM-6/7: shows an event's current status. SCRUM-8: the assigned coordinator can also change it.
 // SCRUM-45: the assigned coordinator starts the review. SCRUM-24: they also approve or reject it.
@@ -47,10 +53,21 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, notice, 
     setSaving(false);
   }
 
+  // SCRUM-174/AC1: a cancellation needs a reason, because the organiser and attendees are told it (AC6). SCRUM-47/AC10:
+  // so does a rejection, which the organiser is told. event-service refuses both without one, with the same words.
+  const reasonRule = REASON_REQUIRED[newStatus];
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (reasonRule && !reason.trim()) {
+      setMessage({ kind: "error", text: reasonRule.missing });
+      return;
+    }
     return save(newStatus, reason);
   }
+
+  // SCRUM-174/AC1: an event that is already over (completed, rejected) cannot be cancelled; the database refuses it too
+  const statusChoices = EVENT_STATUSES.filter((s) => s !== "cancelled" || !isClosedEventStatus(status));
 
   const showStartReview = event.canChangeStatus && canStartReview(status);
   // SCRUM-32/AC3: the assigned coordinator can request a venue once the event is approved (32-S2, 32-S3).
@@ -101,8 +118,13 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, notice, 
 
       {children}
 
+      {/* SCRUM-174/AC7: a cancelled event stays cancelled (migration 64), so there is nothing to change */}
+      {activeTab === "overview" && event.canChangeStatus && status === "cancelled" && (
+        <p className="text-sm text-muted-foreground">This event was cancelled, so its status can no longer change.</p>
+      )}
+
       {/* SCRUM-8: manual status change, kept last so the request reads first */}
-      {activeTab === "overview" && event.canChangeStatus && (
+      {activeTab === "overview" && event.canChangeStatus && status !== "cancelled" && (
         <EventSection id="change-status-heading" title="Change status">
           <form className="flex flex-col gap-4" onSubmit={onSubmit}>
             <div className="flex flex-col gap-1.5">
@@ -113,14 +135,22 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, notice, 
                 value={newStatus}
                 onChange={(e) => setNewStatus(e.target.value)}
               >
-                {EVENT_STATUSES.map((s) => (
+                {statusChoices.map((s) => (
                   <option key={s} value={s}>{statusLabel(s)}</option>
                 ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="reason" className="text-sm font-semibold">Reason (optional)</label>
-              <Textarea id="reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+              <label htmlFor="reason" className="text-sm font-semibold">{reasonRule ? "Reason (required)" : "Reason (optional)"}</label>
+              <Textarea
+                id="reason"
+                rows={3}
+                value={reason}
+                required={Boolean(reasonRule)}
+                aria-describedby={reasonRule ? "reason-helper" : undefined}
+                onChange={(e) => setReason(e.target.value)}
+              />
+              {reasonRule && <p id="reason-helper" className="text-sm text-muted-foreground">{reasonRule.toldTo}</p>}
             </div>
             <Button className="self-start" type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
           </form>

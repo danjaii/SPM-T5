@@ -15,6 +15,9 @@ Read before making structural changes:
 - Feature specs (user stories, acceptance criteria, shared rules): [docs/specs/](docs/specs/). Test
   names reference the spec's scenario IDs (e.g. `36-S4`); where a spec disagrees with the schema,
   its "Implementation decisions" section wins.
+- Requirements considered and deliberately not built, with the customer's reason:
+  [docs/scope-decisions.md](docs/scope-decisions.md). Check it before building a requirement that sounds missing (e.g.
+  guarded status transitions); it may have been dropped on purpose.
 
 ## Course context
 
@@ -167,6 +170,10 @@ venue 4003, equipment 4004, notification 4005).
   `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and a C3
   `component-<service>.puml` for each of the five services — keep each one current as its service
   grows, rather than adding a C4 code diagram.
+- **Record a dropped or narrowed requirement in `docs/scope-decisions.md`.** When a story leaves out something the
+  customer briefing or Q&A mentions, add a row: the requirement, the decision, why (quote the customer as "the customer
+  said in the Week N Q&A", without naming who asked), and where it is recorded (the story's Out of scope, its spec). Then
+  anyone asked "why didn't you build X?" can find the answer by X's own name.
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
   on unit tests (coverage is switched on in the root `vitest.config.mts`, so only CI's unit run counts).
@@ -329,7 +336,13 @@ migration 43) moves the event back to planning; once the coordinator returns it 
 arrangements complete, it is back in the queue for another check. The event's coordinator and organiser see every
 safety decision on the event page (`GET /events/:id/safety-decisions`, `event_safety_decisions()`). An important change to an
 approved event revokes the approval (`safety_checks.revoked_at`, migration 43's trigger), so it needs another check; a
-confirmed event goes back to awaiting arrangements. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+confirmed event goes back to awaiting arrangements. The assigned coordinator cancels an event by setting it to Cancelled with a
+required reason (SCRUM-174; spec in `docs/specs/cancel-event.md`, migrations 60 to 63): in the same transaction, triggers cancel its
+active venue bookings, release its equipment requests and on-site technician assignments, close its pending change requests (as
+`rejected`, also when the event is completed), and SCRUM-172's migration 65 notifies the organiser and every registered or waitlisted attendee
+(`event_cancelled`); a cancelled event cannot change status again, and a completed or rejected one cannot be cancelled (CS174).
+Guarded status transitions were considered and not built, because the customer said status progression is flexible; see
+`docs/scope-decisions.md`. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
 event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
 
