@@ -152,6 +152,8 @@ venue 4003, equipment 4004, notification 4005).
   come from rows and accounts the test made itself (its own Lead, its own venue bookings), never from seeded data or
   from a read of a whole table; checks on seeded data should say what is included or left out, not "exactly these". Two
   tests that broke this rule failed at random in CI (SCRUM-143).
+- **A file below 100% coverage needs a reason in [docs/testing/coverage.md](docs/testing/coverage.md).** CI has no coverage
+  threshold on purpose (SCRUM-173), so nothing else flags a gap: a PR that adds one updates that document.
 - **Export the Express app separately from `listen()`** so integration tests can mount it without
   binding a port.
 - **`src/app/` in `apps/web` is routes only** — every folder is a URL segment. Components go in
