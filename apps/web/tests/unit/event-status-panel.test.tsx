@@ -172,3 +172,30 @@ describe("SCRUM-174 — Cancel an event on the event page", () => {
     expect(options).toContain(status);
   });
 });
+
+// SCRUM-47/AC10 (and SCRUM-24/AC2): event-service refuses a rejection without a reason, so the page asks for one first,
+// as it does for a cancellation (SCRUM-174)
+describe("SCRUM-47/AC10 — A rejection on the event page needs a reason", () => {
+  const assigned = { ...event, status: "planning", canChangeStatus: true };
+
+  it("SCRUM-47/AC10: asks for a reason once Rejected is chosen, and says who will see it", () => {
+    render(<EventStatusPanel event={assigned} />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "New status" }), { target: { value: "rejected" } });
+
+    expect((screen.getByLabelText("Reason (required)") as HTMLTextAreaElement).required).toBe(true);
+    expect(screen.getByText("The organiser will be told this reason.")).toBeTruthy();
+  });
+
+  it("SCRUM-47/AC10: sends nothing and says so when Rejected is saved without a reason", () => {
+    const fetchMock = mockServer(200, {});
+    render(<EventStatusPanel event={assigned} />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "New status" }), { target: { value: "rejected" } });
+    fireEvent.change(screen.getByLabelText("Reason (required)"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText("A reason is required to reject an event.")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
