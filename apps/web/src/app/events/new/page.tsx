@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "New event request · ConnectSphere" };
 
 // SCRUM-124/AC3: the draft's boxes and the step it resumes at
-function resume(draft: Parameters<typeof draftToValues>[0]) {
+function resume(draft: Parameters<typeof draftToValues>[0] & { id: string }) {
   const values = draftToValues(draft);
   return { id: draft.id, values, step: lastEditedStep(values) };
 }
