@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -13,6 +14,16 @@ import { postVenue } from "@/lib/venueCatalogue";
 import type { VenueSearchOptions } from "@/lib/venueSearch";
 
 type Errors = Partial<Record<VenueInputField, string>>;
+
+// The error under a group of checkboxes: an icon plus text, like InputField's, and announced when it appears.
+function GroupError({ id, children }: { id: string; children: string }) {
+  return (
+    <p id={id} role="alert" className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+      <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
+      {children}
+    </p>
+  );
+}
 
 interface Props {
   /** The layouts and facilities to choose from (the same lists the venue search offers). */
@@ -138,7 +149,7 @@ export function VenueForm({ options, submit = postVenue }: Props) {
           <Checkbox checked={isAccessible} onCheckedChange={(c) => setIsAccessible(Boolean(c))} />
           Accessible venue
         </label>
-        {errors.isAccessible && <p className="text-sm font-medium text-destructive">{errors.isAccessible}</p>}
+        {errors.isAccessible && <GroupError id="accessible-message">{errors.isAccessible}</GroupError>}
         <TextareaField
           id="accessibilityNotes"
           label="Accessibility notes"
@@ -174,11 +185,7 @@ export function VenueForm({ options, submit = postVenue }: Props) {
             );
           })}
         </div>
-        {errors.layouts && (
-          <p id="layouts-message" role="alert" className="text-sm font-medium text-destructive">
-            {errors.layouts}
-          </p>
-        )}
+        {errors.layouts && <GroupError id="layouts-message">{errors.layouts}</GroupError>}
       </fieldset>
 
       <fieldset className="flex flex-col gap-2" aria-describedby={errors.facilityIds ? "facilities-message" : undefined}>
@@ -191,11 +198,7 @@ export function VenueForm({ options, submit = postVenue }: Props) {
             </label>
           ))}
         </div>
-        {errors.facilityIds && (
-          <p id="facilities-message" role="alert" className="text-sm font-medium text-destructive">
-            {errors.facilityIds}
-          </p>
-        )}
+        {errors.facilityIds && <GroupError id="facilities-message">{errors.facilityIds}</GroupError>}
       </fieldset>
 
       <Button type="submit" disabled={busy} className="self-start">
