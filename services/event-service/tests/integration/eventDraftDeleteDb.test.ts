@@ -184,6 +184,25 @@ describe.skipIf(!hasDb)("SCRUM-56 delete a draft against the database", () => {
       expect(await exists(id)).toBe(true);
     });
 
+    it.each(["under_review", "approved", "rejected", "planning", "confirmed", "completed", "cancelled"])(
+      "SCRUM-56/AC2 a %s request is refused by the function (DR002) and stays",
+      async (status) => {
+        const id = await newEvent(who.organiser, `status-${status}`, {
+          status,
+          is_draft: false,
+          preferred_start_datetime: "2031-06-15T01:00:00Z",
+          preferred_end_datetime: "2031-06-15T09:00:00Z",
+          expected_attendance: 80,
+          submitted_at: "2031-01-01T00:00:00Z",
+        });
+
+        const { error } = await who.organiser.client.rpc("delete_event_draft", { p_event_id: id });
+
+        expect(error?.code).toBe("DR002");
+        expect(await exists(id)).toBe(true);
+      },
+    );
+
     it("SCRUM-56/AC2 a row whose status is draft but is_draft is false is not deleted either", async () => {
       const id = await newEvent(who.organiser, "inconsistent", { is_draft: false });
 
