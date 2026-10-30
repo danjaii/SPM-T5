@@ -307,3 +307,25 @@ describe("SCRUM-51 panel edge cases", () => {
     expect(server.calls.filter((c) => c.method !== "GET")).toEqual([]);
   });
 });
+
+// Added after the independent review: two valid files chosen together are both uploaded and registered
+describe("SCRUM-51/AC1 several files at once", () => {
+  it("prepares, sends and registers each file chosen together, one after the other", async () => {
+    const { calls } = mockServer([{ status: 200, body: { attachments: [] } }, { status: 200, body: { attachments: [stored("a", "one.pdf"), stored("b", "two.pdf")] } }], {
+      [`POST http://localhost:4002/events/drafts/${EVENT}/attachments/upload-url`]: { status: 200, body: { upload_url: "http://storage.test/put", storage_path: `${EVENT}/x/f.pdf` } },
+      "PUT http://storage.test/put": { status: 200, body: {} },
+    });
+    render(<SupportingDocuments eventId={EVENT} />);
+    await screen.findByText("No documents attached yet.");
+
+    choose([pdf("one.pdf"), pdf("two.pdf")]);
+
+    await waitFor(() => expect(screen.getByText("two.pdf")).toBeTruthy());
+    expect(screen.getByText("one.pdf")).toBeTruthy();
+    const uploads = calls.filter((c) => c.url.endsWith("/attachments/upload-url"));
+    const registers = calls.filter((c) => c.method === "POST" && c.url.endsWith(`/events/drafts/${EVENT}/attachments`));
+    expect(uploads.map((c) => (c.body as { file_name: string }).file_name)).toEqual(["one.pdf", "two.pdf"]);
+    expect(registers.map((c) => (c.body as { file_name: string }).file_name)).toEqual(["one.pdf", "two.pdf"]);
+    expect(calls.filter((c) => c.method === "PUT")).toHaveLength(2);
+  });
+});

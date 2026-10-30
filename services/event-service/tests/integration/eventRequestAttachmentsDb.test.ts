@@ -1,3 +1,4 @@
+import { ATTACHMENT_TYPES } from "@spm-t5/shared";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
@@ -124,6 +125,24 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
     });
   });
 
+  describe("SCRUM-51/AC2 the database and the shared list accept the same types", () => {
+    it.each([...ATTACHMENT_TYPES].map((t) => (t === "image/*" ? "image/png" : t)))("add_event_attachment accepts %s", async (type) => {
+      const draft = await newDraft(who.organiser, `IT-51-AC2-sync-${type.replace(/\W/g, "")}`.slice(0, 60));
+      const { error } = await who.organiser.client.rpc("add_event_attachment", {
+        p_event_id: draft.id, p_file_name: "f", p_storage_path: `${draft.id}/sync/${crypto.randomUUID()}`, p_content_type: type, p_size_bytes: 10,
+      });
+      expect(error?.code).not.toBe("AT002");
+    });
+
+    it.each(["image/", "video/x-flv", "application/zip", "application/x-msdownload"])("add_event_attachment refuses %s (AT002)", async (type) => {
+      const draft = await newDraft(who.organiser, `IT-51-AC2-near-${type.replace(/\W/g, "")}`.slice(0, 60));
+      const { error } = await who.organiser.client.rpc("add_event_attachment", {
+        p_event_id: draft.id, p_file_name: "f", p_storage_path: `${draft.id}/sync/${crypto.randomUUID()}`, p_content_type: type, p_size_bytes: 10,
+      });
+      expect(error?.code).toBe("AT002");
+    });
+  });
+
   describe("SCRUM-51/AC3 file size restriction", () => {
     it("refuses a file over 10 MB at the API (400, maximum shown) and in the database (AT003), accepting exactly 10 MB", async () => {
       const draft = await newDraft(who.organiser, "IT-51-AC3-size");
@@ -162,6 +181,20 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
       expect(rows).toEqual([]);
       const { data: file } = await admin.storage.from(BUCKET).download(path);
       expect(file).toBeNull();
+    });
+
+    it("cannot remove an attachment of one draft through another draft of the same organiser (404), and it stays", async () => {
+      const a = await newDraft(who.organiser, "IT-51-AC4-cross-a");
+      const b = await newDraft(who.organiser, "IT-51-AC4-cross-b");
+      const { res } = await attach(who.organiser, a.id);
+
+      const refused = await request(app).delete(`/events/drafts/${b.id}/attachments/${res!.body.id}`).set("Cookie", cookie(who.organiser));
+
+      expect(refused.status).toBe(404);
+      const { data: rows } = await admin.from("event_request_attachments").select("id").eq("event_id", a.id);
+      expect(rows).toHaveLength(1);
+      const { data: file } = await admin.storage.from(BUCKET).download(res!.body.storage_path as string);
+      expect(file).not.toBeNull();
     });
 
     it("keeps the attachment once the request is submitted (409, DR002) and the file stays", async () => {
