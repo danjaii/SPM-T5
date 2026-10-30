@@ -1,10 +1,12 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROLES, type Role } from "@spm-t5/shared";
 
 const nav = vi.hoisted(() => ({ pathname: "/", push: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => nav.pathname, useRouter: () => ({ push: nav.push, refresh: vi.fn() }) }));
 
+import { NeedsAction } from "@/components/shell/NeedsAction";
+import { useShell } from "@/components/shell/ShellContext";
 import { ShellFrame } from "@/components/shell/ShellFrame";
 import { currentHref, NAV_ITEMS, type QueueCounts } from "@/lib/nav";
 
@@ -107,6 +109,135 @@ describe("SCRUM-121/AC2 queue counts", () => {
   it("puts a count only on queue items", () => {
     renderShell("event_coordinator", { bookingQueue: 9 });
     expect(screen.queryByText("9")).toBeNull();
+  });
+});
+
+describe("SCRUM-178/AC3 the count is read again on moving to another page", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** The safety queue answers with this many events; anything else the shell asks for (the bell) is refused. */
+  function queueOf(size: number) {
+    const fetchMock = vi.fn(async (url: string) =>
+      url.endsWith("/safety-checks") ? { ok: true, json: async () => Array(size).fill({}) } : { ok: false, json: async () => ({}) },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+  /** What the shell asked for, leaving out the notification bell's own read. */
+  const queueReads = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => !url.includes("/notifications"));
+  const shell = shellFor("safety_officer", { safetyQueue: 2 });
+
+  it("SCRUM-178/AC3 shows the new number after the page changes", async () => {
+    queueOf(1);
+    nav.pathname = "/safety-checks/evt-1";
+    const { rerender } = render(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+    expect(screen.getByRole("link", { name: "Safety checks2" })).toBeTruthy();
+
+    nav.pathname = "/safety-checks";
+    rerender(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+
+    expect(await screen.findByRole("link", { name: "Safety checks1" })).toBeTruthy();
+  });
+
+  it("SCRUM-178/AC3 updates Needs your action with the same number", async () => {
+    queueOf(1);
+    nav.pathname = "/safety-checks";
+    const { rerender } = render(<ShellFrame shell={shell}><NeedsAction /></ShellFrame>);
+    expect(screen.getByText("2 events waiting for a safety check")).toBeTruthy();
+
+    nav.pathname = "/dashboard/safety_officer";
+    rerender(<ShellFrame shell={shell}><NeedsAction /></ShellFrame>);
+
+    expect(await screen.findByText("1 event waiting for a safety check")).toBeTruthy();
+  });
+
+  it("SCRUM-178/AC3 does not read again on a full page load, when the server has only just counted", () => {
+    const fetchMock = queueOf(1);
+    render(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+    expect(queueReads(fetchMock)).toEqual([]);
+  });
+
+  it("SCRUM-178/AC3 takes the newer counts a router.refresh() brings from the server", () => {
+    queueOf(1);
+    const { rerender } = render(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+
+    rerender(<ShellFrame shell={shellFor("safety_officer", { safetyQueue: 5 })}><p>page body</p></ShellFrame>);
+
+    expect(screen.getByRole("link", { name: "Safety checks5" })).toBeTruthy();
+  });
+
+  it("SCRUM-178/AC3 ignores an answer that a newer read has overtaken", async () => {
+    const answers: ((size: number) => void)[] = [];
+    vi.stubGlobal("fetch", vi.fn((url: string) =>
+      url.endsWith("/safety-checks")
+        ? new Promise((resolve) => answers.push((size) => resolve({ ok: true, json: async () => Array(size).fill({}) })))
+        : Promise.resolve({ ok: false, json: async () => ({}) }),
+    ));
+    nav.pathname = "/a";
+    const { rerender } = render(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+    nav.pathname = "/b";
+    rerender(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+    nav.pathname = "/c";
+    rerender(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+
+    answers[1]!(4);
+    expect(await screen.findByRole("link", { name: "Safety checks4" })).toBeTruthy();
+    answers[0]!(9);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve)); });
+
+    expect(screen.getByRole("link", { name: "Safety checks4" })).toBeTruthy();
+  });
+
+  it("SCRUM-178/AC4 keeps the last known number when the count cannot be read", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
+    vi.stubGlobal("fetch", fetchMock);
+    nav.pathname = "/a";
+    const { rerender } = render(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+
+    nav.pathname = "/b";
+    rerender(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+    await waitFor(() => expect(queueReads(fetchMock)).toHaveLength(1));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve)); });
+
+    expect(screen.getByRole("link", { name: "Safety checks2" })).toBeTruthy();
+  });
+
+  it.each(["event_organiser", "event_coordinator", "attendee"] as const)("SCRUM-178/AC5 asks for no count for the %s, who has no queue", async (role) => {
+    const fetchMock = queueOf(1);
+    nav.pathname = "/a";
+    const { rerender } = render(<ShellFrame shell={shellFor(role)}><p>page body</p></ShellFrame>);
+
+    nav.pathname = "/b";
+    rerender(<ShellFrame shell={shellFor(role)}><p>page body</p></ShellFrame>);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve)); });
+
+    expect(queueReads(fetchMock)).toEqual([]);
+  });
+
+  it("SCRUM-178/AC5 asks for no count on a page shown before sign-in", async () => {
+    const fetchMock = queueOf(1);
+    nav.pathname = "/a";
+    const { rerender } = render(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+
+    nav.pathname = "/login";
+    rerender(<ShellFrame shell={shell}><p>page body</p></ShellFrame>);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve)); });
+
+    expect(queueReads(fetchMock)).toEqual([]);
+  });
+
+  it("SCRUM-178/AC1 exposes refreshCounts, for a page that changes a queue without moving", async () => {
+    queueOf(1);
+    function SaveButton() {
+      const live = useShell();
+      return <button type="button" onClick={() => live?.refreshCounts()}>save</button>;
+    }
+    render(<ShellFrame shell={shell}><SaveButton /></ShellFrame>);
+
+    fireEvent.click(screen.getByRole("button", { name: "save" }));
+
+    expect(await screen.findByRole("link", { name: "Safety checks1" })).toBeTruthy();
   });
 });
 
