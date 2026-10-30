@@ -171,3 +171,42 @@ describe("SCRUM-175/AC1,AC3 the matrix as Markdown", () => {
     assert.match(md, /\| AC2 \| Recorded \| \*\*Not covered\*\* \|/);
   });
 });
+
+describe("SCRUM-175/AC1,AC2 reading the specs and test names more fully", () => {
+  it("keeps an AC's whole text when the spec wraps it onto the next lines, up to a blank line", () => {
+    const spec = [
+      "## SCRUM-102 Change or Cancel One Venue Booking",
+      "*AC1.* Given that an event has more than one venue booking, when I change one, the",
+      "system should check only that booking again.",
+      "",
+      "Not part of the AC.",
+      "*AC2.* Given that, when I cancel one, then only it is cancelled.",
+    ].join("\n");
+
+    const { stories } = parseSpec(spec, "x.md");
+
+    assert.equal(stories[102].acs[1], "Given that an event has more than one venue booking, when I change one, the system should check only that booking again.");
+    assert.equal(stories[102].acs[2], "Given that, when I cancel one, then only it is cancelled.");
+  });
+
+  it("takes a story's title from its tests' group name when it has no spec", () => {
+    const matrix = buildMatrix(
+      [
+        { name: "SCRUM-6 — View event status as event coordinator > shows the status", file: "a.test.ts", line: 1 },
+        { name: "SCRUM-12 Account Registration > SCRUM-12/AC1: shows an error", file: "b.test.ts", line: 2 },
+        { name: "SCRUM-68/AC1 view profile > shows the name", file: "c.test.ts", line: 3 },
+      ],
+      { stories: {}, scenarios: {} },
+    );
+
+    assert.deepEqual(matrix.stories.map((s) => [s.story, s.title]), [[6, "View event status as event coordinator"], [12, "Account Registration"], [68, null]]);
+  });
+
+  it("shows an AC the spec marks as dropped as Dropped, not Not covered", () => {
+    const specs = { stories: { 102: { title: "x", acs: { 3: '*(Dropped 2026-10-15: no "cancel all". See Implementation decisions.)*' }, file: "y.md" } }, scenarios: {} };
+    const matrix = buildMatrix([], specs);
+
+    assert.equal(matrix.stories[0].acs[0].dropped, true);
+    assert.match(renderMarkdown(matrix, { date: "d", commit: "c", passed: 0 }), /\| AC3 \| .* \| Dropped \(see the spec\) \|/);
+  });
+});
