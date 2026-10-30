@@ -21,13 +21,15 @@ export class SupabaseHoldExpiryWriter implements HoldExpiryWriter {
   }
 }
 
-/** HE001 -> 422 on the field, HE002 -> NOT_PENDING, 42501 -> 403, P0002 -> 404; anything else stays an ordinary error (500). */
+/** HE001 -> 422 on the field, HE002 -> NOT_PENDING, HE003 -> HOLD_EXPIRED, 42501 -> 403, P0002 -> 404; anything else stays an ordinary error (500). */
 export function translate(error: { code?: string; message: string }): Error {
   switch (error.code) {
     case "HE001":
       return validationFailed({ expiresAt: error.message });
     case "HE002":
       return bookingError("NOT_PENDING");
+    case "HE003":
+      return bookingError("HOLD_EXPIRED");
     case "42501":
       return forbidden();
     case "P0002":

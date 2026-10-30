@@ -59,6 +59,7 @@ export const VENUE_BOOKING_ERROR_CODES = [
   "NOT_FLAGGED",
   "REPLACEMENT_PENDING",
   "REPLACEMENT_REJECTED",
+  "HOLD_EXPIRED",
 ] as const;
 export type VenueBookingErrorCode = (typeof VENUE_BOOKING_ERROR_CODES)[number];
 
@@ -88,6 +89,8 @@ export const VENUE_BOOKING_MESSAGES = {
   NOT_FLAGGED: "Only a booking flagged as unavailable can be replaced.",
   REPLACEMENT_PENDING: "This booking already has a replacement request waiting for a decision.",
   REPLACEMENT_REJECTED: "A rejected replacement cannot be amended. Choose Find replacement on the original booking.",
+  // SCRUM-97/AC5, AC7: an expired hold is not confirmed or extended; the coordinator submits a new request (Week 9 Q26)
+  HOLD_EXPIRED: "This hold has expired and the venue is no longer reserved. A new venue request is needed.",
 } as const;
 
 // ---------------------------------------------------------------------------

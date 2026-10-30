@@ -71,7 +71,9 @@ export interface BookingDto {
   id: string;
   eventId: string;
   venueId: string;
-  status: VenueBookingStatus | undefined;
+  status: VenueBookingStatus | "EXPIRED" | undefined;
+  /** SCRUM-97: when the hold expires or expired; null when it has no expiry. */
+  holdExpiresAt: string | null;
   date: string;
   startTime: string;
   endTime: string;
@@ -85,13 +87,16 @@ export interface BookingDto {
   suitability: "suitable" | "not_suitable" | null;
 }
 
-export function toBookingDto(b: BookingRecord): BookingDto {
+export function toBookingDto(b: BookingRecord, now: Date = new Date()): BookingDto {
   const start = utcToSgt(b.start);
+  // SCRUM-97/AC4: a pending request whose expiry has passed is shown as EXPIRED (derived from the time; the stored status stays requested)
+  const expired = b.status === "requested" && b.holdExpiresAt != null && b.holdExpiresAt.getTime() <= now.getTime();
   return {
     id: b.id,
     eventId: b.eventId,
     venueId: b.venueId,
-    status: dbStatusToApi(b.status),
+    status: expired ? "EXPIRED" : dbStatusToApi(b.status),
+    holdExpiresAt: b.holdExpiresAt ? b.holdExpiresAt.toISOString() : null,
     date: start.date,
     startTime: start.time,
     endTime: utcToSgt(b.end).time,
