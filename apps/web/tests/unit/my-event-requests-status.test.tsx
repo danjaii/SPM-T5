@@ -51,6 +51,13 @@ describe("SCRUM-55/AC2 drafts are visually distinguished", () => {
     expect(within(row).getByText("Not submitted")).toBeTruthy();
   });
 
+  it("SCRUM-55/AC2 tints a draft row, and only a draft row", () => {
+    render(<MyEventRequestsTable requests={[make("1", "Alpha", "draft"), make("2", "Beta", "submitted")]} />);
+
+    expect(screen.getByRole("row", { name: /Alpha/ }).className).toMatch(/bg-muted/);
+    expect(screen.getByRole("row", { name: /Beta/ }).className).not.toMatch(/bg-muted/);
+  });
+
   it("SCRUM-55/AC2 leaves a submitted request without any draft marking", () => {
     render(<MyEventRequestsTable requests={[make("2", "Beta", "submitted")]} />);
 
