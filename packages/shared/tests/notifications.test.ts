@@ -85,3 +85,13 @@ describe("SCRUM-46/AC1 parseNotificationLimit (46-S1)", () => {
     expect(parseNotificationLimit(raw)).toBe(expected);
   });
 });
+
+describe("SCRUM-174/AC6 the cancellation notification type", () => {
+  it("174-S9: knows event_cancelled, written by migration 63", () => {
+    expect(NOTIFICATION_TYPES).toContain("event_cancelled");
+  });
+
+  it("174-S9: does not ask the reader to act: the event is over, and the reason is in the message", () => {
+    expect(notificationRequiresAction("event_cancelled")).toBe(false);
+  });
+});
