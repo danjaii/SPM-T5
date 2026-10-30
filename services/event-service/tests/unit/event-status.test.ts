@@ -432,3 +432,86 @@ describe("SCRUM-99/AC7 an event cannot skip the safety check", () => {
     expect(event.status).toBe("awaiting_arrangements");
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-174 — Cancel an Event and Release Its Arrangements (docs/specs/cancel-event.md). The releases happen in the
+// database (migration 60); the route checks the reason and reports what the database refuses.
+// ---------------------------------------------------------------------------
+describe("SCRUM-174 — Cancel an event", () => {
+  const planningEvent = (coordinatorId: string) => ({
+    id: crypto.randomUUID(),
+    name: "Tech Summit",
+    status: "planning",
+    assigned_coordinator_id: coordinatorId,
+  });
+
+  it.each(["", "   ", undefined])("174-S1 SCRUM-174/AC1 refuses a cancellation with no reason (%j), and records nothing", async (reason) => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const event = planningEvent(coordinator.id);
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "cancelled", reason });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "A reason is required to cancel an event." });
+    expect(event.status).toBe("planning");
+    expect(fake.tables.event_status_history).toEqual([]);
+  });
+
+  it("174-S2 SCRUM-174/AC2 cancels the event and records the reason, trimmed, in its status history", async () => {
+    const fake = createFake();
+    const coordinator = fake.signIn("event_coordinator");
+    const event = planningEvent(coordinator.id);
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "cancelled", reason: "  Organiser withdrew the event  " });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: event.id, name: "Tech Summit", status: "cancelled" });
+    expect(fake.tables.event_status_history).toEqual([
+      { event_id: event.id, old_status: "planning", new_status: "cancelled", changed_by: coordinator.id, reason: "Organiser withdrew the event" },
+    ]);
+  });
+
+  it("174-S10 174-S11 SCRUM-174/AC7 answers 409, saying why, when the database keeps a closed event as it is (CS174)", async () => {
+    const fake = createFake({ code: "CS174", message: "EVENT_CLOSED" });
+    const coordinator = fake.signIn("event_coordinator");
+    const event = { ...planningEvent(coordinator.id), status: "cancelled" };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", coordinator.cookie)
+      .send({ status: "planning" });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({
+      code: "EVENT_CLOSED",
+      error: "A cancelled event can't change status, and a completed or rejected event can't be cancelled.",
+    });
+  });
+
+  it("174-S12 SCRUM-174/AC8 refuses a coordinator who is not the event's, and records nothing", async () => {
+    const fake = createFake();
+    const assigned = fake.signIn("event_coordinator");
+    const other = fake.signIn("event_coordinator");
+    const event = planningEvent(assigned.id);
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps))
+      .patch(`/events/${event.id}/status`)
+      .set("Cookie", other.cookie)
+      .send({ status: "cancelled", reason: "Organiser withdrew the event" });
+
+    expect(res.status).toBe(403);
+    expect(event.status).toBe("planning");
+    expect(fake.tables.event_status_history).toEqual([]);
+  });
+});
