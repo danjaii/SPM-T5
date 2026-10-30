@@ -52,7 +52,17 @@ export function VenueForm({ options, submit = postVenue }: Props) {
   const [failure, setFailure] = useState<string>();
   const [busy, setBusy] = useState(false);
 
+  // A message goes away as soon as the field it is about is changed; the form checks everything again on the next submit.
+  function fixed(...fields: VenueInputField[]) {
+    setErrors((current) => {
+      const next = { ...current };
+      for (const f of fields) delete next[f];
+      return next;
+    });
+  }
+
   function toggleLayout(id: string, on: boolean) {
+    fixed("layouts");
     setLayoutCapacity((current) => {
       const next = { ...current };
       if (on) next[id] = maxCapacity.trim();
@@ -62,6 +72,7 @@ export function VenueForm({ options, submit = postVenue }: Props) {
   }
 
   function toggleFacility(id: string) {
+    fixed("facilityIds");
     setFacilityIds((current) => (current.includes(id) ? current.filter((f) => f !== id) : [...current, id]));
   }
 
@@ -108,36 +119,36 @@ export function VenueForm({ options, submit = postVenue }: Props) {
       {failure && <AuthAlert tone="error">{failure}</AuthAlert>}
       {hasErrors && <AuthAlert tone="error">Some details need fixing. Each one is marked below.</AuthAlert>}
 
-      <InputField id="name" label="Name (required)" value={name} onChange={(e) => setName(e.target.value)} error={errors.name} autoComplete="off" />
+      <InputField id="name" label="Name (required)" value={name} onChange={(e) => { setName(e.target.value); fixed("name"); }} error={errors.name} autoComplete="off" />
       <InputField
         id="address"
         label="Location (required)"
         value={address}
-        onChange={(e) => setAddress(e.target.value)}
+        onChange={(e) => { setAddress(e.target.value); fixed("address"); }}
         error={errors.address}
         helper="Where the venue is, for example its building and floor."
         autoComplete="off"
       />
-      <TextareaField id="description" label="Description" value={description} onChange={(e) => setDescription(e.target.value)} error={errors.description} />
+      <TextareaField id="description" label="Description" value={description} onChange={(e) => { setDescription(e.target.value); fixed("description"); }} error={errors.description} />
       <InputField
         id="maxCapacity"
         label="Capacity (required)"
         type="text"
         inputMode="numeric"
         value={maxCapacity}
-        onChange={(e) => setMaxCapacity(e.target.value)}
+        onChange={(e) => { setMaxCapacity(e.target.value); fixed("maxCapacity"); }}
         error={errors.maxCapacity}
         helper="The most people the venue holds."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <InputField id="start" label="Opening time" type="time" value={start} onChange={(e) => setStart(e.target.value)} error={errors.operatingHoursStart} />
+        <InputField id="start" label="Opening time" type="time" value={start} onChange={(e) => { setStart(e.target.value); fixed("operatingHoursStart", "operatingHoursEnd"); }} error={errors.operatingHoursStart} />
         <InputField
           id="end"
           label="Closing time"
           type="time"
           value={end}
-          onChange={(e) => setEnd(e.target.value)}
+          onChange={(e) => { setEnd(e.target.value); fixed("operatingHoursStart", "operatingHoursEnd"); }}
           error={errors.operatingHoursEnd}
           helper="Singapore time. Leave both empty if there are no set hours."
         />
@@ -146,7 +157,7 @@ export function VenueForm({ options, submit = postVenue }: Props) {
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-semibold text-foreground">Accessibility</legend>
         <label className="flex items-center gap-2 text-sm text-foreground">
-          <Checkbox checked={isAccessible} onCheckedChange={(c) => setIsAccessible(Boolean(c))} />
+          <Checkbox checked={isAccessible} onCheckedChange={(c) => { setIsAccessible(Boolean(c)); fixed("isAccessible"); }} />
           Accessible venue
         </label>
         {errors.isAccessible && <GroupError id="accessible-message">{errors.isAccessible}</GroupError>}
@@ -154,7 +165,7 @@ export function VenueForm({ options, submit = postVenue }: Props) {
           id="accessibilityNotes"
           label="Accessibility notes"
           value={accessibilityNotes}
-          onChange={(e) => setAccessibilityNotes(e.target.value)}
+          onChange={(e) => { setAccessibilityNotes(e.target.value); fixed("accessibilityNotes"); }}
           error={errors.accessibilityNotes}
           helper="Features guests can rely on, separated by commas, for example step-free entrance, hearing loop."
         />
@@ -178,7 +189,7 @@ export function VenueForm({ options, submit = postVenue }: Props) {
                     type="text"
                     inputMode="numeric"
                     value={layoutCapacity[layout.id]}
-                    onChange={(e) => setLayoutCapacity((current) => ({ ...current, [layout.id]: e.target.value }))}
+                    onChange={(e) => { setLayoutCapacity((current) => ({ ...current, [layout.id]: e.target.value })); fixed("layouts"); }}
                   />
                 )}
               </div>

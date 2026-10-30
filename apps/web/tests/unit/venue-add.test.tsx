@@ -107,6 +107,26 @@ describe("SCRUM-57/AC2 required fields (57-S2)", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("57-S2: a message goes away as soon as its field is fixed, and the others stay until theirs are", () => {
+    render(<VenueForm options={options} submit={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add venue" }));
+    expect(screen.getByText("Enter the venue's name.")).toBeTruthy();
+    expect(screen.getByText("Enter the venue's location.")).toBeTruthy();
+    expect(screen.getByText("Choose at least one supported layout.")).toBeTruthy();
+
+    type(/^Name/, "Orchid Hall");
+    expect(screen.queryByText("Enter the venue's name.")).toBeNull();
+    expect(screen.getByText("Enter the venue's location.")).toBeTruthy();
+
+    tick("Theatre");
+    expect(screen.queryByText("Choose at least one supported layout.")).toBeNull();
+
+    type(/^Location/, "Level 1");
+    type("Capacity (required)", "40");
+    // every message is gone, so the summary above the form goes too
+    expect(screen.queryByText(/Some details need fixing/)).toBeNull();
+  });
+
   it("57-S2: a layout seating more than the venue is explained", () => {
     render(<VenueForm options={options} submit={vi.fn()} />);
 
