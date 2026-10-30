@@ -1,4 +1,5 @@
 import { AlertTriangle, Ban, Check, CheckCircle2, Clock, Moon, type LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatPeriodTimes, type CalendarPeriod, type CalendarPeriodKind, type CalendarStatus } from "@/lib/venueCalendar";
 
@@ -14,7 +15,7 @@ const STATUS_LOOK: Record<CalendarStatus, { icon: LucideIcon; className: string 
 // Setup and turnaround are named and drawn dashed, so they read as part of the booking but not as the event itself.
 const KIND_NAME: Partial<Record<CalendarPeriodKind, string>> = { event: "Event", setup: "Setup", turnaround: "Turnaround" };
 
-export function VenueCalendarPeriod({ period }: { period: CalendarPeriod }) {
+export function VenueCalendarPeriod({ period, selected = false, onSelect }: { period: CalendarPeriod; selected?: boolean; onSelect?: () => void }) {
   const { icon: Icon, className } = STATUS_LOOK[period.status];
   const padding = period.kind === "setup" || period.kind === "turnaround";
   return (
@@ -29,6 +30,12 @@ export function VenueCalendarPeriod({ period }: { period: CalendarPeriod }) {
       {KIND_NAME[period.kind] && <span className="font-medium text-foreground">{KIND_NAME[period.kind]}</span>}
       {period.reason_label && <span className="font-medium text-foreground">{period.reason_label}</span>}
       <span className="text-muted-foreground">{formatPeriodTimes(period.start, period.end)}</span>
+      {onSelect && (
+        <Button type="button" variant="ghost" size="sm" className="ml-auto" aria-pressed={selected}
+          aria-label={`Details: ${period.label}, ${formatPeriodTimes(period.start, period.end)}`} onClick={onSelect}>
+          Details
+        </Button>
+      )}
       {period.overlaps_confirmed_booking && (
         <span className="inline-flex items-center gap-1.5 font-semibold text-status-danger-fg">
           <AlertTriangle aria-hidden="true" className="size-4" />
