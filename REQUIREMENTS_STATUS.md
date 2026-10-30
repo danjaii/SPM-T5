@@ -26,7 +26,7 @@ Before the Week 4 and Week 9 customer answers were added these were 11 / 8 / 1 a
 5. **Safety Officer "Reject" is a dead end, and the check does not start by itself.** The decision is recorded and nothing else happens; the customer says Reject returns the event to Planning (W9 r11, r22, r64). The customer also says the review starts automatically once venue and technical arrangements are confirmed (W9 r63), but an event only reaches the queue after someone sets Awaiting Arrangements by hand.
 5a. **Two built behaviours contradict the Week 9 answers.** A Confirmed event whose venue becomes unavailable must revert to Planning (W9 r44, r51), but the code leaves the event untouched. The Lead must see and assign across all coordinators (W9 r16, r37), but the code limits the Lead to their own supervised coordinators.
 6. **Notification producers are missing** for event submission, venue approve/reject, important changes, registration updates, confirmation and cancellation. In-app only, no email or SMS.
-7. **Blanket RLS remains** on many tables, and any coordinator can read every non-draft event.
+7. **Blanket RLS remains** on some reference tables. A coordinator now reads only the events assigned to them (SCRUM-156).
 8. **Process and documentation gaps:** no coverage threshold (100% is a rubric target), no traceability matrix, C4 and README out of date, and no instructor-access note.
 
 ## 2. Week 4 core features
