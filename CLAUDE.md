@@ -15,6 +15,9 @@ Read before making structural changes:
 - Feature specs (user stories, acceptance criteria, shared rules): [docs/specs/](docs/specs/). Test
   names reference the spec's scenario IDs (e.g. `36-S4`); where a spec disagrees with the schema,
   its "Implementation decisions" section wins.
+- Requirements considered and deliberately not built, with the customer's reason:
+  [docs/scope-decisions.md](docs/scope-decisions.md). Check it before building a requirement that sounds missing (e.g.
+  guarded status transitions); it may have been dropped on purpose.
 
 ## Course context
 
@@ -161,6 +164,10 @@ venue 4003, equipment 4004, notification 4005).
   `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and a C3
   `component-<service>.puml` for each of the five services — keep each one current as its service
   grows, rather than adding a C4 code diagram.
+- **Record a dropped or narrowed requirement in `docs/scope-decisions.md`.** When a story leaves out something the
+  customer briefing or Q&A mentions, add a row: the requirement, the decision, why (quote the customer as "the customer
+  said in the Week N Q&A", without naming who asked), and where it is recorded (the story's Out of scope, its spec). Then
+  anyone asked "why didn't you build X?" can find the answer by X's own name.
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
   on unit tests (only `test:unit` gets `--coverage`, per Commands above).
