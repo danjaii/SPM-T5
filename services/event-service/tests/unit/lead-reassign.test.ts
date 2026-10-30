@@ -65,7 +65,10 @@ describe("SCRUM-79 — The reassign step (GET /lead/events/:id/reassignment)", (
   // AC1 + AC2: a non-closed assigned event can be reassigned; the current coordinator is shown, and the choices are the
   // Lead's other eligible coordinators with their workload counts
   it("SCRUM-79/AC1 SCRUM-79/AC2 shows the current coordinator and offers the other eligible coordinators with their workload", async () => {
-    const { app, rpc } = makeApp({ event: assigned, rpcs: { lead_coordinator_overview: { data: team, error: null } } });
+    const { app, rpc } = makeApp({
+      event: assigned,
+      rpcs: { lead_coordinator_overview: { data: team, error: null }, lead_coordinator_events: { data: [], error: null } },
+    });
 
     const res = await request(app).get("/lead/events/evt-1/reassignment").set("Cookie", lead);
 
@@ -84,7 +87,8 @@ describe("SCRUM-79 — The reassign step (GET /lead/events/:id/reassignment)", (
       },
       current: { id: "c-1", full_name: "Rachel Tan" },
       canReassign: true,
-      coordinators: [team[1], team[2]],
+      // SCRUM-168: each also carries their total attendance and whether they clash (none here: they have no events)
+      coordinators: [team[1], team[2]].map((c) => ({ ...c, total_attendance: 0, clash: { status: "free" } })),
     });
   });
   // end of AC1 + AC2
