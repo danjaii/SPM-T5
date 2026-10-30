@@ -5,11 +5,13 @@ import type { BookingRepository } from "./repositories/bookingRepository";
 import { SupabaseHoldExpiryWriter, type HoldExpiryWriter } from "./readers/holdExpiryWriter";
 import type { VenueTimingWriter } from "./readers/venueTimingWriter";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "./readers/venueSearchReader";
+import type { VenueCalendarReader } from "./readers/venueCalendarReader";
 import type { VenueUnavailabilityStore } from "./readers/venueUnavailabilityStore";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { bookingQueueRoutes } from "./routes/bookingQueue";
 import { suitabilityRoutes } from "./routes/suitability";
 import { venueBookingRoutes } from "./routes/venueBookings";
+import { venueCalendarRoutes } from "./routes/venueCalendar";
 import { venueRoutes } from "./routes/venues";
 import type { SupabaseDeps } from "./supabase";
 import { healthCheck } from "./index";
@@ -29,6 +31,8 @@ export interface AppOptions {
   venueUnavailability?: (accessToken: string) => VenueUnavailabilityStore;
   /** Where a hold's expiry is saved (SCRUM-97); tests pass a fake. Defaults to the set_hold_expiry function as the caller. */
   holdExpiry?: (accessToken: string) => HoldExpiryWriter;
+  /** Where the venue availability calendar (SCRUM-84) reads venues, bookings and blocks from; tests pass a fake. */
+  venueCalendar?: (accessToken: string) => VenueCalendarReader;
 }
 
 // Exported separately from listen() so tests can mount the app without opening a port.
@@ -61,6 +65,9 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
 
   // SCRUM-29: the read-only venue catalogue, GET /venues and /venues/:id (coordinators and venue staff).
   app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability));
+
+  // SCRUM-84: the venue availability calendar. Outside the /venues gate (which keeps out Technical Support Staff).
+  app.use("/venue-calendar", venueCalendarRoutes(deps, now, options.venueCalendar));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
   app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor, options.holdExpiry ?? ((token: string) => new SupabaseHoldExpiryWriter(deps.forUser(token)))), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));

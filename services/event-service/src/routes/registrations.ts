@@ -130,9 +130,12 @@ export function registrationRoutes(deps: SupabaseDeps) {
     if (!event) return res.status(404).json(EVENT_NOT_FOUND);
 
     // SCRUM-83/AC8: the form starts with the attendee's own name, email and contact number, under the keys it submits
-    const { data: profile } = await db.from("users").select("full_name, email, phone").eq("id", attendeeId).maybeSingle();
+    const { data: profile } = await db.from("users").select("full_name").eq("id", attendeeId).maybeSingle();
+    // SCRUM-154/AC5: the attendee's own email and phone are not readable from users (migration 52); a function returns them
+    const { data: contact } = await db.rpc("my_contact_details");
+    const mine = (contact as { email: string; phone: string | null }[] | null)?.[0];
     // SCRUM-83/AC9: no contact number in the profile means an empty field, not "null"
-    const prefill = { name: profile?.full_name, email: profile?.email, phone: profile?.phone ?? "" };
+    const prefill = { name: profile?.full_name, email: mine?.email, phone: mine?.phone ?? "" };
 
     res.json({ event: toUpcomingEvent(event, new Date()), prefill });
   });
@@ -141,17 +144,26 @@ export function registrationRoutes(deps: SupabaseDeps) {
   // Who may read them is RLS's job (supabase/migrations/11_event_registrations.sql), not this route's.
   router.get("/:id/registrations", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
-    const { data, error } = await deps
-      .forUser(token)
+    const db = deps.forUser(token);
+    const { data, error } = await db
       .from("event_registrations")
-      // SCRUM-74/AC5: the attendee's profile too, for a registration with no form details
-      .select("id, status, registered_at, registration_details, attendee:attendee_id(full_name, email, phone)")
+      .select("id, status, registered_at, registration_details")
       .eq("event_id", req.params.id);
+    // SCRUM-74/AC5: the attendee's profile too, for a registration with no form details. SCRUM-154/AC3, AC4: users' email and
+    // phone are not readable (migration 52), so a function returns them, and only to the event's organiser or coordinator
+    const { data: contacts, error: contactsError } = await db.rpc("event_registration_contacts", { p_event_id: req.params.id });
     // An empty list must mean nobody has registered, so a failed call is an error, not []
-    if (error) return res.status(500).json({ error: "We couldn't load this event's registrations. Please try again." });
+    const failed = "We couldn't load this event's registrations. Please try again.";
+    if (error || contactsError) return res.status(500).json({ error: failed });
+    const contactOf = new Map(
+      ((contacts ?? []) as { registration_id: string; full_name: string | null; email: string | null; phone: string | null }[]).map(
+        (c) => [c.registration_id, { full_name: c.full_name, email: c.email, phone: c.phone }] as const,
+      ),
+    );
 
     res.json(
       ((data ?? []) as EventRegistrationRow[])
+        .map((row) => ({ ...row, attendee: contactOf.get(row.id) ?? null }))
         // SCRUM-74/AC8: newest first (ISO timestamps sort in time order as text)
         .sort((a, b) => b.registered_at.localeCompare(a.registered_at))
         .map(toEventRegistration),

@@ -6,9 +6,11 @@ import {
   type VenueBookingFlagKind,
   type EquipmentRequestStatus,
   type EventStatus,
+  type RegistrationStatus,
   type VenueBookingStatus,
 } from "@spm-t5/shared";
 import type { OutOfServiceReason } from "./equipmentRequests";
+import { STATUS_LABELS as REGISTRATION_STATUS_LABELS } from "./eventRegistration";
 
 // SCRUM-120/AC2: the one place that decides how a status looks. Every event, venue booking and equipment request status maps
 // to a tone, an icon and a label; StatusBadge renders them. A status never uses the primary (button) colour, and the icon
@@ -69,10 +71,19 @@ export const EQUIPMENT_STATUS_DISPLAY: Record<EquipmentRequestStatus, StatusDisp
   RELEASED: display("neutral", EQUIPMENT_REQUEST_STATUS_LABELS.RELEASED),
 };
 
+/** SCRUM-139/AC2, AC7: an attendee's registration. Only Confirmed holds a place; Withdrawn is neutral, Rejected danger. */
+export const REGISTRATION_STATUS_DISPLAY: Record<RegistrationStatus, StatusDisplay> = {
+  pending: display("info", REGISTRATION_STATUS_LABELS.pending),
+  confirmed: display("success", REGISTRATION_STATUS_LABELS.confirmed),
+  rejected: display("danger", REGISTRATION_STATUS_LABELS.rejected),
+  withdrawn: display("neutral", REGISTRATION_STATUS_LABELS.withdrawn),
+};
+
 export const ALL_STATUS_DISPLAYS: { group: string; key: string; display: StatusDisplay }[] = [
   ...EVENT_STATUSES.map((key) => ({ group: "Event", key, display: EVENT_STATUS_DISPLAY[key] })),
   ...[...VENUE_BOOKING_STATUSES, "HOLD" as const, "EXPIRED" as const].map((key) => ({ group: "Venue booking", key, display: BOOKING_STATUS_DISPLAY[key] })),
   ...EQUIPMENT_REQUEST_STATUSES.map((key) => ({ group: "Equipment request", key, display: EQUIPMENT_STATUS_DISPLAY[key] })),
+  ...(Object.keys(REGISTRATION_STATUS_DISPLAY) as RegistrationStatus[]).map((key) => ({ group: "Registration", key, display: REGISTRATION_STATUS_DISPLAY[key] })),
 ];
 
 /** A neutral fallback for a status string this code does not know, so the page still shows it with an icon and label. */

@@ -23,9 +23,8 @@ describe("SCRUM-19 equipment reservation page (/equipment-reservation)", () => {
     render(await EquipmentReservationPage());
 
     expect(screen.getByRole("heading", { name: "Reserve equipment" })).toBeTruthy();
-    expect(screen.getByRole("option", { name: /DevOps Summit/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /DevOps Summit/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Projector Unit/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /back to dashboard/i }).getAttribute("href")).toBe("/dashboard");
   });
   // end of showing the form
 

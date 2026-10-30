@@ -82,7 +82,7 @@ describe("SCRUM-72 — View the status of my registrations", () => {
   // AC3: each registration shows its status as a label in that status's colour. jsdom doesn't load the CSS,
   // so the test checks each badge has its status's colour class; globals.css gives each class its colour.
   // Withdrawn isn't in the AC, but SCRUM-83/AC6 keeps it in the history, so it gets a (grey) colour too.
-  it("SCRUM-72/AC3 shows each status as a label in its own colour", () => {
+  it("SCRUM-72/AC3, SCRUM-139/AC7 shows each status as a badge with an icon, a label and its own tone", () => {
     render(
       <MyRegistrationList
         registrations={[
@@ -94,10 +94,13 @@ describe("SCRUM-72 — View the status of my registrations", () => {
       />,
     );
 
-    expect(screen.getByText("Pending").className).toContain("status-badge--pending");
-    expect(screen.getByText("Confirmed").className).toContain("status-badge--confirmed");
-    expect(screen.getByText("Rejected").className).toContain("status-badge--rejected");
-    expect(screen.getByText("Withdrawn").className).toContain("status-badge--withdrawn");
+    // SCRUM-139/AC7: each status is a StatusBadge: its own tone, an icon and its label
+    const tones = { Pending: "info", Confirmed: "success", Rejected: "danger", Withdrawn: "neutral" };
+    for (const [label, tone] of Object.entries(tones)) {
+      const badge = screen.getByText(label, { selector: "[data-tone]" });
+      expect(badge.getAttribute("data-tone")).toBe(tone);
+      expect(within(badge).getByTestId("status-icon")).toBeTruthy();
+    }
   });
   // end of AC3
 
