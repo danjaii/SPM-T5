@@ -29,3 +29,4 @@ SCRUM-<story> — ACs covered: AC<x>, AC<y>
 - [ ] Acceptance criteria above verified
 - [ ] New migration is a new numbered file (none edited) — or N/A
 - [ ] Architecture change reflected in `docs/architecture/c4/*.puml` or an ADR — or N/A
+- [ ] Any gap this PR closes or narrows is updated in `REQUIREMENTS_STATUS.md` (row, scoreboard, section 10 task, "Assessed" line) — or N/A

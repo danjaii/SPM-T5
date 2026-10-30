@@ -15,6 +15,9 @@ Read before making structural changes:
 - Feature specs (user stories, acceptance criteria, shared rules): [docs/specs/](docs/specs/). Test
   names reference the spec's scenario IDs (e.g. `36-S4`); where a spec disagrees with the schema,
   its "Implementation decisions" section wins.
+- Gaps against the customer's requirements, with an owner and Jira story for each:
+  [REQUIREMENTS_STATUS.md](REQUIREMENTS_STATUS.md). Check it before starting gap work, and keep it current
+  (see Pull requests below).
 
 ## Course context
 
@@ -226,6 +229,18 @@ acceptance criterion — part of what the Scrum project is graded on.
   the diff already shows what. A description that only lists files and features is incomplete. Wrong:
   "Adds a search box and a migration." Right: "Attendees had to scroll the whole list to find an event;
   this lets them narrow it as they type, which is why the filtering runs in the browser."
+- **Keep `REQUIREMENTS_STATUS.md` current.** When a PR closes or narrows a gap listed there, update the
+  document in that same PR, so it changes when the code does. Do it before you open the PR, and again if review
+  changes what the PR delivers. Touch only what this PR changed and you checked in the code or tests:
+  - the row for the feature or change (section 2 or 4): verdict (✅ Met / 🟡 Partial / ❌ Not met), evidence and
+    gap text, and any file, migration or line reference you moved;
+  - the scoreboard counts and the "Biggest gaps" list (section 1) if a verdict or a gap moved;
+  - the matching task in section 10: mark it ✅ when finished, and fix its "Jira today" cell;
+  - the "Assessed" line at the top: today's date and the `main` commit you checked against.
+
+  Never mark a gap closed because a PR is open or a Jira ticket says Done: judge from the code on your branch,
+  and say what you ran. Leave the "Gap" text honest about what is still missing. If the PR closes no gap (a
+  restyle, a refactor, a docs change), write "`REQUIREMENTS_STATUS.md`: N/A" in the PR and leave the file alone.
 
 ## UI redesign (epic SCRUM-119)
 - One ticket per branch and per session: SCRUM-120 (theme tokens) → SCRUM-121 (app shell) → SCRUM-122…142 (features). Mock-ups: <https://www.figma.com/design/iHA0UaeAIYhfmfi0CrrJv6/ConnectSphere-UI-Mock-Ups?node-id=0-1&p=f&t=UZ5McDajOKDK0obz-0>.
