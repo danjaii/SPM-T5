@@ -70,7 +70,7 @@ Scenarios:
 
 ## Affected workspaces
 
-- `supabase/migrations/63_delete_event_draft.sql`: new function `delete_event_draft()`. Migration numbering and merge order: the draft stories SCRUM-53 and SCRUM-54 use 52 to 54 on their own branches and the calendar story uses 58; 55 is free, and this migration must merge after 53 and 54 only for tidiness (it does not call anything they add: it works on any `events` row with `status = 'draft'`).
+- `supabase/migrations/63_delete_event_draft.sql`: new function `delete_event_draft()`. Migration numbering and merge order: the draft stories SCRUM-53 and SCRUM-54 use 60 to 62 (renumbered after SCRUM-154 took 52 to 54), SCRUM-156 holds 59 and the calendar uses 58; 63 is the next free number, and this migration must merge after 53 and 54 only for tidiness (it does not call anything they add: it works on any `events` row with `status = 'draft'`).
 - `services/event-service`: new `routes/eventDraftDelete.ts`, mounted in `app.ts`.
 - `apps/web`: new `components/DeleteDraftButton.tsx`, `lib/draftDelete.ts` (the fetch), used by `MyEventRequestsTable`.
 - No `packages/shared` change, no C4 or ADR change.
