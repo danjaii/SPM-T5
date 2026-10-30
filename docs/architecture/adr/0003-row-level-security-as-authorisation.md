@@ -39,7 +39,7 @@ asked for; the others are write access to catalogue data.
 - **When a role may see part of a row, a `security definer` function returns that part.** Examples: a person's display name
   for an assignee list, an attendee's contact details for the event's own organiser and coordinator. The table stays closed
   and the function checks the caller.
-- **Coordinators will read only the events assigned to them.** SCRUM-91 let every coordinator read every non-draft event,
+- **Coordinators read only the events assigned to them (built in SCRUM-156).** SCRUM-91 let every coordinator read every non-draft event,
   matching `GET /events/:id` and the review queue, and an earlier draft of this ADR kept that. The customer's Week 9
   answers changed it: access is "strictly on the user's role and direct relationship to an event" (W9 r15), coordinators
   "only manage events assigned to them by the Lead" (W9 r36), and the unassigned queue belongs to Leads (W9 r61). A
@@ -75,6 +75,10 @@ asked for; the others are write access to catalogue data.
   a bad policy until a user-scoped client meets it. Integration tests must run as each role.
 - Names and contact details of other users stop being readable through the table once `users` is closed. Pages that show a
   name must go through the lookup function.
-- Until the fourth story lands, coordinators can still see each other's non-draft events. That is a known gap against
-  W9 r15, not a design.
+- A coordinator reads an event, and its comments, mentions, attachments and history, only while it is assigned to them
+  (SCRUM-156, migration 59, spec `docs/specs/coordinator-event-reads.md`). A reassigned event moves with the coordinator:
+  the previous one keeps nothing. `user_can_access_event()` is the one definition of who may read an event's review data.
+- A Lead is not yet the system-wide reader the Week 9 answers describe (W9 r37). The database lets a Lead read unassigned
+  submitted events (migration 21) and the events of their own linked coordinators (migration 22), and no comments or
+  history. That is a known gap against r37, left for a later story.
 - Venue create and edit (SCRUM-57, SCRUM-58) depend on the catalogue-write story (SCRUM-155) for their write policy.

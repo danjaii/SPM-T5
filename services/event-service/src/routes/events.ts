@@ -532,8 +532,8 @@ export function eventRoutes(deps: SupabaseDeps) {
   });
 
   // SCRUM-27/AC1: search for users eligible to access the request
-  // SCRUM-27/AC5: that is the coordinators and this event's own organiser (as user_can_access_event in
-  // migration 08 decides), never another event's organiser; the caller isn't offered to themselves
+  // SCRUM-27/AC5: that is this event's own organiser and its assigned coordinator (as user_can_access_event in
+  // migration 59 decides), never another event's organiser or another coordinator; the caller isn't offered to themselves
   router.get("/:id/mentionable-users", requireSession(deps), async (req, res) => {
     const { id: callerId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -546,11 +546,17 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(403).json({ error: "You are not allowed to search for users on this event." });
     }
     const query = typeof req.query.query === "string" ? req.query.query.trim().toLowerCase() : "";
-    const { data: users } = await deps
+    // SCRUM-156: the people who can see the event are its organiser and its assigned coordinator; no other coordinator can
+    const { data: event } = await deps
       .forUser(token)
-      .from("users")
-      .select("id, full_name")
-      .or(`role.eq.event_coordinator,id.eq.${organiserId}`);
+      .from("events")
+      .select("assigned_coordinator_id")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    const people = [organiserId, event?.assigned_coordinator_id as string | null | undefined].filter(
+      (id): id is string => typeof id === "string",
+    );
+    const { data: users } = await deps.forUser(token).from("users").select("id, full_name").in("id", people);
     const result = (users ?? [])
       .filter((u) => {
         if (u.id === callerId) return false;

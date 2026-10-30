@@ -120,9 +120,12 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
       expect(await visible(who.organiserB, eventA)).toBe(0);
     });
 
-    it("SCRUM-91 any event coordinator reads a submitted event, assigned to them or not", async () => {
-      expect(await visible(who.coordinatorA, eventB)).toBe(1);
-      expect(await visible(who.coordinatorB, eventA)).toBe(1);
+    // SCRUM-156 replaced "any coordinator reads any submitted event" (coordinatorEventReads.test.ts has the full set)
+    it("SCRUM-156 a coordinator reads the submitted events assigned to them and none assigned to another", async () => {
+      expect(await visible(who.coordinatorA, eventA)).toBe(1);
+      expect(await visible(who.coordinatorA, eventB)).toBe(0);
+      expect(await visible(who.coordinatorB, eventB)).toBe(1);
+      expect(await visible(who.coordinatorB, eventA)).toBe(0);
     });
 
     it("SCRUM-91/AC2 a draft is visible to its organiser and assigned coordinator only", async () => {
@@ -164,15 +167,18 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
       expect(await statusOf(statusEvent)).toBe("submitted");
     });
 
+    // SCRUM-156: the event is invisible to a coordinator who is not assigned, so the update and the function find no row
+    // to change (before, the status guard answered 42501). Nothing changes and nothing is recorded either way.
     it("SCRUM-91/AC3 a coordinator who is not assigned cannot change the status, directly or through change_event_status", async () => {
-      const direct = await who.coordinatorB.client.from("events").update({ status: "approved" }).eq("id", statusEvent);
-      expect(direct.error?.code).toBe(DENIED);
+      const direct = await who.coordinatorB.client.from("events").update({ status: "approved" }).eq("id", statusEvent).select("id");
+      expect(direct.error).toBeNull();
+      expect(direct.data ?? []).toHaveLength(0);
       const rpc = await who.coordinatorB.client.rpc("change_event_status", {
         p_event_id: statusEvent,
         p_new_status: "approved",
         p_reason: "not mine",
       });
-      expect(rpc.error?.code).toBe(DENIED);
+      expect(rpc.data ?? []).toHaveLength(0);
       expect(await statusOf(statusEvent)).toBe("submitted");
       const { data: history } = await admin.from("event_status_history").select("id").eq("event_id", statusEvent);
       expect(history ?? []).toHaveLength(0);
@@ -236,13 +242,13 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
   });
 
   describe("history tables", () => {
-    it("SCRUM-91/AC4 status history is readable by coordinators and the event's organiser only", async () => {
+    it("SCRUM-91/AC4 status history is readable by the event's coordinator and organiser only", async () => {
       await admin
         .from("event_status_history")
         .insert({ event_id: eventA, old_status: "draft", new_status: "submitted", changed_by: who.organiserA.userId });
-      expect(await visible(who.coordinatorB, eventA, "event_status_history")).toBeGreaterThan(0);
+      expect(await visible(who.coordinatorA, eventA, "event_status_history")).toBeGreaterThan(0);
       expect(await visible(who.organiserA, eventA, "event_status_history")).toBeGreaterThan(0);
-      for (const other of [who.organiserB, who.attendee, who.venueStaff, who.technicalSupport]) {
+      for (const other of [who.coordinatorB, who.organiserB, who.attendee, who.venueStaff, who.technicalSupport]) {
         expect(await visible(other, eventA, "event_status_history")).toBe(0);
       }
     });
@@ -274,12 +280,13 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
         coordinator_id: who.coordinatorA.userId,
         assigned_by: assignedBy,
       });
-      expect((await who.coordinatorB.client.from("event_coordinator_history").insert(row(who.coordinatorA.userId))).error?.code).toBe(DENIED);
+      expect((await who.coordinatorA.client.from("event_coordinator_history").insert(row(who.coordinatorB.userId))).error?.code).toBe(DENIED);
       expect((await who.organiserA.client.from("event_coordinator_history").insert(row(who.organiserA.userId))).error?.code).toBe(DENIED);
-      const ok = await who.coordinatorB.client.from("event_coordinator_history").insert(row(who.coordinatorB.userId)).select("id").single();
+      // SCRUM-156: the new row is read back through RLS, so it is the event's coordinator who adds it here
+      const ok = await who.coordinatorA.client.from("event_coordinator_history").insert(row(who.coordinatorA.userId)).select("id").single();
       expect(ok.error).toBeNull();
-      expect((await who.coordinatorB.client.from("event_coordinator_history").update({ unassigned_at: new Date().toISOString() }).eq("id", ok.data!.id)).error?.code).toBe(DENIED);
-      expect((await who.coordinatorB.client.from("event_coordinator_history").delete().eq("id", ok.data!.id)).error?.code).toBe(DENIED);
+      expect((await who.coordinatorA.client.from("event_coordinator_history").update({ unassigned_at: new Date().toISOString() }).eq("id", ok.data!.id)).error?.code).toBe(DENIED);
+      expect((await who.coordinatorA.client.from("event_coordinator_history").delete().eq("id", ok.data!.id)).error?.code).toBe(DENIED);
       expect(await visible(who.organiserA, eventA, "event_coordinator_history")).toBeGreaterThan(0);
       expect(await visible(who.organiserB, eventA, "event_coordinator_history")).toBe(0);
     });
@@ -288,13 +295,14 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
   describe("sessions, documents and change requests", () => {
     it("SCRUM-91/AC2 a session is visible to whoever can read its event, so a registered attendee sees it", async () => {
       expect(await visible(who.attendee, registeredEvent, "event_sessions")).toBe(1);
-      expect(await visible(who.coordinatorA, registeredEvent, "event_sessions")).toBe(1);
+      expect(await visible(who.coordinatorB, registeredEvent, "event_sessions")).toBe(1);
+      expect(await visible(who.coordinatorA, registeredEvent, "event_sessions")).toBe(0);
       expect(await visible(who.organiserB, registeredEvent, "event_sessions")).toBe(1);
       expect(await visible(who.otherAttendee, registeredEvent, "event_sessions")).toBe(0);
       expect(await visible(who.organiserA, registeredEvent, "event_sessions")).toBe(0);
     });
 
-    it("SCRUM-91/AC2 documents and change requests are visible to coordinators and the event's organiser only", async () => {
+    it("SCRUM-91/AC2 documents and change requests are visible to the event's coordinator and organiser only", async () => {
       const doc = await admin.from("event_documents").insert({ event_id: eventA, file_name: "IT.pdf", file_url: "x" });
       const change = await admin
         .from("event_change_requests")
@@ -302,9 +310,9 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
       expect(doc.error).toBeNull();
       expect(change.error).toBeNull();
       for (const table of ["event_documents", "event_change_requests"]) {
-        expect(await visible(who.coordinatorB, eventA, table)).toBe(1);
+        expect(await visible(who.coordinatorA, eventA, table)).toBe(1);
         expect(await visible(who.organiserA, eventA, table)).toBe(1);
-        for (const other of [who.organiserB, who.attendee, who.venueStaff, who.technicalSupport]) {
+        for (const other of [who.coordinatorB, who.organiserB, who.attendee, who.venueStaff, who.technicalSupport]) {
           expect(await visible(other, eventA, table)).toBe(0);
         }
       }
