@@ -4,6 +4,7 @@ import { changeRequestRoutes } from "./routes/changeRequests";
 import { changeRequestReviewRoutes } from "./routes/changeRequestReview";
 import { eventDetailsRoutes } from "./routes/eventDetails";
 import { eventAttachmentRoutes } from "./routes/eventAttachments";
+import { eventDraftDeleteRoutes } from "./routes/eventDraftDelete";
 import { eventDraftRoutes } from "./routes/eventDrafts";
 import { eventRoutes } from "./routes/events";
 import { eventRequestRoutes } from "./routes/eventRequests";
@@ -43,6 +44,8 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/events", eventDraftRoutes(deps, now));
   // SCRUM-51: supporting documents on a draft; before eventRoutes for the same reason
   app.use("/events", eventAttachmentRoutes(deps));
+  // SCRUM-56: an organiser deletes one of their drafts (DELETE /events/drafts/:id); before eventRoutes like the line above
+  app.use("/events", eventDraftDeleteRoutes(deps));
   app.use("/events", eventRoutes(deps));
   // SCRUM-75: the Event Coordinator Lead's pages and actions
   app.use("/lead", leadRoutes(deps));

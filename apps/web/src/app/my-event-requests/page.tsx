@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
-import { MyEventRequestsTable } from "@/components/MyEventRequestsTable";
+import { MyEventRequestsList } from "@/components/MyEventRequestsList";
 import { getMyEventRequests } from "@/lib/myEventRequestsServer";
 
 export const dynamic = "force-dynamic";
@@ -21,10 +21,8 @@ export default async function MyEventRequestsPage() {
         {"error" in result ? (
           // Refused (not an organiser) or couldn't load: say so, rather than "no requests"
           <div className="alert alert--error" role="alert">{result.error}</div>
-        ) : result.requests.length === 0 ? (
-          <p className="empty">You have not created any event requests yet.</p>
         ) : (
-          <MyEventRequestsTable requests={result.requests} />
+          <MyEventRequestsList requests={result.requests} />
         )}
       </main>
     </>

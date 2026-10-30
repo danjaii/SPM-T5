@@ -1,6 +1,8 @@
 import Link from "next/link";
-import type { MyEventRequest } from "@/lib/myEventRequests";
+import { isDraft, isUntitledDraft, UNTITLED_DRAFT, type MyEventRequest } from "@/lib/myEventRequests";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatLastSaved } from "@/lib/formatLastSaved";
+import { DeleteDraftButton } from "./DeleteDraftButton";
 import EventStatusBadge from "./EventStatusBadge";
 
 // Event dates are shown in Singapore time, like the rest of the app
@@ -18,22 +20,32 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
           <TableHead>Preferred start</TableHead>
           <TableHead>Expected attendance</TableHead>
           <TableHead>Submitted</TableHead>
+          <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {requests.map((request) => (
-          <TableRow key={request.id}>
+          <TableRow key={request.id} data-draft={isDraft(request) ? "true" : undefined} className={isDraft(request) ? "bg-muted/50" : undefined}>
             <TableCell className="font-semibold text-foreground">
-              <Link href={request.status === "draft" ? `/events/new?draft=${encodeURIComponent(request.id)}` : `/events/${encodeURIComponent(request.id)}`} className="underline-offset-4 hover:underline">
-                {request.name}
+              <Link href={isDraft(request) ? `/events/new?draft=${encodeURIComponent(request.id)}` : `/events/${encodeURIComponent(request.id)}`} className="underline-offset-4 hover:underline">
+                {isUntitledDraft(request) ? <span className="font-normal text-muted-foreground italic">{UNTITLED_DRAFT}</span> : request.name}
               </Link>
+              {/* SCRUM-55/AC2: a draft is labelled in words as well as by its badge and tint */}
+              {isDraft(request) && <p className="text-xs font-normal text-muted-foreground">Not submitted yet</p>}
             </TableCell>
             <TableCell>
               <EventStatusBadge status={request.status} />
             </TableCell>
             <TableCell>{formatDate(request.preferred_start_datetime)}</TableCell>
             <TableCell>{request.expected_attendance ?? "—"}</TableCell>
-            <TableCell>{formatDate(request.submitted_at)}</TableCell>
+            {/* SCRUM-53/AC3: a draft has not been submitted, so its column says when it was last saved (SCRUM-55/AC2: or that it is not submitted) */}
+            <TableCell>
+              {isDraft(request) ? (request.updated_at ? `Last saved ${formatLastSaved(request.updated_at)}` : "Not submitted") : formatDate(request.submitted_at)}
+            </TableCell>
+            <TableCell>
+              {/* SCRUM-56/AC2: only a draft can be deleted, so any other status has no Delete control at all */}
+              {isDraft(request) && <DeleteDraftButton id={request.id} name={isUntitledDraft(request) ? UNTITLED_DRAFT : request.name} />}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
