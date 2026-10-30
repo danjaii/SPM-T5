@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LeadKpiCards } from "@/components/LeadKpiCards";
-import { LeadPage } from "@/components/LeadPage";
+import { PageFrame } from "@/components/PageFrame";
 import { LeadQueueList } from "@/components/LeadQueueList";
 import { LeadWorkloadPanel } from "@/components/LeadWorkloadPanel";
 import { buttonVariants } from "@/components/ui/button";
@@ -20,7 +20,7 @@ export default async function LeadQueuePage() {
   const eligible = "coordinators" in coordinators ? coordinators.coordinators : undefined;
 
   return (
-    <LeadPage
+    <PageFrame
       title="Unassigned queue"
       description="New requests wait here until you give them a coordinator. Oldest first."
       action={
@@ -39,6 +39,6 @@ export default async function LeadQueuePage() {
           </div>
         </>
       )}
-    </LeadPage>
+    </PageFrame>
   );
 }

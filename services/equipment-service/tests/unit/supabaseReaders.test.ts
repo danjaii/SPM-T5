@@ -181,6 +181,7 @@ describe("SCRUM-19 Supabase event reader", () => {
     preferred_start_datetime: "2026-10-15T01:00:00+00:00",
     preferred_end_datetime: "2026-10-15T09:00:00+00:00",
     assigned_coordinator_id: "coord-1",
+    organiser_id: "org-1",
     coordinator: { full_name: "Dana Lim" },
   };
 
@@ -204,8 +205,10 @@ describe("SCRUM-19 Supabase event reader", () => {
         coordinatorName: "Dana Lim",
         // SCRUM-86/AC7: who is assigned, so the service can check it is the caller.
         assignedCoordinatorId: "coord-1",
+        // SCRUM-153/AC5 (153-S11): who organises it, so the organiser can view the event's requests.
+        organiserId: "org-1",
       },
-      { id: "evt-2", name: "DevOps Summit", status: "approved", start: null, end: null, coordinatorName: null, assignedCoordinatorId: null },
+      { id: "evt-2", name: "DevOps Summit", status: "approved", start: null, end: null, coordinatorName: null, assignedCoordinatorId: null, organiserId: "org-1" },
     ]);
     expect(calls).toContainEqual(["from", "events"]);
   });
