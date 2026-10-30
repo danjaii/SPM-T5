@@ -6,9 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { deleteDraft } from "@/lib/draftDelete";
 
+/**
+ * The Next router when the app has mounted one. A list that is rendered without it (a component test, or a page outside the app
+ * router) still shows the button, and a delete there falls back to reloading the page.
+ */
+function useRouterIfMounted() {
+  try {
+    return useRouter();
+  } catch {
+    return null;
+  }
+}
+
 /** SCRUM-56: deletes one draft event request, after asking. Reusable wherever a draft is listed (My event requests today, the drafts list of SCRUM-124 next). */
 export function DeleteDraftButton({ id, name }: { id: string; name: string }) {
-  const router = useRouter();
+  const router = useRouterIfMounted();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string>();
@@ -28,7 +40,8 @@ export function DeleteDraftButton({ id, name }: { id: string; name: string }) {
     if (result.ok) {
       // SCRUM-56/AC1: reload the list from the server, where the draft is now gone
       setConfirming(false);
-      router.refresh();
+      if (router) router.refresh();
+      else window.location.reload();
     } else {
       setError(result.error);
     }
