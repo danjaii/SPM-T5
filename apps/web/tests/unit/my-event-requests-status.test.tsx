@@ -54,8 +54,9 @@ describe("SCRUM-55/AC2 drafts are visually distinguished", () => {
   it("SCRUM-55/AC2 tints a draft row, and only a draft row", () => {
     render(<MyEventRequestsTable requests={[make("1", "Alpha", "draft"), make("2", "Beta", "submitted")]} />);
 
-    expect(screen.getByRole("row", { name: /Alpha/ }).className).toMatch(/bg-muted/);
-    expect(screen.getByRole("row", { name: /Beta/ }).className).not.toMatch(/bg-muted/);
+    const tinted = (name: RegExp) => screen.getByRole("row", { name }).className.split(/\s+/).includes("bg-muted/50");
+    expect(tinted(/Alpha/)).toBe(true);
+    expect(tinted(/Beta/)).toBe(false);
   });
 
   it("SCRUM-55/AC2 leaves a submitted request without any draft marking", () => {
@@ -139,5 +140,49 @@ describe("SCRUM-55/AC3 filter by status", () => {
 
     expect(screen.getByText("No requests match this status.")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+});
+
+// Added after the independent review: the literal AC2/AC3 scenarios with drafts and other requests in the same list
+describe("SCRUM-55 mixed lists", () => {
+  it("SCRUM-55/AC2 marks the draft and only the draft when both are in the same list", () => {
+    render(<MyEventRequestsTable requests={[make("1", "Alpha", "draft"), make("2", "Beta", "submitted")]} />);
+
+    const draft = screen.getByRole("row", { name: /Alpha/ });
+    const submitted = screen.getByRole("row", { name: /Beta/ });
+    expect(draft.getAttribute("data-draft")).toBe("true");
+    expect(within(draft).getByText("Not submitted yet")).toBeTruthy();
+    expect(submitted.getAttribute("data-draft")).toBeNull();
+    expect(within(submitted).queryByText("Not submitted yet")).toBeNull();
+  });
+
+  it.each(["approved", "returned", "under_review", "something_new"])("SCRUM-55/AC2 does not mark a %s request as a draft", (status) => {
+    render(<MyEventRequestsTable requests={[make("1", "Zed", status)]} />);
+
+    const row = screen.getByRole("row", { name: /Zed/ });
+    expect(row.getAttribute("data-draft")).toBeNull();
+    expect(within(row).queryByText("Not submitted yet")).toBeNull();
+    expect(within(row).queryByRole("button", { name: /Delete draft/ })).toBeNull();
+  });
+
+  it("SCRUM-55/AC2 still shows the Draft badge on a nameless draft", () => {
+    render(<MyEventRequestsTable requests={[make("1", "", "draft")]} />);
+
+    expect(within(screen.getByRole("row", { name: /Untitled draft/ })).getByText("Draft")).toBeTruthy();
+  });
+
+  it("SCRUM-55/AC3 filtering a mix leaves exactly the matching rows, with their own markings", () => {
+    render(<MyEventRequestsList requests={[make("1", "A", "draft"), make("2", "B", "submitted"), make("3", "C", "draft")]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Draft 2" }));
+    let rows = screen.getAllByRole("row").slice(1); // minus the header
+    expect(rows).toHaveLength(2);
+    for (const row of rows) expect(row.getAttribute("data-draft")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Submitted 1" }));
+    rows = screen.getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].getAttribute("data-draft")).toBeNull();
+    expect(within(rows[0]).queryByRole("button", { name: /Delete draft/ })).toBeNull();
   });
 });
