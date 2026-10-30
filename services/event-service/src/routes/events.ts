@@ -137,10 +137,19 @@ export function eventRoutes(deps: SupabaseDeps) {
     const { data: events } = await deps
       .forUser(token)
       .from("events")
-      .select("id, name, status")
+      .select("id, name, status, preferred_start_datetime, preferred_end_datetime, expected_attendance, organiser:organiser_id(full_name)")
       .eq("assigned_coordinator_id", userId);
+    // SCRUM-160: the dates, attendance and organiser let the coordinator dashboard show a short peek of each event
     return res.json(
-      (events ?? []).map((e) => ({ id: e.id, name: e.name, status: e.status })),
+      (events ?? []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        preferred_start_datetime: e.preferred_start_datetime ?? null,
+        preferred_end_datetime: e.preferred_end_datetime ?? null,
+        expected_attendance: e.expected_attendance ?? null,
+        organiser_name: embeddedName(e.organiser),
+      })),
     );
   });
 

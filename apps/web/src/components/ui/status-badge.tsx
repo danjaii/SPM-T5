@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Circle, Info, Pause, TimerOff, XCircle, type LucideIcon } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Ban, CalendarCheck, CheckCircle2, Circle, ClipboardList, Clock, Hourglass, Info, Pause, Pencil, Repeat, Search, Send, TimerOff, Undo2, XCircle, type LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,17 @@ const ICONS: Record<StatusIconName, LucideIcon> = {
   x: XCircle,
   pause: Pause,
   "timer-off": TimerOff,
+  pencil: Pencil,
+  send: Send,
+  search: Search,
+  undo: Undo2,
+  clipboard: ClipboardList,
+  hourglass: Hourglass,
+  "calendar-check": CalendarCheck,
+  "badge-check": BadgeCheck,
+  ban: Ban,
+  clock: Clock,
+  repeat: Repeat,
 };
 
 interface Props extends Partial<StatusDisplay> {
@@ -30,4 +41,18 @@ export function StatusBadge({ label, tone = "neutral", icon, className }: Props)
       {label}
     </Badge>
   );
+}
+
+const TONE_TEXT: Record<StatusTone, string> = {
+  neutral: "text-status-neutral-fg",
+  info: "text-status-info-fg",
+  warning: "text-status-warning-fg",
+  success: "text-status-success-fg",
+  danger: "text-status-danger-fg",
+};
+
+/** The status icon alone, tinted by its tone, for compact places (a filter tab) that put the label beside it. */
+export function StatusIcon({ tone = "neutral", icon, className }: Partial<StatusDisplay> & { className?: string }) {
+  const Icon = ICONS[icon ?? TONE_ICONS[tone]];
+  return <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", TONE_TEXT[tone], className)} />;
 }
