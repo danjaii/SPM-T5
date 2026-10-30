@@ -24,6 +24,9 @@ set search_path = public, pg_temp
 as $$
 declare
   v_booking venue_bookings;
+  v_coordinator uuid;
+  v_event_name text;
+  v_venue_name text;
 begin
   if auth.uid() is null or coalesce(public.current_user_role()::text, '') <> 'venue_staff' then
     raise exception 'Only Venue Staff can set a hold expiry' using errcode = '42501';
@@ -45,6 +48,19 @@ begin
   end if;
 
   update venue_bookings set hold_expires_at = p_expires_at where id = p_booking_id returning * into v_booking;
+
+  -- SCRUM-97/AC7: the event's coordinator is told, in the same transaction (ADR 0002), when the expiry is set or changed
+  select e.assigned_coordinator_id, e.name, v.name
+    into v_coordinator, v_event_name, v_venue_name
+    from events e, venues v
+   where e.id = v_booking.event_id and v.id = v_booking.venue_id;
+  if v_coordinator is not null then
+    insert into public.notifications (user_id, event_id, venue_booking_id, type, title, message)
+    values (
+      v_coordinator, v_booking.event_id, v_booking.id, 'hold_expiry_changed', 'Hold expiry changed',
+      format('%s: the hold on %s now expires at %s (Singapore time).', v_event_name, v_venue_name, public.venue_short_sgt(p_expires_at))
+    );
+  end if;
   return v_booking;
 end;
 $$;

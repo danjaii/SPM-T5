@@ -236,4 +236,39 @@ describe.skipIf(!hasDb)("SCRUM-97 tentative hold expiry (migration 65)", () => {
       expect((await entriesFor(dead)).filter((e) => e.entry !== "block")).toHaveLength(0);
     });
   });
+
+  describe("SCRUM-97/AC7 the event's coordinator is told when Venue Staff change the expiry", () => {
+    const notesFor = async (actor: Actor, bookingId: string) =>
+      ((await actor.client.from("notifications").select("type, title, message, event_id").eq("venue_booking_id", bookingId).eq("type", "hold_expiry_changed")).data ?? []) as { type: string; title: string; message: string; event_id: string }[];
+
+    it("notifies only that coordinator, naming the event, the venue and the new expiry", async () => {
+      const venue = await fixtures.venue("IT-hold-notify");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(10).toISOString() });
+      expect((await setExpiry(who.venueStaff, h.id, inHours(30))).error).toBeNull();
+      const mine = await notesFor(who.coordinatorA, h.id);
+      expect(mine).toHaveLength(1);
+      expect(mine[0].title).toBe("Hold expiry changed");
+      expect(mine[0].message).toMatch(/IT-hold-notify/);
+      expect(mine[0].event_id).toBe(h.eventId);
+      expect(await notesFor(who.coordinatorB, h.id)).toEqual([]);
+    });
+
+    it("notifies again for a second change, and not at all when the save is refused", async () => {
+      const venue = await fixtures.venue("IT-hold-notify2");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(10).toISOString() });
+      await setExpiry(who.venueStaff, h.id, inHours(20));
+      await setExpiry(who.venueStaff, h.id, inHours(5));
+      await setExpiry(who.venueStaff, h.id, inHours(-3)); // refused (HE001)
+      expect(await notesFor(who.coordinatorA, h.id)).toHaveLength(2);
+    });
+
+    it("notifies nobody when the event has no coordinator", async () => {
+      const venue = await fixtures.venue("IT-hold-notify3");
+      const h = await hold(venue, slot("10:00", "12:00"), { hold_expires_at: inHours(10).toISOString() });
+      await admin.from("events").update({ assigned_coordinator_id: null }).eq("id", h.eventId);
+      expect((await setExpiry(who.venueStaff, h.id, inHours(20))).error).toBeNull();
+      const { data } = await admin.from("notifications").select("id").eq("venue_booking_id", h.id).eq("type", "hold_expiry_changed");
+      expect(data).toEqual([]);
+    });
+  });
 });
