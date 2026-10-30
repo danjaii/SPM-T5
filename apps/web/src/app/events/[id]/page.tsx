@@ -152,7 +152,7 @@ export default async function EventPage({
                 {(view.isOrganiser || view.canChangeStatus) && (
                   <EventChangeRequestList requests={changeRequests} reviewable={view.canChangeStatus} />
                 )}
-                {view.canRequestChange && <EventChangeRequestForm event={view} />}
+                {view.canRequestChange && <EventChangeRequestForm event={view} requests={changeRequests} />}
               </>
             )}
           </EventStatusPanel>
