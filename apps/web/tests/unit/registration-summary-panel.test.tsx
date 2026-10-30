@@ -100,3 +100,19 @@ describe("SCRUM-74 — Registration summary panel", () => {
   // end of AC4
 });
 // end of SCRUM-74
+
+// SCRUM-170: the Confirmed box says how many of its people are VIPs, so "2 of 1 places" explains itself
+describe("SCRUM-170 — VIP count in the summary", () => {
+  const vip = (id: string) => ({ ...aRegistration(id, "confirmed"), is_vip: true });
+
+  it.each([
+    ["one VIP", [vip("a")], 1, "of 1 places · 1 VIP"],
+    ["several VIPs", [vip("a"), vip("b")], 1, "of 1 places · 2 VIPs"],
+    ["no VIPs", [aRegistration("a", "confirmed")], 1, "of 1 places"],
+    ["no capacity", [vip("a")], null, "No limit on places · 1 VIP"],
+  ])("SCRUM-170/AC1 notes the count with %s", (_name, registrations, capacity, note) => {
+    render(<RegistrationSummary registrations={registrations} capacity={capacity} />);
+
+    expect(screen.getByText(note)).toBeTruthy();
+  });
+});

@@ -72,6 +72,8 @@ export interface RegistrationSummary {
   byStatus: Record<RegistrationStatus, number>;
   /** SCRUM-74/AC7: capacity minus Confirmed registrations (Pending, Rejected and Withdrawn don't use a slot). */
   slotsRemaining: number | null;
+  /** SCRUM-170: how many of the Confirmed registrations are VIPs. */
+  vipConfirmed: number;
 }
 
 /** SCRUM-74/AC6: totals an event's registrations by status. */
@@ -81,7 +83,8 @@ export function registrationSummary(registrations: EventRegistration[], capacity
   // SCRUM-74/AC6: no capacity means no limit, so there is no figure to show
   // SCRUM-170: VIPs can take Confirmed past the capacity, so never below 0 (as availableSlots() in event-service)
   const slotsRemaining = capacity === null ? null : Math.max(0, capacity - byStatus.confirmed);
-  return { total: registrations.length, byStatus, slotsRemaining };
+  const vipConfirmed = registrations.filter((r) => r.is_vip && r.status === "confirmed").length;
+  return { total: registrations.length, byStatus, slotsRemaining, vipConfirmed };
 }
 
 /** SCRUM-83/AC12, AC14: registers the signed-in attendee for an event, from the browser, sending the session cookie. */
