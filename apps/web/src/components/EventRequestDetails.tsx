@@ -46,9 +46,16 @@ export function EventRequestDetails({ event }: { event: EventDetailView }) {
     <EventSection
       id="request-details"
       title="Request details"
-      action={event.canEdit && (
-        <Link className={cn(buttonVariants({ variant: "ghost", size: "sm" }))} href={`/events/${event.id}/edit`}>Edit event details</Link>
-      )}
+      action={
+        // SCRUM-54/AC1: the organiser opens their own draft in the form; submitted events are not editable this way
+        event.status === "draft" && event.isOrganiser ? (
+          <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/events/new?draft=${event.id}`}>Continue editing</Link>
+        ) : (
+          event.canEdit && (
+            <Link className={cn(buttonVariants({ variant: "ghost", size: "sm" }))} href={`/events/${event.id}/edit`}>Edit event details</Link>
+          )
+        )
+      }
     >
       <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
         {rows.map(([label, value, wide]) => (
