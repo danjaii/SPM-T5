@@ -21,6 +21,7 @@ describe("SCRUM-83 — Event registration list", () => {
           {
             id: "reg-1",
             status: "pending",
+            is_vip: false,
             registered_at: "2026-10-01T02:00:00Z",
             name: "Alicia Fernandez",
             email: "alicia.fernandez@example.com",
@@ -52,6 +53,7 @@ describe("SCRUM-83 — Event registration list", () => {
 const aRegistration = (overrides: Partial<EventRegistration> = {}): EventRegistration => ({
   id: "reg-1",
   status: "pending",
+  is_vip: false,
   registered_at: "2026-10-01T02:00:00Z",
   name: "Alicia Fernandez",
   email: "alicia.fernandez@example.com",
@@ -177,3 +179,18 @@ describe("SCRUM-169 — Confirm or decline in the registration list", () => {
   });
 });
 // end of SCRUM-169
+
+// ---------------------------------------------------------------------------
+// SCRUM-170 — The VIP label
+// ---------------------------------------------------------------------------
+describe("SCRUM-170 — VIP label in the registration list", () => {
+  // Status is never colour alone: the label has an icon and words
+  it("SCRUM-170/AC1 labels VIP rows, with an icon, and no others", () => {
+    render(<EventRegistrationList registrations={[aRegistration({ id: "reg-vip", status: "confirmed", is_vip: true }), aRegistration({ id: "reg-normal" })]} />);
+
+    const [vip, normal] = screen.getAllByRole("row").slice(1);
+    expect(within(within(vip).getByText("VIP")).getByTestId("status-icon")).toBeTruthy();
+    expect(within(normal).queryByText("VIP")).toBeNull();
+  });
+});
+// end of SCRUM-170

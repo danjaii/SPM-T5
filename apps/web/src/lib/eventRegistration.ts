@@ -47,6 +47,8 @@ export interface EventRegistration {
   id: string;
   status: RegistrationStatus;
   registered_at: string;
+  /** SCRUM-170: added by the organiser as a VIP. */
+  is_vip: boolean;
   /** What the attendee submitted on the form. */
   name: string;
   email: string;
@@ -77,7 +79,8 @@ export function registrationSummary(registrations: EventRegistration[], capacity
   const byStatus: Record<RegistrationStatus, number> = { pending: 0, confirmed: 0, rejected: 0, withdrawn: 0 };
   for (const r of registrations) byStatus[r.status] += 1;
   // SCRUM-74/AC6: no capacity means no limit, so there is no figure to show
-  const slotsRemaining = capacity === null ? null : capacity - byStatus.confirmed;
+  // SCRUM-170: VIPs can take Confirmed past the capacity, so never below 0 (as availableSlots() in event-service)
+  const slotsRemaining = capacity === null ? null : Math.max(0, capacity - byStatus.confirmed);
   return { total: registrations.length, byStatus, slotsRemaining };
 }
 
@@ -124,6 +127,21 @@ export async function decideRegistration(
         body: JSON.stringify({ decision }),
       },
     );
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
+  }
+}
+
+/** SCRUM-170/AC1: the organiser adds a VIP to an event by their email, from the browser, sending the session cookie. */
+export async function addVipRegistration(eventId: string, email: string): Promise<ApiResult<{ status: RegistrationStatus }>> {
+  try {
+    const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(eventId)}/vip-registrations`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
     return { ok: res.ok, data: await res.json() };
   } catch {
     return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };

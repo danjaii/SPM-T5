@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { registrationStatus, validateRegistrationForm } from "@spm-t5/shared";
+import { registrationStatus, validateRegistrationForm, validateVipEmail } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { lookUpRole } from "./events";
@@ -13,6 +13,8 @@ import {
   toEventRegistration,
   toMyRegistration,
   withdrawalRefusal,
+  VIP_ALREADY_REGISTERED,
+  vipRefusal,
   type EventRegistrationRow,
   type MyRegistrationRow,
 } from "../services/registrations";
@@ -151,7 +153,7 @@ export function registrationRoutes(deps: SupabaseDeps) {
     const db = deps.forUser(token);
     const { data, error } = await db
       .from("event_registrations")
-      .select("id, status, registered_at, registration_details")
+      .select("id, status, registered_at, is_vip, registration_details")
       .eq("event_id", req.params.id);
     // SCRUM-74/AC5: the attendee's profile too, for a registration with no form details. SCRUM-154/AC3, AC4: users' email and
     // phone are not readable (migration 52), so a function returns them, and only to the event's organiser or coordinator
@@ -218,6 +220,25 @@ export function registrationRoutes(deps: SupabaseDeps) {
     if (error?.code === "CS169" && DECISION_REFUSALS[error.message]) return res.status(409).json({ error: DECISION_REFUSALS[error.message] });
     if (error) return res.status(500).json({ error: "We couldn't save your decision. Please try again." });
     res.json({ status: registrationStatus(data) });
+  });
+
+  // SCRUM-170: the event's organiser adds a VIP past the registration cap, up to the venue's capacity.
+  // Who may add one, and the limits, are add_vip_registration()'s job (migration 69), not this route's.
+  router.post("/:id/vip-registrations", requireSession(deps), async (req, res) => {
+    const result = validateVipEmail(req.body?.email);
+    if (!result.ok) return res.status(400).json({ errors: { email: result.error } });
+
+    const { token } = res.locals.user as SessionUser;
+    const { error } = await deps.forUser(token).rpc("add_vip_registration", { p_event_id: req.params.id, p_email: result.email });
+    if (error?.code === "23505") return res.status(409).json({ error: VIP_ALREADY_REGISTERED });
+    if (error?.code === "CS170") {
+      if (error.message === "NOT_FOUND") return res.status(404).json(EVENT_NOT_FOUND);
+      if (error.message === "ACCOUNT_NOT_FOUND") return res.status(404).json({ error: "No attendee account uses that email." });
+      const refusal = vipRefusal(error.message, error.details);
+      if (refusal) return res.status(409).json({ error: refusal });
+    }
+    if (error) return res.status(500).json({ error: "We couldn't add this VIP. Please try again." });
+    res.status(201).json({ status: "confirmed" });
   });
 
   return router;

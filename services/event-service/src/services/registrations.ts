@@ -50,6 +50,8 @@ export interface EventRegistrationRow {
   id: string;
   status: string;
   registered_at: string;
+  /** SCRUM-170: added by the organiser as a VIP (migration 69). */
+  is_vip?: boolean;
   /**
    * What the attendee submitted on the form (SCRUM-83/AC8: they may have edited their profile's details).
    * Null, or without these fields, for a registration made before the form existed (e.g. the seed data).
@@ -73,6 +75,7 @@ export function toEventRegistration(row: EventRegistrationRow) {
     id: row.id,
     status: registrationStatus(row.status),
     registered_at: row.registered_at,
+    is_vip: row.is_vip ?? false,
     // SCRUM-74/AC5: what the attendee submitted on the form, or their profile when there was no form
     name: form.name ?? profile?.full_name ?? null,
     email: form.email ?? profile?.email ?? null,
@@ -121,3 +124,17 @@ export const DECISION_REFUSALS: Record<string, string> = {
   NOT_PENDING: "This registration is no longer Pending.",
   EVENT_CLOSED: "This event is no longer taking registrations.",
 };
+
+/** SCRUM-170/AC4: the person the organiser is adding already has a registration. Also 11's unique index refusal (23505). */
+export const VIP_ALREADY_REGISTERED = "This attendee already has an active registration for this event.";
+
+/** SCRUM-170: why add_vip_registration() (migration 69) refused, in the organiser's words. `limit` is the venue's capacity. */
+export function vipRefusal(code: string, limit: string | null | undefined): string | undefined {
+  const refusals: Record<string, string> = {
+    EVENT_CLOSED: "This event is no longer taking registrations.",
+    ALREADY_REGISTERED: VIP_ALREADY_REGISTERED,
+    NO_VENUE: "This event has no approved venue yet, so a VIP can't be checked against its capacity.",
+    VENUE_FULL: `This would take the event past its venue's capacity of ${limit}.`, // SCRUM-170/AC2
+  };
+  return refusals[code];
+}
