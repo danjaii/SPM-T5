@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingQueueDetail } from "@/components/BookingQueueDetail";
+import { HoldExpiryForm } from "@/components/HoldExpiryForm";
 import { VenueStaffDecision } from "@/components/VenueStaffDecision";
 import { SuitabilityReport } from "@/components/SuitabilityReport";
 import { getQueuedBooking } from "@/lib/bookingQueueServer";
@@ -53,6 +54,8 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
                 </CardContent>
               </Card>
             )}
+            {/* SCRUM-97: Venue Staff set, extend or shorten the hold's expiry while the request is pending */}
+            {result.booking.status === "PENDING" && <HoldExpiryForm bookingId={result.booking.id} current={result.booking.holdExpiresAt ?? null} />}
             {/* SCRUM-38/39: renders only while the request is PENDING; the server checks again. */}
             <VenueStaffDecision booking={{ id: result.booking.id, status: result.booking.status, flagged: result.booking.flags.length > 0 }} />
           </>

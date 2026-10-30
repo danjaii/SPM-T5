@@ -36,6 +36,8 @@ export interface QueueItemView {
 
 /** One request in any status: GET /booking-queue/:id. */
 export interface QueueDetailView extends QueueItemView {
+  /** SCRUM-97: when the hold expires or expired; null when none was set. */
+  holdExpiresAt?: string | null;
   status: VenueBookingStatus | undefined;
   decidedByName: string | null;
   decidedAt: string | null;

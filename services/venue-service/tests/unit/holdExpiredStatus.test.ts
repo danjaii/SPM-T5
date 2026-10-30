@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { VENUE_BOOKING_MESSAGES } from "@spm-t5/shared";
 import { toBookingDto, toBookingListItem } from "../../src/domain/dto";
+import { toQueueDetail } from "../../src/domain/queueDto";
 import type { BookingRecord } from "../../src/domain/types";
 import { SupabaseHoldExpiryWriter } from "../../src/readers/holdExpiryWriter";
 import { SupabaseBookingRepository } from "../../src/repositories/supabaseBookingRepository";
@@ -81,5 +82,12 @@ describe("SCRUM-97/AC4 the coordinator's list and an event's bookings show Expir
     const approved = toBookingListItem(record({ status: "approved", reviewedAt: new Date("2030-10-30T00:00:00Z") }), "Orchid Hall", [], NOW);
     expect(approved.status).toBe("APPROVED");
     expect(approved.decidedAt).toBe("2030-10-30T00:00:00.000Z");
+  });
+});
+
+describe("SCRUM-97/AC1 the request page gets the hold's expiry", () => {
+  it("carries the expiry on the queue detail, and null when none was set", () => {
+    expect(toQueueDetail(record(), "Orchid Hall", new Map()).holdExpiresAt).toBe(EXPIRY.toISOString());
+    expect(toQueueDetail(record({ holdExpiresAt: null }), "Orchid Hall", new Map()).holdExpiresAt).toBeNull();
   });
 });
