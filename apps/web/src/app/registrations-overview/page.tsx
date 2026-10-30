@@ -3,6 +3,7 @@ import { EventPicker } from "@/components/EventPicker";
 import { EventRegistrationList } from "@/components/EventRegistrationList";
 import { PageFrame } from "@/components/PageFrame";
 import { RegistrationSummary } from "@/components/RegistrationSummary";
+import { VipRegistrationForm } from "@/components/VipRegistrationForm";
 import { Alert } from "@/components/ui/alert";
 import { getEventRegistrations, getManagedEvents } from "@/lib/eventRegistrationServer";
 
@@ -36,6 +37,8 @@ export default async function RegistrationsOverviewPage({ searchParams }: { sear
       ) : (
         <>
           <EventPicker events={events} selectedId={selected?.id ?? null} />
+          {/* SCRUM-170/AC3: only the organiser's events can_decide; the database refuses anyone else too */}
+          {selected?.can_decide && <VipRegistrationForm eventId={selected.id} />}
           {!selected && <p className={empty}>Choose an event to see its registrations.</p>}
         </>
       )}

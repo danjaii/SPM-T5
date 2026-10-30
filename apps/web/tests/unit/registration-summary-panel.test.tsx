@@ -7,6 +7,7 @@ import type { EventRegistration, RegistrationStatus } from "@/lib/eventRegistrat
 
 /** One registration with the given status; the other details don't matter to the summary. */
 const aRegistration = (id: string, status: RegistrationStatus): EventRegistration => ({
+  is_vip: false,
   id,
   status,
   registered_at: "2026-10-01T02:00:00Z",

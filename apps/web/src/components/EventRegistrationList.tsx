@@ -1,5 +1,6 @@
 import { RegistrationDecision } from "@/components/RegistrationDecision";
 import { RegistrationStatusBadge } from "@/components/RegistrationStatusBadge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { EventRegistration } from "@/lib/eventRegistration";
 
@@ -43,7 +44,13 @@ export function EventRegistrationList({
         <TableBody>
           {registrations.map((r) => (
             <TableRow key={r.id}>
-              <TableCell className="font-semibold text-foreground">{r.name}</TableCell>
+              <TableCell className="font-semibold text-foreground">
+                <span className="flex flex-wrap items-center gap-2">
+                  {r.name}
+                  {/* SCRUM-170: why Confirmed can be past the cap */}
+                  {r.is_vip && <StatusBadge label="VIP" tone="info" icon="badge-check" />}
+                </span>
+              </TableCell>
               <TableCell>{r.email}</TableCell>
               <TableCell>{r.phone}</TableCell>
               <TableCell><RegistrationStatusBadge status={r.status} /></TableCell>

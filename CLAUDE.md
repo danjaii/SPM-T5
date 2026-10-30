@@ -361,6 +361,10 @@ straight away while places remain and Pending once the event is full (SCRUM-169,
 row so two attendees can't both take the last place, and a full event still offers Register (`can_register`). On that page the event's
 organiser confirms or declines each Pending one (`POST /events/:id/registrations/:registrationId/decision`, `decide_registration()`);
 confirming on a full event is refused (`EVENT_FULL`, SQLSTATE `CS169`), and withdrawing frees a place without promoting anyone.
+The organiser can also add a VIP past the cap there, by the email of an attendee account (SCRUM-170, migration 69): `POST
+/events/:id/vip-registrations` calls `add_vip_registration()`, which only the event's organiser can use and which refuses at the smallest
+approved venue's capacity (`VENUE_FULL`, SQLSTATE `CS170`). A Pending attendee is confirmed on their own row, the VIP gets the usual status
+notification, and `event_registrations.is_vip` shows a VIP label to the organiser and coordinator. A VIP uses a place like anyone else.
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
