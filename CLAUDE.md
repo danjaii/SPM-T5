@@ -41,7 +41,7 @@ there, not as a string literal in a service.
 ### Feature scope (release 1)
 
 The 20 features below define the release-1 backlog. They span the five services in Architecture
-below plus `apps/web`; none of them are implemented yet (see Current state).
+below plus `apps/web`. Most are built; Current state says what is and what is not.
 
 1. Authorisation/authentication — RBAC via Supabase Auth JWTs (see Architecture: this is
    RLS-enforced, not middleware-enforced).
@@ -50,7 +50,8 @@ below plus `apps/web`; none of them are implemented yet (see Current state).
 4. Event review and approval — coordinator amend/approve/reject workflow.
 5. Coordinator assignment/reassignment per event (owned by `event-service`, alongside review/approval).
 6. Event status state machine: `Draft → Submitted → Under Review → Approved → Planning →
-   Confirmed → Completed`, with `Cancelled`/`Rejected` off-ramps.
+   Awaiting Arrangements → Confirmed → Completed`, with `Cancelled`/`Rejected` off-ramps. The full list,
+   which also has `Returned`, is `EVENT_STATUSES` in `packages/shared/src/eventStatus.ts`.
 7. Event information management — minor edits vs. critical updates (date/time/attendance) that
    must re-trigger venue/equipment validation.
 8. Venue catalogue (location, capacity, layouts, operating hours, accessibility).
@@ -91,8 +92,8 @@ pnpm run test:all                            # every workspace, one at a time
 pnpm --filter @spm-t5/web run test            # one workspace
 pnpm --filter @spm-t5/auth-service run test:unit   # unit only (vitest run tests/unit)
 pnpm --filter @spm-t5/auth-service run test:integration
-pnpm --filter @spm-t5/auth-service run test:unit tests/unit/health.test.ts   # single file
-pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"      # single test by name
+pnpm --filter @spm-t5/auth-service exec vitest run tests/unit/health.test.ts   # single file (test:unit would still run all of tests/unit)
+pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"        # single test by name
 
 pnpm --filter @spm-t5/auth-service run typecheck   # tsc --noEmit (apps/web runs `next typegen` first)
 pnpm run lint:all                            # apps/web uses ESLint flat config (eslint.config.mjs)
@@ -111,21 +112,23 @@ table — `auth-service` wraps Supabase Auth, it does not reimplement it.
 
 **Authorization is Row-Level Security, not application code.** ADR 0001 chose one Postgres
 instance for all five services with RLS enforcing per-role access. A service that queries with
-the service-role key bypasses RLS entirely, so reach for the anon/user-scoped client by default
-and use the service-role key only where bypassing is the actual intent. Express middleware may
+the secret key (`SUPABASE_SECRET_KEY`, the service role) bypasses RLS entirely, so reach for the
+user-scoped client (`SUPABASE_PUBLISHABLE_KEY` plus the caller's token) by default and use the secret
+key only where bypassing is the actual intent. Express middleware may
 still decode the Supabase JWT to identify the caller (`req.user`) — that's authentication, not
 authorization — but it should not re-implement role checks that RLS already enforces.
 
-**Notification service is event-driven, not polled.** Per the container diagram, `event-service`
-publishes status-change events and `notification-service` reacts to them and dispatches
-email/SMS — favor Supabase Realtime/webhooks or an explicit event call over having services poll
-each other for state changes.
+**Notifications are written with the change they announce, not polled.** Per ADR 0002, a trigger or
+`security definer` function writes the `notifications` row in the same transaction as the change, and
+`notification-service` serves those rows. Add a new notification the same way, not with an HTTP call
+to `notification-service` or by having services poll each other for state changes. Email and SMS
+are planned (see the container diagram) but not sent yet.
 
 **Every service is a workspace with its own `package.json`, `tests/`, and `Dockerfile`.** Docker
 builds use the repo root as context (the lockfile and `packages/shared` live there), and each
 service's `build` script bundles `packages/shared` in with esbuild. CI is a single workflow,
-`.github/workflows/ci.yml` (job `test`, then `e2e`), on push to `main` and PRs into it, with no path
-filters. The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run`
+`.github/workflows/ci.yml`, on push to `main` and PRs into it, with no path filters. Its jobs are
+`test` and `integration` side by side, `e2e` after `test`, and `migrate` after both on push to `main`. The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run`
 discovers every workspace's tests and a new service needs no CI change.
 
 **`packages/shared` exists to stop frontend and services drifting.** Role types, Supabase client
@@ -146,12 +149,15 @@ venue 4003, equipment 4004, notification 4005).
   merge to `main`; never apply migration SQL by hand (dashboard SQL editor, `psql`), since that skips the
   migration history and the next `db push` then re-runs or skips files.
 - **Tests live in `tests/unit` and `tests/integration` per workspace**, not colocated with source.
-  The CI template runs the two separately, and only `test:unit` gets `--coverage`.
+  CI's `test` job has no database, so its `pnpm vitest run` skips the integration suites; the
+  `integration` job runs them against a local Supabase, with coverage turned off.
 - **Integration tests only assert on data they create.** Vitest runs test files at the same time, all against one
   shared database, so another file may be adding, changing or deleting rows while yours runs. An exact count or list must
   come from rows and accounts the test made itself (its own Lead, its own venue bookings), never from seeded data or
   from a read of a whole table; checks on seeded data should say what is included or left out, not "exactly these". Two
   tests that broke this rule failed at random in CI (SCRUM-143).
+- **A file below 100% coverage needs a reason in [docs/testing/coverage.md](docs/testing/coverage.md).** CI has no coverage
+  threshold on purpose (SCRUM-173), so nothing else flags a gap: a PR that adds one updates that document.
 - **Export the Express app separately from `listen()`** so integration tests can mount it without
   binding a port.
 - **`src/app/` in `apps/web` is routes only** — every folder is a URL segment. Components go in
@@ -163,11 +169,10 @@ venue 4003, equipment 4004, notification 4005).
   grows, rather than adding a C4 code diagram.
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
-  on unit tests (only `test:unit` gets `--coverage`, per Commands above).
-- **A stubbed service gains internal structure as it's built out**, not before: once a
-  `services/*/src/index.ts` grows past the `healthCheck()` stub, split it into `routes/`,
-  `controllers/` (or `services/` for business logic), and `middlewares/` rather than one growing
-  file — but keep the `tests/unit` + `tests/integration` split from the bullet above regardless.
+  on unit tests (coverage is switched on in the root `vitest.config.mts`, so only CI's unit run counts).
+- **Keep a service's code split by job**, as the existing services do: `routes/`, `services/` for
+  business logic, `middlewares/`, and `readers/` or `repositories/` for database access, rather than
+  one growing file.
 
 ## Git conventions
 
@@ -228,7 +233,7 @@ acceptance criterion — part of what the Scrum project is graded on.
   this lets them narrow it as they type, which is why the filtering runs in the browser."
 
 ## UI redesign (epic SCRUM-119)
-- One ticket per branch and per session: SCRUM-120 (theme tokens) → SCRUM-121 (app shell) → SCRUM-122…142 (features). Mock-ups: <https://www.figma.com/design/iHA0UaeAIYhfmfi0CrrJv6/ConnectSphere-UI-Mock-Ups?node-id=0-1&p=f&t=UZ5McDajOKDK0obz-0>.
+- One ticket per branch and per session: SCRUM-120 (theme tokens) → SCRUM-121 (app shell) → SCRUM-122…142 (features), then later restyle tickets such as SCRUM-160 and SCRUM-167. Mock-ups: <https://www.figma.com/design/iHA0UaeAIYhfmfi0CrrJv6/ConnectSphere-UI-Mock-Ups?node-id=0-1&p=f&t=UZ5McDajOKDK0obz-0>.
 - Stack: shadcn/ui + Tailwind in apps/web. Colors come from the Figma variables as CSS variables in globals.css; no hard-coded hex or arbitrary Tailwind values. shadcn components in src/components/ui, routes only in src/app.
 - Layout: every role has the same left sidebar and no top bar; keep it in one shared shell component.
 - Status is never color alone: always icon + label.
@@ -330,7 +335,7 @@ event's registrations newest first, with a summary in which only Confirmed regis
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
-`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell in every signed-in page's header (`AppHeader`, `NotificationBell`) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
+`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell (`NotificationBell`, in the app shell's sidebar and in `AppHeader`, the top bar some pages still render) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
 `docs/specs/receive-notifications.md`, migration 44) adds the producers, triggers that write each row in the same transaction as
 its change: a coordinator's assignment, an event request's approval or rejection, a comment mention or reply (one per person,
 never the author; comments are saved through `post_event_comment()`), a clarification request and the organiser's answer (a
