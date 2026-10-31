@@ -109,3 +109,93 @@ describe("SCRUM-24 — Decision on the event page", () => {
     expect(screen.queryByRole("group", { name: "Review this request" })).toBeNull();
   });
 });
+
+// SCRUM-174 — Cancel an Event and Release Its Arrangements (docs/specs/cancel-event.md)
+describe("SCRUM-174 — Cancel an event on the event page", () => {
+  const assigned = { ...event, status: "planning", canChangeStatus: true };
+  const choose = (status: string) => fireEvent.change(screen.getByRole("combobox", { name: "New status" }), { target: { value: status } });
+
+  it("174-S13 SCRUM-174/AC1: asks for a reason once Cancelled is chosen, and says who will see it", () => {
+    render(<EventStatusPanel event={assigned} />);
+
+    choose("cancelled");
+
+    const reason = screen.getByLabelText("Reason (required)") as HTMLTextAreaElement;
+    expect(reason.required).toBe(true);
+    expect(screen.getByText("The organiser and registered attendees will be told this reason.")).toBeTruthy();
+  });
+
+  it("174-S13 SCRUM-174/AC1: keeps the reason optional for other statuses", () => {
+    render(<EventStatusPanel event={assigned} />);
+
+    choose("approved");
+
+    expect(screen.getByLabelText("Reason (optional)")).toBeTruthy();
+  });
+
+  it("174-S13 SCRUM-174/AC1: sends nothing and says so when Cancelled is saved without a reason", () => {
+    const fetchMock = mockServer(200, {});
+    render(<EventStatusPanel event={assigned} />);
+
+    choose("cancelled");
+    fireEvent.change(screen.getByLabelText("Reason (required)"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText("A reason is required to cancel an event.")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("174-S2 SCRUM-174/AC2: cancels the event with its reason and shows it as Cancelled", async () => {
+    const fetchMock = mockServer(200, { id: "evt-1", name: "Tech Summit", status: "cancelled" });
+    render(<EventStatusPanel event={assigned} />);
+
+    choose("cancelled");
+    fireEvent.change(screen.getByLabelText("Reason (required)"), { target: { value: "Organiser withdrew the event" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Status updated to Cancelled.")).toBeTruthy();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ status: "cancelled", reason: "Organiser withdrew the event" });
+  });
+
+  it("174-S10 SCRUM-174/AC7: offers no status change for a cancelled event, and says why", () => {
+    render(<EventStatusPanel event={{ ...assigned, status: "cancelled" }} />);
+
+    expect(screen.queryByRole("combobox", { name: "New status" })).toBeNull();
+    expect(screen.getByText("This event was cancelled, so its status can no longer change.")).toBeTruthy();
+  });
+
+  it.each(["completed", "rejected"])("174-S11 SCRUM-174/AC1: does not offer Cancelled for a %s event", (status) => {
+    render(<EventStatusPanel event={{ ...assigned, status }} />);
+
+    const options = within(screen.getByRole("combobox", { name: "New status" })).getAllByRole("option").map((o) => o.getAttribute("value"));
+    expect(options).not.toContain("cancelled");
+    expect(options).toContain(status);
+  });
+});
+
+// SCRUM-47/AC10 (and SCRUM-24/AC2): event-service refuses a rejection without a reason, so the page asks for one first,
+// as it does for a cancellation (SCRUM-174)
+describe("SCRUM-47/AC10 — A rejection on the event page needs a reason", () => {
+  const assigned = { ...event, status: "planning", canChangeStatus: true };
+
+  it("SCRUM-47/AC10: asks for a reason once Rejected is chosen, and says who will see it", () => {
+    render(<EventStatusPanel event={assigned} />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "New status" }), { target: { value: "rejected" } });
+
+    expect((screen.getByLabelText("Reason (required)") as HTMLTextAreaElement).required).toBe(true);
+    expect(screen.getByText("The organiser will be told this reason.")).toBeTruthy();
+  });
+
+  it("SCRUM-47/AC10: sends nothing and says so when Rejected is saved without a reason", () => {
+    const fetchMock = mockServer(200, {});
+    render(<EventStatusPanel event={assigned} />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "New status" }), { target: { value: "rejected" } });
+    fireEvent.change(screen.getByLabelText("Reason (required)"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText("A reason is required to reject an event.")).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

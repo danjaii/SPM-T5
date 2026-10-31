@@ -250,3 +250,29 @@ describe("SCRUM-15 — Role-based route guard", () => {
   });
 });
 // end of SCRUM-15
+
+// SCRUM-159 — "← Back to dashboard" links to plain /dashboard, which names no role, so the guard refused it
+describe("SCRUM-159/AC3 Back to dashboard reaches the signed-in user's own home", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each(["event_organiser", "event_coordinator", "technical_support_staff"])(
+    "SCRUM-159/AC3 sends a %s who opens /dashboard to their own dashboard, not the access-denied page",
+    async (role) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ role }) }));
+      const request = new NextRequest("http://localhost:3000/dashboard", { headers: { cookie: "cs_session=token" } });
+
+      const res = await middleware(request);
+
+      expect(res.headers.get("location")).toBe(`http://localhost:3000/dashboard/${role}`);
+    },
+  );
+
+  it("SCRUM-159/AC3 still refuses another role's dashboard", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ role: "event_organiser" }) }));
+    const request = new NextRequest("http://localhost:3000/dashboard/venue_staff", { headers: { cookie: "cs_session=token" } });
+
+    const res = await middleware(request);
+
+    expect(res.headers.get("location")).toBe("http://localhost:3000/access-denied");
+  });
+});

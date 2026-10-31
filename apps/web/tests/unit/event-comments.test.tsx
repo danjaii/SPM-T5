@@ -902,3 +902,37 @@ describe("SCRUM-47/AC3 — Answer a clarification request", () => {
     expect(threads[1].textContent).not.toContain("Clarification requested");
   });
 });
+
+// SCRUM-159 — the comments box in the new design (same words and behaviour, the old styles retired)
+describe("SCRUM-159/AC4 the comments box in the new design", () => {
+  it("SCRUM-159/AC4 shows a failed post as the new error message, with an icon as well as the words", async () => {
+    mockEventService([thread([])], { status: 500, body: {} });
+    setup();
+    await screen.findByText(NO_COMMENTS);
+
+    type("Hello");
+    fireEvent.click(postButton());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("We couldn't post your comment. Please try again.");
+    expect(alert.querySelector("svg")).toBeTruthy();
+  });
+
+  it("SCRUM-159/AC4 labels a clarification request with a status badge: an icon and a label, never colour alone", async () => {
+    mockEventService([thread([{ ...FIRST, is_clarification_request: true }])]);
+    setup();
+    await screen.findByText(FIRST.body);
+
+    const badge = screen.getByText("Clarification requested").closest("[data-tone]");
+    expect(badge?.getAttribute("data-tone")).toBe("warning");
+    expect(within(badge as HTMLElement).getByTestId("status-icon")).toBeTruthy();
+  });
+
+  it("SCRUM-159/AC4 offers Reply as a button in the new style", async () => {
+    mockEventService([thread([FIRST])]);
+    setup();
+    await screen.findByText(FIRST.body);
+
+    expect(screen.getByRole("button", { name: "Reply" }).getAttribute("data-slot")).toBe("button");
+  });
+});
