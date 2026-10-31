@@ -5,7 +5,7 @@ import { createSupabaseDeps } from "../../src/supabase";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-54: reopening, re-saving and submitting a draft (migration 61: organiser UPDATE policy, column guard,
+ * SCRUM-54: reopening, re-saving and submitting a draft (migrations 71 and 72: organiser UPDATE policy, column guard,
  * update_event_draft(), submit_event_draft()) against the real database, as seeded users so RLS applies. Fixtures are named
  * "IT-54-" and removed afterwards (history, then events). The seeded organisers and the Lead's queue hold other rows, so
  * these tests only look at rows they create.

@@ -42,7 +42,7 @@ function createFake() {
     return builder;
   };
 
-  /** Pretends to be update_event_draft (migration 62, security definer): the caller's own draft only, the 14 draft fields only. */
+  /** Pretends to be update_event_draft (migration 72, security definer): the caller's own draft only, the 14 draft fields only. */
   const updateEventDraft = (callerId: string | undefined, args: Row) => {
     if (failure.updateCode) return { data: null, error: { message: "refused", code: failure.updateCode } };
     const event = tables.events.find((e) => e.id === args.p_event_id && e.organiser_id === callerId);
@@ -54,7 +54,7 @@ function createFake() {
     return { data: { ...event }, error: null };
   };
 
-  /** Pretends to be submit_event_draft (migration 61): the caller's own draft, becomes submitted with a history row. */
+  /** Pretends to be submit_event_draft (migration 71): the caller's own draft, becomes submitted with a history row. */
   const submitEventDraft = (callerId: string | undefined, args: Row) => {
     if (failure.submitCode) return { data: null, error: { message: "refused", code: failure.submitCode } };
     const event = tables.events.find((e) => e.id === args.p_event_id && e.organiser_id === callerId);

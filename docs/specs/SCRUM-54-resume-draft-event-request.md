@@ -1,7 +1,7 @@
 # SCRUM-54 — Resume Editing a Draft Event Request
 
 **Jira:** SCRUM-54 (Draft Event Requests)
-**Branch:** `SCRUM-54/resume-draft-event-request` (stacked on `SCRUM-53/save-draft-event-request`)
+**Branch:** `SCRUM-54/resume-draft-event-request` (built on SCRUM-53, merged as PR #144)
 
 ## Story
 
@@ -70,10 +70,10 @@ Scenarios:
 
 ## Decisions
 - Last-saved time is `events.updated_at`; an unnamed draft is "Untitled draft" (team decisions, SCRUM-53).
-- **Re-save = `update_event_draft()` (security definer, migration 62).** `14_events_rls.sql` revokes UPDATE on `events` from
+- **Re-save = `update_event_draft()` (security definer, migration 72).** `14_events_rls.sql` revokes UPDATE on `events` from
   `authenticated` and grants it only on `status` and `assigned_coordinator_id`: writes to events go through security definer
   functions so history and send-back logic cannot be bypassed. An RLS UPDATE policy is therefore useless for the organiser
-  (migration 61 tried one plus a column guard trigger; both were unreachable and are dropped by 62), and granting UPDATE on the
+  (migration 71 tried one plus a column guard trigger; both were unreachable and are dropped by 72), and granting UPDATE on the
   draft columns would let an assigned coordinator edit them directly. So the function checks the caller itself (organiser role,
   42501), locks the caller's own row (`DR001` if not found), refuses a row that is no longer a draft (`DR002`) and writes only
   the 14 draft fields. The organiser still has no UPDATE privilege on any draft column, so a direct update is refused (42501);
@@ -85,7 +85,7 @@ Scenarios:
   Because it writes the history row itself, no organiser INSERT policy for `draft -> submitted` history is added: that policy
   would let an organiser forge history rows by direct insert, for no gain.
 - `events_status_change_guard()` (migration 14) refuses an organiser changing status, as the organiser is not the assigned
-  coordinator. Migration 61 replaces it (same name) to also allow the owner's `draft -> submitted`, nothing else.
+  coordinator. Migration 71 replaces it (same name, built on migration 66's version) to also allow the owner's `draft -> submitted`, nothing else.
 - Custom SQLSTATEs (class `DR`): `DR001` not your draft/not found, `DR002` not a draft, `DR003` incomplete.
 - PUT replaces all draft fields (cleared = null), matching the form that sends everything it shows.
 
@@ -103,9 +103,9 @@ Scenarios:
 | AC4 | `services/event-service/tests/integration/eventDraftResumeDb.test.ts` | `SCRUM-54/AC4 ...` |
 
 ## Affected workspaces
-- `supabase/migrations/61_resume_draft_event_request.sql` (new): `submit_event_draft()`, replaced `events_status_change_guard()`;
+- `supabase/migrations/71_resume_draft_event_request.sql` (new): `submit_event_draft()`, replaced `events_status_change_guard()`;
   also an organiser UPDATE policy, a column guard trigger and an invoker `update_event_draft()` that turned out to be unreachable.
-- `supabase/migrations/62_event_draft_update_definer.sql` (new, append-only fix): drops that policy and trigger and replaces
+- `supabase/migrations/72_event_draft_update_definer.sql` (new, append-only fix): drops that policy and trigger and replaces
   `update_event_draft()` with a security definer version. Affects event-service; the guard is
   shared by every path that changes `events.status`, so other services' status changes are covered by running their tests.
 - `services/event-service`: `routes/eventDrafts.ts` (extended), no new mount.
