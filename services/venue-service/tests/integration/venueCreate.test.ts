@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { adminClient, hasDb, signInAs } from "./support/db";
 
 /**
- * SCRUM-57 (docs/specs/venue-add.md): create_venue (migration 63) adds a venue with its layouts and facilities in one
+ * SCRUM-57 (docs/specs/venue-add.md): create_venue (migration 73) adds a venue with its layouts and facilities in one
  * step, for Venue Staff only. Every check signs in as a seeded user, so it goes through the same JWT + publishable-key path
  * the services use. Venues made here are named "IT-57-..." and removed afterwards. Assertions only cover those venues, never
  * a count of a whole table (CLAUDE.md, SCRUM-143).
@@ -28,7 +28,7 @@ const NOT_A_UUID = "22P02";
 const tag = () => Math.random().toString(36).slice(2, 8);
 const NIL_ID = "00000000-0000-0000-0000-000000000000";
 
-describe.skipIf(!hasDb)("SCRUM-57 Venue Staff add a venue (migration 63)", () => {
+describe.skipIf(!hasDb)("SCRUM-57 Venue Staff add a venue (migration 73)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const who = {} as Record<Who, Actor>;
   const everyone = Object.keys(EMAILS) as Who[];

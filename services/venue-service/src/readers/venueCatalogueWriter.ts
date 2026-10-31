@@ -12,7 +12,7 @@ const UNKNOWN_LAYOUT = "CS571";
 const UNKNOWN_FACILITY = "CS572";
 
 /**
- * Calls the create_venue database function as the caller. The function (migration 63) writes the venue, its layouts and its
+ * Calls the create_venue database function as the caller. The function (migration 73) writes the venue, its layouts and its
  * facilities in one transaction and allows venue staff only, so RLS stays the authority; the route's role check is just
  * the friendly 403.
  */
