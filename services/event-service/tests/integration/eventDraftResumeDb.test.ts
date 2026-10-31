@@ -333,14 +333,18 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       expect(history![0]).toMatchObject({ old_status: "draft", new_status: "submitted", changed_by: who.organiser.userId });
     });
 
-    it("sends the organiser no notification for submitting", async () => {
+    // SCRUM-172/AC1 (migration 65) tells the Leads about a submitted request; the draft -> submitted history row that
+    // submit_event_draft() writes is what triggers it. Only the organiser's own submission stays silent for them.
+    it("tells the Leads and sends the organiser no notification for submitting", async () => {
       const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-notify"));
       await submitAs(who.organiser, draft.id);
 
-      const { data, error } = await admin.from("notifications").select("id").eq("event_id", draft.id);
+      const { data, error } = await admin.from("notifications").select("user_id, type").eq("event_id", draft.id);
 
       expect(error).toBeNull();
-      expect(data).toEqual([]);
+      expect(data!.some((n) => n.user_id === who.organiser.userId)).toBe(false);
+      expect(data!.length).toBeGreaterThan(0);
+      expect(new Set(data!.map((n) => n.type))).toEqual(new Set(["event_submitted"]));
     });
 
     it("puts the request in the Event Coordinator Lead's unassigned queue", async () => {

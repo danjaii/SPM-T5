@@ -54,7 +54,8 @@ Scenarios:
   they are validated strictly, saved, then submitted. If the body is invalid nothing is saved.
 - A draft still named "Untitled draft" (the placeholder) is treated as having no name: 422 on `name`.
 - As for `POST /events`, registration capacity and window are cleared when `registration_required` is false.
-- Submitting writes no notification (`notify_event_decision` only reacts to approved/rejected).
+- Submitting sends the organiser no notification. The Event Coordinator Leads are told (SCRUM-172/AC1, migration 65), because
+  `submit_event_draft()` writes the `draft -> submitted` history row that trigger reacts to.
 
 ### AC4 — Prevent editing after submission
 - **Given** a request has already been submitted (no longer a draft)
