@@ -5,6 +5,7 @@ import { registrationSummary, type EventRegistration, type RegistrationStatus } 
 
 /** One registration with the given status; the other details don't matter to the summary. */
 const aRegistration = (status: RegistrationStatus): EventRegistration => ({
+  is_vip: false,
   id: `reg-${Math.random()}`,
   status,
   registered_at: "2026-10-01T02:00:00Z",
@@ -49,3 +50,29 @@ describe("SCRUM-74 — Registration summary", () => {
   // end of AC6
 });
 // end of SCRUM-74
+
+// SCRUM-170: VIPs can take Confirmed past the capacity, and the page shouldn't say "-1 of 10"
+describe("SCRUM-170 — Slots remaining past the cap", () => {
+  it("SCRUM-170/AC1 stops at 0 when VIPs take Confirmed past the capacity", () => {
+    const confirmed = { id: "r", status: "confirmed", registered_at: "2026-10-01T02:00:00Z", name: "A", email: "a@example.com", phone: "1", is_vip: false } as const;
+
+    expect(registrationSummary([confirmed, confirmed], 1).slotsRemaining).toBe(0);
+  });
+});
+
+// SCRUM-170: why Confirmed can be past the capacity: only VIPs who still hold a place count
+describe("SCRUM-170 — VIP count", () => {
+  it("SCRUM-170/AC1 counts only Confirmed VIPs", () => {
+    const summary = registrationSummary(
+      [
+        { ...aRegistration("confirmed"), is_vip: true },
+        { ...aRegistration("withdrawn"), is_vip: true },
+        { ...aRegistration("rejected"), is_vip: true },
+        aRegistration("confirmed"),
+      ],
+      1,
+    );
+
+    expect(summary.vipConfirmed).toBe(1);
+  });
+});

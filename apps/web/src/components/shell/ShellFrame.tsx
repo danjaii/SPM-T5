@@ -8,8 +8,10 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { roleLabel } from "@/lib/roles";
+import type { ShellData } from "@/lib/shellServer";
 import { ShellContext, type ShellState } from "./ShellContext";
 import { SidebarNav } from "./SidebarNav";
+import { useQueueCounts } from "./useQueueCounts";
 
 // Pages that are shown before sign-in have no shell, even if a stale session cookie is still around.
 const BARE = /^\/(login|register|forgot-password|reset-password)(\/|$)/;
@@ -62,9 +64,11 @@ function SidebarBody({ shell, onNavigate, onClose }: { shell: ShellState; onNavi
 }
 
 /** SCRUM-121: the one app shell: a left sidebar from md up, a top bar with a slide-in menu below it. */
-export function ShellFrame({ shell, children }: { shell: ShellState | null; children: ReactNode }) {
+export function ShellFrame({ shell: serverShell, children }: { shell: ShellData | null; children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const bare = !serverShell || BARE.test(pathname);
+  const { counts, refreshCounts } = useQueueCounts(bare ? undefined : serverShell.user.role, serverShell?.counts, pathname);
 
   // SCRUM-121/AC3: the menu closes when the route changes and on Escape
   useEffect(() => setOpen(false), [pathname]);
@@ -75,7 +79,8 @@ export function ShellFrame({ shell, children }: { shell: ShellState | null; chil
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
-  if (!shell || BARE.test(pathname)) return <>{children}</>;
+  if (bare) return <>{children}</>;
+  const shell: ShellState = { user: serverShell.user, counts, refreshCounts };
 
   return (
     <ShellContext.Provider value={shell}>

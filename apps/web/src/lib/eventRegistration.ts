@@ -22,6 +22,9 @@ export const STATUS_LABELS: Record<RegistrationStatus, string> = {
   withdrawn: "Withdrawn",
 };
 
+/** SCRUM-169/AC2: what an attendee sees before registering for a full event. */
+export const FULL_EVENT_NOTE = "This event is full. You can still register, and the organiser will decide.";
+
 /** SCRUM-83/AC15: one of the attendee's registrations, as GET /events/my-registrations sends it. */
 export interface MyRegistration {
   id: string;
@@ -44,6 +47,8 @@ export interface EventRegistration {
   id: string;
   status: RegistrationStatus;
   registered_at: string;
+  /** SCRUM-170: added by the organiser as a VIP. */
+  is_vip: boolean;
   /** What the attendee submitted on the form. */
   name: string;
   email: string;
@@ -57,6 +62,8 @@ export interface ManagedEvent {
   status: string;
   start_at: string | null;
   registration_capacity: number | null;
+  /** SCRUM-169/AC3: whether the caller can confirm or decline Pending registrations: the organiser, not a coordinator. */
+  can_decide: boolean;
 }
 
 /** SCRUM-74/AC6: the summary above an event's registrations. */
@@ -65,6 +72,8 @@ export interface RegistrationSummary {
   byStatus: Record<RegistrationStatus, number>;
   /** SCRUM-74/AC7: capacity minus Confirmed registrations (Pending, Rejected and Withdrawn don't use a slot). */
   slotsRemaining: number | null;
+  /** SCRUM-170: how many of the Confirmed registrations are VIPs. */
+  vipConfirmed: number;
 }
 
 /** SCRUM-74/AC6: totals an event's registrations by status. */
@@ -72,8 +81,10 @@ export function registrationSummary(registrations: EventRegistration[], capacity
   const byStatus: Record<RegistrationStatus, number> = { pending: 0, confirmed: 0, rejected: 0, withdrawn: 0 };
   for (const r of registrations) byStatus[r.status] += 1;
   // SCRUM-74/AC6: no capacity means no limit, so there is no figure to show
-  const slotsRemaining = capacity === null ? null : capacity - byStatus.confirmed;
-  return { total: registrations.length, byStatus, slotsRemaining };
+  // SCRUM-170: VIPs can take Confirmed past the capacity, so never below 0 (as availableSlots() in event-service)
+  const slotsRemaining = capacity === null ? null : Math.max(0, capacity - byStatus.confirmed);
+  const vipConfirmed = registrations.filter((r) => r.is_vip && r.status === "confirmed").length;
+  return { total: registrations.length, byStatus, slotsRemaining, vipConfirmed };
 }
 
 /** SCRUM-83/AC12, AC14: registers the signed-in attendee for an event, from the browser, sending the session cookie. */
@@ -101,4 +112,41 @@ export async function withdrawRegistration(registrationId: string): Promise<ApiR
     credentials: "include",
   });
   return { ok: res.ok, data: await res.json() };
+}
+
+/** SCRUM-169/AC3: the organiser confirms or declines a Pending registration, from the browser, sending the session cookie. */
+export async function decideRegistration(
+  eventId: string,
+  registrationId: string,
+  decision: "confirm" | "decline",
+): Promise<ApiResult<{ status: RegistrationStatus }>> {
+  try {
+    const res = await fetch(
+      `${EVENT_URL}/events/${encodeURIComponent(eventId)}/registrations/${encodeURIComponent(registrationId)}/decision`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      },
+    );
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
+  }
+}
+
+/** SCRUM-170/AC1: the organiser adds a VIP to an event by their email, from the browser, sending the session cookie. */
+export async function addVipRegistration(eventId: string, email: string): Promise<ApiResult<{ status: RegistrationStatus }>> {
+  try {
+    const res = await fetch(`${EVENT_URL}/events/${encodeURIComponent(eventId)}/vip-registrations`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
+  }
 }

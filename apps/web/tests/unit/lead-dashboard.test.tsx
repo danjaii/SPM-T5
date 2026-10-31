@@ -32,7 +32,7 @@ describe("SCRUM-75 — Event Coordinator Lead sign-in and home page", () => {
     getLeadCoordinators.mockResolvedValue({ coordinators: [{ id: "c", full_name: "Ann", workload: 2 }] });
 
     render(
-      <ShellContext.Provider value={{ user: { fullName: "Helen Ong", role: "event_coordinator_lead" }, counts: { leadQueue: 1 } }}>
+      <ShellContext.Provider value={{ user: { fullName: "Helen Ong", role: "event_coordinator_lead" }, counts: { leadQueue: 1 }, refreshCounts: () => {} }}>
         {await LeadDashboard()}
       </ShellContext.Provider>,
     );

@@ -26,7 +26,7 @@ These override the text below where they conflict.
   (otherwise nobody knows what to change); Approve comments are optional. `safetyDecisionProblem()` is checked by the web
   form and event-service, and the `safety_checks` table's check constraint enforces it again. **[PROPOSED]**
 - **One decision per readiness.** After any decision the event leaves the queue and a second decision is refused
-  (`SC002`). After Reject or Request Changes the event cannot be confirmed. **[PROPOSED]**
+  (`SC002`) until the coordinator returns it. After Reject or Request Changes the event cannot be confirmed. **[DECIDED]**
 - **Request Changes sends the event back (SCRUM-100, migration 43).** `record_safety_decision()` moves the event
   `awaiting_arrangements → planning` in the same step, recorded in `event_status_history` with the requested changes as
   the reason (`events_status_change_guard` lets a Safety Officer make only that one status change). The coordinator makes
@@ -40,6 +40,18 @@ These override the text below where they conflict.
   decisions, so the event needs another check, and a confirmed event goes back to `awaiting_arrangements`. An ordinary
   change keeps the approval. Tests:
   `services/event-service/tests/integration/safetyRequestChangesDb.test.ts`. **[DECIDED]**
+- **Reject returns to Planning, and the check starts by itself (SCRUM-171, migration 66).** Reject now moves the event to
+  Planning exactly as Request Changes does, and it does not end the event (W9 r11, r22, r64). `is_ready_for_safety_check()`
+  keeps out only an event whose latest decision in force is `approved`, so a rejected event is back in the queue once the
+  coordinator returns it to `awaiting_arrangements`, and `events_safety_gate` still blocks `confirmed` until a new approval.
+  `event_arrangements_complete()` is the one definition of complete arrangements. When a venue booking or equipment request
+  changes from open to arranged and the event is in Planning with its arrangements complete,
+  `start_safety_check_when_arranged()` moves it to `awaiting_arrangements` and records the move in `event_status_history`,
+  with the approver as `changed_by` (W9 r63). A Safety Officer's return alone does not start it, because no arrangement
+  changed. Once the coordinator changes an arrangement and it is approved again, the event moves by itself. Known limits:
+  an event still in Approved does not move, because no status change fires the trigger and nothing moves Approved to
+  Planning automatically; and cancelling the last open arrangement does not move it, because only approvals do. Tests:
+  `services/event-service/tests/integration/safetyRejectAutoStartDb.test.ts`. **[DECIDED]**
 - **AC3 data.** Migration 37 adds `venues.emergency_access` and `venues.restrictions`. Equipment placement is the
   equipment request's `notes`. Known venue restrictions also list the venue's unavailability during the booking. An empty
   value is shown as "Not recorded". Venue Staff editing the two new columns is a later story. **[DECIDED]**
@@ -80,8 +92,7 @@ These override the text below where they conflict.
 
 ## Open questions
 
-1. When a rejected event's arrangements change, should it return to the queue? (A change-requested event returns once
-   the coordinator sends it back, SCRUM-100.)
+1. ~~When a rejected event's arrangements change, should it return to the queue?~~ Yes, SCRUM-171.
 2. ~~Does an approved event need a new safety check after an important change?~~ Yes, SCRUM-100/AC9.
 3. Who maintains `venues.emergency_access` and `venues.restrictions` (Venue Staff, on the venue detail page)?
 4. ~~Should the event's organiser and coordinator see the safety decision?~~ Yes, SCRUM-100/AC8.

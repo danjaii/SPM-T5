@@ -5,7 +5,7 @@ import { SupabaseVenueEditReader } from "../../src/readers/venueEditReader";
 import { adminClient, Fixtures, hasDb, signInAs } from "./support/db";
 
 /**
- * SCRUM-58 (docs/specs/venue-edit.md): update_venue (migration 64) edits a venue and replaces its layouts and facilities in one
+ * SCRUM-58 (docs/specs/venue-edit.md): update_venue (migration 74) edits a venue and replaces its layouts and facilities in one
  * step, for Venue Staff only. Every check signs in as a seeded user, so it goes through the same JWT + publishable-key path the
  * services use. Venues are made by the fixtures (named "IT-58-...") and removed afterwards. Assertions only cover those venues,
  * never a count of a whole table (CLAUDE.md, SCRUM-143).
@@ -30,7 +30,7 @@ const UNIQUE_VIOLATION = "23505";
 const CHECK_VIOLATION = "23514";
 const NIL_ID = "00000000-0000-0000-0000-000000000000";
 
-describe.skipIf(!hasDb)("SCRUM-58 Venue Staff edit a venue (migration 64)", () => {
+describe.skipIf(!hasDb)("SCRUM-58 Venue Staff edit a venue (migration 74)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(admin);
   const who = {} as Record<Who, Actor>;

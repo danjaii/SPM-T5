@@ -15,6 +15,9 @@ Read before making structural changes:
 - Feature specs (user stories, acceptance criteria, shared rules): [docs/specs/](docs/specs/). Test
   names reference the spec's scenario IDs (e.g. `36-S4`); where a spec disagrees with the schema,
   its "Implementation decisions" section wins.
+- Requirements considered and deliberately not built, with the customer's reason:
+  [docs/scope-decisions.md](docs/scope-decisions.md). Check it before building a requirement that sounds missing (e.g.
+  guarded status transitions); it may have been dropped on purpose.
 
 ## Course context
 
@@ -41,7 +44,7 @@ there, not as a string literal in a service.
 ### Feature scope (release 1)
 
 The 20 features below define the release-1 backlog. They span the five services in Architecture
-below plus `apps/web`; none of them are implemented yet (see Current state).
+below plus `apps/web`. Most are built; Current state says what is and what is not.
 
 1. Authorisation/authentication — RBAC via Supabase Auth JWTs (see Architecture: this is
    RLS-enforced, not middleware-enforced).
@@ -50,7 +53,8 @@ below plus `apps/web`; none of them are implemented yet (see Current state).
 4. Event review and approval — coordinator amend/approve/reject workflow.
 5. Coordinator assignment/reassignment per event (owned by `event-service`, alongside review/approval).
 6. Event status state machine: `Draft → Submitted → Under Review → Approved → Planning →
-   Confirmed → Completed`, with `Cancelled`/`Rejected` off-ramps.
+   Awaiting Arrangements → Confirmed → Completed`, with `Cancelled`/`Rejected` off-ramps. The full list,
+   which also has `Returned`, is `EVENT_STATUSES` in `packages/shared/src/eventStatus.ts`.
 7. Event information management — minor edits vs. critical updates (date/time/attendance) that
    must re-trigger venue/equipment validation.
 8. Venue catalogue (location, capacity, layouts, operating hours, accessibility).
@@ -73,8 +77,8 @@ see #5). Attendee registration (#18) is owned by `event-service` (SCRUM-83: regi
 registrations, and an event's registrations for its organiser and coordinator) and SCRUM-73
 (withdraw from My registrations: `POST /events/my-registrations/:id/withdraw`, with migration 29's
 update policy letting an attendee change only their own active registration, and only to withdrawn).
-`receivesEventUpdates()` in `packages/shared` is the rule notification-service should use so a
-withdrawn attendee gets no more updates or reminders.
+`receivesEventUpdates()` in `packages/shared` is the rule that a withdrawn attendee gets no more
+updates or reminders; migration 65's `event_update_attendees()` is its database copy (SCRUM-172).
 
 ## Commands
 
@@ -91,12 +95,14 @@ pnpm run test:all                            # every workspace, one at a time
 pnpm --filter @spm-t5/web run test            # one workspace
 pnpm --filter @spm-t5/auth-service run test:unit   # unit only (vitest run tests/unit)
 pnpm --filter @spm-t5/auth-service run test:integration
-pnpm --filter @spm-t5/auth-service run test:unit tests/unit/health.test.ts   # single file
-pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"      # single test by name
+pnpm --filter @spm-t5/auth-service exec vitest run tests/unit/health.test.ts   # single file (test:unit would still run all of tests/unit)
+pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"        # single test by name
 
 pnpm --filter @spm-t5/auth-service run typecheck   # tsc --noEmit (apps/web runs `next typegen` first)
 pnpm run lint:all                            # apps/web uses ESLint flat config (eslint.config.mjs)
 pnpm --filter @spm-t5/web run test:e2e        # Playwright
+pnpm run traceability                        # regenerate docs/traceability.md (runs every test; local Supabase up)
+pnpm run test:scripts                        # tests for scripts/traceability
 ```
 
 Local full stack: create a root `.env` (variables listed in README → Getting started), then `supabase start` (the Supabase CLI stack runs
@@ -111,21 +117,23 @@ table — `auth-service` wraps Supabase Auth, it does not reimplement it.
 
 **Authorization is Row-Level Security, not application code.** ADR 0001 chose one Postgres
 instance for all five services with RLS enforcing per-role access. A service that queries with
-the service-role key bypasses RLS entirely, so reach for the anon/user-scoped client by default
-and use the service-role key only where bypassing is the actual intent. Express middleware may
+the secret key (`SUPABASE_SECRET_KEY`, the service role) bypasses RLS entirely, so reach for the
+user-scoped client (`SUPABASE_PUBLISHABLE_KEY` plus the caller's token) by default and use the secret
+key only where bypassing is the actual intent. Express middleware may
 still decode the Supabase JWT to identify the caller (`req.user`) — that's authentication, not
 authorization — but it should not re-implement role checks that RLS already enforces.
 
-**Notification service is event-driven, not polled.** Per the container diagram, `event-service`
-publishes status-change events and `notification-service` reacts to them and dispatches
-email/SMS — favor Supabase Realtime/webhooks or an explicit event call over having services poll
-each other for state changes.
+**Notifications are written with the change they announce, not polled.** Per ADR 0002, a trigger or
+`security definer` function writes the `notifications` row in the same transaction as the change, and
+`notification-service` serves those rows. Add a new notification the same way, not with an HTTP call
+to `notification-service` or by having services poll each other for state changes. Email and SMS
+are planned (see the container diagram) but not sent yet.
 
 **Every service is a workspace with its own `package.json`, `tests/`, and `Dockerfile`.** Docker
 builds use the repo root as context (the lockfile and `packages/shared` live there), and each
 service's `build` script bundles `packages/shared` in with esbuild. CI is a single workflow,
-`.github/workflows/ci.yml` (job `test`, then `e2e`), on push to `main` and PRs into it, with no path
-filters. The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run`
+`.github/workflows/ci.yml`, on push to `main` and PRs into it, with no path filters. Its jobs are
+`test` and `integration` side by side, `e2e` after `test`, and `migrate` after both on push to `main`. The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run`
 discovers every workspace's tests and a new service needs no CI change.
 
 **`packages/shared` exists to stop frontend and services drifting.** Role types, Supabase client
@@ -146,12 +154,15 @@ venue 4003, equipment 4004, notification 4005).
   merge to `main`; never apply migration SQL by hand (dashboard SQL editor, `psql`), since that skips the
   migration history and the next `db push` then re-runs or skips files.
 - **Tests live in `tests/unit` and `tests/integration` per workspace**, not colocated with source.
-  The CI template runs the two separately, and only `test:unit` gets `--coverage`.
+  CI's `test` job has no database, so its `pnpm vitest run` skips the integration suites; the
+  `integration` job runs them against a local Supabase, with coverage turned off.
 - **Integration tests only assert on data they create.** Vitest runs test files at the same time, all against one
   shared database, so another file may be adding, changing or deleting rows while yours runs. An exact count or list must
   come from rows and accounts the test made itself (its own Lead, its own venue bookings), never from seeded data or
   from a read of a whole table; checks on seeded data should say what is included or left out, not "exactly these". Two
   tests that broke this rule failed at random in CI (SCRUM-143).
+- **A file below 100% coverage needs a reason in [docs/testing/coverage.md](docs/testing/coverage.md).** CI has no coverage
+  threshold on purpose (SCRUM-173), so nothing else flags a gap: a PR that adds one updates that document.
 - **Export the Express app separately from `listen()`** so integration tests can mount it without
   binding a port.
 - **`src/app/` in `apps/web` is routes only** — every folder is a URL segment. Components go in
@@ -161,13 +172,20 @@ venue 4003, equipment 4004, notification 4005).
   `docs/architecture/c4/` currently covers C1 (`context.puml`), C2 (`container.puml`), and a C3
   `component-<service>.puml` for each of the five services — keep each one current as its service
   grows, rather than adding a C4 code diagram.
+- **Record a dropped or narrowed requirement in `docs/scope-decisions.md`.** When a story leaves out something the
+  customer briefing or Q&A mentions, add a row: the requirement, the decision, why (quote the customer as "the customer
+  said in the Week N Q&A", without naming who asked), and where it is recorded (the story's Out of scope, its spec). Then
+  anyone asked "why didn't you build X?" can find the answer by X's own name.
 - **Keep tests traceable to a user story.** This is a graded Scrum project — reference the story
   or backlog item a test covers (commit message or test description), and aim for full coverage
-  on unit tests (only `test:unit` gets `--coverage`, per Commands above).
-- **A stubbed service gains internal structure as it's built out**, not before: once a
-  `services/*/src/index.ts` grows past the `healthCheck()` stub, split it into `routes/`,
-  `controllers/` (or `services/` for business logic), and `middlewares/` rather than one growing
-  file — but keep the `tests/unit` + `tests/integration` split from the bullet above regardless.
+  on unit tests (coverage is switched on in the root `vitest.config.mts`, so only CI's unit run counts).
+  [docs/traceability.md](docs/traceability.md) maps every story's ACs to their tests (SCRUM-175). It is generated, never
+  edited by hand: after a story's tests pass, run `pnpm run traceability` (local Supabase running; it runs every test and
+  writes the file only when all pass) and commit the result. A test is matched only when its name cites
+  `SCRUM-<story>/AC<n>` or a spec scenario ID, so an AC with no such test shows as Not covered when the story has a spec.
+- **Keep a service's code split by job**, as the existing services do: `routes/`, `services/` for
+  business logic, `middlewares/`, and `readers/` or `repositories/` for database access, rather than
+  one growing file.
 
 ## Git conventions
 
@@ -228,7 +246,7 @@ acceptance criterion — part of what the Scrum project is graded on.
   this lets them narrow it as they type, which is why the filtering runs in the browser."
 
 ## UI redesign (epic SCRUM-119)
-- One ticket per branch and per session: SCRUM-120 (theme tokens) → SCRUM-121 (app shell) → SCRUM-122…142 (features). Mock-ups: <https://www.figma.com/design/iHA0UaeAIYhfmfi0CrrJv6/ConnectSphere-UI-Mock-Ups?node-id=0-1&p=f&t=UZ5McDajOKDK0obz-0>.
+- One ticket per branch and per session: SCRUM-120 (theme tokens) → SCRUM-121 (app shell) → SCRUM-122…142 (features), then later restyle tickets such as SCRUM-160 and SCRUM-167. Mock-ups: <https://www.figma.com/design/iHA0UaeAIYhfmfi0CrrJv6/ConnectSphere-UI-Mock-Ups?node-id=0-1&p=f&t=UZ5McDajOKDK0obz-0>.
 - Stack: shadcn/ui + Tailwind in apps/web. Colors come from the Figma variables as CSS variables in globals.css; no hard-coded hex or arbitrary Tailwind values. shadcn components in src/components/ui, routes only in src/app.
 - Layout: every role has the same left sidebar and no top bar; keep it in one shared shell component.
 - Status is never color alone: always icon + label.
@@ -251,7 +269,7 @@ venue requirements, more people than the venue holds is flagged (`exceedsCapacit
 spec in `docs/specs/change-cancel-venue-booking.md`), through the security definer functions `change_venue_booking()` and
 `cancel_venue_booking()` (migration 30), only by the event's current coordinator and only before the event is Confirmed. A
 change sends it back to PENDING and moves its equipment requests to the new time, back to Submitted; cancelling releases its
-equipment requests (`cancelled`, shown as Released). Venue Staff add a venue (SCRUM-57; spec in `docs/specs/venue-add.md`, migration 63): `POST /venues` saves it through `create_venue()`, which writes the venue, its layouts and its facilities in one transaction (nobody can delete a venue, so a half-made one could not be cleaned up), `GET /venues/:id` says `can_manage_catalogue`, `/venues/new` is the form, and duplicate names are allowed. Venue Staff edit one (SCRUM-58; spec in `docs/specs/venue-edit.md`, migration 64): `PUT /venues/:id` saves it through `update_venue()` (same all-or-nothing save; setup and turnaround times are left to `set_venue_timing()`), `GET /venues/:id/edit` fills the form at `/venues/[id]/edit`, and a capacity cut that leaves a holding booking over capacity answers 409 `CONFIRM_IMPACT` with the bookings until sent again with `confirmImpact: true` (proposed; the customer has not answered). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
+equipment requests (`cancelled`, shown as Released). Venue Staff add a venue (SCRUM-57; spec in `docs/specs/venue-add.md`, migration 73): `POST /venues` saves it through `create_venue()`, which writes the venue, its layouts and its facilities in one transaction (nobody can delete a venue, so a half-made one could not be cleaned up), `GET /venues/:id` says `can_manage_catalogue`, `/venues/new` is the form, and duplicate names are allowed. Venue Staff edit one (SCRUM-58; spec in `docs/specs/venue-edit.md`, migration 74): `PUT /venues/:id` saves it through `update_venue()` (same all-or-nothing save; setup and turnaround times are left to `set_venue_timing()`), `GET /venues/:id/edit` fills the form at `/venues/[id]/edit`, and a capacity cut that leaves a holding booking over capacity answers 409 `CONFIRM_IMPACT` with the bookings until sent again with `confirmImpact: true` (proposed; the customer has not answered). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
 `available_venues` database function (`18_venue_search.sql`). Each venue has a setup and a turnaround time in whole minutes (SCRUM-101; spec in `docs/specs/venue-setup-turnaround.md`, migration 26): Venue Staff edit them on the venue detail page through `PUT /venues/:id/timing`, coordinators only read them, and they pad every booking (SCRUM-103; spec in `docs/specs/venue-padded-occupancy.md`, migration 27): a request, amendment or change is refused when its setup and turnaround overlap another booking's, the refusal names the occupied period, and `GET /venues/:id/availability` shows setup and turnaround apart from the event. Raising a venue's times flags the existing bookings that now clash (SCRUM-104; spec in `docs/specs/venue-buffer-conflicts.md`, migration 36): `set_venue_timing()` writes `venue_booking_flags` rows in the same transaction and `PUT /venues/:id/timing` lists the pairs, a flagged booking keeps its status but shows "Buffer conflict" to its coordinator and cannot be approved (`BOOKING_FLAGGED`, trigger code `CS104`; reject still works). Venue Staff can mark a venue temporarily unavailable (SCRUM-105; spec in `docs/specs/venue-unavailability.md`, migrations 38 and 39): only the `mark_venue_unavailable()` function writes `venue_unavailability`, a new request whose padded period touches a block is refused with `VENUE_UNAVAILABLE` (SQLSTATE `CS105`). The holding, future bookings already inside a new block are flagged "Venue unavailable – alternative needed" (SCRUM-106; spec in `docs/specs/venue-unavailability-flags.md`, migration 46): a trigger on `venue_unavailability` writes the `venue_booking_flags` rows inside `mark_venue_unavailable()` (which now returns the block id and `flagged_count`, and `POST /venues/:id/unavailability` adds `affectedBookings`), a second trigger writes one `venue_booking_flagged` notification for the event's assigned coordinator in the same transaction (ADR 0002), the booking and its event are untouched, and SCRUM-104's guard already stops a flagged Pending request being approved (reject still works). The assigned coordinator can then request a replacement venue for such a booking (SCRUM-107; spec in `docs/specs/replacement-venue.md`, migrations 47 and 48): `GET /venue-bookings/:id/replacement-candidates` lists the free venues big enough and `POST /venue-bookings/:id/replacement` creates a PENDING request linked to the original (even on a Confirmed event), and when Venue Staff approve it the `venue_booking_take_over()` trigger makes the original `replaced`, resolves its flag as `replaced` and moves its equipment requests to the replacement, back to Submitted. A venue can be checked against an event (SCRUM-109; spec in `docs/specs/venue-suitability.md`): `GET /venue-suitability` runs the shared `checkSuitability` (capacity, layout, operating hours and availability are judged; facilities and accessibility text are not checked yet). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam. `equipment-service` is built out for the
 availability check (SCRUM-18; spec in `docs/specs/equipment-availability.md`; SCRUM-137 shares its counting rule,
@@ -282,7 +300,10 @@ the event's assigned coordinator reviews it (SCRUM-67; spec in `docs/specs/revie
 (`readChangeRequest()` in `packages/shared/src/changeRequestReview.ts`), and `review_change_request()` either rejects it with a
 required reason or approves it through `update_event_details()` in the same transaction, so an approval is recorded in the
 change history and sends the affected arrangements back for review (SCRUM-112/113). A request the event has moved on from, or
-one with a field the system cannot apply, can only be rejected. The assigned coordinator edits an event's details
+one with a field the system cannot apply, can only be rejected. An organiser cannot send a request that changes what one of
+their pending requests already changes (SCRUM-176; spec in `docs/specs/conflicting-change-request.md`, migration 67): the
+shared `changeRequestConflicts()` counts start and end time as one thing, the route answers 409 `CONFLICTING_REQUEST` naming what
+waits, a database trigger refuses the same insert (CS176), and the form says up front what is waiting. The assigned coordinator edits an event's details
 (SCRUM-111; spec in `docs/specs/edit-event-details.md`, `routes/eventDetails.ts`, migration 34): ordinary fields (name, description,
 purpose, category) and important ones (dates and times, attendance, layout, accessibility, venue and equipment requirements; the
 lists are in `packages/shared/src/eventDetails.ts`), not for a completed, cancelled or rejected event. `update_event_details()` saves
@@ -324,18 +345,41 @@ migration 43) moves the event back to planning; once the coordinator returns it 
 arrangements complete, it is back in the queue for another check. The event's coordinator and organiser see every
 safety decision on the event page (`GET /events/:id/safety-decisions`, `event_safety_decisions()`). An important change to an
 approved event revokes the approval (`safety_checks.revoked_at`, migration 43's trigger), so it needs another check; a
-confirmed event goes back to awaiting arrangements. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+confirmed event goes back to awaiting arrangements. Reject now returns the event to planning as Request Changes does, and the
+last venue booking or equipment request approved moves a planning event to awaiting arrangements by itself, so it enters the
+queue with no manual step (SCRUM-171; same spec, migration 66, `event_arrangements_complete()`).
+The assigned coordinator cancels an event by setting it to Cancelled with a
+required reason (SCRUM-174; spec in `docs/specs/cancel-event.md`, migrations 60 to 63): in the same transaction, triggers cancel its
+active venue bookings, release its equipment requests and on-site technician assignments, close its pending change requests (as
+`rejected`, also when the event is completed), and SCRUM-172's migration 65 notifies the organiser and every registered or waitlisted attendee
+(`event_cancelled`); a cancelled event cannot change status again, and a completed or rejected one cannot be cancelled (CS174).
+Guarded status transitions were considered and not built, because the customer said status progression is flexible; see
+`docs/scope-decisions.md`. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
-event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
+event's registrations newest first, with a summary in which only Confirmed registrations use a slot. A registration is Confirmed
+straight away while places remain and Pending once the event is full (SCRUM-169, migration 68): `register_for_event()` locks the event
+row so two attendees can't both take the last place, and a full event still offers Register (`can_register`). On that page the event's
+organiser confirms or declines each Pending one (`POST /events/:id/registrations/:registrationId/decision`, `decide_registration()`);
+confirming on a full event is refused (`EVENT_FULL`, SQLSTATE `CS169`), and withdrawing frees a place without promoting anyone.
+The organiser can also add a VIP past the cap there, by the email of an attendee account (SCRUM-170, migration 69): `POST
+/events/:id/vip-registrations` calls `add_vip_registration()`, which only the event's organiser can use and which refuses at the smallest
+approved venue's capacity (`VENUE_FULL`, SQLSTATE `CS170`). A Pending attendee is confirmed on their own row, the VIP gets the usual status
+notification, and `event_registrations.is_vip` shows a VIP label to the organiser and coordinator. A VIP uses a place like anyone else.
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
-`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell in every signed-in page's header (`AppHeader`, `NotificationBell`) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
+`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell (`NotificationBell`, in the app shell's sidebar and in `AppHeader`, the top bar some pages still render) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
 `docs/specs/receive-notifications.md`, migration 44) adds the producers, triggers that write each row in the same transaction as
 its change: a coordinator's assignment, an event request's approval or rejection, a comment mention or reply (one per person,
 never the author; comments are saved through `post_event_comment()`), a clarification request and the organiser's answer (a
 comment the assigned coordinator flags, `event_comments.is_clarification_request`), and a safety decision. Each item carries
-`actionRequired` (`notificationRequiresAction()` in `packages/shared`).
+`actionRequired` (`notificationRequiresAction()` in `packages/shared`). SCRUM-172 (same spec, migration 65) adds the remaining
+producers, also triggers: a submitted request tells every active Lead; a venue booking approved or rejected tells the assigned
+coordinator; an important change tells the organiser and coordinator; a registration status change tells the attendee; a confirmed
+event tells the organiser and coordinator; a cancelled one tells them and the attendees; a buffer conflict tells the coordinator of
+each flagged booking; a replacement venue tells the organiser and attendees. Nobody is told about their own action, and a withdrawn
+attendee hears nothing (`event_update_attendees()`, kept equal to `receivesEventUpdates()` by a test). An attendee's event
+notification opens `/registrations`, because the event page refuses them.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any

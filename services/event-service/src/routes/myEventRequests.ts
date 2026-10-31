@@ -21,7 +21,7 @@ export function myEventRequestRoutes(deps: SupabaseDeps) {
     const { data, error } = await deps
       .forUser(user.token)
       .from("events")
-      .select("id, name, status, preferred_start_datetime, expected_attendance, submitted_at")
+      .select("id, name, status, preferred_start_datetime, expected_attendance, submitted_at, updated_at")
       .eq("organiser_id", user.id)
       .order("created_at", { ascending: false })
       .limit(MY_REQUESTS_LIMIT);

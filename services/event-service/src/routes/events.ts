@@ -61,6 +61,7 @@ interface EventDetailRow {
   accessibility_requirements: string | null;
   equipment_requirements_notes: string | null;
   submitted_at: string | null;
+  updated_at: string | null;
   assigned_coordinator_id: string | null;
   organiser: unknown;
   // SCRUM-111/AC5
@@ -137,10 +138,19 @@ export function eventRoutes(deps: SupabaseDeps) {
     const { data: events } = await deps
       .forUser(token)
       .from("events")
-      .select("id, name, status")
+      .select("id, name, status, preferred_start_datetime, preferred_end_datetime, expected_attendance, organiser:organiser_id(full_name)")
       .eq("assigned_coordinator_id", userId);
+    // SCRUM-160: the dates, attendance and organiser let the coordinator dashboard show a short peek of each event
     return res.json(
-      (events ?? []).map((e) => ({ id: e.id, name: e.name, status: e.status })),
+      (events ?? []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        preferred_start_datetime: e.preferred_start_datetime ?? null,
+        preferred_end_datetime: e.preferred_end_datetime ?? null,
+        expected_attendance: e.expected_attendance ?? null,
+        organiser_name: embeddedName(e.organiser),
+      })),
     );
   });
 
@@ -166,7 +176,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       .select(
         "id, name, status, purpose, preferred_start_datetime, preferred_end_datetime, " +
         "expected_attendance, preferred_room_layout:preferred_room_layout_id(name), " +
-        "accessibility_requirements, equipment_requirements_notes, submitted_at, " +
+        "accessibility_requirements, equipment_requirements_notes, submitted_at, updated_at, " +
         // SCRUM-111/AC5: the details the edit form can change
         "description, venue_requirements, category:event_category_id(name), " +
         "assigned_coordinator_id, organiser:organiser_id(full_name)"
@@ -229,6 +239,8 @@ export function eventRoutes(deps: SupabaseDeps) {
       accessibility_requirements: (event.accessibility_requirements as string | null) ?? null,
       equipment_requirements_notes: (event.equipment_requirements_notes as string | null) ?? null,
       submitted_at: (event.submitted_at as string | null) ?? null,
+      // SCRUM-53/AC3: for a draft, when it was last saved (events.updated_at is never null, so the key is always there for a real row)
+      ...(event.updated_at ? { updated_at: event.updated_at } : {}),
       organiser_name: embeddedName(event.organiser),
       point_of_contact_name: pointOfContactName,
       // SCRUM-111/AC5: the latest saved details
@@ -638,6 +650,10 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (status === "rejected" && !reason) {
       return res.status(400).json({ error: "A reason is required to reject an event." });
     }
+    // SCRUM-174/AC1: so is cancelling, because the reason is sent to the organiser and attendees (AC6)
+    if (status === "cancelled" && !reason) {
+      return res.status(400).json({ error: "A reason is required to cancel an event." });
+    }
 
     // SCRUM-8 AC6: only the coordinator assigned to this event may change its status
     const { data: target } = await deps
@@ -664,6 +680,13 @@ export function eventRoutes(deps: SupabaseDeps) {
     // SCRUM-99/AC7: the events_safety_gate trigger (migration 37) refuses preparation before a Safety Approved check
     if (error?.code === "SC001") {
       return res.status(409).json({ error: "This event can't move to preparation until it is Safety Approved." });
+    }
+    // SCRUM-174/AC7: migration 63 keeps a cancelled event cancelled, and a completed or rejected one from being cancelled
+    if (error?.code === "CS174") {
+      return res.status(409).json({
+        code: "EVENT_CLOSED",
+        error: "A cancelled event can't change status, and a completed or rejected event can't be cancelled.",
+      });
     }
 
     // SCRUM-8 AC2: confirm the change by sending back the updated event

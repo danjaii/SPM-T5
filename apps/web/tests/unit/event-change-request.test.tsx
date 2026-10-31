@@ -271,3 +271,49 @@ describe("SCRUM-66/AC6 a valid request is submitted and confirmed", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 });
+
+// SCRUM-176 — Hold a conflicting change request while one is pending (docs/specs/conflicting-change-request.md)
+describe("SCRUM-176/AC4 the form says what is already waiting for the coordinator", () => {
+  const request = (status: "pending" | "approved" | "rejected", proposed_changes: Record<string, { from: string | number | null; to: string | number | null }>) => ({
+    id: crypto.randomUUID(), change_description: "Earlier request", proposed_changes, status, requested_at: "2031-01-02T00:00:00Z",
+  });
+  const START = { preferred_start_datetime: { from: "a", to: "b" } };
+  const ATTENDANCE = { expected_attendance: { from: 100, to: 150 } };
+  const WAITING = "Already waiting for your coordinator: expected attendance, date and time. A new request can't change these until your coordinator has decided.";
+
+  it("176-S8 SCRUM-176/AC4: lists what the pending requests change, before anything is typed", () => {
+    render(<EventChangeRequestForm event={event} requests={[request("pending", START), request("pending", ATTENDANCE)]} />);
+
+    expect(screen.getByRole("status").textContent).toBe(WAITING);
+  });
+
+  it("176-S9 SCRUM-176/AC4: shows no such notice when only decided requests exist", () => {
+    render(<EventChangeRequestForm event={event} requests={[request("approved", START), request("rejected", ATTENDANCE)]} />);
+
+    expect(screen.queryByText(/Already waiting for your coordinator/)).toBeNull();
+  });
+
+  it("176-S8 SCRUM-176/AC4: the event page gives the form the event's requests", async () => {
+    getEvent.mockResolvedValue({ event });
+    getChangeRequests.mockResolvedValue([request("pending", ATTENDANCE)]);
+
+    render(await EventPage({ params: Promise.resolve({ id: "evt-1" }), searchParams: Promise.resolve({ tab: "changes" }) }));
+
+    expect(screen.getByText(/^Already waiting for your coordinator: expected attendance\./)).toBeTruthy();
+  });
+
+  it("176-S10 SCRUM-176/AC1: shows the server's refusal and keeps what was typed", async () => {
+    mockServer(409, {
+      code: "CONFLICTING_REQUEST",
+      error: "A change to the expected attendance is already waiting for your coordinator. Ask your coordinator about it before requesting another change to it.",
+      waiting: ["expected attendance"],
+    });
+    render(<EventChangeRequestForm event={event} requests={[]} />);
+
+    fireEvent.change(screen.getByLabelText("Expected attendance"), { target: { value: "180" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit change request" }));
+
+    expect(await screen.findByText(/^A change to the expected attendance is already waiting/)).toBeTruthy();
+    expect((screen.getByLabelText("Expected attendance") as HTMLInputElement).value).toBe("180");
+  });
+});

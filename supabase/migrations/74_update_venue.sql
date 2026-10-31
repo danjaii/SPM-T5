@@ -1,6 +1,6 @@
 -- SCRUM-58 (docs/specs/venue-edit.md): Venue Staff edit an existing venue.
 --
--- Like create_venue() (migration 63), one function changes the venue and replaces its layouts and facilities in a single
+-- Like create_venue() (migration 73), one function changes the venue and replaces its layouts and facilities in a single
 -- transaction. Venue Staff may write all three tables (migration 53), but a failure between two separate writes would leave a
 -- venue with half its layouts, and nothing could repair it without another edit.
 
