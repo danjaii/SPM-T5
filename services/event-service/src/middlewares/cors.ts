@@ -14,7 +14,7 @@ export function cors() {
         "Access-Control-Allow-Origin": allowed,
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,OPTIONS",
       });
     }
     if (req.method === "OPTIONS") return res.sendStatus(204);

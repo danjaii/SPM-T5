@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { AVAILABILITY_LABELS, AVAILABILITY_TONES, slotsText } from "@/lib/availabilityLabels";
+import { FULL_EVENT_NOTE } from "@/lib/eventRegistration";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import type { UpcomingEvent } from "@/lib/getUpcomingEvents";
 
@@ -54,12 +55,13 @@ export function EventDetails({ event }: { event: UpcomingEvent }) {
                 Your registration:
                 <RegistrationStatusBadge status={event.my_registration} />
               </p>
-            ) : event.availability === "open" ? (
-              <p className="text-sm text-muted-foreground">Places are still open for this event.</p>
+            ) : event.can_register ? (
+              // SCRUM-169/AC2: a full event still takes registrations, as Pending
+              <p className="text-sm text-muted-foreground">{event.availability === "full" ? FULL_EVENT_NOTE : "Places are still open for this event."}</p>
             ) : (
               <p className="text-sm text-muted-foreground">Registration is not available for this event.</p>
             )}
-            {!event.my_registration && event.availability === "open" ? (
+            {!event.my_registration && event.can_register ? (
               <Link className={buttonVariants()} href={`/events/${event.id}/register`}>Register</Link>
             ) : (
               <Link className={buttonVariants({ variant: "outline" })} href="/registrations">View my registrations</Link>

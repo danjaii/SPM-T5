@@ -25,6 +25,16 @@ async function renderPage(data: object) {
   render(await EventCoordinatorDashboard());
 }
 
+describe("SCRUM-179/AC1 status tabs that wrap", () => {
+  // jsdom has no layout, so this guards the class; tests/e2e/coordinator-dashboard-tabs.spec.ts measures the real positions.
+  it("SCRUM-179/AC1 lets the tab list grow with its rows, rather than keeping the shared fixed height", async () => {
+    await renderPage({ events: [event("a", "planning")], bookings: [], returned: [] });
+    const classes = screen.getByRole("tablist").className.split(/\s+/);
+    expect(classes).toContain("group-data-horizontal/tabs:h-auto");
+    expect(classes).not.toContain("group-data-horizontal/tabs:h-8");
+  });
+});
+
 describe("SCRUM-160/AC1 events by status", () => {
   it("groups assigned events by status, in lifecycle order, leaving out empty statuses", () => {
     const groups = groupEventsByStatus([event("a", "planning"), event("b", "submitted"), event("c", "planning")]);

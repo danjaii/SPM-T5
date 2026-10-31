@@ -1,4 +1,4 @@
-import { parseEventRequest, sgtToUtc } from "@spm-t5/shared";
+import { parseEventRequest, sgtToUtc, utcToSgt } from "@spm-t5/shared";
 
 // SCRUM-123: the six steps of the new event request form, and how the form's boxes become the request that
 // event-service (SCRUM-49) validates. Validation is the shared parseEventRequest, so the form and the API agree.
@@ -114,6 +114,16 @@ export function toRequestBody(v: EventRequestFormValues): Record<string, unknown
   return body;
 }
 
+/** SCRUM-53/AC1: the body POST /events/drafts takes. Whatever is still empty is left out, including the "None required" answer. */
+export function toDraftBody(v: EventRequestFormValues): Record<string, unknown> {
+  const body = toRequestBody(v);
+  if (v.accessibility.length === 0 && v.accessibilityNotes.trim() === "") delete body.accessibility_requirements;
+  for (const [field, value] of Object.entries(body)) {
+    if (value === undefined || (typeof value === "string" && value.trim() === "")) delete body[field];
+  }
+  return body;
+}
+
 /** Every error in the whole request, keyed by request field. */
 export function validateRequest(v: EventRequestFormValues, now: Date = new Date()): Record<string, string> {
   const parsed = parseEventRequest(toRequestBody(v), now);
@@ -188,4 +198,64 @@ export function reviewSections(v: EventRequestFormValues, layoutName: (id: strin
       ],
     },
   ];
+}
+
+/** SCRUM-54/AC1: an events row as GET /events/drafts/:id sends it; only the fields the form has are read. */
+export interface StoredDraft {
+  name: string | null;
+  purpose: string | null;
+  description: string | null;
+  preferred_start_datetime: string | null;
+  preferred_end_datetime: string | null;
+  expected_attendance: number | null;
+  venue_requirements: string | null;
+  preferred_room_layout_id: string | null;
+  accessibility_requirements: string | null;
+  equipment_requirements_notes: string | null;
+  registration_required: boolean | null;
+  registration_capacity: number | null;
+  registration_opens_at: string | null;
+  registration_closes_at: string | null;
+}
+
+/** An ISO instant -> a datetime-local value in Singapore time, "" when empty. */
+function local(iso: string | null): string {
+  if (!iso) return "";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  const { date, time } = utcToSgt(at);
+  return `${date}T${time}`;
+}
+
+/** The ticked needs come first in the stored text (see accessibilityText); whatever follows them is the note. */
+function splitAccessibility(text: string | null): Pick<EventRequestFormValues, "accessibility" | "accessibilityNotes"> {
+  if (!text || text === "None required") return { accessibility: [], accessibilityNotes: "" };
+  const parts = text.split(", ");
+  const accessibility: string[] = [];
+  while (parts.length > 0 && (ACCESSIBILITY_OPTIONS as readonly string[]).includes(parts[0])) accessibility.push(parts.shift() as string);
+  return { accessibility, accessibilityNotes: parts.join(", ") };
+}
+
+/**
+ * SCRUM-54/AC1: the form's boxes for a saved draft. Nothing is invented: an empty column is an empty box, the placeholder name
+ * "Untitled draft" is not shown as if the organiser typed it, and registration is "yes" only when it was saved as needed (a
+ * draft cannot tell "no" from "not answered yet", so the organiser answers it again rather than submitting a guess).
+ */
+export function draftToValues(d: StoredDraft): EventRequestFormValues {
+  return {
+    name: d.name && d.name !== "Untitled draft" ? d.name : "",
+    purpose: d.purpose ?? "",
+    description: d.description ?? "",
+    start: local(d.preferred_start_datetime),
+    end: local(d.preferred_end_datetime),
+    attendance: d.expected_attendance === null || d.expected_attendance === undefined ? "" : String(d.expected_attendance),
+    venueRequirements: d.venue_requirements ?? "",
+    layoutId: d.preferred_room_layout_id ?? "",
+    ...splitAccessibility(d.accessibility_requirements),
+    equipment: d.equipment_requirements_notes ?? "",
+    registrationRequired: d.registration_required ? "yes" : "",
+    registrationCapacity: d.registration_capacity === null || d.registration_capacity === undefined ? "" : String(d.registration_capacity),
+    registrationOpens: local(d.registration_opens_at),
+    registrationCloses: local(d.registration_closes_at),
+  };
 }

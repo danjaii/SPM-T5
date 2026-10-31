@@ -21,13 +21,16 @@ export function RegistrationSummary({ registrations, capacity }: { registrations
 
   const taken = capacity ? Math.min(100, Math.round((summary.byStatus.confirmed / capacity) * 100)) : undefined;
 
+  const vips = summary.vipConfirmed > 0 ? ` · ${summary.vipConfirmed} ${summary.vipConfirmed === 1 ? "VIP" : "VIPs"}` : "";
+
   const places: SummaryCard[] = [
     { label: "Total registrations", value: summary.total, note: "in every status" },
     {
       label: STATUS_LABELS.confirmed,
       value: summary.byStatus.confirmed,
       // SCRUM-74/AC7: only Confirmed registrations use a place; SCRUM-139/AC4: shown against the capacity
-      note: capacity === null ? "No limit on places" : `of ${capacity} places`,
+      // SCRUM-170: the VIPs among them, which is why Confirmed can be past the capacity
+      note: `${capacity === null ? "No limit on places" : `of ${capacity} places`}${vips}`,
       bar: taken,
     },
     // SCRUM-74/AC6: an event with no capacity has no limit

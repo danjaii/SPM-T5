@@ -56,7 +56,7 @@ export function UpcomingEventList({ events }: { events: UpcomingEvent[] }) {
                   <RegistrationStatusBadge status={event.my_registration} />
                 </p>
               ) : (
-                event.availability === "open" && (
+                event.can_register && (
                   <Link className={`${buttonVariants({ size: "sm" })} relative z-10`} href={`/events/${event.id}/register`}>
                     Register
                   </Link>

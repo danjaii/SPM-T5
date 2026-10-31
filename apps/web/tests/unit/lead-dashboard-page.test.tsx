@@ -16,7 +16,7 @@ const request = (id: string) => ({ id, name: id });
 
 async function renderPage(counts: QueueCounts = { leadQueue: 0 }) {
   render(
-    <ShellContext.Provider value={{ user: { fullName: "Lee", role: "event_coordinator_lead" }, counts }}>
+    <ShellContext.Provider value={{ user: { fullName: "Lee", role: "event_coordinator_lead" }, counts, refreshCounts: () => {} }}>
       {await EventCoordinatorLeadDashboard()}
     </ShellContext.Provider>,
   );
