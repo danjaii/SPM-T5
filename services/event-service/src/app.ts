@@ -39,7 +39,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   // SCRUM-52: before eventRoutes, whose GET /events/:id would otherwise treat "my-requests" as an event id
   app.use("/events", myEventRequestRoutes(deps));
   // SCRUM-53: before eventRoutes, whose /:id routes would otherwise treat "drafts" as an event id
-  app.use("/events", eventDraftRoutes(deps));
+  app.use("/events", eventDraftRoutes(deps, now));
   app.use("/events", eventRoutes(deps));
   // SCRUM-75: the Event Coordinator Lead's pages and actions
   app.use("/lead", leadRoutes(deps));
