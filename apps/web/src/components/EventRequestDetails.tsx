@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { EventSection } from "@/components/event/EventSection";
 import { buttonVariants } from "@/components/ui/button";
 import type { EventDetailView } from "@/lib/events";
+import { formatLastSaved } from "@/lib/formatLastSaved";
 import { cn } from "@/lib/utils";
 
 // SCRUM-23/AC3: what a field shows when the organiser left it blank, so it's never mistaken for real data.
@@ -35,6 +36,8 @@ export function EventRequestDetails({ event }: { event: EventDetailView }) {
     ["Equipment needs", event.equipment_requirements_notes],
     // SCRUM-49/AC6: the time as well as the date, so the confirmation is still there once the banner has gone
     ["Submitted", event.submitted_at && formatDateTime(event.submitted_at)],
+    // SCRUM-53/AC3: a draft shows when it was last saved
+    ...(event.status === "draft" ? [["Last saved", event.updated_at && formatLastSaved(event.updated_at)] as [string, ReactNode]] : []),
     // SCRUM-111/AC5: details the coordinator can edit
     ["Description", event.description, true],
   ];

@@ -6,10 +6,11 @@ import { AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
-  EMPTY_VALUES, REVIEW_STEP, STEPS, firstStepWithError, toRequestBody, validateRequest, validateStep,
+  EMPTY_VALUES, REVIEW_STEP, STEPS, firstStepWithError, toDraftBody, toRequestBody, validateRequest, validateStep,
   type EventRequestFormValues,
 } from "@/lib/eventRequestForm";
-import { submitEventRequest, type RoomLayoutOption } from "@/lib/eventRequests";
+import { saveEventDraft, submitEventRequest, type RoomLayoutOption } from "@/lib/eventRequests";
+import { formatLastSaved } from "@/lib/formatLastSaved";
 import { RequestStepper } from "./RequestStepper";
 import { ReviewStep } from "./ReviewStep";
 import { StepFields } from "./StepFields";
@@ -23,6 +24,8 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [saved, setSaved] = useState<string>();
 
   // The newest values, kept in step with every change as it happens: a select closes in the same event that picks its
   // option, before React re-renders, so onBlurField reads these rather than the `values` of the render it was made in.
@@ -83,6 +86,19 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
     setSubmitting(false);
   }
 
+  // SCRUM-53/AC1: save whatever is filled in so far, on any step; none of the submission rules apply.
+  async function onSaveDraft() {
+    if (savingDraft) return;
+    setMessage(undefined);
+    setSaved(undefined);
+    setSavingDraft(true);
+    const { ok, data } = await saveEventDraft(toDraftBody(latest.current));
+    setSavingDraft(false);
+    // SCRUM-53/AC3: say when it was saved, using the time the server recorded
+    if (ok) setSaved(`Draft saved.${data.updated_at ? ` Last saved ${formatLastSaved(data.updated_at)}.` : ""} You can find it in My event requests.`);
+    else setMessage(data.error ?? "We couldn't save the draft. Please try again.");
+  }
+
   const last = step === REVIEW_STEP;
   return (
     <div className="grid gap-6 md:grid-cols-[17.5rem_1fr]">
@@ -99,12 +115,19 @@ export function EventRequestForm({ layouts }: { layouts: RoomLayoutOption[] }) {
           </p>
         ) : null}
 
+        {saved ? (
+          <p role="status" className="rounded-lg bg-muted p-3 text-sm font-medium text-foreground">{saved}</p>
+        ) : null}
+
         {last ? <ReviewStep values={values} layouts={layouts} onEdit={goTo} />
           : <StepFields step={step} values={values} errors={errors} layouts={layouts} onChange={change} onBlurField={onBlurField} />}
 
         <div className="flex flex-wrap justify-between gap-3 border-t border-border pt-5">
           <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => goTo(step - 1)}>Back</Button>
-          <Button type="submit" disabled={submitting}>
+          <Button type="button" variant="outline" disabled={savingDraft || submitting} onClick={() => void onSaveDraft()}>
+            {savingDraft ? "Saving…" : "Save as draft"}
+          </Button>
+          <Button type="submit" disabled={submitting || savingDraft}>
             {last ? (submitting ? "Submitting…" : "Submit request") : `Continue to ${STEPS[step + 1].label}`}
           </Button>
         </div>

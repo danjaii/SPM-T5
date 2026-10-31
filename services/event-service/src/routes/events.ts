@@ -61,6 +61,7 @@ interface EventDetailRow {
   accessibility_requirements: string | null;
   equipment_requirements_notes: string | null;
   submitted_at: string | null;
+  updated_at: string | null;
   assigned_coordinator_id: string | null;
   organiser: unknown;
   // SCRUM-111/AC5
@@ -175,7 +176,7 @@ export function eventRoutes(deps: SupabaseDeps) {
       .select(
         "id, name, status, purpose, preferred_start_datetime, preferred_end_datetime, " +
         "expected_attendance, preferred_room_layout:preferred_room_layout_id(name), " +
-        "accessibility_requirements, equipment_requirements_notes, submitted_at, " +
+        "accessibility_requirements, equipment_requirements_notes, submitted_at, updated_at, " +
         // SCRUM-111/AC5: the details the edit form can change
         "description, venue_requirements, category:event_category_id(name), " +
         "assigned_coordinator_id, organiser:organiser_id(full_name)"
@@ -238,6 +239,8 @@ export function eventRoutes(deps: SupabaseDeps) {
       accessibility_requirements: (event.accessibility_requirements as string | null) ?? null,
       equipment_requirements_notes: (event.equipment_requirements_notes as string | null) ?? null,
       submitted_at: (event.submitted_at as string | null) ?? null,
+      // SCRUM-53/AC3: for a draft, when it was last saved (events.updated_at is never null, so the key is always there for a real row)
+      ...(event.updated_at ? { updated_at: event.updated_at } : {}),
       organiser_name: embeddedName(event.organiser),
       point_of_contact_name: pointOfContactName,
       // SCRUM-111/AC5: the latest saved details

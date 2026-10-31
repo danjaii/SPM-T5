@@ -114,6 +114,16 @@ export function toRequestBody(v: EventRequestFormValues): Record<string, unknown
   return body;
 }
 
+/** SCRUM-53/AC1: the body POST /events/drafts takes. Whatever is still empty is left out, including the "None required" answer. */
+export function toDraftBody(v: EventRequestFormValues): Record<string, unknown> {
+  const body = toRequestBody(v);
+  if (v.accessibility.length === 0 && v.accessibilityNotes.trim() === "") delete body.accessibility_requirements;
+  for (const [field, value] of Object.entries(body)) {
+    if (value === undefined || (typeof value === "string" && value.trim() === "")) delete body[field];
+  }
+  return body;
+}
+
 /** Every error in the whole request, keyed by request field. */
 export function validateRequest(v: EventRequestFormValues, now: Date = new Date()): Record<string, string> {
   const parsed = parseEventRequest(toRequestBody(v), now);
