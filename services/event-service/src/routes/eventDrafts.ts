@@ -101,12 +101,12 @@ export function eventDraftRoutes(deps: SupabaseDeps, now: () => Date) {
   const router = Router();
 
   // SCRUM-53/AC1: store the request with status draft. No organiser or organisation argument is sent: the database function
-  // takes both from the caller's verified token (supabase/migrations/60_event_drafts.sql).
+  // takes both from the caller's verified token (supabase/migrations/70_event_drafts.sql).
   router.post("/drafts", requireSession(deps), async (req, res) => {
     const user = res.locals.user as SessionUser;
     const { token } = user;
 
-    // SCRUM-53/AC4: only event organisers save drafts. RLS enforces this too (migration 60: organiser-only INSERT on events);
+    // SCRUM-53/AC4: only event organisers save drafts. create_event_draft() (migration 70) checks the role too and raises 42501;
     // this check is defence-in-depth and gives a clean 403 instead of a raw 42501 from the database.
     const role = await lookUpRole(deps, user);
     if (role === undefined || !canCreateEventRequests(role)) {

@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AlertCircle, Paperclip } from "lucide-react";
 import { ATTACHMENT_TYPES, attachmentProblem } from "@spm-t5/shared";
 import { EmptyNote, EventSection } from "@/components/event/EventSection";
+import { InlineMessage } from "@/components/event/InlineMessage";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   addEventComment,
   fetchAttachmentUrl,
@@ -26,6 +30,22 @@ export const NO_MATCHES = "No matching users.";
 
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" });
+
+// SCRUM-159/AC4: the new design's pieces. The class names "comments", "comment", "comment__body" and "mention" are kept
+// as labels only (tests find posts by them); the look comes from the theme classes beside them.
+const FIELD = "flex flex-col gap-1.5";
+const LABEL = "text-sm font-semibold text-foreground";
+const HINT = "text-sm text-muted-foreground";
+
+/** A field's problem: an icon and the words, tied to the field by its id. */
+function FieldError({ id, children }: { id?: string; children: string }) {
+  return (
+    <p id={id} role="alert" className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+      <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
+      {children}
+    </p>
+  );
+}
 
 interface Thread {
   comment: EventComment;
@@ -77,10 +97,10 @@ function CommentBody({ comment }: { comment: EventComment }) {
   const names = new Map(comment.mentions.map((m) => [m.user_id, m.full_name]));
   const parts = comment.body.split(/@\[([^\]]+)\]/);
   return (
-    <p className="comment__body">
+    <p className="comment__body mt-1 text-sm whitespace-pre-wrap break-words text-foreground">
       {parts.map((part, i) =>
         i % 2 === 0 ? part : (
-          <span key={i} className="mention">@{names.get(part) ?? "Unknown user"}</span>
+          <span key={i} className="mention rounded-sm bg-highlight px-1 font-semibold text-fg-primary">@{names.get(part) ?? "Unknown user"}</span>
         ),
       )}
     </p>
@@ -100,14 +120,17 @@ function Attachments({ eventId, files }: { eventId: string; files: Attachment[] 
 
   return (
     <>
-      <ul className="attachments" aria-label="Attachments">
+      <ul className="mt-2 flex flex-wrap gap-2" aria-label="Attachments">
         {files.map((f) => (
-          <li key={f.storage_path}>
-            <button className="attachment" type="button" onClick={() => open(f)}>{f.file_name}</button>
+          <li key={f.storage_path} className="max-w-full">
+            <Button type="button" variant="outline" size="sm" className="max-w-full" onClick={() => open(f)}>
+              <Paperclip aria-hidden="true" />
+              <span className="truncate">{f.file_name}</span>
+            </Button>
           </li>
         ))}
       </ul>
-      {error && <p className="field__error" role="alert">{error}</p>}
+      {error && <FieldError>{error}</FieldError>}
     </>
   );
 }
@@ -115,10 +138,10 @@ function Attachments({ eventId, files }: { eventId: string; files: Attachment[] 
 function CommentView({ eventId, comment }: { eventId: string; comment: EventComment }) {
   return (
     <>
-      <p className="comment__meta">
-        <span className="comment__author">{comment.author_name ?? "Unknown user"}</span>
-        <time dateTime={comment.created_at}>{formatDateTime(comment.created_at)}</time>
-        {comment.is_clarification_request && <span className="status-badge status-badge--flag">Clarification requested</span>}
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-sm font-semibold text-foreground">{comment.author_name ?? "Unknown user"}</span>
+        <time dateTime={comment.created_at} className="text-sm text-muted-foreground">{formatDateTime(comment.created_at)}</time>
+        {comment.is_clarification_request && <StatusBadge tone="warning" label="Clarification requested" />}
       </p>
       <CommentBody comment={comment} />
       {comment.attachments.length > 0 && <Attachments eventId={eventId} files={comment.attachments} />}
@@ -259,11 +282,11 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
   const describedBy = [textError && `${id}-error`, `${id}-hint`].filter(Boolean).join(" ");
 
   return (
-    <form className="comment-form" onSubmit={post} noValidate>
-      {error && <div className="alert alert--error" role="alert">{error}</div>}
-      <div className="field mention-field">
-        <label htmlFor={id}>{label}</label>
-        <textarea
+    <form className="flex flex-col gap-4" onSubmit={post} noValidate>
+      {error && <InlineMessage kind="error">{error}</InlineMessage>}
+      <div className={`relative ${FIELD}`}>
+        <label htmlFor={id} className={LABEL}>{label}</label>
+        <Textarea
           ref={box}
           id={id}
           rows={3}
@@ -279,19 +302,20 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
           onKeyDown={keyDown}
           onBlur={() => setQuery(undefined)}
         />
-        <p id={`${id}-hint`} className="field__hint">Type @ to mention someone.</p>
+        <p id={`${id}-hint`} className={HINT}>Type @ to mention someone.</p>
         {open && (
-          <div className="mention-menu">
+          <div className="absolute top-full right-0 left-0 z-10 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-card shadow-md">
             {matches.length === 0 ? (
-              <p className="mention-menu__empty" role="status">{NO_MATCHES}</p>
+              <p className="px-3 py-2 text-sm text-muted-foreground" role="status">{NO_MATCHES}</p>
             ) : (
-              <ul id={listId} role="listbox" aria-label="People you can mention">
+              <ul id={listId} role="listbox" aria-label="People you can mention" className="py-1">
                 {matches.map((p, i) => (
                   <li
                     key={p.id}
                     id={`${listId}-${i}`}
                     role="option"
                     aria-selected={i === active}
+                    className="cursor-pointer px-3 py-2 text-sm hover:bg-accent aria-selected:bg-highlight aria-selected:font-semibold aria-selected:text-fg-primary"
                     // mousedown, not click: the box would lose focus (and close the menu) first
                     onMouseDown={(e) => {
                       e.preventDefault();
@@ -305,18 +329,21 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
             )}
           </div>
         )}
-        {textError && <p id={`${id}-error`} className="field__error" role="alert">{textError}</p>}
+        {textError && <FieldError id={`${id}-error`}>{textError}</FieldError>}
       </div>
       {offerClarification && (
-        <div className="field">
-          <label>
-            <input type="checkbox" checked={clarification} onChange={(e) => setClarification(e.target.checked)} />
-            Ask the organiser for clarification
-          </label>
-        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            className="size-4 shrink-0 accent-primary"
+            checked={clarification}
+            onChange={(e) => setClarification(e.target.checked)}
+          />
+          Ask the organiser for clarification
+        </label>
       )}
-      <div className="field">
-        <label htmlFor={`${id}-files`}>Attach files</label>
+      <div className={FIELD}>
+        <label htmlFor={`${id}-files`} className={LABEL}>Attach files</label>
         <input
           id={`${id}-files`}
           type="file"
@@ -324,24 +351,27 @@ function CommentForm({ id, eventId, label, submitLabel, required, onPost, onCanc
           accept={ATTACHMENT_TYPES.join(",")}
           aria-describedby={`${id}-files-hint`}
           onChange={choose}
+          className="text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-border-strong file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground hover:file:bg-accent"
         />
-        <p id={`${id}-files-hint`} className="field__hint">Images, videos or documents, up to 10 MB each.</p>
-        {fileErrors.map((msg) => <p key={msg} className="field__error" role="alert">{msg}</p>)}
+        <p id={`${id}-files-hint`} className={HINT}>Images, videos or documents, up to 10 MB each.</p>
+        {fileErrors.map((msg) => <FieldError key={msg}>{msg}</FieldError>)}
         {files.length > 0 && (
-          <ul className="staged-files" aria-label="Files to attach">
+          <ul className="mt-1 flex flex-col divide-y divide-border border-y border-border" aria-label="Files to attach">
             {files.map((f, i) => (
-              <li key={`${f.name}-${i}`}>
-                <span>{f.name}</span>
-                <span className="staged-files__size">{formatSize(f.size)}</span>
-                <button
-                  className="comment__reply"
+              <li key={`${f.name}-${i}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm">
+                <span className="break-all text-foreground">{f.name}</span>
+                <span className="text-xs text-muted-foreground">{formatSize(f.size)}</span>
+                <Button
                   type="button"
+                  variant="link"
+                  size="xs"
+                  className="h-auto px-0"
                   aria-label={`Remove ${f.name}`}
                   disabled={busy}
                   onClick={() => setFiles((staged) => staged.filter((_, j) => j !== i))}
                 >
                   Remove
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -387,7 +417,7 @@ export function EventComments({ eventId }: { eventId: string }) {
   const replyTo = (c: EventComment) =>
     data?.can_comment &&
     (replyingTo === c.id ? (
-      <div className="comments--replies">
+      <div className="mt-3 border-l-2 border-border pl-4">
         <CommentForm
           id={`reply-${c.id}`}
           eventId={eventId}
@@ -399,9 +429,9 @@ export function EventComments({ eventId }: { eventId: string }) {
         />
       </div>
     ) : (
-      <button className="comment__reply" type="button" onClick={() => setReplyingTo(c.id)}>
+      <Button type="button" variant="link" size="sm" className="mt-1 h-auto px-0" onClick={() => setReplyingTo(c.id)}>
         Reply
-      </button>
+      </Button>
     ));
 
   // Someone the service won't show the comments to: leave the section out.
@@ -416,14 +446,17 @@ export function EventComments({ eventId }: { eventId: string }) {
           {data.comments.length === 0 ? (
             <EmptyNote>{NO_COMMENTS}</EmptyNote>
           ) : (
-            <ol className="comments">
+            <ol className="comments flex flex-col divide-y divide-border">
               {toThreads(data.comments).map(({ comment, replies }) => (
-                <li key={comment.id} className="comment">
+                <li key={comment.id} className="comment py-4 first:pt-0 last:pb-0">
                   <CommentView eventId={eventId} comment={comment} />
                   {replyTo(comment)}
 
                   {replies.length > 0 && (
-                    <ol className="comments comments--replies" aria-label={`Replies to ${comment.author_name ?? "this comment"}`}>
+                    <ol
+                      className="comments mt-3 flex flex-col gap-3 border-l-2 border-border pl-4"
+                      aria-label={`Replies to ${comment.author_name ?? "this comment"}`}
+                    >
                       {replies.map((r) => (
                         <li key={r.id} className="comment">
                           <CommentView eventId={eventId} comment={r} />

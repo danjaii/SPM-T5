@@ -4,6 +4,7 @@ import { useState } from "react";
 import { canMakeSafetyDecision, safetyDecisionProblem, type Role, type SafetyDecision } from "@spm-t5/shared";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { Button } from "@/components/ui/button";
+import { useShell } from "@/components/shell/ShellContext";
 import { Card } from "@/components/ui/card";
 import { Radio, RadioGroup } from "@/components/ui/radio-group";
 import { TextareaField } from "@/components/ui/textarea-field";
@@ -35,6 +36,7 @@ export function SafetyCheckActions({ eventId, role, concerns = [] }: Props) {
   const [note, setNote] = useState("");
   const [error, setError] = useState<string>();
   const [recorded, setRecorded] = useState<RecordedSafetyDecision>();
+  const shell = useShell();
 
   // SCRUM-116/AC2: anyone who is not a Safety Officer is offered none of the decisions
   if (!canMakeSafetyDecision(role)) return null;
@@ -47,8 +49,11 @@ export function SafetyCheckActions({ eventId, role, concerns = [] }: Props) {
     if (problem || !decision) return;
 
     const { ok, data } = await recordSafetyDecision(eventId, decision, reason);
-    if (ok) setRecorded(data);
-    else setError(data.error ?? "We couldn't save your decision. Please try again.");
+    if (ok) {
+      setRecorded(data);
+      // SCRUM-178/AC1: not router.refresh(), which would re-render the page without this form and lose the message below
+      shell?.refreshCounts();
+    } else setError(data.error ?? "We couldn't save your decision. Please try again.");
   }
 
   // AC5: once saved, the outcome replaces the choices

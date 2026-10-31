@@ -80,7 +80,7 @@ Scenarios:
   none of them can be named by the caller.
 
 ## Decisions (already made by the team)
-- Drafts are created by a security definer function only, with no direct organiser INSERT policy. An earlier version of migration 60
+- Drafts are created by a security definer function only, with no direct organiser INSERT policy. An earlier version of migration 70
   had the policy, which made the SCRUM-91 test "nobody creates an event through the API" fail and led to that test being weakened
   (1cdfde7); that change is reverted and the migration, not yet merged, was edited instead.
 - Last-saved time is `events.updated_at`.
@@ -104,7 +104,7 @@ Scenarios:
 | AC4 | `services/event-service/tests/integration/eventDraftCreateRls.test.ts` | `SCRUM-53/AC4 ...` |
 
 ## Affected workspaces
-- `supabase/migrations/60_event_drafts.sql` (new): `create_event_draft()`, security definer, with no organiser INSERT
+- `supabase/migrations/70_event_drafts.sql` (new): `create_event_draft()`, security definer, with no organiser INSERT
   policy (events are written through functions, SCRUM-91). Affects event-service only. No merged migration is edited.
 - `services/event-service`: `routes/eventDrafts.ts`, mounted in `app.ts` before `eventRoutes`.
 - `packages/shared`: `eventDraft.ts` (`parseEventRequestDraft`), exported from `index.ts`. Shared by services and web.

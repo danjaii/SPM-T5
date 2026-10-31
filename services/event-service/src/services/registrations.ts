@@ -1,12 +1,8 @@
 import { registrationStatus } from "@spm-t5/shared";
-import { availabilityOf, myRegistration, type Availability, type PublicEventRow } from "./upcomingEvents";
+import { canRegister, myRegistration, type PublicEventRow } from "./upcomingEvents";
 
-// SCRUM-83: why a registration is refused, for each state a List of events card can show (SCRUM-71/AC7)
-const REFUSALS: Partial<Record<Availability, string>> = {
-  cancelled: "This event has been cancelled.", // SCRUM-83/AC17
-  closed: "Registration closed.", // SCRUM-83/AC3
-  full: "Event full.", // SCRUM-83/AC4
-};
+/** SCRUM-83/AC3: registration isn't open. Also register_for_event()'s refusal (migration 68). */
+export const REGISTRATION_CLOSED = "Registration closed.";
 
 interface EmbeddedEvent {
   id: string;
@@ -54,6 +50,8 @@ export interface EventRegistrationRow {
   id: string;
   status: string;
   registered_at: string;
+  /** SCRUM-170: added by the organiser as a VIP (migration 69). */
+  is_vip?: boolean;
   /**
    * What the attendee submitted on the form (SCRUM-83/AC8: they may have edited their profile's details).
    * Null, or without these fields, for a registration made before the form existed (e.g. the seed data).
@@ -77,6 +75,7 @@ export function toEventRegistration(row: EventRegistrationRow) {
     id: row.id,
     status: registrationStatus(row.status),
     registered_at: row.registered_at,
+    is_vip: row.is_vip ?? false,
     // SCRUM-74/AC5: what the attendee submitted on the form, or their profile when there was no form
     name: form.name ?? profile?.full_name ?? null,
     email: form.email ?? profile?.email ?? null,
@@ -89,8 +88,9 @@ export const ALREADY_REGISTERED = "You already have an active registration for t
 
 /** SCRUM-83: the message to refuse a registration for `event` at `now` with, or null when registration is open. */
 export function registrationRefusal(event: PublicEventRow, now: Date): string | null {
-  const refusal = REFUSALS[availabilityOf(event, now)];
-  if (refusal) return refusal;
+  if (event.status === "cancelled") return "This event has been cancelled."; // SCRUM-83/AC17
+  // SCRUM-169/AC2: a full event isn't refused while its window is open: the registration is saved as Pending
+  if (!canRegister(event, now)) return REGISTRATION_CLOSED;
   // SCRUM-83/AC5: one active (Pending or Confirmed) registration per attendee per event
   if (myRegistration(event.my_registration_status)) return ALREADY_REGISTERED;
   return null;
@@ -116,4 +116,25 @@ export function withdrawalRefusal(
     return "This event has already started.";
   }
   return null;
+}
+
+/** SCRUM-169/AC4: why decide_registration() (migration 68) refused, in the organiser's words. */
+export const DECISION_REFUSALS: Record<string, string> = {
+  EVENT_FULL: "This event is full. A place must be freed before you can confirm this registration.",
+  NOT_PENDING: "This registration is no longer Pending.",
+  EVENT_CLOSED: "This event is no longer taking registrations.",
+};
+
+/** SCRUM-170/AC4: the person the organiser is adding already has a registration. Also 11's unique index refusal (23505). */
+export const VIP_ALREADY_REGISTERED = "This attendee already has an active registration for this event.";
+
+/** SCRUM-170: why add_vip_registration() (migration 69) refused, in the organiser's words. `limit` is the venue's capacity. */
+export function vipRefusal(code: string, limit: string | null | undefined): string | undefined {
+  const refusals: Record<string, string> = {
+    EVENT_CLOSED: "This event is no longer taking registrations.",
+    ALREADY_REGISTERED: VIP_ALREADY_REGISTERED,
+    NO_VENUE: "This event has no approved venue yet, so a VIP can't be checked against its capacity.",
+    VENUE_FULL: `This would take the event past its venue's capacity of ${limit}.`, // SCRUM-170/AC2
+  };
+  return refusals[code];
 }

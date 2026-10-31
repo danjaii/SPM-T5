@@ -9,7 +9,9 @@
     "check:web": "pnpm --filter @spm-t5/web run typecheck && pnpm --filter @spm-t5/web run lint && pnpm --filter @spm-t5/web run test:unit",
     "test:all": "pnpm -r --if-present run test",
     "lint:all": "pnpm -r --if-present run lint",
-    "build:all": "pnpm -r --if-present run build"
+    "build:all": "pnpm -r --if-present run build",
+    "traceability": "node scripts/traceability/generate.mjs",
+    "test:scripts": "node --test \"scripts/traceability/*.test.mjs\""
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
