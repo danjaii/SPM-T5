@@ -1,6 +1,7 @@
 import type { Role } from "./roles";
+import { HOLDING_DB_STATUSES } from "./venueBooking";
 
-// SCRUM-57 (docs/specs/venue-add.md): adding a venue to the catalogue. The checks live here so the add form and
+// SCRUM-57 (docs/specs/venue-add.md): adding a venue to the catalogue. SCRUM-58 (docs/specs/venue-edit.md): editing one. The checks live here so the add form and
 // venue-service use the very same code and can never disagree.
 
 export const VENUE_NAME_MAX_LENGTH = 120;
@@ -152,4 +153,34 @@ export function parseVenueInput(body: unknown): ParsedVenueInput {
       facilityIds,
     },
   };
+}
+
+/** A booking at a venue, as the capacity check needs it (SCRUM-58). Times are ISO strings. */
+export interface BookingAtVenue {
+  bookingId: string;
+  eventName: string;
+  eventStart: string;
+  eventEnd: string;
+  /** The booking's own expected attendance (SCRUM-98), not the event's total; null when none was given. */
+  expectedAttendance: number | null;
+  status: string;
+}
+
+/**
+ * 58-S4: the bookings a capacity cut would leave with more people than the venue holds, earliest first. Only a cut asks
+ * (a new capacity lower than the current one), only bookings that still hold the venue and have not ended count, and each
+ * is judged on its own attendance. A booking that already exceeded the capacity before an edit that keeps or raises it is
+ * not this edit's doing, so it is not listed.
+ */
+export function bookingsOverCapacity(bookings: BookingAtVenue[], newCapacity: number, currentCapacity: number, now: Date): BookingAtVenue[] {
+  if (newCapacity >= currentCapacity) return [];
+  return bookings
+    .filter(
+      (b) =>
+        (HOLDING_DB_STATUSES as readonly string[]).includes(b.status) &&
+        new Date(b.eventEnd).getTime() > now.getTime() &&
+        b.expectedAttendance !== null &&
+        b.expectedAttendance > newCapacity,
+    )
+    .sort((a, b) => new Date(a.eventStart).getTime() - new Date(b.eventStart).getTime());
 }

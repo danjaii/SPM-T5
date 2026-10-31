@@ -6,6 +6,7 @@ import type { VenueTimingWriter } from "./readers/venueTimingWriter";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "./readers/venueSearchReader";
 import type { VenueCalendarReader } from "./readers/venueCalendarReader";
 import type { VenueCatalogueWriter } from "./readers/venueCatalogueWriter";
+import type { VenueEditReader } from "./readers/venueEditReader";
 import type { VenueUnavailabilityStore } from "./readers/venueUnavailabilityStore";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { bookingQueueRoutes } from "./routes/bookingQueue";
@@ -31,6 +32,8 @@ export interface AppOptions {
   venueUnavailability?: (accessToken: string) => VenueUnavailabilityStore;
   /** Where a new venue is saved (SCRUM-57); tests pass a fake. Defaults to the create_venue function as the caller. */
   venueCatalogue?: (accessToken: string) => VenueCatalogueWriter;
+  /** What the venue edit reads (SCRUM-58): the form's values and the bookings a capacity cut is checked against; tests pass a fake. */
+  venueEdit?: (accessToken: string) => VenueEditReader;
   /** Where the venue availability calendar (SCRUM-84) reads venues, bookings and blocks from; tests pass a fake. */
   venueCalendar?: (accessToken: string) => VenueCalendarReader;
 }
@@ -64,7 +67,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.get("/health", (_req, res) => res.json(healthCheck()));
 
   // SCRUM-29: the read-only venue catalogue, GET /venues and /venues/:id (coordinators and venue staff).
-  app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability, options.venueCatalogue));
+  app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability, options.venueCatalogue, options.venueEdit));
 
   // SCRUM-84: the venue availability calendar. Outside the /venues gate (which keeps out Technical Support Staff).
   app.use("/venue-calendar", venueCalendarRoutes(deps, now, options.venueCalendar));
