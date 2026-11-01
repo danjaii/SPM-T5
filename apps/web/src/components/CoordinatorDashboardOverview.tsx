@@ -1,20 +1,17 @@
 import Link from "next/link";
-import { ChevronRight, CircleCheck, TriangleAlert } from "lucide-react";
+import { CircleCheck, TriangleAlert } from "lucide-react";
 import { describeFlag } from "@spm-t5/shared";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StatusBadge, StatusIcon } from "@/components/ui/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { canReplaceVenue, isAffected, replacementHref } from "@/lib/affectedBookings";
-import { bookingPeek, eventPeek, eventsThisWeek, groupBookingsByStatus, groupEventsByStatus, needsActionCount } from "@/lib/coordinatorDashboard";
-import { FLAG_DISPLAY, type StatusDisplay, type StatusTone } from "@/lib/status";
+import { eventsThisWeek, needsActionCount } from "@/lib/coordinatorDashboard";
+import { FLAG_DISPLAY } from "@/lib/status";
 import type { CoordinatorDashboardData } from "@/lib/coordinatorDashboardServer";
-import { BOOKING_STATUS_DISPLAY, EVENT_STATUS_DISPLAY } from "@/lib/status";
 import { CoordinatorThisWeek } from "./CoordinatorThisWeek";
 
 
-// How many items "Needs your action" shows before pointing at the full tabs.
+// How many items "Needs your action" shows before pointing at the full lists.
 const SHOWN = 5;
 
 const Unavailable = () => (
@@ -25,7 +22,7 @@ const Unavailable = () => (
 );
 
 /** One task: what to do (bold, starts with a verb), which event it is for, and why. The whole row is the link. */
-function TaskRow({ href, label, title, subtitle, note, cta, children }: { href: string; label: string; title: string; subtitle: string; note?: string; cta: string; children: React.ReactNode }) {
+function TaskRow({ href, label, title, subtitle, note, cta, primary, children }: { href: string; label: string; title: string; subtitle: string; note?: string; cta: string; primary?: boolean; children: React.ReactNode }) {
   return (
     <li>
       <Link href={href} aria-label={label} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
@@ -40,86 +37,10 @@ function TaskRow({ href, label, title, subtitle, note, cta, children }: { href: 
         <span className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-3">
           {children}
           {/* Looks like a button; the whole row is the one link, so this is not a second control. */}
-          <span aria-hidden="true" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "pointer-events-none")}>{cta}</span>
+          <span aria-hidden="true" className={cn(buttonVariants({ variant: primary ? "default" : "outline", size: "sm" }), "pointer-events-none")}>{cta}</span>
         </span>
       </Link>
     </li>
-  );
-}
-
-// A tab takes its status's colour: softly tinted while closed, solid with a ring while open. The label and icon still say the status.
-const TAB_TONE: Record<StatusTone, string> = {
-  neutral: "bg-status-neutral/40 text-status-neutral-fg data-active:bg-status-neutral data-active:ring-status-neutral-fg/40",
-  info: "bg-status-info/40 text-status-info-fg data-active:bg-status-info data-active:ring-status-info-fg/40",
-  warning: "bg-status-warning/40 text-status-warning-fg data-active:bg-status-warning data-active:ring-status-warning-fg/40",
-  success: "bg-status-success/40 text-status-success-fg data-active:bg-status-success data-active:ring-status-success-fg/40",
-  danger: "bg-status-danger/40 text-status-danger-fg data-active:bg-status-danger data-active:ring-status-danger-fg/40",
-};
-
-interface PeekRow {
-  id: string;
-  href: string;
-  title: string;
-  peek: string[];
-}
-
-/**
- * A section whose title sits above a white card. The card holds one tab per status (icon, label and count) and, under the
- * open tab, a short peek of each item: its name and a line of details. Each row opens the item. Only the first few show; the
- * link at the foot goes to the full list.
- */
-function StatusCard({ id, title, viewAll, empty, groups }: { id: string; title: string; viewAll: { href: string; text: string }; empty: string; groups?: { key: string; display: StatusDisplay; rows: PeekRow[] }[] }) {
-  return (
-    <section aria-labelledby={id} className="space-y-3">
-      <h2 id={id} className="font-heading text-xl font-bold">{title}</h2>
-      <Card>
-        <CardContent className="space-y-4">
-          {!groups ? (
-            <Unavailable />
-          ) : groups.length === 0 ? (
-            <p className="text-base text-muted-foreground">{empty}</p>
-          ) : (
-            <Tabs defaultValue={groups[0].key} className="gap-0">
-              <TabsList variant="line" className="w-full flex-wrap justify-start gap-2 pb-1 group-data-horizontal/tabs:h-auto">
-                {groups.map((g) => (
-                  <TabsTrigger
-                    key={g.key}
-                    value={g.key}
-                    className={cn("h-auto flex-none gap-1.5 rounded-lg border-0 px-3 py-1.5 text-sm font-medium transition-colors duration-150 after:hidden hover:brightness-95 data-active:font-semibold data-active:ring-1", TAB_TONE[g.display.tone])}
-                  >
-                    <StatusIcon {...g.display} />
-                    {g.display.label}
-                    <span className="rounded-md bg-background/70 px-1.5 text-xs font-semibold tabular-nums">{g.rows.length}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {groups.map((g) => (
-                <TabsContent key={g.key} value={g.key}>
-                  <ul className="space-y-1 pt-2">
-                    {g.rows.slice(0, SHOWN).map((r) => (
-                      <li key={r.id}>
-                        <Link href={r.href} className="flex items-center gap-3 rounded-lg border border-transparent px-3 py-3 outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-base font-medium">{r.title}</span>
-                            <span className="block text-sm text-muted-foreground">{r.peek.join(" · ")}</span>
-                          </span>
-                          <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                  {g.rows.length > SHOWN && <p className="pt-2 text-sm text-muted-foreground">Showing {SHOWN} of {g.rows.length}.</p>}
-                </TabsContent>
-              ))}
-            </Tabs>
-          )}
-          <Link href={viewAll.href} className="inline-flex items-center gap-1 rounded-lg border border-transparent px-3 text-base font-medium text-fg-primary underline-offset-4 hover:underline">
-            {viewAll.text}
-            <ChevronRight className="size-4" aria-hidden="true" />
-          </Link>
-        </CardContent>
-      </Card>
-    </section>
   );
 }
 
@@ -163,6 +84,7 @@ export function CoordinatorDashboardOverview({ events, bookings, returned, now =
                     subtitle={`${b.eventName} · ${b.venueName}`}
                     note={b.flags.map((f) => describeFlag(f, b.venueName)).join(" ")}
                     cta={replace ? "Find venue" : "Open"}
+                    primary={replace}
                   >
                     {b.flags.map((f) => <StatusBadge key={f.id} {...FLAG_DISPLAY[f.kind]} />)}
                   </TaskRow>
@@ -186,31 +108,6 @@ export function CoordinatorDashboardOverview({ events, bookings, returned, now =
         </section>
 
         <CoordinatorThisWeek items={events && eventsThisWeek(events, bookings, now)} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <StatusCard
-          id="my-events"
-          title="My events"
-          viewAll={{ href: "/events/review", text: "View event requests" }}
-          empty="No events are assigned to you yet."
-          groups={events && groupEventsByStatus(events).map(({ status, items }) => ({
-            key: status,
-            display: EVENT_STATUS_DISPLAY[status],
-            rows: items.map((e) => ({ id: e.id, href: `/events/${e.id}`, title: e.name, peek: eventPeek(e) })),
-          }))}
-        />
-        <StatusCard
-          id="venue-requests"
-          title="Venue requests"
-          viewAll={{ href: "/venue-bookings", text: "View my venue bookings" }}
-          empty="You have not requested any venue bookings yet."
-          groups={bookings && groupBookingsByStatus(bookings).map(({ status, items }) => ({
-            key: status,
-            display: BOOKING_STATUS_DISPLAY[status],
-            rows: items.map((b) => ({ id: b.id, href: `/venue-bookings/${b.id}`, title: b.eventName, peek: bookingPeek(b) })),
-          }))}
-        />
       </div>
     </>
   );
