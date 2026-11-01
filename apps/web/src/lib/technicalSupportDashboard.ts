@@ -1,4 +1,4 @@
-import type { NotificationItem } from "@spm-t5/shared";
+import { equipmentOptionLabel, type NotificationItem } from "@spm-t5/shared";
 import type { InventoryItemView } from "./equipmentInventory";
 import type { EquipmentQueueItemView } from "./equipmentRequests";
 import type { LeadKpi } from "./leadQueueView";
@@ -35,7 +35,8 @@ export interface RequestRow {
 /** AC1: each waiting request with whether enough units are free for it. Any shortfall is a shortage. */
 export function requestRows(requests: EquipmentQueueItemView[], items: InventoryItemView[] | undefined): RequestRow[] {
   return requests.map((request) => {
-    const item = items?.find((i) => i.name === request.equipment);
+    // the queue words equipment as the request form does ("Audio: Wireless microphones"), so match on that label
+    const item = items?.find((i) => equipmentOptionLabel(i) === request.equipment);
     if (!item) return { request };
     const shown = availabilityDisplay(item.available, request.quantity);
     return { request, free: item.available, availability: shown.label === "Enough" ? { ...shown, label: "Available" } : shown };

@@ -62,6 +62,16 @@ describe("SCRUM-164/AC1 equipment requests waiting", () => {
     expect(screen.getByRole("link", { name: /Livestream kit, Microphones/ }).getAttribute("href")).toBe("/equipment-inventory");
   });
 
+  it("SCRUM-164/AC1 matches a typed item by the label the queue shows, and draws a border on the Reserve button", async () => {
+    await renderPage({
+      requests: [request({ equipment: "Audio: Microphones", quantity: 2 })],
+      items: [item({ name: "Microphones", type: "Audio", total: 20, available: 6 })],
+      notifications: [],
+    });
+    expect(screen.getByText("Available").querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Reserve: Tech Summit/ }).className).toContain("border-input");
+  });
+
   it("SCRUM-164/AC1 reviews a request whose item is not in the inventory", async () => {
     await renderPage({ requests: [request({ equipment: "Lectern" })], items: [item()], notifications: [] });
     expect(screen.getByRole("link", { name: /^Review: Tech Summit/ })).toBeTruthy();

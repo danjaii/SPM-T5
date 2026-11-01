@@ -93,7 +93,7 @@ export function TechnicalSupportDashboardOverview({ requests, items }: Technical
                     <Link
                       href={`/equipment-requests/${request.id}`}
                       aria-label={`${act.label}: ${request.eventName}, ${request.equipment}`}
-                      className={buttonVariants({ variant: act.primary ? "default" : "outline", size: "sm" })}
+                      className={cn(buttonVariants({ variant: act.primary ? "default" : "outline", size: "sm" }), !act.primary && "border-input")}
                     >
                       {act.label}
                     </Link>
