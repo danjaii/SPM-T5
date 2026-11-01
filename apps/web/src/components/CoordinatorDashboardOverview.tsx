@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { ChevronRight, CircleCheck, TriangleAlert } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge, StatusIcon } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { canReplaceVenue, isAffected, replacementHref } from "@/lib/affectedBookings";
-import { bookingPeek, eventPeek, groupBookingsByStatus, groupEventsByStatus } from "@/lib/coordinatorDashboard";
+import { bookingPeek, eventPeek, eventsThisWeek, groupBookingsByStatus, groupEventsByStatus, needsActionCount } from "@/lib/coordinatorDashboard";
 import type { StatusDisplay, StatusTone } from "@/lib/status";
 import type { CoordinatorDashboardData } from "@/lib/coordinatorDashboardServer";
 import { BOOKING_STATUS_DISPLAY, EVENT_STATUS_DISPLAY } from "@/lib/status";
+import { CoordinatorThisWeek } from "./CoordinatorThisWeek";
 import { FlagBadges } from "./FlagBadges";
 
 // How many items "Needs your action" shows before pointing at the full tabs.
@@ -22,19 +24,23 @@ const Unavailable = () => (
 );
 
 /** One task: what to do (bold, starts with a verb), which event it is for, and why. The whole row is the link. */
-function TaskRow({ href, label, title, subtitle, children }: { href: string; label: string; title: string; subtitle: string; children: React.ReactNode }) {
+function TaskRow({ href, label, title, subtitle, note, cta, children }: { href: string; label: string; title: string; subtitle: string; note?: string; cta: string; children: React.ReactNode }) {
   return (
     <li>
-      <Link href={href} aria-label={label} className="flex items-start gap-4 p-4 outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-status-warning text-status-warning-fg" aria-hidden="true">
+      <Link href={href} aria-label={label} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-4 outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-status-warning text-status-warning-fg" aria-hidden="true">
           <TriangleAlert className="size-5" />
         </span>
-        <span className="min-w-0 flex-1 space-y-1">
+        <span className="min-w-0 flex-1 basis-56 space-y-0.5">
           <span className="block text-base font-semibold">{title}</span>
           <span className="block text-sm text-muted-foreground">{subtitle}</span>
-          <span className="block pt-1">{children}</span>
+          {note && <span className="block text-sm text-status-warning-fg">{note}</span>}
         </span>
-        <ChevronRight className="mt-2 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="flex flex-wrap items-center gap-2">
+          {children}
+          {/* Looks like a button; the whole row is the one link, so this is not a second control. */}
+          <span aria-hidden="true" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "pointer-events-none")}>{cta}</span>
+        </span>
       </Link>
     </li>
   );
@@ -121,20 +127,17 @@ function StatusCard({ id, title, viewAll, empty, groups }: { id: string; title: 
  * stand. It does not list events or bookings: those stay on Event requests and My venue bookings. A source that failed
  * (undefined) is shown as unavailable, never as 0 or "nothing to do".
  */
-export function CoordinatorDashboardOverview({ events, bookings, returned }: CoordinatorDashboardData) {
+export function CoordinatorDashboardOverview({ events, bookings, returned, now = new Date() }: CoordinatorDashboardData & { now?: Date }) {
   const flagged = bookings?.filter(isAffected);
-  const actionCount = flagged || returned ? (flagged?.length ?? 0) + (returned?.length ?? 0) : undefined;
+  const actionCount = needsActionCount(bookings, returned);
 
   return (
     <>
-      <section aria-labelledby="needs-action" className="space-y-4">
-        <div className="space-y-1">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+      <section aria-labelledby="needs-action" className="space-y-4 lg:col-span-2">
+        <div className="flex items-center justify-between gap-3">
           <h2 id="needs-action" className="font-heading text-2xl font-bold">Needs your action</h2>
-          {actionCount !== undefined && actionCount > 0 && (
-            <p className="text-base text-muted-foreground">
-              {actionCount} {actionCount === 1 ? "thing needs" : "things need"} your attention.
-            </p>
-          )}
+          {actionCount !== undefined && actionCount > 0 && <StatusBadge tone="danger" label={`${actionCount} to do`} />}
         </div>
 
         {actionCount === undefined && <Unavailable />}
@@ -157,17 +160,15 @@ export function CoordinatorDashboardOverview({ events, bookings, returned }: Coo
                   label={`${replace ? "Find replacement venue" : "View booking"} for ${b.eventName} at ${b.venueName}`}
                   title={replace ? "Find another venue" : "Check the venue booking"}
                   subtitle={`${b.eventName} · ${b.venueName}`}
+                  cta={replace ? "Find venue" : "Open"}
                 >
                   <FlagBadges flags={b.flags} venueName={b.venueName} label="" />
                 </TaskRow>
               );
             })}
             {returned?.slice(0, SHOWN).map((e) => (
-              <TaskRow key={e.id} href={`/events/${e.id}`} label={`Open ${e.name}`} title="Update the event" subtitle={e.name}>
-                <span className="flex flex-wrap items-center gap-2">
-                  <StatusBadge tone="warning" label="Returned to Planning" />
-                  <span className="text-sm text-status-warning-fg">{e.reason}</span>
-                </span>
+              <TaskRow key={e.id} href={`/events/${e.id}`} label={`Open ${e.name}`} title="Update the event" subtitle={e.name} note={e.reason} cta="Open">
+                <StatusBadge tone="warning" label="Returned to Planning" />
               </TaskRow>
             ))}
           </ul>
@@ -181,6 +182,9 @@ export function CoordinatorDashboardOverview({ events, bookings, returned }: Coo
           </p>
         )}
       </section>
+
+      <CoordinatorThisWeek items={events && eventsThisWeek(events, bookings, now)} />
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <StatusCard

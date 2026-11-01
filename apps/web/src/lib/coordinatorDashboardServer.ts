@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { SERVER_EVENT_URL, SESSION_COOKIE } from "./api";
+import { SERVER_AUTH_URL, SERVER_EVENT_URL, SESSION_COOKIE } from "./api";
 import { returnedReason, type DashboardEvent } from "./coordinatorDashboard";
 import { getEventEquipmentRequests } from "./equipmentRequestsServer";
 import { getEventSafetyDecisions } from "./getEvent";
@@ -16,6 +16,8 @@ export interface ReturnedEvent {
 }
 
 export interface CoordinatorDashboardData {
+  /** Who is signed in, for the greeting; undefined when it could not be read (the greeting then has no name). */
+  fullName?: string;
   events?: DashboardEvent[];
   bookings?: VenueBookingListItem[];
   /** Events back in Planning with the reason; undefined when the events themselves could not be loaded. */
@@ -32,6 +34,21 @@ async function getAssignedEvents(): Promise<DashboardEvent[] | undefined> {
       cache: "no-store",
     });
     return res.ok ? ((await res.json()) as DashboardEvent[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The signed-in user's name, for the greeting. */
+async function getFullName(): Promise<string | undefined> {
+  try {
+    const token = (await cookies()).get(SESSION_COOKIE)?.value;
+    if (!token) return undefined;
+    const res = await fetch(`${SERVER_AUTH_URL}/auth/me`, {
+      headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+      cache: "no-store",
+    });
+    return res.ok ? ((await res.json()) as { fullName?: string }).fullName : undefined;
   } catch {
     return undefined;
   }
@@ -59,8 +76,9 @@ async function returnedEvents(events: DashboardEvent[]): Promise<ReturnedEvent[]
 }
 
 export async function getCoordinatorDashboard(): Promise<CoordinatorDashboardData> {
-  const [events, venueBookings] = await Promise.all([getAssignedEvents(), getVenueBookings()]);
+  const [fullName, events, venueBookings] = await Promise.all([getFullName(), getAssignedEvents(), getVenueBookings()]);
   return {
+    fullName,
     events,
     bookings: "bookings" in venueBookings ? venueBookings.bookings : undefined,
     returned: events && (await returnedEvents(events)),
