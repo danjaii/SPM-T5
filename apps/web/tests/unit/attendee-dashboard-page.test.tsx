@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 const { getUpcomingEvents } = vi.hoisted(() => ({ getUpcomingEvents: vi.fn() }));
 vi.mock("@/lib/getUpcomingEvents", () => ({ getUpcomingEvents }));
 
-import AttendeeDashboard from "@/app/dashboard/attendee/page";
+import AttendeeDashboard from "@/app/dashboard/attendee/browse/page";
 
 // ---------------------------------------------------------------------------
-// SCRUM-71 — The List of events on the attendee's home page (/dashboard/attendee)
+// SCRUM-71 — The List of events on the attendee's home page (/dashboard/attendee/browse)
 // ---------------------------------------------------------------------------
 describe("SCRUM-71 — Attendee dashboard page", () => {
   // AC1: the page shows the upcoming events as cards (SCRUM-139/AC1: it is the "Browse events" page)

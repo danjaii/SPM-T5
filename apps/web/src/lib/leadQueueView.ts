@@ -27,7 +27,7 @@ export function shortDate(iso: string, now = new Date()): string {
 
 export interface LeadKpi {
   label: string;
-  value: number;
+  value: number | string;
   note: string;
   /** The oldest wait is a warning, not good news, so it is drawn apart (icon and text, not colour alone). */
   warn?: boolean;
