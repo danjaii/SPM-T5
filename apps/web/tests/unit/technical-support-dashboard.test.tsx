@@ -54,7 +54,7 @@ describe("SCRUM-164/AC1 equipment requests waiting", () => {
     });
     for (const label of ["Unavailable", "Partial", "Available"]) expect(screen.getByText(label).querySelector("svg")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Reply to coordinator: Pitch Day/ }).getAttribute("href")).toBe("/equipment-requests/a");
-    expect(screen.getByRole("link", { name: /Reserve 6: Networking/ }).getAttribute("href")).toBe("/equipment-requests/b");
+    expect(screen.getByRole("link", { name: /^Reserve: Networking/ }).getAttribute("href")).toBe("/equipment-requests/b");
     expect(screen.getByRole("link", { name: /^Reserve: Summit/ }).getAttribute("href")).toBe("/equipment-requests/c");
     expect(screen.getByText("Needs 1 · none free on 14 Nov")).toBeTruthy();
     expect(screen.getByText("Needs 8 · 6 free on 14 Nov")).toBeTruthy();

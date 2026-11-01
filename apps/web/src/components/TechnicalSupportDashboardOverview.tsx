@@ -35,10 +35,9 @@ function peek({ request, free, availability }: RequestRow): string {
   return [request.venueName, shortDate(request.eventDate)].filter(Boolean).join(" · ");
 }
 
-/** The row's one action: reply when nothing is free, reserve what is free for a partial, otherwise reserve. All open the request. */
-function action({ free, availability }: RequestRow): { label: string; primary: boolean } {
+/** The row's one action: reply when nothing is free, otherwise reserve. All open the request. */
+function action({ availability }: RequestRow): { label: string; primary: boolean } {
   if (availability?.label === "Unavailable") return { label: "Reply to coordinator", primary: true };
-  if (availability?.label === "Partial") return { label: `Reserve ${free}`, primary: false };
   return { label: availability ? "Reserve" : "Review", primary: false };
 }
 
