@@ -36,7 +36,7 @@ function peek({ request, free, availability }: RequestRow): string {
 }
 
 /** The row's one action: reply when nothing is free, reserve what is free for a partial, otherwise reserve. All open the request. */
-function action({ request, free, availability }: RequestRow): { label: string; primary: boolean } {
+function action({ free, availability }: RequestRow): { label: string; primary: boolean } {
   if (availability?.label === "Unavailable") return { label: "Reply to coordinator", primary: true };
   if (availability?.label === "Partial") return { label: `Reserve ${free}`, primary: false };
   return { label: availability ? "Reserve" : "Review", primary: false };
