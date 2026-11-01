@@ -1,29 +1,29 @@
 import type { Metadata } from "next";
 import { BfcacheGuard } from "@/components/BfcacheGuard";
-import { MyEventRequestsList } from "@/components/MyEventRequestsList";
+import { OrganiserHome } from "@/components/OrganiserHome";
 import { PageFrame } from "@/components/PageFrame";
-import { getDashboard } from "@/lib/dashboard";
-import { getMyEventRequests } from "@/lib/myEventRequestsServer";
-import { roleLabel } from "@/lib/roles";
+import { getOrganiserHome } from "@/lib/organiserHomeServer";
 
 // Rendered per request: the content depends on who is signed in.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Event Organiser dashboard · ConnectSphere" };
+export const metadata: Metadata = { title: "My events · ConnectSphere" };
+
+const DESCRIPTION = "Every request you have made, from draft to confirmed.";
 
 /**
- * SCRUM-159/AC1: the organiser's home in the new design, inside the shared app shell, under the same title and line. It
- * shows every event request, the same list as My event requests (SCRUM-52), so the old 25-row preview and its link to the
- * full list are no longer needed; the sidebar item and page stay. The old row of links (My profile, My event requests,
- * Event registrations) is left out: the sidebar gives the same three.
+ * SCRUM-159 (Figma 02): the organiser's home, "My events": a banner when a coordinator is waiting on a reply, four figures,
+ * tabs, and every event request with its coordinator and status. The My event requests page (SCRUM-52) stays, as its
+ * acceptance criteria and sidebar item require.
  */
 export default async function EventOrganiserDashboard() {
-  const [{ user }, requests] = await Promise.all([getDashboard("event_organiser"), getMyEventRequests()]);
+  const result = await getOrganiserHome();
+  if ("error" in result) return <PageFrame title="My events" description={DESCRIPTION} error={result.error} />;
 
   return (
-    <PageFrame title={`${roleLabel(user.role)} dashboard`} description={`Signed in as ${user.fullName}`}>
+    <PageFrame title="My events" description={DESCRIPTION}>
       <BfcacheGuard />
-      <MyEventRequestsList result={requests} title="My event requests" />
+      <OrganiserHome events={result.events} now={new Date().toISOString()} />
     </PageFrame>
   );
 }
