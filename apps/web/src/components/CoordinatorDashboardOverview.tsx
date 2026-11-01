@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight, CircleCheck, TriangleAlert } from "lucide-react";
+import { describeFlag } from "@spm-t5/shared";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,11 +8,11 @@ import { StatusBadge, StatusIcon } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { canReplaceVenue, isAffected, replacementHref } from "@/lib/affectedBookings";
 import { bookingPeek, eventPeek, eventsThisWeek, groupBookingsByStatus, groupEventsByStatus, needsActionCount } from "@/lib/coordinatorDashboard";
-import type { StatusDisplay, StatusTone } from "@/lib/status";
+import { FLAG_DISPLAY, type StatusDisplay, type StatusTone } from "@/lib/status";
 import type { CoordinatorDashboardData } from "@/lib/coordinatorDashboardServer";
 import { BOOKING_STATUS_DISPLAY, EVENT_STATUS_DISPLAY } from "@/lib/status";
 import { CoordinatorThisWeek } from "./CoordinatorThisWeek";
-import { FlagBadges } from "./FlagBadges";
+
 
 // How many items "Needs your action" shows before pointing at the full tabs.
 const SHOWN = 5;
@@ -27,16 +28,16 @@ const Unavailable = () => (
 function TaskRow({ href, label, title, subtitle, note, cta, children }: { href: string; label: string; title: string; subtitle: string; note?: string; cta: string; children: React.ReactNode }) {
   return (
     <li>
-      <Link href={href} aria-label={label} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-4 outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-status-warning text-status-warning-fg" aria-hidden="true">
+      <Link href={href} aria-label={label} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-status-warning text-status-warning-fg" aria-hidden="true">
           <TriangleAlert className="size-5" />
         </span>
-        <span className="min-w-0 flex-1 basis-56 space-y-0.5">
+        <span className="min-w-0 flex-1 basis-64 space-y-0.5">
           <span className="block text-base font-semibold">{title}</span>
           <span className="block text-sm text-muted-foreground">{subtitle}</span>
           {note && <span className="block text-sm text-status-warning-fg">{note}</span>}
         </span>
-        <span className="flex flex-wrap items-center gap-2">
+        <span className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-3">
           {children}
           {/* Looks like a button; the whole row is the one link, so this is not a second control. */}
           <span aria-hidden="true" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "pointer-events-none")}>{cta}</span>
@@ -134,56 +135,57 @@ export function CoordinatorDashboardOverview({ events, bookings, returned, now =
   return (
     <>
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-      <section aria-labelledby="needs-action" className="space-y-4 lg:col-span-2">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="needs-action" className="font-heading text-2xl font-bold">Needs your action</h2>
-          {actionCount !== undefined && actionCount > 0 && <StatusBadge tone="danger" label={`${actionCount} to do`} />}
-        </div>
+        <section aria-labelledby="needs-action" className="overflow-hidden rounded-xl border border-border bg-card lg:col-span-2">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+            <h2 id="needs-action" className="font-heading text-xl font-bold">Needs your action</h2>
+            {actionCount !== undefined && actionCount > 0 && <StatusBadge tone="danger" label={`${actionCount} to do`} />}
+          </div>
 
-        {actionCount === undefined && <Unavailable />}
+          {actionCount === undefined && <div className="p-5"><Unavailable /></div>}
 
-        {actionCount === 0 && (
-          <p className="flex items-center gap-3 rounded-xl bg-muted p-4 text-base font-medium">
-            <CircleCheck className="size-6 shrink-0 text-status-success-fg" aria-hidden="true" />
-            Nothing needs your action right now. You are all caught up.
-          </p>
-        )}
+          {actionCount === 0 && (
+            <p className="flex items-center gap-3 p-5 text-base font-medium">
+              <CircleCheck className="size-6 shrink-0 text-status-success-fg" aria-hidden="true" />
+              Nothing needs your action right now. You are all caught up.
+            </p>
+          )}
 
-        {!!actionCount && (
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-            {flagged?.slice(0, SHOWN).map((b) => {
-              const replace = canReplaceVenue(b);
-              return (
-                <TaskRow
-                  key={b.id}
-                  href={replace ? replacementHref(b.id) : `/venue-bookings/${b.id}`}
-                  label={`${replace ? "Find replacement venue" : "View booking"} for ${b.eventName} at ${b.venueName}`}
-                  title={replace ? "Find another venue" : "Check the venue booking"}
-                  subtitle={`${b.eventName} · ${b.venueName}`}
-                  cta={replace ? "Find venue" : "Open"}
-                >
-                  <FlagBadges flags={b.flags} venueName={b.venueName} label="" />
+          {!!actionCount && (
+            <ul className="divide-y divide-border">
+              {flagged?.slice(0, SHOWN).map((b) => {
+                const replace = canReplaceVenue(b);
+                return (
+                  <TaskRow
+                    key={b.id}
+                    href={replace ? replacementHref(b.id) : `/venue-bookings/${b.id}`}
+                    label={`${replace ? "Find replacement venue" : "View booking"} for ${b.eventName} at ${b.venueName}`}
+                    title={replace ? "Find another venue" : "Check the venue booking"}
+                    subtitle={`${b.eventName} · ${b.venueName}`}
+                    note={b.flags.map((f) => describeFlag(f, b.venueName)).join(" ")}
+                    cta={replace ? "Find venue" : "Open"}
+                  >
+                    {b.flags.map((f) => <StatusBadge key={f.id} {...FLAG_DISPLAY[f.kind]} />)}
+                  </TaskRow>
+                );
+              })}
+              {returned?.slice(0, SHOWN).map((e) => (
+                <TaskRow key={e.id} href={`/events/${e.id}`} label={`Open ${e.name}`} title="Update the event" subtitle={e.name} note={e.reason} cta="Open">
+                  <StatusBadge tone="warning" label="Returned to Planning" />
                 </TaskRow>
-              );
-            })}
-            {returned?.slice(0, SHOWN).map((e) => (
-              <TaskRow key={e.id} href={`/events/${e.id}`} label={`Open ${e.name}`} title="Update the event" subtitle={e.name} note={e.reason} cta="Open">
-                <StatusBadge tone="warning" label="Returned to Planning" />
-              </TaskRow>
-            ))}
-          </ul>
-        )}
+              ))}
+            </ul>
+          )}
 
-        {actionCount !== undefined && actionCount > SHOWN && (
-          <p className="text-sm text-muted-foreground">
-            Showing {SHOWN} of {actionCount}. See the rest in{" "}
-            <Link className="underline" href="/venue-bookings">My venue bookings</Link> and{" "}
-            <Link className="underline" href="/events/review">Event requests</Link>.
-          </p>
-        )}
-      </section>
+          {actionCount !== undefined && actionCount > SHOWN && (
+            <p className="border-t border-border px-5 py-3 text-sm text-muted-foreground">
+              Showing {SHOWN} of {actionCount}. See the rest in{" "}
+              <Link className="underline" href="/venue-bookings">My venue bookings</Link> and{" "}
+              <Link className="underline" href="/events/review">Event requests</Link>.
+            </p>
+          )}
+        </section>
 
-      <CoordinatorThisWeek items={events && eventsThisWeek(events, bookings, now)} />
+        <CoordinatorThisWeek items={events && eventsThisWeek(events, bookings, now)} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
