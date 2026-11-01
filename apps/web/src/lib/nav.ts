@@ -5,6 +5,21 @@ import type { Role } from "@spm-t5/shared";
 export type QueueKey = "leadQueue" | "bookingQueue" | "equipmentQueue" | "safetyQueue";
 export type QueueCounts = Partial<Record<QueueKey, number>>;
 
+// Where each queue lives: the same routes the queue pages read. Each answers with the list itself, a JSON array.
+export const QUEUE_PATHS: Record<QueueKey, string> = {
+  leadQueue: "/lead/queue",
+  bookingQueue: "/booking-queue",
+  equipmentQueue: "/equipment-requests",
+  safetyQueue: "/safety-checks",
+};
+
+export const QUEUE_FOR_ROLE: Partial<Record<Role, QueueKey>> = {
+  event_coordinator_lead: "leadQueue",
+  venue_staff: "bookingQueue",
+  technical_support_staff: "equipmentQueue",
+  safety_officer: "safetyQueue",
+};
+
 export interface NavEntry {
   label: string;
   href: string;

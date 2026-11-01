@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ refresh }) }))
 import LeadAssignPage from "@/app/lead/events/[id]/assign/page";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadQueueList } from "@/components/LeadQueueList";
+import { ShellContext } from "@/components/shell/ShellContext";
 import type { LeadCoordinatorChoice, LeadQueueItem } from "@/lib/leadServer";
 
 const rachel: LeadCoordinatorChoice = { id: "c-1", full_name: "Rachel Tan", workload: 2, total_attendance: 150, clash: { status: "free" } };
@@ -198,3 +199,40 @@ describe("SCRUM-78 — The assign page", () => {
   // end of AC9
 });
 // end of SCRUM-78
+
+// ---------------------------------------------------------------------------
+// SCRUM-178 — the sidebar's Unassigned requests count follows an assignment
+// ---------------------------------------------------------------------------
+describe("SCRUM-178/AC2 assigning updates the sidebar count", () => {
+  function renderInShell() {
+    const refreshCounts = vi.fn();
+    render(
+      <ShellContext.Provider value={{ user: { fullName: "Helen Ong", role: "event_coordinator_lead" }, counts: { leadQueue: 2 }, refreshCounts }}>
+        <LeadAssignForm eventId="evt-1" eventName="Tech Summit" coordinators={[rachel, marcus]} />
+      </ShellContext.Provider>,
+    );
+    return refreshCounts;
+  }
+
+  it("SCRUM-178/AC2 reads the count again once the assignment is saved, and keeps the message on screen", async () => {
+    mockPost(200, { assigned_coordinator_id: "c-2" });
+    const refreshCounts = renderInShell();
+
+    await choose("Marcus Lim — 0 active events");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+
+    await waitFor(() => expect(refreshCounts).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("status").textContent).toContain("Tech Summit is now assigned to Marcus Lim.");
+  });
+
+  it("SCRUM-178/AC2 leaves the count alone when the assignment is refused", async () => {
+    mockPost(409, { error: "This event already has a coordinator." });
+    const refreshCounts = renderInShell();
+
+    await choose("Marcus Lim — 0 active events");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("already has a coordinator"));
+    expect(refreshCounts).not.toHaveBeenCalled();
+  });
+});
