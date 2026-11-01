@@ -11,14 +11,14 @@ vi.mock("@/lib/shellServer", () => ({ getShellData }));
 import TechnicalSupportStaffDashboard from "@/app/dashboard/technical_support_staff/page";
 import type { InventoryItemView } from "@/lib/equipmentInventory";
 import type { EquipmentQueueItemView } from "@/lib/equipmentRequests";
-import { newAssignments, outOfService, technicalSupportKpis } from "@/lib/technicalSupportDashboard";
+import { greeting, homeSummary, newAssignments, requestRows, shortDate, shortages, technicalSupportKpis } from "@/lib/technicalSupportDashboard";
 
 const request = (over: Partial<EquipmentQueueItemView> = {}): EquipmentQueueItemView => ({
   id: "r1", eventId: "e1", eventName: "Tech Summit", eventDate: "2026-11-14", venueName: "Hall A", equipment: "Projector", quantity: 2,
   status: "SUBMITTED", statusLabel: "Submitted", updated: false, ...over,
 });
 const item = (over: Partial<InventoryItemView> = {}): InventoryItemView => ({
-  id: "i1", name: "Livestream kit", type: null, total: 2, available: 0, heldBy: [], outOfService: null, ...over,
+  id: "i1", name: "Projector", type: null, total: 12, available: 4, heldBy: [], outOfService: null, ...over,
 });
 const assignment = (over: Partial<NotificationItem> = {}): NotificationItem => ({
   id: "n1", type: "technical_assignment_assigned", title: "New on-site assignment", message: "Tech Summit, Hall A", isRead: false,
@@ -26,120 +26,143 @@ const assignment = (over: Partial<NotificationItem> = {}): NotificationItem => (
   acknowledgement: { canAcknowledge: true, acknowledgedAt: null }, ...over,
 });
 
-async function renderPage(data: object) {
+async function renderPage(data: object, shell: object | null = { user: { fullName: "Aisha Rahman", role: "technical_support_staff" }, counts: {} }) {
   getTechnicalSupportDashboard.mockResolvedValue(data);
-  getShellData.mockResolvedValue({ user: { fullName: "Aisha Rahman", role: "technical_support_staff" }, counts: {} });
+  getShellData.mockResolvedValue(shell);
   render(await TechnicalSupportStaffDashboard());
 }
 
 describe("SCRUM-164/AC1 equipment requests waiting", () => {
-  it("SCRUM-164/AC1 counts the requests waiting and links to the review queue", async () => {
-    await renderPage({ requests: [request(), request({ id: "r2", updated: true })], items: [], notifications: [] });
-    const kpi = within(screen.getByRole("list", { name: "Queue summary" }));
-    expect(kpi.getByText("Requests to review")).toBeTruthy();
-    expect(kpi.getByText("2")).toBeTruthy();
-    expect(kpi.getByText("1 updated by the coordinator")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /View all 2 requests/ }).getAttribute("href")).toBe("/equipment-requests");
+  it("SCRUM-164/AC1 counts the requests waiting, linking the count and the page button to the review queue", async () => {
+    await renderPage({ requests: [request(), request({ id: "r2" })], items: [item()], notifications: [] });
+    expect(screen.getByRole("link", { name: "2 equipment requests, open the review queue" }).getAttribute("href")).toBe("/equipment-requests");
     expect(screen.getByRole("link", { name: "Open requests" }).getAttribute("href")).toBe("/equipment-requests");
+    expect(within(screen.getByRole("list", { name: "Queue summary" })).getByText("New requests")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/^Good (morning|afternoon|evening), Aisha$/);
+    expect(screen.getByText("2 requests need a reservation. 0 items are short.")).toBeTruthy();
   });
 
-  it("SCRUM-164/AC1 marks an updated request with an icon and label", async () => {
-    await renderPage({ requests: [request({ updated: true })], items: [], notifications: [] });
-    const badge = screen.getByText("Updated");
-    expect(badge.querySelector("svg")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Tech Summit/ }).getAttribute("href")).toBe("/equipment-requests/r1");
+  it("SCRUM-164/AC1 gives each request its availability as an icon and a label, and an action that opens it", async () => {
+    await renderPage({
+      requests: [
+        request({ id: "a", eventName: "Pitch Day", equipment: "Livestream kit", quantity: 1 }),
+        request({ id: "b", eventName: "Networking", equipment: "Microphones", quantity: 8 }),
+        request({ id: "c", eventName: "Summit", equipment: "Projector", quantity: 2 }),
+      ],
+      items: [item({ id: "x", name: "Livestream kit", total: 2, available: 0 }), item({ id: "y", name: "Microphones", total: 20, available: 6 }), item()],
+      notifications: [],
+    });
+    for (const label of ["Unavailable", "Partial", "Available"]) expect(screen.getByText(label).querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Reply to coordinator: Pitch Day/ }).getAttribute("href")).toBe("/equipment-requests/a");
+    expect(screen.getByRole("link", { name: /Reserve 6: Networking/ }).getAttribute("href")).toBe("/equipment-requests/b");
+    expect(screen.getByRole("link", { name: /^Reserve: Summit/ }).getAttribute("href")).toBe("/equipment-requests/c");
+    expect(screen.getByText("Needs 1 · none free on 14 Nov")).toBeTruthy();
+    expect(screen.getByText("Needs 8 · 6 free on 14 Nov")).toBeTruthy();
+    expect(screen.getByText(/2 items are short/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Livestream kit, Microphones/ }).getAttribute("href")).toBe("/equipment-inventory");
   });
 
-  it("SCRUM-164/AC1 says Unavailable, not 0, when the requests could not be loaded", async () => {
-    await renderPage({ requests: undefined, items: [], notifications: [] });
-    expect(screen.queryByText("Requests to review")).toBeNull();
-    expect(screen.getAllByText("Unavailable").length).toBe(1);
+  it("SCRUM-164/AC1 reviews a request whose item is not in the inventory", async () => {
+    await renderPage({ requests: [request({ equipment: "Lectern" })], items: [item()], notifications: [] });
+    expect(screen.getByRole("link", { name: /^Review: Tech Summit/ })).toBeTruthy();
+    expect(screen.getByText("Hall A · 14 Nov")).toBeTruthy();
+  });
+
+  it("SCRUM-164/AC1 says nothing is waiting for an empty queue", async () => {
+    await renderPage({ requests: [], items: [item()], notifications: [] });
+    expect(screen.getByText("No requests waiting for action.")).toBeTruthy();
+  });
+
+  it("SCRUM-164/AC1 says Unavailable, not 0, and leaves the figures out when requests could not be loaded", async () => {
+    await renderPage({ requests: undefined, items: [item()], notifications: [] });
+    expect(within(screen.getByRole("region", { name: "Equipment requests" })).getByText("Unavailable")).toBeTruthy();
+    expect(screen.queryByText("New requests")).toBeNull();
+    expect(screen.getByText("Some figures could not be loaded.")).toBeTruthy();
   });
 });
 
 describe("SCRUM-164/AC2 items out of service", () => {
-  it("SCRUM-164/AC2 lists them with the reason as an icon and a label", async () => {
-    await renderPage({ requests: [], items: [item({ outOfService: "damaged" }), item({ id: "i2", name: "Mic", outOfService: null })], notifications: [] });
-    const section = within(screen.getByRole("region", { name: "Out of service" }));
-    expect(section.getByText("Livestream kit")).toBeTruthy();
-    expect(section.queryByText("Mic")).toBeNull();
-    expect(section.getByText("Damaged").querySelector("svg")).toBeTruthy();
+  it("SCRUM-164/AC2 shows an item's out-of-service reason as an icon and a label in the stock list", async () => {
+    await renderPage({ requests: [], items: [item({ name: "Livestream kit", available: 0, total: 2, outOfService: "damaged" }), item({ id: "i2", name: "Tables", total: 60, available: 40 })], notifications: [] });
+    const stock = within(screen.getByRole("region", { name: "Stock today" }));
+    expect(stock.getByText("Damaged").closest("span")?.querySelector("svg")).toBeTruthy();
+    expect(stock.getByText("40 of 60 free")).toBeTruthy();
+    expect(stock.getAllByRole("progressbar")).toHaveLength(2);
   });
 
-  it("SCRUM-164/AC2 says everything works when nothing is out of service", async () => {
-    await renderPage({ requests: [], items: [item()], notifications: [] });
-    expect(screen.getByText("Everything in the catalogue is working.")).toBeTruthy();
-    expect(outOfService([item()])).toEqual([]);
+  it("SCRUM-164/AC2 colours the stock bar red when none are free, amber under a third, otherwise the brand colour", async () => {
+    await renderPage({
+      requests: [],
+      items: [item({ id: "1", name: "None", total: 2, available: 0 }), item({ id: "2", name: "Few", total: 20, available: 6 }), item({ id: "3", name: "Plenty", total: 12, available: 4 }), item({ id: "4", name: "Empty", total: 0, available: 0 })],
+      notifications: [],
+    });
+    const fills = screen.getAllByRole("progressbar").map((bar) => bar.innerHTML);
+    expect(fills[0]).toContain("bg-status-danger-fg");
+    expect(fills[1]).toContain("bg-status-warning-fg");
+    expect(fills[2]).toContain("bg-primary");
+  });
+
+  it("SCRUM-164/AC2 says the catalogue is empty when it has no equipment", async () => {
+    await renderPage({ requests: [], items: [], notifications: [] });
+    expect(screen.getByText("The catalogue has no equipment yet.")).toBeTruthy();
+  });
+
+  it("SCRUM-164/AC2 says Unavailable when the inventory could not be loaded", async () => {
+    await renderPage({ requests: [request()], items: undefined, notifications: [] });
+    expect(within(screen.getByRole("region", { name: "Stock today" })).getByText("Unavailable")).toBeTruthy();
+    expect(screen.queryByText("Shortages")).toBeNull();
   });
 });
 
 describe("SCRUM-164/AC3 new on-site assignments", () => {
-  it("SCRUM-164/AC3 shows unacknowledged assigned and changed notifications under Needs your action", async () => {
-    await renderPage({
-      requests: [], items: [],
-      notifications: [
-        assignment(),
-        assignment({ id: "n2", type: "technical_assignment_changed", title: "On-site assignment changed" }),
-        assignment({ id: "n3", title: "Already done", acknowledgement: { canAcknowledge: false, acknowledgedAt: "2026-10-31T00:00:00Z" } }),
-        assignment({ id: "n4", type: "technical_assignment_cancelled", title: "Cancelled", acknowledgement: undefined }),
-        assignment({ id: "n5", type: "event_approved", title: "Something else", acknowledgement: undefined }),
-      ],
-    });
-    const section = within(screen.getByRole("region", { name: "Needs your action" }));
-    expect(section.getByText("New on-site assignment")).toBeTruthy();
-    expect(section.getByText("On-site assignment changed")).toBeTruthy();
-    expect(section.queryByText("Already done")).toBeNull();
-    expect(section.queryByText("Cancelled")).toBeNull();
-    expect(section.queryByText("Something else")).toBeNull();
+  it("SCRUM-164/AC3 counts only assignments the technician can still acknowledge", () => {
+    const list = [
+      assignment(),
+      assignment({ id: "n2", type: "technical_assignment_changed" }),
+      assignment({ id: "n3", acknowledgement: { canAcknowledge: false, acknowledgedAt: "2026-10-31T00:00:00Z" } }),
+      assignment({ id: "n4", type: "technical_assignment_cancelled", acknowledgement: undefined }),
+      assignment({ id: "n5", type: "event_approved", acknowledgement: undefined }),
+      assignment({ id: "n6", acknowledgement: { canAcknowledge: true, acknowledgedAt: "x" } }),
+    ];
+    expect(newAssignments(list).map((n) => n.id)).toEqual(["n1", "n2"]);
   });
 
-  it("SCRUM-164/AC3 says they are caught up when there are none", async () => {
-    await renderPage({ requests: [], items: [], notifications: [] });
-    expect(screen.getByText(/No new on-site assignments/)).toBeTruthy();
-  });
-
-  it("SCRUM-164/AC3 says Unavailable, not caught up, when notifications could not be loaded", async () => {
-    await renderPage({ requests: [], items: [], notifications: undefined });
-    expect(screen.queryByText(/No new on-site assignments/)).toBeNull();
-    expect(within(screen.getByRole("region", { name: "Needs your action" })).getByText("Unavailable")).toBeTruthy();
-  });
-
-  it("SCRUM-164/AC3 greets the signed-in person by first name", async () => {
-    await renderPage({ requests: [], items: [], notifications: [] });
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome, Aisha");
+  it("SCRUM-164/AC3 shows them in the On-site next figure, naming the first", async () => {
+    await renderPage({ requests: [], items: [], notifications: [assignment({ related: { kind: "venue_booking", id: "b", label: "Annual Tech Summit", href: null } })] });
+    expect(screen.getByText("On-site next")).toBeTruthy();
+    expect(screen.getByText("Annual Tech Summit")).toBeTruthy();
   });
 });
 
-describe("SCRUM-164 figures", () => {
-  it("leaves out a figure whose source failed and warns about out-of-service items", () => {
-    expect(technicalSupportKpis(undefined, undefined, undefined)).toEqual([]);
-    const [, out] = technicalSupportKpis([], [item({ outOfService: "retired" })], []);
-    expect(out).toMatchObject({ label: "Out of service", value: 1, warn: true });
+describe("SCRUM-164 figures and wording", () => {
+  it("fills the four figures, and leaves out one whose source failed", () => {
+    const now = new Date("2026-11-10T00:00:00Z");
+    const requests = [request({ eventDate: "2026-11-12" }), request({ id: "r2", eventDate: "2026-12-20" })];
+    const items = [item({ heldBy: [{ eventName: "Robotics", units: 2 }, { eventName: "Film", units: 1 }] })];
+    expect(technicalSupportKpis(requests, items, [assignment()], [], now).map((k) => [k.label, k.value, k.note])).toEqual([
+      ["New requests", 2, "1 is for this week"],
+      ["Shortages", 0, "Nothing is short"],
+      ["Reserved today", 3, "Held by 2 events"],
+      ["On-site next", 1, "New on-site assignment"],
+    ]);
+    expect(technicalSupportKpis(undefined, undefined, undefined, [])).toEqual([]);
+    expect(technicalSupportKpis([request({ eventDate: "2026-11-10" })], [item({ heldBy: [{ eventName: "Solo", units: 1 }] })], [], ["Projector"], now).map((k) => k.note)).toEqual([
+      "1 is for this week", "Projector", "Held by 1 event", "No new assignments",
+    ]);
   });
 
-  it("only counts assignments the technician can still acknowledge", () => {
-    expect(newAssignments([assignment(), assignment({ acknowledgement: { canAcknowledge: true, acknowledgedAt: "x" } })])).toHaveLength(1);
-  });
-});
-
-describe("SCRUM-164 edge cases", () => {
-  it("SCRUM-164/AC3 greets without a name when nobody's shell data loads, and points to the rest past five assignments", async () => {
-    getTechnicalSupportDashboard.mockResolvedValue({ requests: [request()], items: [], notifications: Array.from({ length: 6 }, (_, i) => assignment({ id: `n${i}`, title: `Assignment ${i}` })) });
-    getShellData.mockResolvedValue(null);
-    render(await TechnicalSupportStaffDashboard());
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome");
-    expect(screen.getByText(/Showing 5 of 6/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /View all 1 request$/ })).toBeTruthy();
+  it("words the summary, greeting, dates and shortages", () => {
+    expect(homeSummary([request()], ["Projector"])).toBe("1 request needs a reservation. 1 item is short.");
+    expect(greeting(new Date("2026-11-10T00:00:00Z"))).toBe("Good morning");
+    expect(greeting(new Date("2026-11-10T06:00:00Z"))).toBe("Good afternoon");
+    expect(greeting(new Date("2026-11-10T12:00:00Z"))).toBe("Good evening");
+    expect(shortDate("2026-12-05")).toBe("5 Dec");
+    expect(shortages(requestRows([request({ quantity: 9 })], [item()]))).toEqual(["Projector"]);
   });
 
-  it("SCRUM-164/AC1 shows an empty queue as nothing waiting", async () => {
-    await renderPage({ requests: [], items: [], notifications: [] });
-    expect(screen.getByText("No requests waiting for action.")).toBeTruthy();
-  });
-
-  it("SCRUM-164/AC2 says Unavailable when the inventory could not be loaded", async () => {
-    await renderPage({ requests: [], items: undefined, notifications: [] });
-    expect(within(screen.getByRole("region", { name: "Out of service" })).getByText("Unavailable")).toBeTruthy();
-    expect(screen.queryByText("Out of service", { selector: "p" })).toBeNull();
+  it("greets without a name when the shell data does not load, and shows at most five requests", async () => {
+    await renderPage({ requests: Array.from({ length: 6 }, (_, i) => request({ id: `r${i}` })), items: [item()], notifications: [] }, null);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/^Good (morning|afternoon|evening)$/);
+    expect(within(screen.getByRole("region", { name: "Equipment requests" })).getAllByRole("listitem")).toHaveLength(5);
   });
 });

@@ -1,125 +1,143 @@
 import Link from "next/link";
-import { ChevronRight, CircleCheck, TriangleAlert } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { OUT_OF_SERVICE_DISPLAY } from "@/lib/status";
-import { newAssignments, outOfService } from "@/lib/technicalSupportDashboard";
+import { Box, TriangleAlert } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { StatusBadge, StatusIcon } from "@/components/ui/status-badge";
+import { cn } from "@/lib/utils";
+import { OUT_OF_SERVICE_DISPLAY, type StatusTone } from "@/lib/status";
+import { requestRows, shortDate, type RequestRow } from "@/lib/technicalSupportDashboard";
 import type { TechnicalSupportDashboardData } from "@/lib/technicalSupportDashboardServer";
 
-// How many rows a card shows before pointing at the full page.
-const SHOWN = 5;
+// The mock-up lists five requests and four items.
+const SHOWN_REQUESTS = 5;
+const SHOWN_ITEMS = 4;
 
 const Unavailable = () => (
-  <p className="flex items-center gap-2 text-base font-medium text-status-warning-fg">
+  <p className="flex items-center gap-2 p-4 text-base font-medium text-status-warning-fg">
     <TriangleAlert className="size-5 shrink-0" aria-hidden="true" />
     Unavailable
   </p>
 );
 
-const rowLink =
-  "flex items-center gap-3 rounded-lg border border-transparent px-3 py-3 outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
+const TILE: Record<StatusTone, string> = {
+  neutral: "bg-status-neutral text-status-neutral-fg",
+  info: "bg-status-info text-status-info-fg",
+  warning: "bg-status-warning text-status-warning-fg",
+  success: "bg-status-info text-status-info-fg",
+  danger: "bg-status-danger text-status-danger-fg",
+};
+
+/** What the row says under the title: what is short, or where the equipment goes. */
+function peek({ request, free, availability }: RequestRow): string {
+  if (availability?.label === "Unavailable") return `Needs ${request.quantity} · none free on ${shortDate(request.eventDate)}`;
+  if (availability?.label === "Partial") return `Needs ${request.quantity} · ${free} free on ${shortDate(request.eventDate)}`;
+  return [request.venueName, shortDate(request.eventDate)].filter(Boolean).join(" · ");
+}
+
+/** The row's one action: reply when nothing is free, reserve what is free for a partial, otherwise reserve. All open the request. */
+function action({ request, free, availability }: RequestRow): { label: string; primary: boolean } {
+  if (availability?.label === "Unavailable") return { label: "Reply to coordinator", primary: true };
+  if (availability?.label === "Partial") return { label: `Reserve ${free}`, primary: false };
+  return { label: availability ? "Reserve" : "Review", primary: false };
+}
+
+/** Free units against the total: red when none, amber when under a third, otherwise the brand colour. */
+function stockTone(available: number, total: number): string {
+  if (available === 0) return "bg-status-danger-fg";
+  return available / total < 1 / 3 ? "bg-status-warning-fg" : "bg-primary";
+}
 
 /**
- * SCRUM-164 (Figma 18): the Technical Support Staff Home. What to do first (new on-site assignments), the equipment
- * requests waiting with their count linking to the queue, and the items out of service. A source that failed
- * (undefined) is shown as unavailable, never as 0 or "nothing to do".
+ * SCRUM-164 (Figma 18): the Technical Support Staff Home below the figures: the waiting equipment requests, each with how
+ * much is free for it, and this day's stock. A source that failed (undefined) is shown as unavailable, never as 0.
  */
-export function TechnicalSupportDashboardOverview({ requests, items, notifications }: TechnicalSupportDashboardData) {
-  const assignments = notifications && newAssignments(notifications);
-  const out = items && outOfService(items);
+export function TechnicalSupportDashboardOverview({ requests, items }: TechnicalSupportDashboardData) {
+  const rows = requests && requestRows(requests, items);
 
   return (
-    <>
-      <section aria-labelledby="needs-your-action" className="space-y-3">
-        <h2 id="needs-your-action" className="font-heading text-xl font-bold">Needs your action</h2>
-        {!assignments && <Unavailable />}
-        {assignments?.length === 0 && (
-          <p className="flex items-center gap-3 rounded-xl bg-muted p-4 text-base font-medium">
-            <CircleCheck className="size-6 shrink-0 text-status-success-fg" aria-hidden="true" />
-            No new on-site assignments. You are all caught up.
-          </p>
-        )}
-        {!!assignments?.length && (
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-            {assignments.slice(0, SHOWN).map((n) => (
-              <li key={n.id}>
-                <Link href="/notifications" aria-label={`Open ${n.title}`} className={rowLink}>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-base font-semibold">{n.title}</span>
-                    <span className="block text-sm text-muted-foreground">{n.message}</span>
-                  </span>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-        {assignments && assignments.length > SHOWN && (
-          <p className="text-sm text-muted-foreground">
-            Showing {SHOWN} of {assignments.length}. See the rest in <Link className="underline" href="/notifications">Notifications</Link>.
-          </p>
-        )}
-      </section>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section aria-labelledby="equipment-requests" className="space-y-3">
-          <h2 id="equipment-requests" className="font-heading text-xl font-bold">Equipment requests</h2>
-          <Card>
-            <CardContent className="space-y-3">
-              {!requests ? (
-                <Unavailable />
-              ) : requests.length === 0 ? (
-                <p className="text-base text-muted-foreground">No requests waiting for action.</p>
-              ) : (
-                <ul className="space-y-1">
-                  {requests.slice(0, SHOWN).map((r) => (
-                    <li key={r.id}>
-                      <Link href={`/equipment-requests/${r.id}`} className={rowLink}>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-base font-medium">{r.eventName} · {r.equipment} ×{r.quantity}</span>
-                          <span className="block text-sm text-muted-foreground">{[r.venueName, r.eventDate].filter(Boolean).join(" · ")}</span>
-                        </span>
-                        {r.updated && <StatusBadge tone="info" label="Updated" icon="repeat" />}
-                        <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Link href="/equipment-requests" className="inline-flex items-center gap-1 rounded-lg px-3 text-base font-medium text-fg-primary underline-offset-4 hover:underline">
-                {requests ? `View all ${requests.length} ${requests.length === 1 ? "request" : "requests"}` : "View equipment requests"}
-                <ChevronRight className="size-4" aria-hidden="true" />
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[2fr_1fr]">
+      <Card className="gap-0 py-0">
+        <section aria-labelledby="equipment-requests">
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <h2 id="equipment-requests" className="font-heading text-lg font-bold">Equipment requests</h2>
+            {requests && (
+              <Link
+                href="/equipment-requests"
+                aria-label={`${requests.length} equipment ${requests.length === 1 ? "request" : "requests"}, open the review queue`}
+                className="rounded-full bg-status-info px-2 text-xs font-semibold text-status-info-fg tabular-nums hover:underline"
+              >
+                {requests.length}
               </Link>
-            </CardContent>
-          </Card>
+            )}
+          </div>
+          {!rows ? (
+            <Unavailable />
+          ) : rows.length === 0 ? (
+            <p className="p-4 text-base text-muted-foreground">No requests waiting for action.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {rows.slice(0, SHOWN_REQUESTS).map((row) => {
+                const { request, availability } = row;
+                const act = action(row);
+                return (
+                  <li key={request.id} className="flex items-center gap-3 p-4">
+                    <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", TILE[availability?.tone ?? "info"])} aria-hidden="true">
+                      {availability?.tone === "danger" || availability?.tone === "warning" ? <TriangleAlert className="size-5" /> : <Box className="size-5" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{request.eventName} · {request.equipment}</span>
+                      <span className="block text-xs text-muted-foreground">{peek(row)}</span>
+                    </span>
+                    {availability && <StatusBadge {...availability} />}
+                    <Link
+                      href={`/equipment-requests/${request.id}`}
+                      aria-label={`${act.label}: ${request.eventName}, ${request.equipment}`}
+                      className={buttonVariants({ variant: act.primary ? "default" : "outline", size: "sm" })}
+                    >
+                      {act.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
+      </Card>
 
-        <section aria-labelledby="out-of-service" className="space-y-3">
-          <h2 id="out-of-service" className="font-heading text-xl font-bold">Out of service</h2>
-          <Card>
-            <CardContent className="space-y-3">
-              {!out ? (
-                <Unavailable />
-              ) : out.length === 0 ? (
-                <p className="text-base text-muted-foreground">Everything in the catalogue is working.</p>
-              ) : (
-                <ul className="space-y-1">
-                  {out.slice(0, SHOWN).map((i) => (
-                    <li key={i.id} className="flex items-center gap-3 px-3 py-3">
-                      <span className="min-w-0 flex-1 text-base font-medium">{i.name}</span>
-                      <StatusBadge {...OUT_OF_SERVICE_DISPLAY[i.outOfService]} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Link href="/equipment-inventory" className="inline-flex items-center gap-1 rounded-lg px-3 text-base font-medium text-fg-primary underline-offset-4 hover:underline">
-                View inventory
-                <ChevronRight className="size-4" aria-hidden="true" />
-              </Link>
-            </CardContent>
-          </Card>
+      <Card className="gap-0 py-0">
+        <section aria-labelledby="stock" className="space-y-4 p-4">
+          <h2 id="stock" className="font-heading text-lg font-bold">Stock today</h2>
+          {!items ? (
+            <Unavailable />
+          ) : items.length === 0 ? (
+            <p className="text-base text-muted-foreground">The catalogue has no equipment yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {items.slice(0, SHOWN_ITEMS).map((i) => (
+                <li key={i.id} className="space-y-1.5">
+                  <p className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-semibold">{i.name}</span>
+                    {i.outOfService ? (
+                      <span className="flex items-center gap-1 font-semibold">
+                        <StatusIcon {...OUT_OF_SERVICE_DISPLAY[i.outOfService]} />
+                        {OUT_OF_SERVICE_DISPLAY[i.outOfService].label}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">{i.available} of {i.total} free</span>
+                    )}
+                  </p>
+                  <Progress
+                    value={i.total === 0 ? 0 : (i.available / i.total) * 100}
+                    aria-label={`${i.name}: ${i.available} of ${i.total} free`}
+                    indicatorClassName={stockTone(i.available, i.total)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }

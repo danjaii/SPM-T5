@@ -31,6 +31,8 @@ export interface LeadKpi {
   note: string;
   /** The oldest wait is a warning, not good news, so it is drawn apart (icon and text, not colour alone). */
   warn?: boolean;
+  /** SCRUM-164: the note links here, in the danger colour with an arrow (Figma 18's Shortages). */
+  href?: string;
 }
 
 /**
