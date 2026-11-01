@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { FLAG_DISPLAY } from "@/lib/status";
-import type { QueueItemView } from "@/lib/bookingQueue";
+import { timingNote, type QueueItemView } from "@/lib/bookingQueue";
 import { currentBlocks, decisionRows, dayMonth, todaysBookings, venueStaffKpis, weekdayDate, type ScheduleItemView, type VenueBlockView } from "@/lib/venueStaffDashboard";
 import { LeadKpiCards } from "./LeadKpiCards";
 
@@ -117,7 +117,8 @@ export function VenueStaffDashboardOverview({ requests, schedule, blocks, now = 
                       <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums">{b.startTime}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-semibold">{b.eventName}</span>
-                        <span className="block text-xs text-muted-foreground">{b.venueName}</span>
+                        <span className="block text-xs text-muted-foreground">{b.venueName} · {b.startTime}–{b.endTime}</span>
+                        {timingNote(b) && <span className="block text-xs text-muted-foreground">{timingNote(b)}</span>}
                       </span>
                       <StatusBadge tone="success" label="Confirmed" />
                     </li>
@@ -127,6 +128,7 @@ export function VenueStaffDashboardOverview({ requests, schedule, blocks, now = 
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-semibold">{b.venueName} unavailable</span>
                         <span className="block text-xs text-muted-foreground">{b.reasonLabel} {dayMonth(b.start)}–{dayMonth(b.end)}</span>
+                        <span className="block text-xs text-muted-foreground">Not available for new bookings in this period</span>
                       </span>
                       <StatusBadge {...FLAG_DISPLAY.venue_unavailable} />
                     </li>
