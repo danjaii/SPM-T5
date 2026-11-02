@@ -106,3 +106,30 @@ export function toQueueDetail(
     suggestion: null,
   };
 }
+
+/** SCRUM-163: an approved booking on the Venue Staff dashboard's schedule. Date and times are Singapore time. */
+export interface ScheduleItem {
+  id: string;
+  venueId: string;
+  venueName: string;
+  eventName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  setupMinutes: number;
+  turnaroundMinutes: number;
+}
+
+export function toScheduleItem(b: BookingRecord, venueName: string, timing: VenueTiming = { setupMinutes: 0, turnaroundMinutes: 0 }): ScheduleItem {
+  return {
+    id: b.id,
+    venueId: b.venueId,
+    venueName,
+    eventName: b.snapshot.eventName,
+    date: utcToSgt(b.start).date,
+    startTime: utcToSgt(b.start).time,
+    endTime: utcToSgt(b.end).time,
+    setupMinutes: timing.setupMinutes,
+    turnaroundMinutes: timing.turnaroundMinutes,
+  };
+}
