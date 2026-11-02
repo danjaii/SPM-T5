@@ -59,6 +59,13 @@ describe("SCRUM-57/AC2,AC3 what the database refuses becomes the right answer", 
     await expect(facility.writer.create(input)).rejects.toMatchObject({ httpStatus: 422, fieldErrors: { facilityIds: expect.any(String) } });
   });
 
+  it("181-S4: a layout type deleted between opening the form and saving (a foreign key refusal) is a 422 on layouts", async () => {
+    const { writer } = writerWith({ error: { code: "23503", message: "violates foreign key constraint" } });
+
+    await expect(writer.create(input)).rejects.toMatchObject({ httpStatus: 422, fieldErrors: { layouts: expect.any(String) } });
+    await expect(writer.update("venue-9", input)).rejects.toMatchObject({ httpStatus: 422, fieldErrors: { layouts: expect.any(String) } });
+  });
+
   it("57-S1: any other database error is thrown as it is, so the service answers 500 without details", async () => {
     const { writer } = writerWith({ error: { code: "XX000", message: "boom" } });
     const failure = await writer.create(input).catch((e: unknown) => e);
