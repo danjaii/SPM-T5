@@ -7,6 +7,9 @@ User story for **[Venue Catalogue] Maintain Room Layout Types** (ConnectSphere, 
   **[PROPOSED]** (confirm the numbering with the PO). The ID form is `<story>-S<n>` because `scripts/traceability` only
   recognises that form.
 - Markers: **[DECIDED]** settled by an earlier spec or the schema. **[PROPOSED]** a default, confirm or change.
+- **Confirmed 2026-11-02:** the team took every default marked **[PROPOSED]** below and in the open questions (definer functions, case-insensitive
+  names with a 60-character limit, description not editable, event requests and drafts block a delete as a count, stored text not
+  rewritten on a rename, a button and a link with no sidebar item, `DELETE` with CORS updated). Scenario n is AC n, as written in the Jira story.
 
 | Key | Title | Depends on |
 | --- | --- | --- |
