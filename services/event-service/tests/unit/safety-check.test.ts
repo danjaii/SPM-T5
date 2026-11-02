@@ -279,3 +279,35 @@ describe("SCRUM-99/AC4 when the database refuses the decision", () => {
     expect(res.body).toEqual({ error });
   });
 });
+
+describe("SCRUM-165 Safety Officer Home (GET /safety-checks/home)", () => {
+  it("SCRUM-165/AC1 gives a Safety Officer the home the database builds, not an event called home", async () => {
+    const home = { ready: [], waiting_on_coordinator: 0, approved_this_month: 0, revoked_this_month: 0, recent: [] };
+    const { app, rpc } = makeApp({ data: home, error: null });
+
+    const res = await request(app).get("/safety-checks/home").set("Cookie", "cs_session=token-safety");
+
+    expect(res.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith("safety_officer_home");
+    expect(res.body).toEqual(home);
+  });
+
+  it("SCRUM-165/AC1 refuses anyone who is not a Safety Officer", async () => {
+    const { app, rpc } = makeApp({ data: {}, error: null });
+
+    const res = await request(app).get("/safety-checks/home").set("Cookie", "cs_session=token-coordinator");
+
+    expect(res.status).toBe(403);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("SCRUM-165/AC1 answers 500 with a plain message when the database fails", async () => {
+    const { app } = makeApp({ data: null, error: { message: "boom" } });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await request(app).get("/safety-checks/home").set("Cookie", "cs_session=token-safety");
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "We couldn't load your safety home. Please try again." });
+  });
+});
