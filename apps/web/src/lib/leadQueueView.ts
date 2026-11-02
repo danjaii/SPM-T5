@@ -33,6 +33,8 @@ export interface LeadKpi {
   warn?: boolean;
   /** SCRUM-163/AC1: where the figure leads, when it counts something with a page of its own. */
   href?: string;
+  /** SCRUM-164: the note links here, in the danger colour with an arrow (Figma 18's Shortages). */
+  noteHref?: string;
 }
 
 /**
