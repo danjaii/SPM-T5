@@ -61,9 +61,10 @@ afterEach(() => {
 
 describe("SCRUM-139/AC1 attendee navigation", () => {
   // Given I am an Attendee, when I sign in, then the navigation has only Browse events and My registrations
-  it("SCRUM-139/AC1 offers only Browse events and My registrations", () => {
+  it("SCRUM-139/AC1 offers only Home, Browse events and My registrations", () => {
     expect(NAV_ITEMS.attendee.map((i) => [i.label, i.href])).toEqual([
-      ["Browse events", "/dashboard/attendee"],
+      ["Home", "/dashboard/attendee"],
+      ["Browse events", "/dashboard/attendee/browse"],
       ["My registrations", "/registrations"],
     ]);
   });

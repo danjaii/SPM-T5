@@ -68,8 +68,9 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "Safety checks", href: "/safety-checks", icon: ShieldCheck, queue: "safetyQueue" },
   ],
   attendee: [
-    // SCRUM-139/AC1: the attendee's home is the List of events, so the item reads Browse events, not Home
-    { ...dashboard("attendee"), label: "Browse events", icon: Search },
+    // SCRUM-161: Home is the attendee dashboard; the List of events (SCRUM-139/AC1) is Browse events
+    dashboard("attendee"),
+    { label: "Browse events", href: "/dashboard/attendee/browse", icon: Search },
     { label: "My registrations", href: "/registrations", icon: ClipboardList },
   ],
 };
