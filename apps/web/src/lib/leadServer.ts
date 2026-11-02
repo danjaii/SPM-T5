@@ -67,7 +67,7 @@ export async function getLeadCoordinators(): Promise<{ coordinators: LeadCoordin
   return res.ok ? { coordinators: data } : { error: data.error ?? "We couldn't load your coordinators." };
 }
 
-/** SCRUM-81: one coordinator's non-closed events. Refused for a coordinator the Lead doesn't supervise. */
+/** SCRUM-81: one coordinator's non-closed events. Refused for a coordinator who is not active. */
 export async function getCoordinatorEvents(id: string): Promise<{ events: LeadCoordinatorEvent[] } | { error: string }> {
   const res = await fromEventService(`/lead/coordinators/${encodeURIComponent(id)}/events`);
   const data = await res.json();
