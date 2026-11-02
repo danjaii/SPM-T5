@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { LayoutGrid, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthAlert } from "@/components/auth/AuthParts";
@@ -36,10 +36,17 @@ export default async function VenuesPage({ searchParams }: { searchParams?: Prom
           <p className="mt-1 text-sm text-muted-foreground">Browse ConnectSphere venues, or filter them to the ones free and suitable for an event.</p>
         </div>
         {canAdd && (
-          <Link href="/venues/new" className={cn(buttonVariants())}>
-            <Plus aria-hidden="true" />
-            Add venue
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {/* SCRUM-181/AC6: the layout types are offered to Venue Staff only, like the add action. */}
+            <Link href="/venues/layout-types" className={cn(buttonVariants({ variant: "outline" }))}>
+              <LayoutGrid aria-hidden="true" />
+              Layout types
+            </Link>
+            <Link href="/venues/new" className={cn(buttonVariants())}>
+              <Plus aria-hidden="true" />
+              Add venue
+            </Link>
+          </div>
         )}
       </div>
       {event && "error" in event && <div className="mb-4"><AuthAlert tone="error">{event.error}</AuthAlert></div>}
