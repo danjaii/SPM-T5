@@ -236,15 +236,15 @@ describe("SCRUM-182/AC4 required and invalid fields (182-S4)", () => {
   });
 
   it.each([
-    ["a blank name", { name: "   " }, "name"],
-    ["a name over 120 characters", { name: "x".repeat(121) }, "name"],
-    ["a quantity of zero", { totalQuantity: 0 }, "totalQuantity"],
-    ["a quantity that is not a whole number", { totalQuantity: "2.5" }, "totalQuantity"],
-    ["a quantity over the limit", { totalQuantity: 100001 }, "totalQuantity"],
-    ["a type over 60 characters", { type: "x".repeat(61) }, "type"],
-    ["a description over 500 characters", { description: "x".repeat(501) }, "description"],
-    ["a location over 120 characters", { location: "x".repeat(121) }, "location"],
-  ])("182-S4: %s is a 422 on the %s field, on add and on edit, and the store is not called", async (_label, extra, field) => {
+    ["a blank name", "name", { name: "   " }],
+    ["a name over 120 characters", "name", { name: "x".repeat(121) }],
+    ["a quantity of zero", "totalQuantity", { totalQuantity: 0 }],
+    ["a quantity that is not a whole number", "totalQuantity", { totalQuantity: "2.5" }],
+    ["a quantity over the limit", "totalQuantity", { totalQuantity: 100001 }],
+    ["a type over 60 characters", "type", { type: "x".repeat(61) }],
+    ["a description over 500 characters", "description", { description: "x".repeat(501) }],
+    ["a location over 120 characters", "location", { location: "x".repeat(121) }],
+  ])("182-S4: %s is a 422 on the %s field, on add and on edit, and the store is not called", async (_label, field, extra) => {
     const t = setup();
 
     const add = await t.add(newItem(extra));

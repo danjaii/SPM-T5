@@ -105,19 +105,19 @@ describe("SCRUM-182/AC4 required and invalid fields (182-S4)", () => {
   });
 
   it.each([
-    ["a blank name", { name: "   " }, "name"],
-    ["a name that is not text", { name: 5 }, "name"],
-    ["a name over the limit", { name: "x".repeat(EQUIPMENT_NAME_MAX_LENGTH + 1) }, "name"],
-    ["a type over the limit", { type: "x".repeat(EQUIPMENT_TYPE_MAX_LENGTH + 1) }, "type"],
-    ["a description over the limit", { description: "x".repeat(EQUIPMENT_DESCRIPTION_MAX_LENGTH + 1) }, "description"],
-    ["a location over the limit", { location: "x".repeat(EQUIPMENT_LOCATION_MAX_LENGTH + 1) }, "location"],
-    ["a quantity of zero", { totalQuantity: 0 }, "totalQuantity"],
-    ["a negative quantity", { totalQuantity: "-3" }, "totalQuantity"],
-    ["a fractional quantity", { totalQuantity: "2.5" }, "totalQuantity"],
-    ["a quantity in words", { totalQuantity: "ten" }, "totalQuantity"],
-    ["a quantity over the limit", { totalQuantity: EQUIPMENT_QUANTITY_MAX + 1 }, "totalQuantity"],
-    ["a missing quantity", { totalQuantity: undefined }, "totalQuantity"],
-  ])("182-S4: %s is refused on the %s field and nothing else", (_label, extra, field) => {
+    ["a blank name", "name", { name: "   " }],
+    ["a name that is not text", "name", { name: 5 }],
+    ["a name over the limit", "name", { name: "x".repeat(EQUIPMENT_NAME_MAX_LENGTH + 1) }],
+    ["a type over the limit", "type", { type: "x".repeat(EQUIPMENT_TYPE_MAX_LENGTH + 1) }],
+    ["a description over the limit", "description", { description: "x".repeat(EQUIPMENT_DESCRIPTION_MAX_LENGTH + 1) }],
+    ["a location over the limit", "location", { location: "x".repeat(EQUIPMENT_LOCATION_MAX_LENGTH + 1) }],
+    ["a quantity of zero", "totalQuantity", { totalQuantity: 0 }],
+    ["a negative quantity", "totalQuantity", { totalQuantity: "-3" }],
+    ["a fractional quantity", "totalQuantity", { totalQuantity: "2.5" }],
+    ["a quantity in words", "totalQuantity", { totalQuantity: "ten" }],
+    ["a quantity over the limit", "totalQuantity", { totalQuantity: EQUIPMENT_QUANTITY_MAX + 1 }],
+    ["a missing quantity", "totalQuantity", { totalQuantity: undefined }],
+  ])("182-S4: %s is refused on the %s field and nothing else", (_label, field, extra) => {
     const parsed = parseEquipmentInput(complete(extra));
 
     expect(parsed.ok).toBe(false);
