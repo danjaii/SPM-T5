@@ -275,15 +275,15 @@ describe.skipIf(!hasDb)("SCRUM-182 Technical Support Staff maintain the equipmen
 
   describe("SCRUM-182/AC4 required and invalid fields (182-S4)", () => {
     it.each([
-      [a blank name, name, { p_name: "   " }],
-      [a name over 120 characters, name, { p_name: "x".repeat(121) }],
-      [a type over 60 characters, type, { p_type: "x".repeat(61) }],
-      [a description over 500 characters, description, { p_description: "x".repeat(501) }],
-      [a location over 120 characters, location, { p_location: "x".repeat(121) }],
-      [a quantity of zero, totalQuantity, { p_total_quantity: 0 }],
-      [a negative quantity, totalQuantity, { p_total_quantity: -2 }],
-      [a quantity over 100000, totalQuantity, { p_total_quantity: 100001 }],
-      [no quantity, totalQuantity, { p_total_quantity: null }],
+      ["a blank name", "name", { p_name: "   " }],
+      ["a name over 120 characters", "name", { p_name: "x".repeat(121) }],
+      ["a type over 60 characters", "type", { p_type: "x".repeat(61) }],
+      ["a description over 500 characters", "description", { p_description: "x".repeat(501) }],
+      ["a location over 120 characters", "location", { p_location: "x".repeat(121) }],
+      ["a quantity of zero", "totalQuantity", { p_total_quantity: 0 }],
+      ["a negative quantity", "totalQuantity", { p_total_quantity: -2 }],
+      ["a quantity over 100000", "totalQuantity", { p_total_quantity: 100001 }],
+      ["no quantity", "totalQuantity", { p_total_quantity: null }],
     ])("182-S4: %s is refused on the %s field on add and on edit, and nothing is written", async (_label, field, extra) => {
       const item = await newItem(`invalid-${tag()}`);
       const added = `${prefix}-never-${tag()}`;
