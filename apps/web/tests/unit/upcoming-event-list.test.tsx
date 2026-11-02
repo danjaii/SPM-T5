@@ -20,6 +20,7 @@ function anEvent(overrides: Partial<UpcomingEvent> = {}): UpcomingEvent {
     category: "Conference",
     coordinator: "Rachel Tan",
     available_slots: 40,
+    can_register: (overrides.availability ?? "open") === "open",
     ...overrides,
   };
 }
@@ -151,13 +152,20 @@ describe("SCRUM-71 — List of events cards", () => {
     expect(within(card).queryByRole("link", { name: "Register" })).toBeNull();
   });
 
-  // SCRUM-83/AC4: when Confirmed registrations equal the capacity, the attendee sees "Event full" and can't register
-  it("SCRUM-83/AC4 hides Register and says the event is full on a full event", () => {
-    render(<UpcomingEventList events={[anEvent({ availability: "full" })]} />);
+  // SCRUM-169/AC2 replaces SCRUM-83/AC4's hidden button: a full event says so, and can still be registered for, as Pending
+  it("SCRUM-169/AC2 says the event is full and still offers Register while its window is open", () => {
+    render(<UpcomingEventList events={[anEvent({ availability: "full", can_register: true })]} />);
 
     const card = screen.getByRole("article");
     expect(within(card).getByText(/event full/i)).toBeTruthy();
-    expect(within(card).queryByRole("link", { name: "Register" })).toBeNull();
+    expect(within(card).getByRole("link", { name: "Register" })).toBeTruthy();
+  });
+
+  // SCRUM-169/AC2: "Event Full" outranks "Registration Closed", so a full event past its window still has no Register
+  it("SCRUM-169/AC2 hides Register on a full event whose registration has closed", () => {
+    render(<UpcomingEventList events={[anEvent({ availability: "full", can_register: false })]} />);
+
+    expect(screen.queryByRole("link", { name: "Register" })).toBeNull();
   });
 
   // AC10: with an active registration, the card shows its status instead of the Register button

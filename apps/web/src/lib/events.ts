@@ -28,6 +28,8 @@ export interface EventDetailView extends EventStatusView {
   accessibility_requirements: string | null;
   equipment_requirements_notes: string | null;
   submitted_at: string | null;
+  /** SCRUM-53/AC3: when the request was last saved; shown for a draft. */
+  updated_at?: string | null;
   organiser_name: string | null;
   /** SCRUM-42/AC5: the assigned coordinator's name, or null while unassigned. */
   point_of_contact_name: string | null;

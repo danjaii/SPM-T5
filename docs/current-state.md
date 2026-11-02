@@ -24,7 +24,7 @@ venue requirements, more people than the venue holds is flagged (`exceedsCapacit
 spec in `docs/specs/change-cancel-venue-booking.md`), through the security definer functions `change_venue_booking()` and
 `cancel_venue_booking()` (migration 30), only by the event's current coordinator and only before the event is Confirmed. A
 change sends it back to PENDING and moves its equipment requests to the new time, back to Submitted; cancelling releases its
-equipment requests (`cancelled`, shown as Released). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
+equipment requests (`cancelled`, shown as Released). Venue Staff add a venue (SCRUM-57; spec in `docs/specs/venue-add.md`, migration 73): `POST /venues` saves it through `create_venue()`, which writes the venue, its layouts and its facilities in one transaction (nobody can delete a venue, so a half-made one could not be cleaned up), `GET /venues/:id` says `can_manage_catalogue`, `/venues/new` is the form, and duplicate names are allowed. Venue Staff edit one (SCRUM-58; spec in `docs/specs/venue-edit.md`, migration 74): `PUT /venues/:id` saves it through `update_venue()` (same all-or-nothing save; setup and turnaround times are left to `set_venue_timing()`), `GET /venues/:id/edit` fills the form at `/venues/[id]/edit`, and a capacity cut that leaves a holding booking over capacity answers 409 `CONFIRM_IMPACT` with the bookings until sent again with `confirmImpact: true` (proposed; the customer has not answered). Venue search (SCRUM-65; spec in `docs/specs/venue-search.md`) adds `GET /venues/search` backed by the
 `available_venues` database function (`18_venue_search.sql`). Each venue has a setup and a turnaround time in whole minutes (SCRUM-101; spec in `docs/specs/venue-setup-turnaround.md`, migration 26): Venue Staff edit them on the venue detail page through `PUT /venues/:id/timing`, coordinators only read them, and they pad every booking (SCRUM-103; spec in `docs/specs/venue-padded-occupancy.md`, migration 27): a request, amendment or change is refused when its setup and turnaround overlap another booking's, the refusal names the occupied period, and `GET /venues/:id/availability` shows setup and turnaround apart from the event. Raising a venue's times flags the existing bookings that now clash (SCRUM-104; spec in `docs/specs/venue-buffer-conflicts.md`, migration 36): `set_venue_timing()` writes `venue_booking_flags` rows in the same transaction and `PUT /venues/:id/timing` lists the pairs, a flagged booking keeps its status but shows "Buffer conflict" to its coordinator and cannot be approved (`BOOKING_FLAGGED`, trigger code `CS104`; reject still works). Venue Staff can mark a venue temporarily unavailable (SCRUM-105; spec in `docs/specs/venue-unavailability.md`, migrations 38 and 39): only the `mark_venue_unavailable()` function writes `venue_unavailability`, a new request whose padded period touches a block is refused with `VENUE_UNAVAILABLE` (SQLSTATE `CS105`). The holding, future bookings already inside a new block are flagged "Venue unavailable – alternative needed" (SCRUM-106; spec in `docs/specs/venue-unavailability-flags.md`, migration 46): a trigger on `venue_unavailability` writes the `venue_booking_flags` rows inside `mark_venue_unavailable()` (which now returns the block id and `flagged_count`, and `POST /venues/:id/unavailability` adds `affectedBookings`), a second trigger writes one `venue_booking_flagged` notification for the event's assigned coordinator in the same transaction (ADR 0002), the booking and its event are untouched, and SCRUM-104's guard already stops a flagged Pending request being approved (reject still works). The assigned coordinator can then request a replacement venue for such a booking (SCRUM-107; spec in `docs/specs/replacement-venue.md`, migrations 47 and 48): `GET /venue-bookings/:id/replacement-candidates` lists the free venues big enough and `POST /venue-bookings/:id/replacement` creates a PENDING request linked to the original (even on a Confirmed event), and when Venue Staff approve it the `venue_booking_take_over()` trigger makes the original `replaced`, resolves its flag as `replaced` and moves its equipment requests to the replacement, back to Submitted. A venue can be checked against an event (SCRUM-109; spec in `docs/specs/venue-suitability.md`): `GET /venue-suitability` runs the shared `checkSuitability` (capacity, layout, operating hours and availability are judged; facilities and accessibility text are not checked yet). SCRUM-40 (suggested alternative) is not built: the
 `Decision` type and `suggested_*` columns are its seam.
 
@@ -59,7 +59,10 @@ the event's assigned coordinator reviews it (SCRUM-67; spec in `docs/specs/revie
 (`readChangeRequest()` in `packages/shared/src/changeRequestReview.ts`), and `review_change_request()` either rejects it with a
 required reason or approves it through `update_event_details()` in the same transaction, so an approval is recorded in the
 change history and sends the affected arrangements back for review (SCRUM-112/113). A request the event has moved on from, or
-one with a field the system cannot apply, can only be rejected. The assigned coordinator edits an event's details
+one with a field the system cannot apply, can only be rejected. An organiser cannot send a request that changes what one of
+their pending requests already changes (SCRUM-176; spec in `docs/specs/conflicting-change-request.md`, migration 67): the
+shared `changeRequestConflicts()` counts start and end time as one thing, the route answers 409 `CONFLICTING_REQUEST` naming what
+waits, a database trigger refuses the same insert (CS176), and the form says up front what is waiting. The assigned coordinator edits an event's details
 (SCRUM-111; spec in `docs/specs/edit-event-details.md`, `routes/eventDetails.ts`, migration 34): ordinary fields (name, description,
 purpose, category) and important ones (dates and times, attendance, layout, accessibility, venue and equipment requirements; the
 lists are in `packages/shared/src/eventDetails.ts`), not for a completed, cancelled or rejected event. `update_event_details()` saves
@@ -103,15 +106,38 @@ migration 43) moves the event back to planning; once the coordinator returns it 
 arrangements complete, it is back in the queue for another check. The event's coordinator and organiser see every
 safety decision on the event page (`GET /events/:id/safety-decisions`, `event_safety_decisions()`). An important change to an
 approved event revokes the approval (`safety_checks.revoked_at`, migration 43's trigger), so it needs another check; a
-confirmed event goes back to awaiting arrangements. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
+confirmed event goes back to awaiting arrangements. Reject now returns the event to planning as Request Changes does, and the
+last venue booking or equipment request approved moves a planning event to awaiting arrangements by itself, so it enters the
+queue with no manual step (SCRUM-171; same spec, migration 66, `event_arrangements_complete()`).
+The assigned coordinator cancels an event by setting it to Cancelled with a
+required reason (SCRUM-174; spec in `docs/specs/cancel-event.md`, migrations 60 to 63): in the same transaction, triggers cancel its
+active venue bookings, release its equipment requests and on-site technician assignments, close its pending change requests (as
+`rejected`, also when the event is completed), and SCRUM-172's migration 65 notifies the organiser and every registered or waitlisted attendee
+(`event_cancelled`); a cancelled event cannot change status again, and a completed or rejected one cannot be cancelled (CS174).
+Guarded status transitions were considered and not built, because the customer said status progression is flexible; see
+`docs/scope-decisions.md`. Organisers and coordinators see the registrations of the events they manage on `/registrations-overview`
 (SCRUM-74): `GET /events/managed` lists an organiser's own or a coordinator's assigned events, and the page shows the chosen
-event's registrations newest first, with a summary in which only Confirmed registrations use a slot.
+event's registrations newest first, with a summary in which only Confirmed registrations use a slot. A registration is Confirmed
+straight away while places remain and Pending once the event is full (SCRUM-169, migration 68): `register_for_event()` locks the event
+row so two attendees can't both take the last place, and a full event still offers Register (`can_register`). On that page the event's
+organiser confirms or declines each Pending one (`POST /events/:id/registrations/:registrationId/decision`, `decide_registration()`);
+confirming on a full event is refused (`EVENT_FULL`, SQLSTATE `CS169`), and withdrawing frees a place without promoting anyone.
+The organiser can also add a VIP past the cap there, by the email of an attendee account (SCRUM-170, migration 69): `POST
+/events/:id/vip-registrations` calls `add_vip_registration()`, which only the event's organiser can use and which refuses at the smallest
+approved venue's capacity (`VENUE_FULL`, SQLSTATE `CS170`). A Pending attendee is confirmed on their own row, the VIP gets the usual status
+notification, and `event_registrations.is_vip` shows a VIP label to the organiser and coordinator. A VIP uses a place like anyone else.
 
 Users can view and manage their own in-app notifications (SCRUM-46; spec in `docs/specs/notifications.md`, ADR 0002):
 `notification-service` serves `GET /notifications`, `GET /notifications/unread-count` and `POST /notifications/:id/read`,
-`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell in every signed-in page's header (`AppHeader`, `NotificationBell`) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
+`notifications` is own-rows RLS (migration 35), the page is `/notifications`, and the bell (`NotificationBell`, in the app shell's sidebar and in `AppHeader`, the top bar some pages still render) shows the unread count and a dropdown of them that links to it. SCRUM-47 (spec in
 `docs/specs/receive-notifications.md`, migration 44) adds the producers, triggers that write each row in the same transaction as
 its change: a coordinator's assignment, an event request's approval or rejection, a comment mention or reply (one per person,
 never the author; comments are saved through `post_event_comment()`), a clarification request and the organiser's answer (a
 comment the assigned coordinator flags, `event_comments.is_clarification_request`), and a safety decision. Each item carries
-`actionRequired` (`notificationRequiresAction()` in `packages/shared`).
+`actionRequired` (`notificationRequiresAction()` in `packages/shared`). SCRUM-172 (same spec, migration 65) adds the remaining
+producers, also triggers: a submitted request tells every active Lead; a venue booking approved or rejected tells the assigned
+coordinator; an important change tells the organiser and coordinator; a registration status change tells the attendee; a confirmed
+event tells the organiser and coordinator; a cancelled one tells them and the attendees; a buffer conflict tells the coordinator of
+each flagged booking; a replacement venue tells the organiser and attendees. Nobody is told about their own action, and a withdrawn
+attendee hears nothing (`event_update_attendees()`, kept equal to `receivesEventUpdates()` by a test). An attendee's event
+notification opens `/registrations`, because the event page refuses them.

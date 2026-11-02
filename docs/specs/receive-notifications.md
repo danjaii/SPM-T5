@@ -65,6 +65,39 @@ These override the text below where they conflict.
   `safety_approved`, `safety_rejected`, `safety_changes_requested`, `clarification_requested` and
   `clarification_answered`. **[DECIDED]**
 
+## Implementation decisions for SCRUM-172 (2026-10-30)
+
+SCRUM-172 adds the producers SCRUM-47 left out, in `65_notification_producers_remaining.sql`, with the same pattern. Who hears
+of AC6, AC7 and AC8 has customer backing (W9 r19, r47, r52). The recipients of AC1 to AC5 do not. **[PROPOSED]**
+
+- **Never the person who did it.** Only AC3 says so, but the team applied it to every criterion, so a coordinator who confirms
+  or cancels an event is not told, and neither is an attendee who withdraws. This departs from the wording of AC4, AC5 and AC6.
+  Withdrawing is the only registration status change in the app today, so AC4 is proven by a database test and reaches people
+  once SCRUM-169 adds the organiser's confirm and decline. **[DECIDED]**
+- **AC1, AC5, AC6 are on `event_status_history`**, in `notify_event_status_change()`, beside migration 44's decisions. A request
+  counts as submitted from no status, `draft` or `returned`, so moving an event back during review does not. A row that does not
+  match the event's current status is ignored, because migration 14's policy lets a coordinator insert history rows directly.
+  **[DECIDED]**
+- **AC3 is on `event_change_history`** where `is_important`, so a change request the coordinator approves counts as well. The
+  message names the fields as `EVENT_FIELD_LABELS` does; a test keeps the two equal. **[DECIDED]**
+- **AC4 is on `event_registrations`**, in the attendee's words (Pending, Confirmed, Rejected, Withdrawn). **[DECIDED]**
+- **AC2 is a Pending request becoming approved or rejected.** The notice opens the booking. **[DECIDED]**
+- **AC7 is one notification per flagged booking**, however many bookings it clashes with, through a statement trigger on
+  `venue_booking_flags`. It uses the `venue_booking_flagged` type, titled "Buffer conflict", and never names the other event.
+  **[DECIDED]**
+- **AC8 fires when a booking becomes `replaced`**, which only happens for a real replacement, so an ordinary amendment does not
+  announce one. The coordinator hears through AC2. **[DECIDED]**
+- **AC9.** `event_update_attendees()` is the database's copy of `receivesEventUpdates()`: `waitlisted` and `registered` only. A
+  test keeps the two equal for all four statuses. A registration already withdrawn notifies nobody when it changes. **[DECIDED]**
+- **An attendee's event notification opens `/registrations`.** They can see the event's name, but `GET /events/:id` refuses them.
+  **[DECIDED]**
+- **Action needed** adds `event_submitted` (a Lead assigns a coordinator) and `venue_booking_rejected` (the coordinator finds
+  another venue). **[PROPOSED]**
+- **Types.** `NOTIFICATION_TYPES` gains `venue_booking_approved`, `venue_booking_rejected`, `event_changed`,
+  `registration_status_changed`, `event_cancelled` and `venue_replaced`. **[DECIDED]**
+- **For whoever builds the cancel route** (`REQUIREMENTS_STATUS.md` task 4): if cancelling also moves registrations to
+  `cancelled`, an attendee gets both `event_cancelled` and `registration_status_changed` unless that work prevents it.
+
 ---
 
 ## SCRUM-47 Receive Relevant Notifications
@@ -131,3 +164,56 @@ Database tests are in `services/event-service/tests/integration/receiveNotificat
 | 47-S10 | Approving an already approved event notifies nobody; a comment the database refuses is answered 403 with no attachment saved (AC10). |
 | 47-S11 | A rejection's message names the event and gives the reason; `notificationRequiresAction` by type; the service returns `actionRequired`; the page shows "Action needed" only where it is true; the header bell shows the unread count, opens the list, marks a chosen one read and opens it, says when the list is empty or can't load, links to the full page and closes on Escape or an outside click; the dashboard and every page header have it (AC11). |
 | 47-S12 | A Safety Approved decision notifies the coordinator and the organiser; Changes Requested carries the requested changes and needs action (AC12). |
+
+---
+
+## SCRUM-172 Notify on the remaining event, venue and registration changes
+
+**User story.** As a user involved in an event, I want an in-app notification when something I depend on changes, so that I can
+act on it without checking each page.
+
+Out of scope: email and SMS, the "venue block lifted" notice (no way to lift a block exists yet), Mark all as read (SCRUM-144),
+and the cancel route with its required reason.
+
+### Acceptance criteria
+
+*AC1.* Given an organiser submits an event request, when it is saved, then every active Event Coordinator Lead is notified.
+
+*AC2.* Given Venue Staff approve or reject a venue booking, when the decision is saved, then the event's assigned coordinator is
+notified, with the reason on a rejection.
+
+*AC3.* Given an important event change is saved, when it commits, then the organiser and the assigned coordinator are notified,
+except whoever made the change.
+
+*AC4.* Given a registration's status changes, when it commits, then that attendee is notified.
+
+*AC5.* Given an event becomes Confirmed, when it commits, then the organiser and the assigned coordinator are notified.
+
+*AC6.* Given an event becomes Cancelled, when it commits, then the organiser, the assigned coordinator and attendees who pass
+`receivesEventUpdates()` are notified, with the reason when one was given (W9 r19).
+
+*AC7.* Given a venue's buffer change creates a conflict, when it commits, then the assigned coordinator of each flagged booking is
+notified (W9 r47).
+
+*AC8.* Given a replacement venue is approved, when it commits, then the organiser and attendees who pass `receivesEventUpdates()`
+are notified (W9 r52).
+
+*AC9.* Given an attendee has withdrawn, when any of the above happens to the event, then that attendee gets no notification.
+
+### Tests
+
+Database tests are in `services/event-service/tests/integration/notificationProducers.test.ts` and
+`services/venue-service/tests/integration/notificationProducers.test.ts`; the types and the attendee's link are in
+`packages/shared/tests/notifications.test.ts`.
+
+| ID | Scenario |
+| --- | --- |
+| 172-S1 | Submitting notifies an active Lead once and not an inactive one; resubmitting a returned request notifies; moving an event back during review does not (AC1). |
+| 172-S2 | Approving notifies the coordinator and opens the booking; rejecting carries the reason; a hold becoming approved is not a decision (AC2). |
+| 172-S3 | An important change notifies the organiser, naming the field, and not the coordinator who made it; every label equals `EVENT_FIELD_LABELS`; an ordinary or refused change notifies nobody (AC3). |
+| 172-S4 | A status change notifies the attendee in their words; their own withdrawal, or the same status again, notifies nobody; an attendee's event notification opens `/registrations` (AC4). |
+| 172-S5 | Becoming Confirmed notifies the organiser and coordinator; the coordinator who confirms is not told; a history row that is not the event's status notifies nobody (AC5). |
+| 172-S6 | Becoming Cancelled notifies the organiser and coordinator with the reason; cancelling a cancelled event notifies nobody (AC6). |
+| 172-S7 | A buffer change notifies the coordinator of each flagged booking, once per booking; the same times again, or no conflict, notifies nobody (AC7). |
+| 172-S8 | An approved replacement notifies the organiser, naming the new venue, and a registered attendee; the coordinator hears through AC2; an ordinary amendment announces nothing (AC8). |
+| 172-S9 | A cancellation reaches exactly the attendees `receivesEventUpdates()` allows, for all four statuses; a replacement skips a withdrawn attendee; a change to a withdrawn registration notifies nobody (AC9). |
