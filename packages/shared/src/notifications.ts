@@ -34,6 +34,8 @@ export const NOTIFICATION_TYPES = [
   "registration_status_changed",
   "event_cancelled",
   "venue_replaced",
+  // SCRUM-185: Venue Staff lifted an unavailable period that had flagged the coordinator's booking (migration 80)
+  "venue_block_lifted",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

@@ -46,6 +46,7 @@ const BY_TYPE: Record<NotificationType, NotificationDisplay> = {
   registration_status_changed: { icon: Users, tone: "info" },
   event_cancelled: { icon: XCircle, tone: "danger" },
   venue_replaced: { icon: RefreshCw, tone: "info" },
+  venue_block_lifted: { icon: CheckCircle2, tone: "success" },
 };
 
 export const notificationDisplay = (type: string): NotificationDisplay =>
