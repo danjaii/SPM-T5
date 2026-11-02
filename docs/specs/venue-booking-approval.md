@@ -6,8 +6,8 @@ Companion to [venue-booking-request.md](venue-booking-request.md), which holds S
 
 - Scenario numbers are the test IDs: `37-S3` means SCRUM-37, Scenario 3.
 - Markers: **[DECIDED]** the team chose it. **[PROPOSED]** a default, confirm or change.
-- **SCRUM-40 (Suggest Alternative Arrangement) is not in the current sprint.** It is only a seam here: the reject
-  body must accept an optional `suggestion` later without a breaking change.
+- **SCRUM-40 (Suggest Alternative Arrangement) was not in this sprint; it is built since** ([venue-booking-suggestion.md](venue-booking-suggestion.md)). Here it was a seam: the reject
+  body accepts an optional `suggestion` without a breaking change.
 
 | Order | Key | Title | Depends on |
 | --- | --- | --- | --- |
@@ -209,7 +209,7 @@ trimming. This story ships without the optional suggested alternative; SCRUM-40 
 
 ---
 
-## SCRUM-40 Suggest Alternative Arrangement (not this sprint)
+## SCRUM-40 Suggest Alternative Arrangement (built later)
 
 Adds an optional `suggestion` (venue, date, start, end) to the SCRUM-39 reject action. The repository's `Decision`
-type and the `suggested_*` columns already exist as the seam. Specified in full in the source stories; to be built later.
+type and the `suggested_*` columns already existed as the seam. Specified and built in [venue-booking-suggestion.md](venue-booking-suggestion.md).

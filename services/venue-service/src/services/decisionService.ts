@@ -56,15 +56,29 @@ export class DecisionService {
   /**
    * 39-S1: reject a PENDING request with a reason. Same order as approve, with the reason checked after
    * the status (39-S2, 39-S5). A rejection is final (39-S3) and releases the slot (39-S4); the event is
-   * not touched (39-S6). Any suggestion in the body is ignored until SCRUM-40.
+   * not touched (39-S6). SCRUM-40: the body may also carry a suggested alternative, which is stored with the rejection (40-S1) and
+   * is optional (40-S2). It is advice, not a hold (40-S3): only that the venue exists and is active is checked, not that it is free.
    */
   async reject(caller: Caller, id: string, body: unknown): Promise<BookingRecord> {
-    const { bookings, now } = this.deps;
+    const { bookings, venues, now } = this.deps;
     await this.loadPending(caller, id);
-    const parsed = parseRejectionInput(body);
+    const parsed = parseRejectionInput(body, now());
     if (!parsed.ok) throw validationFailed(parsed.fieldErrors);
 
-    const rejected = await bookings.decide(id, { outcome: "rejected", reason: parsed.data.reason }, caller.id, now());
+    const { reason, suggestion } = parsed.data;
+    if (suggestion) {
+      // A malformed id is the database's 22P02 (invalid_text_representation); it is just "no such venue" here.
+      const venue = await venues.getById(suggestion.venueId).catch((e: unknown) => {
+        if ((e as { cause?: { code?: string } }).cause?.code === "22P02") return null;
+        throw e;
+      });
+      if (!venue || !venue.isActive) throw validationFailed({ "suggestion.venueId": "Choose a venue from the list." });
+    }
+
+    const decision = suggestion
+      ? ({ outcome: "rejected", reason, suggestion: { venueId: suggestion.venueId, start: suggestion.start, end: suggestion.end } } as const)
+      : ({ outcome: "rejected", reason } as const);
+    const rejected = await bookings.decide(id, decision, caller.id, now());
     if (!rejected) throw bookingError("NOT_PENDING");
     return rejected;
   }

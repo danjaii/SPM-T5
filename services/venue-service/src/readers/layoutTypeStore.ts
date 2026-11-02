@@ -31,7 +31,7 @@ interface ListRow {
 }
 
 /**
- * Calls the create_layout_type, rename_layout_type and delete_layout_type database functions (migration 76) as the caller, and
+ * Calls the create_layout_type, rename_layout_type and delete_layout_type database functions (migration 79) as the caller, and
  * reads the list as the caller. The functions allow venue staff only, so RLS stays the authority; the route's role check is
  * just the friendly 403.
  */

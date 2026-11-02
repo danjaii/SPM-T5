@@ -192,8 +192,8 @@ describe("SCRUM-39/AC2 — parseRejectionInput (39-S2)", () => {
     });
   });
 
-  it("strips unknown keys, so an optional suggestion can be added later (SCRUM-40 seam)", () => {
-    expect(parseRejectionInput({ reason: "No", suggestion: { venueId: "v" }, extra: 1 })).toEqual({
+  it("strips unknown keys, and with no suggestion returns the reason alone (SCRUM-40 adds the optional suggestion)", () => {
+    expect(parseRejectionInput({ reason: "No", extra: 1 })).toEqual({
       ok: true,
       data: { reason: "No" },
     });
