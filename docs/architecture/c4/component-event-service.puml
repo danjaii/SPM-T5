@@ -92,7 +92,7 @@ Rel(reviewRoutes, supabaseDeps, "Queries events and users; calls change_event_st
 Rel(commentRoutes, supabaseDeps, "Reads/writes comments, mentions, attachments; creates signed URLs")
 Rel(assignRoutes, supabaseDeps, "Reads coordinator_assignment_logs, users and the event")
 Rel(upcomingRoutes, supabaseDeps, "Calls list_public_events() (security definer: supplies each public event's venue, Confirmed registration count and the caller's own active registration)")
-Rel(myRequestRoutes, supabaseDeps, "Calls organiser_home() (security definer, migration 74: the organiser's own events with their coordinator, approved venues, an unanswered clarification request and the latest decided change request)")
+Rel(myRequestRoutes, supabaseDeps, "Calls organiser_home() (security definer, migration 76: the organiser's own events with their coordinator, approved venues, an unanswered clarification request and the latest decided change request)")
 Rel(supabaseDeps, db, "Reads; status change + history and assignment + log each written in one transaction", "PostgREST / RPC")
 Rel(supabaseDeps, storage, "Creates signed upload and download URLs for attachments", "HTTPS")
 Rel(web, storage, "Uploads attachment files to the signed upload URL; opens them via signed download URLs", "HTTPS")

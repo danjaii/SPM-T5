@@ -30,7 +30,7 @@ export function myEventRequestRoutes(deps: SupabaseDeps) {
     return res.json(data);
   });
 
-  // SCRUM-159: the Event Organiser Home in one read (organiser_home(), migration 74). Not under /:id, so "home" is not an id.
+  // SCRUM-159: the Event Organiser Home in one read (organiser_home(), migration 76). Not under /:id, so "home" is not an id.
   router.get("/my-requests/home", requireSession(deps), async (_req, res) => {
     const { token } = res.locals.user as SessionUser;
     const { data, error } = await deps.forUser(token).rpc("organiser_home");

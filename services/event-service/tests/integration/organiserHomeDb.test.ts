@@ -5,7 +5,7 @@ import { createSupabaseDeps } from "../../src/supabase";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-159: GET /events/my-requests/home against the real database (organiser_home(), migration 74), as the signed-in user.
+ * SCRUM-159: GET /events/my-requests/home against the real database (organiser_home(), migration 76), as the signed-in user.
  * Fixtures are made with the secret key, named "IT-159-" and removed afterwards. The seeded organisers have other events too,
  * so these tests only look at their own fixtures.
  */
