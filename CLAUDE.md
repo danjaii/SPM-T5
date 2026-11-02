@@ -274,7 +274,7 @@ What each story built, with its spec, migration and diagram, is recorded in [doc
 read it for the service you are changing, and add a sentence there (not here) when a story changes what exists. In short:
 - `notification-service` is the read side of in-app notifications only (SCRUM-46); no email or SMS is sent yet.
 - The `healthCheck()` exports in `services/*/src/index.ts` are leftovers from the original scaffold.
-- Not built: SCRUM-40 (suggested alternative; the `Decision` type and `suggested_*` columns are its seam), the equipment
+- Not built: the equipment
   catalogue and request notes (SCRUM-87/AC8) and SCRUM-88/AC9.
 
 Known gaps to fix rather than work around:

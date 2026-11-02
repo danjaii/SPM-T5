@@ -50,7 +50,7 @@ export interface QueueDetail extends QueueItem {
   decidedByName: string | null;
   decidedAt: string | null;
   rejectionReason: string | null;
-  /** Reserved for SCRUM-40 (suggest an alternative); always null until then. */
+  /** A pending request has no suggestion yet: Venue Staff attach one when they reject it (SCRUM-40), so this is always null here. */
   suggestion: null;
 }
 
