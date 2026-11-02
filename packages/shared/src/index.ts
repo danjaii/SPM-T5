@@ -20,6 +20,7 @@ export * from "./venueBooking";
 export * from "./venueCalendar";
 export * from "./venueBookingFlags";
 export * from "./venueCatalogue";
+export * from "./layoutType";
 export * from "./venueSearch";
 export * from "./venueSuitability";
 export * from "./venueTiming";
