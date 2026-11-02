@@ -12,6 +12,8 @@ const INSUFFICIENT_PRIVILEGE = "42501";
 const NO_SUCH_VENUE = "P0002";
 const UNKNOWN_LAYOUT = "CS571";
 const UNKNOWN_FACILITY = "CS572";
+/** SCRUM-181: a layout type deleted between the form being opened and the save (the foreign key refuses the insert). */
+const FOREIGN_KEY_VIOLATION = "23503";
 
 /**
  * Calls the create_venue (migration 73) and update_venue (migration 74) database functions as the caller. Each writes the venue,
@@ -52,7 +54,7 @@ function params(input: VenueInput) {
 function refusal(error: { code?: string; message: string }, verb: "add" | "edit"): Error {
   if (error.code === INSUFFICIENT_PRIVILEGE) return forbidden(`Only venue staff can ${verb} a venue.`);
   if (error.code === NO_SUCH_VENUE) return notFound("Venue not found.");
-  if (error.code === UNKNOWN_LAYOUT) return validationFailed({ layouts: "One of the layouts is not in the catalogue. Choose it from the list." });
+  if (error.code === UNKNOWN_LAYOUT || error.code === FOREIGN_KEY_VIOLATION) return validationFailed({ layouts: "One of the layouts is not in the catalogue. Choose it from the list." });
   if (error.code === UNKNOWN_FACILITY) return validationFailed({ facilityIds: "One of the facilities is not in the catalogue. Choose it from the list." });
   return new Error(`Saving the venue failed: ${error.message}`, { cause: error });
 }
