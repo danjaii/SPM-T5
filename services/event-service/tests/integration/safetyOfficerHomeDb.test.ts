@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-165 against Postgres: safety_officer_home() (migration 73) behind the Safety Officer Home. Fixtures are made with
+ * SCRUM-165 against Postgres: safety_officer_home() (migration 75) behind the Safety Officer Home. Fixtures are made with
  * the secret key, named "IT-165-", dated 2031 and removed afterwards. Other test files share this database, so each check
  * is on the rows this file made, never on a whole-table count.
  */

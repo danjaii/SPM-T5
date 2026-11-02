@@ -29,7 +29,7 @@ export function safetyCheckRoutes(deps: SupabaseDeps) {
     return res.json(data ?? []);
   });
 
-  // SCRUM-165: the Safety Officer Home in one read (safety_officer_home(), migration 73). Before /:id so "home" is not an id.
+  // SCRUM-165: the Safety Officer Home in one read (safety_officer_home(), migration 75). Before /:id so "home" is not an id.
   router.get("/home", async (_req, res) => {
     const { token } = res.locals.user as SessionUser;
     const { data, error } = await deps.forUser(token).rpc("safety_officer_home");
