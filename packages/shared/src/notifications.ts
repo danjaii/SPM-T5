@@ -34,6 +34,8 @@ export const NOTIFICATION_TYPES = [
   "registration_status_changed",
   "event_cancelled",
   "venue_replaced",
+  // SCRUM-185/AC1: a venue block returned a Confirmed event to Planning (migration 82)
+  "event_returned_to_planning",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -100,6 +102,7 @@ const ACTION_REQUIRED_TYPES: ReadonlySet<string> = new Set([
   "clarification_answered", // AC3: the coordinator reads the answer
   "event_submitted", // SCRUM-172/AC1: a Lead assigns a coordinator
   "venue_booking_rejected", // SCRUM-172/AC2: the coordinator finds another venue
+  "event_returned_to_planning", // SCRUM-185/AC1: the coordinator arranges a replacement venue
 ]);
 
 /** SCRUM-47/AC11: whether a notification needs the reader to act, shown as "Action needed". */
