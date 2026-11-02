@@ -5,7 +5,7 @@ import { cn } from "cn"
 
 // SCRUM-123/AC1: a bar for "step 3 of 6". The label stays in text beside it (the caller supplies it), so the position is
 // never shown by the bar's length alone.
-function Progress({ className, value, ...props }: ProgressPrimitive.Root.Props) {
+function Progress({ className, indicatorClassName, value, ...props }: ProgressPrimitive.Root.Props & { indicatorClassName?: string }) {
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
@@ -14,7 +14,7 @@ function Progress({ className, value, ...props }: ProgressPrimitive.Root.Props) 
       {...props}
     >
       <ProgressPrimitive.Track className="block h-2 w-full overflow-hidden rounded-full bg-muted">
-        <ProgressPrimitive.Indicator className="block h-full rounded-full bg-primary transition-all" />
+        <ProgressPrimitive.Indicator className={cn("block h-full rounded-full bg-primary transition-all", indicatorClassName)} />
       </ProgressPrimitive.Track>
     </ProgressPrimitive.Root>
   )
