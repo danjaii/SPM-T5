@@ -228,19 +228,11 @@ Spec: [`docs/specs/venue-booking-request.md`](docs/specs/venue-booking-request.m
   check the list and detail pages. Submit an overlapping slot to see the conflict message.
 - **Withdraw (35):** on a pending request, choose Withdraw request and confirm.
 - **Amend and accept a suggestion (60, 59):** these need a rejected request that carries a suggested
-  alternative. Venue Staff approve and reject from the booking queue (`/booking-queue`), but suggesting an
-  alternative (SCRUM-40) is not built yet, so set one in Supabase Studio (SQL editor) and reload the request
-  as the coordinator:
-
-  ```sql
-  update venue_bookings
-  set status = 'rejected', review_notes = 'Renovation', reviewed_at = now(),
-      reviewed_by = (select id from users where role = 'venue_staff' limit 1),
-      suggested_venue_id = (select id from venues where id <> venue_id limit 1),
-      suggested_start_datetime = event_start_datetime + interval '1 day',
-      suggested_end_datetime = event_end_datetime + interval '1 day'
-  where id = '<request id>';
-  ```
+  alternative. Sign in as Venue Staff (`kenneth.wong@...`), open the request from the booking queue
+  (`/booking-queue`), choose Reject request, give a reason, tick **Suggest an alternative** and pick a venue, a date
+  and times (SCRUM-40). Then reload the request as the coordinator: it shows the suggestion, with **Accept
+  suggested alternative** and **Amend request**. A suggestion does not hold the venue, so another coordinator can
+  still request it.
 
 - **Access control:** open the same request as the organiser or as another coordinator. You get "not
   found" rather than the request (RLS; see the spec's "Not visible means not found").
@@ -367,7 +359,7 @@ against the customer's requirements, with an owner for each gap, is in
 [`docs/scope-decisions.md`](docs/scope-decisions.md).
 
 In short: `notification-service` serves a user's own in-app notifications (list, unread count, mark read) on
-port 4005 and sends no email or SMS yet, and the Venue Staff "suggest an alternative" step (SCRUM-40) is not built.
+port 4005 and sends no email or SMS yet.
 Authorisation is Row-Level Security with per-role, own-row policies on the tables that hold people's data;
 what is deliberately left open is explained in ADR 0003.
 

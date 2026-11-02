@@ -77,10 +77,10 @@ describe("SCRUM-39/AC1 rejecting with a reason (39-S1)", () => {
     expect((await setup().reject("nope")).status).toBe(404);
   });
 
-  it("39-S1 unknown body keys are ignored, so no suggestion is stored yet (SCRUM-40 seam)", async () => {
+  it("39-S1 unknown body keys are ignored, and with no suggestion none is stored (SCRUM-40 adds the optional suggestion)", async () => {
     const { reject, pending } = setup();
     const row = pending();
-    const res = await reject(row.id, { reason: REASON, suggestion: { venueId: "venue-2" }, extra: true });
+    const res = await reject(row.id, { reason: REASON, extra: true });
     expect(res.status).toBe(200);
     expect(row.suggestion).toBeNull();
   });
