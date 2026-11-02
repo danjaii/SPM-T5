@@ -69,9 +69,10 @@ same job for equipment that SCRUM-57, SCRUM-58 and SCRUM-181 did for venues and 
   from database refusals: 42501 to 403, 22023 to a 422 on the named field, P0002 to 404. **[DECIDED]**
 - **Web.** `/equipment-catalogue` lists every item (name, type, quantity, location, status with an icon and a label, never
   colour alone), with an **Add equipment** form and an **Edit** button on each row that opens the same form with the item's
-  values, including its status. A "Manage catalogue" button on the Inventory page opens it for Technical Support Staff only;
-  anyone else who opens the address is told why they cannot. Route guard: `ROLE_ONLY` in the middleware, like the Inventory
-  page. **[PROPOSED]**
+  values, including its status. A "Manage catalogue" button on the Inventory page opens it. The Inventory page is Technical Support
+  Staff's own (the route guard, `ROLE_ONLY`), so the button is theirs only. The new route has the same guard, so anyone else who
+  opens `/equipment-catalogue` is sent to the access-denied page; the page also says why if another role ever reaches it.
+  **[PROPOSED]**
 
 ---
 
@@ -102,9 +103,9 @@ database refuses it.
 | 182-S2 | PUT changes name, type, description, quantity and location: 200; the inventory shows the new values; the page opens the row's values in the form and shows the new ones after saving; an unknown or malformed id is 404 (after the role check) (AC2). |
 | 182-S3 | PUT sets the status to `under_maintenance`: the item has 0 free units in the inventory and the availability check, and a reservation for it is refused; setting it back to `available` makes its units free again; each of the four statuses is accepted and anything else is refused (AC3). |
 | 182-S4 | An empty body names every required field (name, quantity); a blank name, a name over 120 characters, a quantity that is not a whole number, below 1 or over 100000, an unknown status, and over-long type, description and location each get a 422 on the right field; the store is not called; the page shows the message and keeps what was typed; the database refuses the same values written directly (AC4). |
-| 182-S5 | Every other role gets 403 on all three routes, even with an invalid body, and no session gets 401; the "Manage catalogue" button is not on the Inventory page for them and `/equipment-catalogue` tells them why they cannot manage; the two functions refuse every other role (42501) and a signed-out visitor; a direct insert or update of `equipment` by every other role is still denied (AC5). |
+| 182-S5 | Every other role gets 403 on all three routes, even with an invalid body, and no session gets 401; the route guard sends them from `/equipment-catalogue` to the access-denied page, and the page itself tells them why they cannot manage; the two functions refuse every other role (42501) and a signed-out visitor; a direct insert or update of `equipment` by every other role is still denied (AC5). |
 | DB | `create_equipment` and `update_equipment` work for Technical Support Staff and log `equipment_created` and `equipment_updated` with the actor and what changed; a status change is in the log; an unknown id is `P0002`; blank optional fields are stored as null; nothing is written when a check fails. Fixtures are the test's own `IT-182-` items, never the seeded ones (AC1 to AC5). |
-| E2E | Technical Support Staff add a throwaway item, see it in the inventory, edit it, mark it under maintenance and see 0 free; a coordinator sees no "Manage catalogue" button (AC1 to AC3, AC5). |
+| E2E | Technical Support Staff add a throwaway item, see it in the inventory, edit it, mark it under maintenance and see 0 free; a coordinator who opens `/equipment-catalogue` is sent to the access-denied page (AC1 to AC3, AC5). |
 
 ### Out of scope
 
