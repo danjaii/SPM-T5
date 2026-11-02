@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, AlertTriangle } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -230,6 +231,14 @@ export function VenueForm({ options, venueId, initial, submit }: Props) {
           })}
         </div>
         {errors.layouts && <GroupError id="layouts-message">{errors.layouts}</GroupError>}
+        {/* SCRUM-181: Venue Staff define the layout types. Opens in a new tab so what is filled in here is not lost. */}
+        <p className="text-sm text-muted-foreground">
+          Missing a layout?{" "}
+          <Link href="/venues/layout-types" target="_blank" rel="noopener noreferrer" className="font-semibold text-fg-primary underline underline-offset-4">
+            Manage layout types
+          </Link>{" "}
+          (opens in a new tab; reload this page afterwards to see the change).
+        </p>
       </fieldset>
 
       <fieldset className="flex flex-col gap-2" aria-describedby={errors.facilityIds ? "facilities-message" : undefined}>
