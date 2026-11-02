@@ -31,6 +31,8 @@ export interface LeadKpi {
   note: string;
   /** The oldest wait is a warning, not good news, so it is drawn apart (icon and text, not colour alone). */
   warn?: boolean;
+  /** SCRUM-163/AC1: where the figure leads, when it counts something with a page of its own. */
+  href?: string;
 }
 
 /**

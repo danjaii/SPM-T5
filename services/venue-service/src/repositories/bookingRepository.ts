@@ -27,6 +27,9 @@ export interface BookingRepository {
   /** PENDING requests, oldest first: the Venue Staff queue (seam for SCRUM-37). */
   listPending(): Promise<BookingRecord[]>;
 
+  /** SCRUM-163: the APPROVED bookings whose event starts in [from, to), earliest first: the Venue Staff dashboard's schedule. */
+  listApprovedBetween(from: Date, to: Date): Promise<BookingRecord[]>;
+
   /**
    * Withdraws the request if, and only if, it is still PENDING (SCRUM-35). One atomic conditional
    * update, so a decision made at the same moment wins or loses cleanly (35-S5). Null when the
