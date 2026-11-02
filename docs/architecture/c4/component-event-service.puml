@@ -100,6 +100,8 @@ Rel(web, storage, "Uploads attachment files to the signed upload URL; opens them
 Rel(app, draftMgr, "Planned")
 Rel(app, submitMgr, "Planned")
 Rel(reviewRoutes, notificationSvc, "Planned: notifies on status change and mentions", "HTTPS/JSON")
+Rel(registrationRoutes, shared, "SCRUM-185/AC4: parseRegistrationSettings validates the coordinator's capacity and window (GET and PUT /events/:id/registration-settings, routes/registrationSettings.ts)")
+Rel(registrationRoutes, supabaseDeps, "SCRUM-185/AC4: update_registration_settings() (migration 84) saves them; only the assigned coordinator")
 Rel(registrationRoutes, notificationSvc, "Planned: in-app notification when a registration is created (SCRUM-83/AC14)", "HTTPS/JSON")
 
 @enduml
