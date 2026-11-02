@@ -1,6 +1,6 @@
 # ADR 0003: Row-level security is the authorisation model
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-10-28
 **Sprint**: 3 (builds on SCRUM-91; remaining work in SCRUM-154, SCRUM-155, SCRUM-153 and SCRUM-156)
 
