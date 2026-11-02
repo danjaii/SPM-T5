@@ -80,3 +80,38 @@ export async function getSafetyCheck(id: string): Promise<{ details: SafetyCheck
   const data = await res.json();
   return res.ok ? { details: data } : { error: data.error ?? "We couldn't load this event's safety information." };
 }
+
+/** SCRUM-165: one event ready for a safety check on the Home; `recheck` when it was checked before (changes requested, rejected or an approval revoked). */
+export interface SafetyHomeEvent {
+  id: string;
+  name: string;
+  start: string | null;
+  end: string | null;
+  expected_attendance: number | null;
+  venue_names: string[];
+  recheck: boolean;
+}
+
+/** SCRUM-165: a decision on the Home's "Recently decided" list. */
+export interface SafetyHomeDecision {
+  event_id: string;
+  name: string;
+  decision: "approved" | "rejected" | "changes_requested";
+  decided_at: string;
+}
+
+/** SCRUM-165: what the Safety Officer Home shows, as safety_officer_home() returns it. */
+export interface SafetyHome {
+  ready: SafetyHomeEvent[];
+  waiting_on_coordinator: number;
+  approved_this_month: number;
+  revoked_this_month: number;
+  recent: SafetyHomeDecision[];
+}
+
+/** SCRUM-165: the Safety Officer Home's content. Safety Officers only. */
+export async function getSafetyHome(): Promise<{ home: SafetyHome } | { error: string }> {
+  const res = await fromEventService("/safety-checks/home");
+  const data = await res.json();
+  return res.ok ? { home: data } : { error: data.error ?? "We couldn't load your safety home." };
+}

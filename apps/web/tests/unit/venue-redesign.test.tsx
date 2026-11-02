@@ -56,10 +56,10 @@ describe("SCRUM-129/AC1 setup and turnaround show next to capacity", () => {
 });
 
 describe("SCRUM-129/AC2 Venue Staff edit and save with a confirmation", () => {
-  it("SCRUM-129/AC2 Venue Staff see Edit venue and Mark unavailable; Edit venue opens the form with the current times", () => {
+  it("SCRUM-129/AC2 Venue Staff see Edit times and Mark unavailable; Edit times opens the form with the current times", () => {
     render(<VenueDetail venue={venue({ can_edit_timing: true, can_mark_unavailable: true })} />);
     expect(screen.getByRole("button", { name: "Mark unavailable" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Edit venue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit times" }));
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect((screen.getByLabelText("Setup time (minutes)") as HTMLInputElement).value).toBe("30");
     expect(screen.getByRole("button", { name: "Save times" })).toBeTruthy();
@@ -67,9 +67,9 @@ describe("SCRUM-129/AC2 Venue Staff edit and save with a confirmation", () => {
 });
 
 describe("SCRUM-129/AC3 everyone else sees the venue read-only", () => {
-  it("SCRUM-129/AC3 no Edit venue, no Mark unavailable and no form, but the venue's facts are all there", () => {
+  it("SCRUM-129/AC3 no Edit times, no Edit venue, no Mark unavailable and no form, but the venue's facts are all there", () => {
     render(<VenueDetail venue={venue()} />);
-    expect(screen.queryByRole("button", { name: "Edit venue" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit times" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Mark unavailable" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save times" })).toBeNull();
     expect(screen.getByRole("heading", { name: "Orchid Hall" })).toBeTruthy();

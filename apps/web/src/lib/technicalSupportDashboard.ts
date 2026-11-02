@@ -72,7 +72,7 @@ export function technicalSupportKpis(
     kpis.push({ label: "New requests", value: requests.length, note: `${thisWeek} ${thisWeek === 1 ? "is" : "are"} for this week` });
   }
   if (requests && items) {
-    kpis.push({ label: "Shortages", value: short.length, note: short.length > 0 ? short.join(", ") : "Nothing is short", href: short.length > 0 ? "/equipment-inventory" : undefined });
+    kpis.push({ label: "Shortages", value: short.length, note: short.length > 0 ? short.join(", ") : "Nothing is short", noteHref: short.length > 0 ? "/equipment-inventory" : undefined });
   }
   if (items) {
     const holders = new Set(items.flatMap((i) => i.heldBy.map((h) => h.eventName)));
