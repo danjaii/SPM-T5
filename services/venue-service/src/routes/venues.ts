@@ -4,7 +4,9 @@ import {
   bookingsFlaggedMessage,
   bufferConflictSummary,
   canEditVenueTiming,
+  canManageVenueCatalogue,
   canMarkVenueUnavailable,
+  parseVenueInput,
   sgtToUtc,
   utcToSgt,
   canViewVenueCatalogue,
@@ -23,6 +25,7 @@ import { requireSession, type SessionUser } from "../middlewares/session";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "../readers/venueSearchReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
 import { SupabaseBookingRepository } from "../repositories/supabaseBookingRepository";
+import { SupabaseVenueCatalogueWriter, type VenueCatalogueWriter } from "../readers/venueCatalogueWriter";
 import { SupabaseVenueTimingWriter, type AffectedPair, type VenueTimingWriter } from "../readers/venueTimingWriter";
 import { SupabaseVenueUnavailabilityStore, type VenueUnavailabilityStore } from "../readers/venueUnavailabilityStore";
 import { searchVenues } from "../services/venueSearchService";
@@ -77,6 +80,7 @@ export function venueRoutes(
   timingFor: (accessToken: string) => VenueTimingWriter = (token) => new SupabaseVenueTimingWriter(deps.forUser(token)),
   occupancyFor: (accessToken: string) => Pick<BookingRepository, "occupiedPeriods"> = (token) => new SupabaseBookingRepository(deps.forUser(token)),
   unavailabilityFor: (accessToken: string) => VenueUnavailabilityStore = (token) => new SupabaseVenueUnavailabilityStore(deps.forUser(token)),
+  catalogueFor: (accessToken: string) => VenueCatalogueWriter = (token) => new SupabaseVenueCatalogueWriter(deps.forUser(token)),
 ) {
   const router = Router();
 
@@ -99,6 +103,21 @@ export function venueRoutes(
 
     res.json((data ?? []).map((v) => ({ id: v.id, name: v.name, address: v.address, max_capacity: v.max_capacity })));
   });
+
+  // SCRUM-57: Venue Staff add a venue. The role comes before the body (57-S3), the same shared parser as the form checks
+  // the body (57-S2), and create_venue enforces the role again in the database and saves the venue whole (57-S1).
+  router.post(
+    "/",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      if (!canManageVenueCatalogue(res.locals.role as Role)) throw forbidden("Only venue staff can add a venue.");
+
+      const parsed = parseVenueInput(req.body);
+      if (!parsed.ok) throw validationFailed(parsed.fieldErrors as Record<string, string>);
+
+      res.status(201).json(await catalogueFor(token).create(parsed.data));
+    }),
+  );
 
   // SCRUM-65: the layouts and facilities the search form offers. Registered before /:id so it is not read as an id.
   router.get(
@@ -155,6 +174,8 @@ export function venueRoutes(
       setup_minutes: venue.setup_minutes ?? 0,
       turnaround_minutes: venue.turnaround_minutes ?? 0,
       can_edit_timing: canEditVenueTiming(res.locals.role as Role),
+      // SCRUM-57: whether to offer the add (and, with SCRUM-58, edit) actions; the server refuses anyone else regardless
+      can_manage_catalogue: canManageVenueCatalogue(res.locals.role as Role),
       can_mark_unavailable: forStaff,
       unavailability: upcoming.map((b) => unavailabilityBlockView(b, forStaff)),
       layouts: (venue.venue_supported_layouts ?? []).map((l) => ({ name: l.room_layouts.name, max_capacity: l.max_capacity_for_layout })),
