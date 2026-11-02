@@ -34,12 +34,12 @@ describe("SCRUM-121/AC1 role navigation", () => {
     }
   });
 
-  // SCRUM-139/AC1: the attendee's home item is Browse events; every other role's is Home
+  // SCRUM-161: every role, the attendee included, has Home as its home item
 it.each(ROLES)("highlights the home item for the %s on its home page and nothing else", (role) => {
     nav.pathname = `/dashboard/${role}`;
     renderShell(role);
     const links = within(screen.getByRole("navigation", { name: "Main" })).getAllByRole("link");
-    expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual([role === "attendee" ? "Browse events" : "Home"]);
+    expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["Home"]);
   });
 
   it("SCRUM-131: has no separate Search venues item; the old search address highlights the catalogue", () => {
@@ -344,7 +344,7 @@ describe("SCRUM-15 — What each role sees in the sidebar", () => {
   // AC5: the attendee sees their registrations, and Browse events (SCRUM-139/AC1) is the List of events open for booking (SCRUM-71)
   it("SCRUM-15/AC5 offers an attendee their registrations and the events open for booking", () => {
     const links = sidebarLinks("attendee");
-    expect(links).toMatchObject({ "Browse events": "/dashboard/attendee", "My registrations": "/registrations" });
+    expect(links).toMatchObject({ Home: "/dashboard/attendee", "Browse events": "/dashboard/attendee/browse", "My registrations": "/registrations" });
     for (const href of ["/events/new", "/events/review", "/booking-queue", ...EQUIPMENT_PAGES]) expect(Object.values(links)).not.toContain(href);
   });
 });
