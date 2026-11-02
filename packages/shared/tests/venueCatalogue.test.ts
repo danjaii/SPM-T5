@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ROLES } from "../src/roles";
-import { canManageVenueCatalogue, parseVenueInput } from "../src/venueCatalogue";
+import { bookingsOverCapacity, canManageVenueCatalogue, parseVenueInput, type BookingAtVenue } from "../src/venueCatalogue";
 
 const LAYOUT_A = "e2feef5a-7c9f-5085-a039-39a50f8d03b7";
 const LAYOUT_B = "a685c8bf-c57d-5cb4-be30-49dedce9a02b";
@@ -158,5 +158,55 @@ describe("SCRUM-57/AC2 required fields (57-S2)", () => {
   it("57-S2: problems in several fields are all reported together", () => {
     const errors = fieldErrors({ name: "", address: "Level 1", maxCapacity: 0, layouts: [] });
     expect(Object.keys(errors).sort()).toEqual(["layouts", "maxCapacity", "name"]);
+  });
+});
+
+// SCRUM-58/AC4 (58-S4): which bookings a capacity cut leaves with more people than the venue holds
+describe("SCRUM-58/AC4 a capacity cut and the bookings it leaves over capacity (58-S4)", () => {
+  const now = new Date("2026-11-01T00:00:00Z");
+  const booking = (extra: Partial<BookingAtVenue> = {}): BookingAtVenue => ({
+    bookingId: "b1",
+    eventName: "Annual Tech Summit",
+    eventStart: "2026-11-10T01:00:00Z",
+    eventEnd: "2026-11-10T09:00:00Z",
+    expectedAttendance: 120,
+    status: "approved",
+    ...extra,
+  });
+
+  it("58-S4: a cut below a holding booking's attendance lists it", () => {
+    expect(bookingsOverCapacity([booking()], 100, 150, now)).toEqual([booking()]);
+  });
+
+  it.each(["requested", "tentative", "approved", "confirmed"])("58-S4: a %s booking holds the venue, so it is listed", (status) => {
+    expect(bookingsOverCapacity([booking({ status })], 100, 150, now)).toHaveLength(1);
+  });
+
+  it.each(["rejected", "withdrawn", "cancelled", "replaced", "expired"])("58-S4: a %s booking no longer holds the venue, so it is not listed", (status) => {
+    expect(bookingsOverCapacity([booking({ status })], 100, 150, now)).toEqual([]);
+  });
+
+  it("58-S4: a booking that fits the new capacity, one with no attendance and one that has ended are not listed", () => {
+    expect(bookingsOverCapacity([booking({ expectedAttendance: 100 })], 100, 150, now)).toEqual([]);
+    expect(bookingsOverCapacity([booking({ expectedAttendance: 80 })], 100, 150, now)).toEqual([]);
+    expect(bookingsOverCapacity([booking({ expectedAttendance: null })], 100, 150, now)).toEqual([]);
+    expect(bookingsOverCapacity([booking({ eventEnd: "2026-10-31T09:00:00Z" })], 100, 150, now)).toEqual([]);
+  });
+
+  it("58-S4: a booking still running counts, one that ends exactly now does not", () => {
+    expect(bookingsOverCapacity([booking({ eventStart: "2026-10-31T20:00:00Z", eventEnd: "2026-11-01T02:00:00Z" })], 100, 150, now)).toHaveLength(1);
+    expect(bookingsOverCapacity([booking({ eventEnd: "2026-11-01T00:00:00Z" })], 100, 150, now)).toEqual([]);
+  });
+
+  it("58-S4: keeping or raising the capacity never lists anything, even for a booking already over it", () => {
+    const over = [booking({ expectedAttendance: 400 })];
+    expect(bookingsOverCapacity(over, 150, 150, now)).toEqual([]);
+    expect(bookingsOverCapacity(over, 200, 150, now)).toEqual([]);
+  });
+
+  it("58-S4: the list is in date order", () => {
+    const later = booking({ bookingId: "later", eventStart: "2026-12-01T01:00:00Z", eventEnd: "2026-12-01T09:00:00Z" });
+    const sooner = booking({ bookingId: "sooner", eventStart: "2026-11-05T01:00:00Z", eventEnd: "2026-11-05T09:00:00Z" });
+    expect(bookingsOverCapacity([later, sooner], 100, 150, now).map((b) => b.bookingId)).toEqual(["sooner", "later"]);
   });
 });

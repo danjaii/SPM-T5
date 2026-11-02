@@ -69,7 +69,7 @@ function createFake() {
       });
       return { id };
     });
-    const catalogue: VenueCatalogueWriter = { create };
+    const catalogue: VenueCatalogueWriter = { create, update: vi.fn() };
     return { create, factory: () => catalogue };
   };
 

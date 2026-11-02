@@ -66,3 +66,48 @@ describe("SCRUM-57/AC2,AC3 what the database refuses becomes the right answer", 
     expect(failure).not.toBeInstanceOf(BookingError);
   });
 });
+
+describe("SCRUM-58/AC1,AC2,AC3 the update_venue call (58-S1)", () => {
+  it("58-S1: sends the venue's id and the cleaned values to update_venue", async () => {
+    const { rpc, writer } = writerWith({});
+
+    await writer.update("venue-9", input);
+
+    expect(rpc).toHaveBeenCalledWith("update_venue", {
+      p_venue_id: "venue-9",
+      p_name: "Orchid Hall",
+      p_address: "Level 3",
+      p_description: null,
+      p_max_capacity: 150,
+      p_hours_start: "08:00",
+      p_hours_end: "22:00",
+      p_is_accessible: true,
+      p_accessibility_notes: null,
+      p_layouts: [{ layout_id: LAYOUT, max_capacity: 120 }],
+      p_facility_ids: [FACILITY],
+    });
+  });
+
+  it("58-S3: the role check in the database is a 403, and an unknown venue is a 404", async () => {
+    const denied = writerWith({ error: { code: "42501", message: "Only venue staff can edit a venue." } });
+    await expect(denied.writer.update("v", input)).rejects.toMatchObject({ httpStatus: 403, code: "FORBIDDEN" });
+
+    const missing = writerWith({ error: { code: "P0002", message: "Venue not found." } });
+    await expect(missing.writer.update("v", input)).rejects.toMatchObject({ httpStatus: 404, code: "NOT_FOUND" });
+  });
+
+  it("58-S2: a layout or facility that does not exist is a 422 on that field", async () => {
+    const layout = writerWith({ error: { code: "CS571", message: "Unknown layout." } });
+    await expect(layout.writer.update("v", input)).rejects.toMatchObject({ httpStatus: 422, fieldErrors: { layouts: expect.any(String) } });
+
+    const facility = writerWith({ error: { code: "CS572", message: "Unknown facility." } });
+    await expect(facility.writer.update("v", input)).rejects.toMatchObject({ httpStatus: 422, fieldErrors: { facilityIds: expect.any(String) } });
+  });
+
+  it("58-S1: any other database error is thrown as it is, so the service answers 500 without details", async () => {
+    const { writer } = writerWith({ error: { code: "XX000", message: "boom" } });
+    const failure = await writer.update("v", input).catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(BookingError);
+  });
+});
