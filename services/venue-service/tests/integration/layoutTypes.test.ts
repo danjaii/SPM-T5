@@ -6,7 +6,7 @@ import { adminClient, hasDb, signInAs } from "./support/db";
 
 /**
  * SCRUM-181 (docs/specs/layout-type-maintenance.md): create_layout_type, rename_layout_type and delete_layout_type
- * (migration 75) let Venue Staff add, rename and delete room layout types. Every check signs in as a seeded user, so it goes
+ * (migration 76) let Venue Staff add, rename and delete room layout types. Every check signs in as a seeded user, so it goes
  * through the same JWT + publishable-key path the services use. Layout types made here are named "IT-181-..." and are
  * removed afterwards; the seeded layouts (Theatre and the others) are never renamed or deleted, because other suites depend
  * on them. Assertions only cover rows these tests create, never a count of a whole table (CLAUDE.md, SCRUM-143).
@@ -33,7 +33,7 @@ const NIL_ID = "00000000-0000-0000-0000-000000000000";
 
 const tag = () => Math.random().toString(36).slice(2, 8);
 
-describe.skipIf(!hasDb)("SCRUM-181 Venue Staff maintain layout types (migration 75)", () => {
+describe.skipIf(!hasDb)("SCRUM-181 Venue Staff maintain layout types (migration 76)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const who = {} as Record<Who, Actor>;
   const everyone = Object.keys(EMAILS) as Who[];
