@@ -18,7 +18,7 @@ begin
 
   return jsonb_build_object(
     'ready', coalesce((
-      select jsonb_agg(row order by row->>'start' nulls last, row->>'name')
+      select jsonb_agg(r order by r->>'start' nulls last, r->>'name')
       from (
         select jsonb_build_object(
           'id', e.id,
@@ -31,7 +31,7 @@ begin
             where b.event_id = e.id and b.status in ('approved', 'confirmed')
             order by b.event_start_datetime, v.name),
           'recheck', exists (select 1 from safety_checks c where c.event_id = e.id)
-        ) as row
+        ) as r
         from events e
         where e.status = 'awaiting_arrangements' and public.is_ready_for_safety_check(e.id)
       ) ready
