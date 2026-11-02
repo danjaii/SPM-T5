@@ -18,6 +18,7 @@ const formData = {
     end_at: "2026-12-12T13:00:00Z",
     venue: { name: "Orchid Hall", address: "Level 3, East Wing" },
     availability: "open",
+    can_register: true,
     my_registration: null,
   },
   prefill: { name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "" },

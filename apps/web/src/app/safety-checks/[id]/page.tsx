@@ -78,7 +78,7 @@ export default async function SafetyCheckReviewPage({ params }: { params: Promis
           <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           <div>
             <p className="font-bold">Venues and equipment are confirmed</p>
-            <p>The event cannot move to preparation until you approve. Requesting changes sends it back to Planning.</p>
+            <p>The event cannot move to preparation until you approve. Rejecting it or requesting changes sends it back to Planning.</p>
           </div>
         </div>
       )}

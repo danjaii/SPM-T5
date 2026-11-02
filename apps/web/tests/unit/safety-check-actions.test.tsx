@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ROLES } from "@spm-t5/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ShellContext } from "@/components/shell/ShellContext";
 import { SafetyCheckActions } from "@/components/SafetyCheckActions";
 
 /** The radio for an outcome; its name also holds the line that says what it does, so match the start. */
@@ -166,5 +167,42 @@ describe("SCRUM-142/AC3 confirm a decision", () => {
       decision: "changes_requested",
       reason: "Equipment placement: Keep aisle 3 clear",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SCRUM-178 — the sidebar's Safety checks count follows a recorded decision
+// ---------------------------------------------------------------------------
+describe("SCRUM-178/AC1 recording a decision updates the sidebar count", () => {
+  function renderInShell() {
+    const refreshCounts = vi.fn();
+    render(
+      <ShellContext.Provider value={{ user: { fullName: "Farah Ismail", role: "safety_officer" }, counts: { safetyQueue: 2 }, refreshCounts }}>
+        <SafetyCheckActions role="safety_officer" eventId="evt-1" />
+      </ShellContext.Provider>,
+    );
+    return refreshCounts;
+  }
+
+  it("SCRUM-178/AC1 reads the count again once the decision is saved, and keeps the message on screen", async () => {
+    mockServer(201, { decision: "approved", reason: null, officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z", label: "Safety Approved" });
+    const refreshCounts = renderInShell();
+
+    fireEvent.click(outcome("Approve"));
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(refreshCounts).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("status").textContent).toContain("Decision recorded: Safety Approved");
+  });
+
+  it("SCRUM-178/AC1 leaves the count alone when the decision is refused", async () => {
+    mockServer(409, { error: "This event isn't waiting for a safety check." });
+    const refreshCounts = renderInShell();
+
+    fireEvent.click(outcome("Approve"));
+    fireEvent.click(submitButton());
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("isn't waiting"));
+    expect(refreshCounts).not.toHaveBeenCalled();
   });
 });

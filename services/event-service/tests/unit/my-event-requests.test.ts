@@ -164,7 +164,7 @@ describe("SCRUM-52/AC1 — an organiser lists their event requests (GET /events/
     await get(createFake([eventRow()], seen), ORGANISER);
 
     expect(seen.asToken).toBe("token-organiser");
-    expect(seen.columns).toBe("id, name, status, preferred_start_datetime, expected_attendance, submitted_at");
+    expect(seen.columns).toBe("id, name, status, preferred_start_datetime, expected_attendance, submitted_at, updated_at");
   });
 
   it("SCRUM-52/AC1 answers 500, not an empty list, when the requests cannot be read", async () => {
