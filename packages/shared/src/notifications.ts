@@ -34,6 +34,8 @@ export const NOTIFICATION_TYPES = [
   "registration_status_changed",
   "event_cancelled",
   "venue_replaced",
+  // SCRUM-185/AC3: the replacement arrangements of an event a venue block returned to Planning are confirmed (migration 83)
+  "arrangements_reconfirmed",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

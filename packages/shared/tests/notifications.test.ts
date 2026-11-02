@@ -55,6 +55,8 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
       "registration_status_changed",
       "event_cancelled",
       "venue_replaced",
+      // SCRUM-185/AC3: written by migration 83
+      "arrangements_reconfirmed",
     ]);
   });
 });
@@ -86,6 +88,7 @@ describe("SCRUM-47/AC11 whether a notification needs the reader to act (47-S11)"
     ["event_confirmed", false],
     ["event_cancelled", false],
     ["venue_replaced", false],
+    ["arrangements_reconfirmed", false], // SCRUM-185/AC3: information only
   ])("47-S11: %s → %s", (type, expected) => {
     expect(notificationRequiresAction(type)).toBe(expected);
   });
