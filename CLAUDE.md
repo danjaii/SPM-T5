@@ -284,7 +284,7 @@ Known gaps to fix rather than work around:
   file's comment for why), but every table, including `users`, still allows any authenticated
   user to read/edit any *row*. Replace the blanket row access with per-role/own-row policies in a
   new migration. `events` and its history tables (SCRUM-91; a coordinator reads only the events assigned to them, SCRUM-156,
-  migration 59), `users` (SCRUM-154), `venue_bookings`, `event_registrations`, `notifications`, `equipment_reservations` and
+  migration 59; and adds coordinator history only to them, SCRUM-183, migration 77), `users` (SCRUM-154), `venue_bookings`, `event_registrations`, `notifications`, `equipment_reservations` and
   `technical_support_requests` (SCRUM-153) and the catalogues (SCRUM-155, migration 53: Venue Staff write venues, layouts and
   facilities, Technical Support Staff write equipment, nobody writes `organisations` or `event_categories` through the API)
   already have per-role policies; what is deliberately left open (reads of the reference data, `activity_log`), and that a
