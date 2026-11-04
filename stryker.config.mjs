@@ -10,8 +10,8 @@ export default {
     "!packages/shared/src/index.ts", // only re-exports the other files: there are no rules to break
     "!packages/shared/src/supabaseClient.ts", // only creates the database client: there are no rules to break
   ],
-  // Stryker works on a temporary copy of the repo, and only packages/shared is needed for these tests.
-  ignorePatterns: ["apps", "services", "docs", "supabase", "scripts", ".github", ".agents"],
+  // Stryker works on a temporary copy of the repo, and the unit tests don't need these folders.
+  ignorePatterns: [".next", "dist", "docs", "supabase", "scripts", ".github", ".agents"],
   reporters: ["clear-text", "progress", "html", "json"],
   htmlReporter: { fileName: "reports/mutation/shared.html" },
   jsonReporter: { fileName: "reports/mutation/shared.json" },
