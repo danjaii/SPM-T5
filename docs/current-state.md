@@ -141,3 +141,4 @@ event tells the organiser and coordinator; a cancelled one tells them and the at
 each flagged booking; a replacement venue tells the organiser and attendees. Nobody is told about their own action, and a withdrawn
 attendee hears nothing (`event_update_attendees()`, kept equal to `receivesEventUpdates()` by a test). An attendee's event
 notification opens `/registrations`, because the event page refuses them.
+- Tentative hold expiry (SCRUM-97; spec `docs/specs/SCRUM-97-108-tentative-hold-expiry.md`, migration 87): `venue_bookings.hold_expires_at`; `set_hold_expiry()` (Venue Staff only) is the only way to write it; a lapsed hold is derived as EXPIRED, never holds its slot, and `approve` is refused for it (`HOLD_EXPIRED`); the event's coordinator is notified of each change. A conflict caused by a pending hold reads "tentatively held" (`slotConflictMessage()`).

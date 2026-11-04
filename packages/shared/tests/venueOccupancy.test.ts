@@ -53,3 +53,20 @@ describe("SCRUM-103/AC1 slotConflictMessage (103-S1)", () => {
     );
   });
 });
+
+describe("SCRUM-97 Scenario 2: a tentative hold is called tentatively held", () => {
+  const period = { start: new Date("2026-11-14T01:30:00Z"), end: new Date("2026-11-14T04:45:00Z") };
+  const padded = { setupMinutes: 30, turnaroundMinutes: 45 };
+
+  it("SCRUM-97 says 'tentatively held' when the holder is a tentative hold, with the same period and suffix", () => {
+    expect(slotConflictMessage("Orchid Hall", period, padded, true)).toBe(
+      "Orchid Hall is tentatively held from 09:30 to 12:45, including setup and turnaround",
+    );
+    expect(slotConflictMessage("Lotus Room", period, { setupMinutes: 0, turnaroundMinutes: 0 }, true)).toBe("Lotus Room is tentatively held from 09:30 to 12:45");
+  });
+
+  it("SCRUM-97 keeps SCRUM-103's 'occupied' for a confirmed holder", () => {
+    expect(slotConflictMessage("Orchid Hall", period, padded, false)).toBe("Orchid Hall is occupied from 09:30 to 12:45, including setup and turnaround");
+    expect(slotConflictMessage("Orchid Hall", period, padded)).toBe("Orchid Hall is occupied from 09:30 to 12:45, including setup and turnaround");
+  });
+});
