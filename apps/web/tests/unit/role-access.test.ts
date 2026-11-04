@@ -33,7 +33,7 @@ describe("SCRUM-122/AC3 role access", () => {
 
   it("SCRUM-122/AC3 gives the route guard a matcher for each role-only route", async () => {
     const { config } = await import("@/middleware");
-    expect(ROLE_ONLY_MATCHERS).toHaveLength(7); // SCRUM-52/AC2 added /my-event-requests, SCRUM-137/AC2 /equipment-inventory
+    expect(ROLE_ONLY_MATCHERS).toHaveLength(8); // SCRUM-52/AC2 added /my-event-requests, SCRUM-137/AC2 /equipment-inventory, SCRUM-182/AC5 /equipment-catalogue
     for (const matcher of ROLE_ONLY_MATCHERS) expect(config.matcher).toContain(matcher);
   });
 });

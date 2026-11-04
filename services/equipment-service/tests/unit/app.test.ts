@@ -36,9 +36,9 @@ describe("SCRUM-18 browser access to equipment-service", () => {
   it("answers the browser's 'may I?' check (OPTIONS) before the real request, without needing a login", async () => {
     // SCRUM-19: reserving is a POST, so the browser must be told POST is allowed too.
     const res = await request(app).options("/equipment-reservations").set("Origin", "http://localhost:3000");
-    // the browser asks which methods the service allows; it must now say POST is allowed too, not just GET
+    // the browser asks which methods the service allows; it must say POST is allowed too, not just GET, and (SCRUM-182) PUT to edit a catalogue item
     expect(res.status).toBe(204);
-    expect(res.headers["access-control-allow-methods"]).toBe("GET,POST,PATCH,OPTIONS");
+    expect(res.headers["access-control-allow-methods"]).toBe("GET,POST,PATCH,PUT,OPTIONS");
   });
 
   it("gives any other website no permission", async () => {

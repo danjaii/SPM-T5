@@ -3,8 +3,10 @@ import { errorHandler } from "./middlewares/errors";
 import { requireSession } from "./middlewares/session";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { equipmentRoutes } from "./routes/equipment";
+import { equipmentCatalogueRoutes } from "./routes/equipmentCatalogue";
 import { equipmentRequestRoutes } from "./routes/equipmentRequests";
 import { technicalAssignmentRoutes } from "./routes/technicalAssignments";
+import { SupabaseEquipmentCatalogueStore, type EquipmentCatalogueStore } from "./repositories/equipmentCatalogueStore";
 import { SupabaseTechnicalAssignmentStore, type TechnicalAssignmentStore } from "./repositories/technicalAssignmentStore";
 import type { SupabaseDeps } from "./supabase";
 import { healthCheck } from "./index";
@@ -16,6 +18,8 @@ export interface AppOptions {
   ports?: PortsFactory;
   /** SCRUM-20: where on-site assignments are read and written; tests pass a fake. Defaults to Supabase as the caller. */
   assignments?: (accessToken: string) => TechnicalAssignmentStore;
+  /** SCRUM-182: where catalogue items are listed, added and edited; tests pass a fake. Defaults to the create_equipment and update_equipment functions as the caller. */
+  catalogue?: (accessToken: string) => EquipmentCatalogueStore;
 }
 
 // Exported separately from listen() so tests can mount the app without opening a port.
@@ -23,6 +27,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
   const portsFor = options.ports ?? supabasePorts(deps);
   const assignmentsFor = options.assignments ?? ((token: string) => new SupabaseTechnicalAssignmentStore(deps.forUser(token)));
+  const catalogueFor = options.catalogue ?? ((token: string) => new SupabaseEquipmentCatalogueStore(deps.forUser(token)));
   const app = express();
   // SCRUM-19: reservations arrive as JSON in the request body (POST), so read it into req.body.
   app.use(express.json());
@@ -30,7 +35,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   // CORS: the web app (localhost:3000) calls this service straight from the browser, with its login cookie.
   // Only that address gets permission to read the replies; any other website gets none, so the browser blocks
   // it. Same approach as venue-service's app.ts; SCRUM-18 only reads (GET); SCRUM-19 reserves with a POST;
-  // SCRUM-87 changes a request's status with a PATCH.
+  // SCRUM-87 changes a request's status with a PATCH; SCRUM-182 edits a catalogue item with a PUT.
   app.use((req, res, next) => {
     const allowed = process.env.WEB_ORIGIN ?? "http://localhost:3000";
     if (req.headers.origin === allowed) {
@@ -38,7 +43,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
         "Access-Control-Allow-Origin": allowed,
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,OPTIONS",
         Vary: "Origin",
       });
     }
@@ -56,6 +61,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
     equipmentRoutes(portsFor, now),
     equipmentRequestRoutes(portsFor),
     technicalAssignmentRoutes(portsFor, assignmentsFor),
+    equipmentCatalogueRoutes(portsFor, catalogueFor),
   );
 
   app.use(errorHandler);
