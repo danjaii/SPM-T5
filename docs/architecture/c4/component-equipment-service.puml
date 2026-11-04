@@ -6,14 +6,14 @@ title ConnectSphere — Component Diagram: Equipment Service (C4 Level 3)
 ' equipment for an event (docs/specs/equipment-reservation.md, SCRUM-19), and coordinators requesting equipment for
 ' their event (docs/specs/equipment-requests.md, SCRUM-86), and Technical Support Staff reviewing those requests (SCRUM-87),
 ' with how many units are free for each one and an inventory for a period (SCRUM-137).
-' Components marked "Planned" come with the equipment catalogue story.
+' The equipment catalogue (SCRUM-182, docs/specs/equipment-catalogue-maintenance.md) is built: Technical Support Staff add and edit equipment and its operational status.
 
 Container(web, "Web App", "Next.js, React", "Check equipment availability page (/equipment-availability) and Reserve equipment page (/equipment-reservation), Technical Support Staff only; Request equipment page (/events/[id]/equipment-request) and the event page's Equipment requests section, for the event's assigned coordinator; Equipment requests queue and request pages (/equipment-requests, /equipment-requests/[id]) and the Inventory page (/equipment-inventory, SCRUM-137), Technical Support Staff only")
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
 ContainerDb(db, "Supabase Postgres", "Postgres + RLS", "equipment (total_quantity, operational_status), equipment_reservations (requests too, venue_booking_id, review_reason), venue_bookings, events, users")
 
 Container_Boundary(equipmentSvc, "Equipment Service") {
-  Component(app, "App", "Express (app.ts, server.ts)", "CORS for the web app's origin (GET, POST, PATCH); injectable clock and data ports; mounts routes; error handler")
+  Component(app, "App", "Express (app.ts, server.ts)", "CORS for the web app's origin (GET, POST, PATCH, PUT); injectable clock and data ports; mounts routes; error handler")
   Component(session, "Session Middleware", "middlewares/session.ts", "Reads the cs_session cookie and asks Supabase Auth who the caller is (authentication only)")
   Component(errors, "Error Handler", "middlewares/errors.ts, domain/errors.ts", "ServiceError -> 403/409/422 with a code and message; anything unexpected -> generic 500")
   Component(routes, "Equipment Routes", "routes/equipment.ts", "SCRUM-18: GET /equipment (catalogue) and GET /equipment-availability, never cached. SCRUM-19: GET /reservable-events and POST /equipment-reservations. SCRUM-137: GET /equipment-inventory, never cached")
@@ -30,7 +30,7 @@ Container_Boundary(equipmentSvc, "Equipment Service") {
   Component(assignRoutes, "Technical Assignment Routes", "routes/technicalAssignments.ts", "SCRUM-20: GET and POST /events/:id/technical-assignments, PATCH /technical-assignments/:id, POST /technical-assignments/:id/cancel")
   Component(assignSvc, "Technical Assignment Service", "services/technicalAssignmentService.ts", "SCRUM-20: only the event's assigned coordinator (others 403); not for a finished event (409); a Technical Support Staff member and one of the event's approved venue bookings (422); assigns, changes the venue booking, times or note, and cancels with a reason; lists the event's assignments as Assigned, Acknowledged or Cancelled")
   Component(assignStore, "Technical Assignment Store", "repositories/technicalAssignmentStore.ts", "SCRUM-20: reads technical_staff_assignments with the technician's and venue's names, as the caller; calls assign_technical_staff(), change_technical_assignment() and cancel_technical_assignment() (migration 41), which check again and write the technician's notification in the same transaction")
-  Component(catalogue, "Equipment Catalogue", "Planned", "Technical Support Staff maintain equipment and its operational status")
+  Component(catalogue, "Equipment Catalogue Routes", "routes/equipmentCatalogue.ts, repositories/equipmentCatalogueStore.ts", "SCRUM-182: GET, POST and PUT /equipment-catalogue, Technical Support Staff only (403 for every other role, even on GET, before the body is read; the shared parseEquipmentInput checks the body, and an edit must send its operational status). Saved through create_equipment() and update_equipment() (migration 78), which log each change; a status other than available leaves the item with no free units (equipment_free_units, migration 32)")
 }
 
 Rel(web, app, "Lists (server-side), availability checks and reservations (browser)", "HTTPS/JSON, session cookie")
@@ -64,5 +64,7 @@ Rel(reservationSvc, writer, "Reserves")
 Rel(writer, db, "Calls reserve_equipment() (migration 12); inserts into equipment_reservations", "PostgREST RPC")
 Rel(readers, db, "Reads equipment, equipment_reservations, venue_bookings, events, users directly (shared database, ADR 0001)", "PostgREST")
 
-Rel(app, catalogue, "Planned")
+Rel(app, catalogue, "Routes /equipment-catalogue requests")
+Rel(catalogue, shared, "parseEquipmentInput, canManageEquipmentCatalogue")
+Rel(catalogue, db, "Lists equipment; create_equipment() and update_equipment() (security definer)", "PostgREST RPC")
 @enduml
