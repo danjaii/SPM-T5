@@ -3,6 +3,11 @@
 Event management platform — a Next.js/React frontend and five Node/TypeScript microservices, all
 backed by one Supabase Postgres.
 
+**Repository:** <https://github.com/danjaii/SPM-T5>. It is a public repository, so both course instructors can
+read the code, the pull requests and the history without being added first. The team members are collaborators.
+Where the project work is tracked: Jira project `SCRUM` (every commit and PR cites `SCRUM-<story>/AC<n>`; see
+[Contributing](#contributing)).
+
 ## Contents
 
 - [Architecture overview](#architecture-overview)
@@ -49,8 +54,17 @@ Attendee registration (SCRUM-83) is owned by `event-service`.
 
 ## Roles
 
-Defined in `packages/shared/src/roles.ts`: `event_organiser`, `event_coordinator`, `venue_staff`,
-`technical_support_staff` and `attendee`. Add new roles there, not as string literals in a service.
+Defined in `packages/shared/src/roles.ts`. Add new roles there, not as string literals in a service.
+
+| Role | Who | What they do |
+| ----- | ----- | ----- |
+| `event_organiser` | External | Creates and edits event requests (drafts and submitted), tracks approval, requests changes after submission, registers attendees |
+| `event_coordinator` | Internal | Manages the events assigned to them: reviews and approves requests, searches venues, submits venue and equipment requests |
+| `event_coordinator_lead` | Internal | Oversees incoming requests (the unassigned queue), assigns and reassigns coordinators |
+| `venue_staff` | Internal | Maintains the venue catalogue and layout types, approves or rejects venue bookings, flags venue unavailability |
+| `technical_support_staff` | Internal | Maintains the equipment catalogue, reviews equipment requests, reserves equipment, handles maintenance statuses |
+| `safety_officer` | Internal | Runs the Operational Safety Check before an event can be confirmed |
+| `attendee` | External | Browses confirmed public events, registers and withdraws |
 
 ## Repo layout
 
@@ -177,9 +191,11 @@ matching role:
 | Role | Email |
 | ----- | ----- |
 | Event Coordinator | `rachel.tan@connectsphere.example.com` |
+| Event Coordinator Lead | `helen.ong@connectsphere.example.com` (a second Lead, `samuel.tay@...`, has their own coordinators) |
 | Venue Staff | `kenneth.wong@connectsphere.example.com` |
 | Event Organiser | `jason.chua@techconnect.example.com` |
 | Technical Support Staff | `aaron.koh@connectsphere.example.com` |
+| Safety Officer | `farah.ismail@connectsphere.example.com` |
 | Attendee | `alicia.fernandez@example.com` |
 
 Notes:
@@ -211,19 +227,12 @@ Spec: [`docs/specs/venue-booking-request.md`](docs/specs/venue-booking-request.m
   refused with `EVENT_NOT_ELIGIBLE`), and use the venue request link on its status panel. Submit, then
   check the list and detail pages. Submit an overlapping slot to see the conflict message.
 - **Withdraw (35):** on a pending request, choose Withdraw request and confirm.
-- **Amend and accept a suggestion (60, 59):** these need a rejected request, and the Venue Staff
-  approval screens (SCRUM-37 to 40) are not built yet. Reject one in Supabase Studio (SQL editor), then
-  reload the request as the coordinator:
-
-  ```sql
-  update venue_bookings
-  set status = 'rejected', review_notes = 'Renovation', reviewed_at = now(),
-      reviewed_by = (select id from users where role = 'venue_staff' limit 1),
-      suggested_venue_id = (select id from venues where id <> venue_id limit 1),
-      suggested_start_datetime = event_start_datetime + interval '1 day',
-      suggested_end_datetime = event_end_datetime + interval '1 day'
-  where id = '<request id>';
-  ```
+- **Amend and accept a suggestion (60, 59):** these need a rejected request that carries a suggested
+  alternative. Sign in as Venue Staff (`kenneth.wong@...`), open the request from the booking queue
+  (`/booking-queue`), choose Reject request, give a reason, tick **Suggest an alternative** and pick a venue, a date
+  and times (SCRUM-40). Then reload the request as the coordinator: it shows the suggestion, with **Accept
+  suggested alternative** and **Amend request**. A suggestion does not hold the venue, so another coordinator can
+  still request it.
 
 - **Access control:** open the same request as the organiser or as another coordinator. You get "not
   found" rather than the request (RLS; see the spec's "Not visible means not found").
@@ -287,7 +296,9 @@ Work is traced back to Jira stories, so a few conventions apply to every change:
 
 - **Git conventions** — branch names, commit and PR titles, and ticket references
   (`SCRUM-<story>/AC<n>`) are defined in the "Git conventions" section of [`CLAUDE.md`](CLAUDE.md).
-  PRs target `main`, are squash-merged, and follow `.github/pull_request_template.md`.
+  PRs target `main` and follow `.github/pull_request_template.md`. The person merging picks a merge commit,
+  a squash or a rebase, so every commit on a branch and the PR title must follow the format (the PR title
+  becomes the commit when the PR is squashed).
 - **Specs** — feature specs (user stories, acceptance criteria, shared rules) live in
   [`docs/specs/`](docs/specs/). Test names reference the spec's scenario IDs (e.g. `36-S4`); where a
   spec disagrees with the schema, its "Implementation decisions" section wins.
@@ -321,31 +332,36 @@ rather than editing an applied one.
 isn't recorded, so the next push re-runs it (and fails) or skips another file. To see what is applied
 (read-only): `supabase migration list --db-url "<session pooler connection string>"`.
 
-| Migration | Purpose |
-| ----- | ----- |
-| `01_schema.sql` | Tables; `users.id` references `auth.users(id)` |
-| `02_rls.sql` | RLS policies — blanket placeholders |
-| `03_users_role_privilege.sql` | Column-level grant preventing users from escalating their own `role` |
-| `04_change_event_status.sql` | `change_event_status()` function: updates an event's status and writes `event_status_history` atomically |
-| `05_venue_booking_withdrawn.sql` | Adds the withdrawn state for venue bookings |
-| `06_venue_booking_requests.sql` | Venue booking request schema; slot-exclusion and one-active-request-per-event constraints |
-| `07_venue_bookings_rls.sql` | Per-role/own-row RLS for `venue_bookings` |
-| `11_event_registrations.sql` | One active registration per attendee per event (history kept); `list_public_events()` counts Confirmed only; per-role/own-row RLS for `event_registrations` |
-| `35_notifications_own_rows.sql` | Own-rows RLS for `notifications` (select/update only the caller's, `is_read` only), `read_at` trigger, typed `venue_booking_id` link (SCRUM-46) |
-| `14_events_rls.sql` | Per-role RLS for `events`, its history tables, sessions, documents and change requests; narrows `events` UPDATE to `status` and `assigned_coordinator_id`; trigger so only the assigned coordinator changes status (SCRUM-91) |
+Migrations run in number order (`01_schema.sql`, `02_rls.sql`, ... ) and a number is used once: CI fails when
+two files share one (`scripts/check-migration-numbers.sh`), so before adding a migration take the next number
+after the newest file on `main`, and renumber if another PR merges first. Gaps in the numbering are fine.
+
+Rather than a table that goes out of date, each file explains itself: it opens with a comment naming the story
+it belongs to, what it changes and why. Where to look:
+
+- **Tables and types:** `01_schema.sql`.
+- **Row-level security** (the authorisation model, [ADR 0003](docs/architecture/adr/0003-row-level-security-as-authorisation.md)):
+  `02_rls.sql` was a blanket placeholder; each later migration replaces it for one area, for example
+  `14_events_rls.sql`, `07_venue_bookings_rls.sql`, `35_notifications_own_rows.sql`, `52_users_contact_privacy.sql`,
+  `53_catalogue_write_roles.sql` and `59_coordinator_event_reads.sql`.
+- **Rules kept in the database** so no service can skip them: for example the venue booking overlap trigger
+  (`27_*`), the safety gate on `Confirmed` (`37_*`), atomic reserve and change functions (`12_*`, `30_*`).
+- **Seed data:** `supabase/seed.sql`, which also creates the accounts above.
+
+`supabase db reset` rebuilds the local database from all of them.
 
 ## Current status
 
-This is the release-1 build. `auth-service`, `event-service` and `venue-service` are built out;
-the Venue Staff approval routes (SCRUM-37 to 40) are not. `equipment-service` is built out for the
-availability check (SCRUM-18) and equipment reservation (SCRUM-19). `notification-service` serves a user's own in-app
-notifications (list, unread count, mark read; SCRUM-46) on port 4005 and sends no email or SMS yet.
+This is the release-1 build. All five services and `apps/web` are built out for the 20 release-1 features; what
+each story built is recorded in [`docs/current-state.md`](docs/current-state.md), and what is still missing
+against the customer's requirements, with an owner for each gap, is in
+[`REQUIREMENTS_STATUS.md`](REQUIREMENTS_STATUS.md). Requirements that were left out on purpose are in
+[`docs/scope-decisions.md`](docs/scope-decisions.md).
 
-RLS is still a blanket placeholder on every table except `venue_bookings` (`07_venue_bookings_rls.sql`),
-the event review tables (`08`), `event_registrations` (`11_event_registrations.sql`), `notifications`
-(`35_notifications_own_rows.sql`) and `events` with its history
-tables (`14_events_rls.sql`): on the rest, any authenticated user can access every row. Per-role/own-row policies
-for those are pending (SCRUM-92, SCRUM-93).
+In short: `notification-service` serves a user's own in-app notifications (list, unread count, mark read) on
+port 4005 and sends no email or SMS yet.
+Authorisation is Row-Level Security with per-role, own-row policies on the tables that hold people's data;
+what is deliberately left open is explained in ADR 0003.
 
 ## Dependency notes
 

@@ -5,6 +5,21 @@ import type { Role } from "@spm-t5/shared";
 export type QueueKey = "leadQueue" | "bookingQueue" | "equipmentQueue" | "safetyQueue";
 export type QueueCounts = Partial<Record<QueueKey, number>>;
 
+// Where each queue lives: the same routes the queue pages read. Each answers with the list itself, a JSON array.
+export const QUEUE_PATHS: Record<QueueKey, string> = {
+  leadQueue: "/lead/queue",
+  bookingQueue: "/booking-queue",
+  equipmentQueue: "/equipment-requests",
+  safetyQueue: "/safety-checks",
+};
+
+export const QUEUE_FOR_ROLE: Partial<Record<Role, QueueKey>> = {
+  event_coordinator_lead: "leadQueue",
+  venue_staff: "bookingQueue",
+  technical_support_staff: "equipmentQueue",
+  safety_officer: "safetyQueue",
+};
+
 export interface NavEntry {
   label: string;
   href: string;
@@ -59,8 +74,9 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "Safety checks", href: "/safety-checks", icon: ShieldCheck, queue: "safetyQueue" },
   ],
   attendee: [
-    // SCRUM-139/AC1: the attendee's home is the List of events, so the item reads Browse events, not Home
-    { ...dashboard("attendee"), label: "Browse events", icon: Search },
+    // SCRUM-161: Home is the attendee dashboard; the List of events (SCRUM-139/AC1) is Browse events
+    dashboard("attendee"),
+    { label: "Browse events", href: "/dashboard/attendee/browse", icon: Search },
     { label: "My registrations", href: "/registrations", icon: ClipboardList },
   ],
 };

@@ -24,6 +24,8 @@ export interface VenueDetails {
   turnaround_minutes: number;
   /** SCRUM-101: true for Venue Staff only (101-S4). */
   can_edit_timing: boolean;
+  /** SCRUM-57/58: true for Venue Staff only; they may add and edit venues. Absent from an older service. */
+  can_manage_catalogue?: boolean;
   /** SCRUM-105: true for Venue Staff only (105-S6). Absent from an older service. */
   can_mark_unavailable?: boolean;
   /** SCRUM-105: the blocks that have not ended, earliest first. Notes and recordedBy are Venue Staff only. */
@@ -93,6 +95,7 @@ export function VenueDetail({ venue }: { venue: VenueDetails }) {
           setupMinutes={venue.setup_minutes}
           turnaroundMinutes={venue.turnaround_minutes}
           canEdit={venue.can_edit_timing}
+          canManage={venue.can_manage_catalogue ?? false}
           canMarkUnavailable={venue.can_mark_unavailable ?? false}
         />
       </CardHeader>
