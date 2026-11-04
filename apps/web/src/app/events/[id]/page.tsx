@@ -26,6 +26,7 @@ import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
 import { getRegistrationSettings } from "@/lib/registrationSettingsServer";
 import { getEventVenueBookings } from "@/lib/venueBookingsServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 // Rendered per request: what's shown depends on who is signed in.
 export const dynamic = "force-dynamic";
@@ -91,8 +92,8 @@ export default async function EventPage({
 
   // SCRUM-159/AC3: inside the shared app shell only; the old top bar (AppHeader) is gone, for organisers and coordinators
   return (
-    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6">
-      <Link className="mb-4 inline-block text-sm font-medium text-fg-primary hover:underline" href="/dashboard">← Back to dashboard</Link>
+    <main className={PAGE_MAIN}>
+      <BackLink href="/dashboard" to="Home" />
       {view ? (
         <EventStatusPanel event={view} activeTab={tab} meta={meta} notice={venueBookings && <NeedsAttentionBanner bookings={venueBookings} />}>
           {tab === "overview" && (

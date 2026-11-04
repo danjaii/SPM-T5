@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import EventStatusBadge from "@/components/EventStatusBadge";
 import { StatusStepper } from "@/components/event/StatusStepper";
 import { EVENT_TABS, EventTabs, type EventTabId } from "@/components/event/EventTabs";
+import { PAGE_MAIN, PageTitle } from "@/components/PageFrame";
 
 export { EVENT_TABS, type EventTabId };
 
@@ -23,9 +24,9 @@ interface Props {
 // SCRUM-121: the shared event page skeleton: header, status stepper (SCRUM-127), tabs, needs-attention banner. Pages fill the body.
 export function EventPageSkeleton({ name, status, hasCoordinator = false, previousStatus, activeTab, basePath, attention, children }: Props) {
   return (
-    <main className="dash__main">
+    <main className={PAGE_MAIN}>
       <header className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{name}</h1>
+        <PageTitle>{name}</PageTitle>
         <EventStatusBadge status={status} />
       </header>
 

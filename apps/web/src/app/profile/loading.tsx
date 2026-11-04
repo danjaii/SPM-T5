@@ -1,11 +1,12 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_MAIN, PageTitle } from "@/components/PageFrame";
 
 // SCRUM-122/AC10: the shape of the profile page while it loads, so nothing jumps when it arrives.
 export default function Loading() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8" aria-busy="true" aria-label="Loading your profile">
-      <h1 className="text-3xl font-bold tracking-tight text-foreground">My profile</h1>
+    <main className={PAGE_MAIN} aria-busy="true" aria-label="Loading your profile">
+      <PageTitle>My profile</PageTitle>
       <div className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
         {[0, 1].map((i) => (
           <Card key={i}>

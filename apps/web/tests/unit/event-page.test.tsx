@@ -53,7 +53,8 @@ describe("Event status page route (/events/[id])", () => {
 
     expect(getEvent).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Tech Summit" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /back to dashboard/i }).getAttribute("href")).toBe("/dashboard");
+    // SCRUM-186/AC3: the shared back link, named after the sidebar's Home
+    expect(screen.getByRole("link", { name: "Back to Home" }).getAttribute("href")).toBe("/dashboard");
   });
 
   it("SCRUM-25/AC1 shows the event's comments section", async () => {

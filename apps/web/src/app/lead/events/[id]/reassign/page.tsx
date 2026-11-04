@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { isClosedEventStatus } from "@spm-t5/shared";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadEventSummary } from "@/components/LeadEventSummary";
 import { PageFrame } from "@/components/PageFrame";
-import { buttonVariants } from "@/components/ui/button";
 import { getLeadReassignment } from "@/lib/leadServer";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +23,7 @@ export default async function LeadReassignPage({ params }: { params: Promise<{ i
     <PageFrame
       title={"reassignment" in result ? `Reassign ${result.reassignment.event.name}` : "Reassign a coordinator"}
       description="Choose who takes over this event. Clashes are shown so you can choose with the dates in mind."
-      action={
-        <Link className={buttonVariants({ variant: "outline" })} href={back}>
-          <ArrowLeft aria-hidden="true" />
-          Back
-        </Link>
-      }
+      back={{ href: back, to: "reassignment" in result && result.reassignment.current ? `${result.reassignment.current.full_name}'s active events` : "coordinator overview" }}
       error={"error" in result ? result.error : undefined}
     >
       {"reassignment" in result && (

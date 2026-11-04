@@ -17,6 +17,7 @@ import {
   type VenueBookingInputBody,
   type VenueOption,
 } from "@/lib/venueBookings";
+import { PageTitle } from "./PageFrame";
 
 // The native select keeps its keyboard and mobile pickers; the classes match the shadcn Input beside it.
 const SELECT_CLASS =
@@ -103,7 +104,7 @@ export function VenueBookingRequestForm({ form, venues, initial, heading, submit
 
   return (
     <section className="w-full">
-      <h1 className="text-3xl font-bold tracking-tight text-foreground">{heading ?? "Request a venue"}</h1>
+      <PageTitle>{heading ?? "Request a venue"}</PageTitle>
       <p className="mt-1 mb-4 text-sm text-muted-foreground">{form.eventName}</p>
 
       {error && <div className="mb-4"><AuthAlert tone="error">{error}</AuthAlert></div>}

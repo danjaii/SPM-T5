@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
 import { VenueBookingChangeForm } from "@/components/VenueBookingChangeForm";
 import { getEventEquipmentRequests } from "@/lib/equipmentRequestsServer";
 import { equipmentFor, isChangeableVenueBooking } from "@/lib/venueBookings";
 import { getVenueBooking } from "@/lib/venueBookingsServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +17,12 @@ export default async function ChangeVenueBookingPage({ params }: { params: Promi
 
   return (
     <>
-      <AppHeader />
-      <main className="dash__main">
+      <main className={PAGE_MAIN}>
         {"error" in result ? (
           <div className="alert alert--error" role="alert">{result.error}</div>
         ) : (
           <>
-            <Link className="back-link" href={`/events/${result.booking.eventId}`}>← Back to event</Link>
+            <BackLink href={`/events/${result.booking.eventId}`} to="event" />
             {isChangeableVenueBooking(result.booking.status) ? (
               <VenueBookingChangeForm booking={result.booking} equipment={equipmentFor(equipment?.requests ?? [], id)} />
             ) : (

@@ -2,6 +2,7 @@ import { LayoutGrid, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthAlert } from "@/components/auth/AuthParts";
+import { PageFrame } from "@/components/PageFrame";
 import { VenueCatalogue } from "@/components/VenueCatalogue";
 import { buttonVariants } from "@/components/ui/button";
 import { getEvent } from "@/lib/getEvent";
@@ -18,8 +19,10 @@ export const metadata: Metadata = { title: "Venue catalogue · ConnectSphere" };
 
 // SCRUM-29: fetch the venue catalogue, then display it. SCRUM-129: inside the shared app shell, as a card list.
 // SCRUM-131: the venue search is part of it. `?eventId=` opens it with that event's date, time, attendance and requirements.
+// SCRUM-186/AC1, AC5: the shared page frame.
 export default async function VenuesPage({ searchParams }: { searchParams?: Promise<{ eventId?: string }> }) {
   const { eventId } = (await searchParams) ?? {};
+  // SCRUM-29 AC4/AC6/AC7: a role that may not see the catalogue (e.g. an organiser) gets the reason instead
   const result = await getVenues();
   // SCRUM-57/AC3: only Venue Staff are offered the add action (the service and the database refuse everyone else too).
   const canAdd = "venues" in result && (await canAddVenue());
@@ -29,13 +32,12 @@ export default async function VenuesPage({ searchParams }: { searchParams?: Prom
   const event = eventId && options ? await getEvent(eventId) : undefined;
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Venue catalogue</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Browse ConnectSphere venues, or filter them to the ones free and suitable for an event.</p>
-        </div>
-        {canAdd && (
+    <PageFrame
+      title="Venue catalogue"
+      description="Browse ConnectSphere venues, or filter them to the ones free and suitable for an event."
+      error={"venues" in result ? undefined : result.error}
+      action={
+        canAdd && (
           <div className="flex flex-wrap gap-2">
             {/* SCRUM-181/AC6: the layout types are offered to Venue Staff only, like the add action. */}
             <Link href="/venues/layout-types" className={cn(buttonVariants({ variant: "outline" }))}>
@@ -47,10 +49,11 @@ export default async function VenuesPage({ searchParams }: { searchParams?: Prom
               Add venue
             </Link>
           </div>
-        )}
-      </div>
-      {event && "error" in event && <div className="mb-4"><AuthAlert tone="error">{event.error}</AuthAlert></div>}
-      {"venues" in result ? (
+        )
+      }
+    >
+      {event && "error" in event && <AuthAlert tone="error">{event.error}</AuthAlert>}
+      {"venues" in result && (
         <VenueCatalogue
           venues={result.venues}
           options={options}
@@ -60,10 +63,7 @@ export default async function VenuesPage({ searchParams }: { searchParams?: Prom
               : undefined
           }
         />
-      ) : (
-        // SCRUM-29 AC4/AC6/AC7: e.g. an organiser — show why, instead of the catalogue
-        <AuthAlert tone="error">{result.error}</AuthAlert>
       )}
-    </main>
+    </PageFrame>
   );
 }
