@@ -98,15 +98,27 @@ export class TestData {
     return rest(`equipment_reservations?select=status,quantity_reserved&equipment_id=eq.${item.id}&order=created_at`);
   }
 
-  /** A venue with the given capacity and buffers (default none). */
-  venue(opts: { capacity?: number; setupMinutes?: number; turnaroundMinutes?: number } = {}): Promise<VenueRow> {
-    return this.insert<VenueRow>("venues", {
-      name: this.name("Venue"),
+  /**
+   * A venue with the given capacity and buffers (default none). Venue search only offers a venue that is open for the times
+   * asked and has the layout asked for (and is accessible, when the event needs that), so give `hours` (Singapore time), `layout` (a
+   * seeded layout name, such as "Theatre", seating the whole capacity) and `accessible` for a venue a search should find.
+   */
+  async venue(opts: { capacity?: number; setupMinutes?: number; turnaroundMinutes?: number; hours?: [string, string]; layout?: string; accessible?: boolean; label?: string } = {}): Promise<VenueRow> {
+    const venue = await this.insert<VenueRow>("venues", {
+      name: this.name(opts.label ?? "Venue"),
       address: "1 Test Road",
       max_capacity: opts.capacity ?? 200,
       setup_minutes: opts.setupMinutes ?? 0,
       turnaround_minutes: opts.turnaroundMinutes ?? 0,
+      ...(opts.hours ? { operating_hours_start: opts.hours[0], operating_hours_end: opts.hours[1] } : {}),
+      ...(opts.accessible ? { is_accessible: true, accessibility_notes: "Step-free access." } : {}),
     });
+    if (opts.layout) {
+      const [layout] = await rest<{ id: string }[]>(`room_layouts?select=id&name=eq.${encodeURIComponent(opts.layout)}`);
+      if (!layout) throw new Error(`no seeded layout "${opts.layout}"`);
+      await this.insert("venue_supported_layouts", { venue_id: venue.id, room_layout_id: layout.id, max_capacity_for_layout: opts.capacity ?? 200 });
+    }
+    return venue;
   }
 
   /**
