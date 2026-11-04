@@ -88,7 +88,7 @@ can be changed. Staff (internal users) also see their department and responsibil
 the attendee types, using the organisation, category and coordinator names that `list_public_events()` now returns (migration 20). The
 shared role list now has seven roles: the Event Coordinator Lead and the Safety Officer (week 7 customer
 changes) exist as roles (migration 16). The Lead is being built out (spec in `docs/specs/event-coordinator-lead-role.md`):
-it has a sign-in option, a home page and seeded accounts, and each Event Coordinator can be linked to the one Lead who
+it has a sign-in option, seeded accounts and, as its home page, the unassigned queue (SCRUM-188: `/dashboard/event_coordinator_lead` forwards to `/lead/queue`), and each Event Coordinator can be linked to the one Lead who
 supervises them (`users.supervising_lead_id`, migration 19; SCRUM-75). That link no longer limits what a Lead sees or assigns: since SCRUM-184 (spec `docs/specs/lead-system-wide-scope.md`, migration 81) a Lead reads every submitted event (not drafts), sees every active coordinator with their workload, and assigns or reassigns any event to any active coordinator, with no workload limit (`is_coordinator()` replaced `is_my_coordinator()`). Leads share one unassigned queue (SCRUM-77,
 `lead_unassigned_queue()` in migration 21). A closed event is completed, cancelled or rejected: `CLOSED_EVENT_STATUSES` in
 `packages/shared` and `is_closed_event_status()` in migration 21, kept equal by a test. A Lead sees their active

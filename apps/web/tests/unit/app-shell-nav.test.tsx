@@ -34,12 +34,21 @@ describe("SCRUM-121/AC1 role navigation", () => {
     }
   });
 
-  // SCRUM-161: every role, the attendee included, has Home as its home item
-it.each(ROLES)("highlights the home item for the %s on its home page and nothing else", (role) => {
+  // SCRUM-161: every role, the attendee included, has Home as its home item; SCRUM-188: except the Lead, whose home is the queue
+it.each(ROLES.filter((r) => r !== "event_coordinator_lead"))("highlights the home item for the %s on its home page and nothing else", (role) => {
     nav.pathname = `/dashboard/${role}`;
     renderShell(role);
     const links = within(screen.getByRole("navigation", { name: "Main" })).getAllByRole("link");
     expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["Home"]);
+  });
+
+  it("SCRUM-188/AC3 the Lead has no Home item: Unassigned requests is first, with its count, and highlighted on the queue", () => {
+    expect(NAV_ITEMS.event_coordinator_lead.map((i) => i.label)).not.toContain("Home");
+    expect(NAV_ITEMS.event_coordinator_lead[0]).toMatchObject({ label: "Unassigned requests", href: "/lead/queue", queue: "leadQueue" });
+    nav.pathname = "/lead/queue";
+    renderShell("event_coordinator_lead");
+    const links = within(screen.getByRole("navigation", { name: "Main" })).getAllByRole("link");
+    expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.getAttribute("href"))).toEqual(["/lead/queue"]);
   });
 
   it("SCRUM-131: has no separate Search venues item; the old search address highlights the catalogue", () => {

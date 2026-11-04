@@ -195,7 +195,6 @@ numbers of statements and branches that did not run.
 | `components/LayoutTypeManager.tsx` | 93.75 | 81.15 | 95.83 | 96.05 | G: A rename the server refuses for a reason other than the name. | 95, 100, 114, 115, 116, 120, +4 more |
 | `components/LeadAssignForm.tsx` | 96.29 | 90 | 100 | 100 | D | 92, 100 |
 | `components/LeadCoordinatorEvents.tsx` | 100 | 66.66 | 100 | 100 | D | 43, 45 |
-| `components/LeadDashboardOverview.tsx` | 100 | 93.75 | 100 | 100 | D | 44 |
 | `components/LeadEventSummary.tsx` | 100 | 60 | 100 | 100 | D | 15, 16, 17, 18 |
 | `components/LeadQueueList.tsx` | 100 | 94.44 | 100 | 100 | D | 57 |
 | `components/LeadWorkloadPanel.tsx` | 100 | 50 | 100 | 100 | D | 16 |

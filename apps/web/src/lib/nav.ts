@@ -47,8 +47,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "Venue calendar", href: "/venue-calendar", icon: CalendarRange },
     { label: "Event registrations", href: "/registrations-overview", icon: Users },
   ],
+  // SCRUM-188/AC3: no Home; /dashboard/event_coordinator_lead forwards to the queue, so the queue is the Lead's home
   event_coordinator_lead: [
-    dashboard("event_coordinator_lead"),
     { label: "Unassigned requests", href: "/lead/queue", icon: ClipboardList, queue: "leadQueue" },
     { label: "Coordinator overview", href: "/lead/coordinators", icon: Users },
   ],
