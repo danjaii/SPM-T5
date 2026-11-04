@@ -163,14 +163,22 @@ export class TestData {
 
   /** A booking held at a venue on `day` from `start` to `end` (Singapore time). `requested` is what the app calls Pending. */
   async booking(opts: { event: EventRow; venue: VenueRow; requestedBy: Persona; day: string; start: string; end: string; status?: string }): Promise<BookingRow> {
-    return this.insert<BookingRow>("venue_bookings", {
-      event_id: opts.event.id,
-      venue_id: opts.venue.id,
-      requested_by: await this.idOf(opts.requestedBy),
-      status: opts.status ?? "approved",
-      event_start_datetime: sgt(opts.day, opts.start),
-      event_end_datetime: sgt(opts.day, opts.end),
+    // Removed with every other booking of the event in ONE delete, registered now so it runs before the venue is deleted:
+    // bookings point at each other (an amendment or accepted suggestion refers back to the one it replaces), so deleting them
+    // one at a time can fail.
+    this.trackWhere("venue_bookings", `event_id=eq.${opts.event.id}`);
+    const [row] = await rest<BookingRow[]>("venue_bookings", {
+      method: "POST",
+      body: JSON.stringify({
+        event_id: opts.event.id,
+        venue_id: opts.venue.id,
+        requested_by: await this.idOf(opts.requestedBy),
+        status: opts.status ?? "approved",
+        event_start_datetime: sgt(opts.day, opts.start),
+        event_end_datetime: sgt(opts.day, opts.end),
+      }),
     });
+    return row;
   }
 
   /** The booking rows of an event, for checking what the screen cannot show (that nothing was created). */

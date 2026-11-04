@@ -30,6 +30,13 @@ How rows get here: the AI adds a row when it writes a test and records the self-
 | E2E-ASSIGN-01 | AI (Claude Code) | | | Passed locally (2026-11-04). Two unassigned requests with set submission times: both listed, oldest first (row positions compared), organiser and attendance shown; assigning one removes only that one (database checked); the coordinator sees it. No test-the-test (P1). | | |
 | E2E-ASSIGN-02 | AI (Claude Code) | | | Passed locally (2026-11-04). Before: first coordinator reads the event (200), second gets 404; Lead reassigns through the page; after: reversed. No test-the-test (P1). | | |
 | E2E-ASSIGN-03 | AI (Claude Code) | | | Passed locally (2026-11-04). First Lead picks a coordinator, second Lead assigns the event by API meanwhile, first Lead's confirm shows "already been assigned" and the first assignment stands (database). No test-the-test (P1). | | |
+| E2E-BOOK-01 | AI (Claude Code) | | | Passed locally (2026-11-04). Request through the form (Pending, database `requested`); Venue Staff find it in the queue, approve, it leaves the queue; coordinator sees Approved. No test-the-test (P1). | | |
+| E2E-BOOK-02 | AI (Claude Code) | | | Passed locally (2026-11-04). Reject with a reason: stored in `review_notes` with the reviewer, shown to the coordinator; the slot is then accepted for another event (39-S4). No test-the-test (P1). | | |
+| E2E-BOOK-03 | AI (Claude Code) | | | Passed locally (2026-11-04). Reject with a suggested venue, date and times; coordinator sees "Suggested alternative" and accepts; a new Pending booking exists for the suggested venue marked `from_suggestion`. No test-the-test (P1). | | |
+| E2E-BOOK-04 | AI (Claude Code) | | | Passed locally (2026-11-04). Event with three bookings at three venues: Cancel one with a reason (database: status, reason, who); the other two keep their statuses and the event stays Approved. No test-the-test (P1). | | |
+| E2E-BOOK-05 | AI (Claude Code) | | | Passed locally (2026-11-04). Change into another event's period: refused with the occupied period, row unchanged. Stretch within its own period: saved, and the Approved booking is Pending again. No test-the-test (P1). | | |
+| E2E-CONF-04 | AI (Claude Code) | | | Passed locally (2026-11-04). Same event, same venue, overlapping: refused as this event's own booking, no second row; a different venue at the same time is accepted. No test-the-test (P1). | | |
+| E2E-CONF-05 | AI (Claude Code) | | | Passed locally (2026-11-04). Request inside a block refused with the block's period and without its reason; 18:15 after the block refused because setup runs into it; 18:30 accepted because the padded period only touches it. No test-the-test (P1). | | |
 
 ## Test-the-test records
 
