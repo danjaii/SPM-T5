@@ -7,6 +7,7 @@ import { BookingQueueDetail } from "@/components/BookingQueueDetail";
 import { VenueStaffDecision } from "@/components/VenueStaffDecision";
 import { SuitabilityReport } from "@/components/SuitabilityReport";
 import { getQueuedBooking } from "@/lib/bookingQueueServer";
+import { getVenues } from "@/lib/getVenues";
 import { getSuitability } from "@/lib/venueSuitabilityServer";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,10 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
         })
       : null;
 
+  // SCRUM-40: the venues Venue Staff may suggest instead when they reject. Without the list the dialog simply offers no suggestion.
+  const catalogue = "booking" in result ? await getVenues() : undefined;
+  const venues = catalogue && "venues" in catalogue ? catalogue.venues.map((v) => ({ id: v.id, name: v.name })) : undefined;
+
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
       <Link
@@ -54,7 +59,7 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
               </Card>
             )}
             {/* SCRUM-38/39: renders only while the request is PENDING; the server checks again. */}
-            <VenueStaffDecision booking={{ id: result.booking.id, status: result.booking.status, flagged: result.booking.flags.length > 0 }} />
+            <VenueStaffDecision booking={{ id: result.booking.id, status: result.booking.status, flagged: result.booking.flags.length > 0 }} venues={venues} />
           </>
         ) : (
           <AuthAlert tone="error">{result.error}</AuthAlert>

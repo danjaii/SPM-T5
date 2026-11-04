@@ -16,7 +16,7 @@ export default async function RegisterPage({ params }: { params: Promise<{ id: s
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
-      <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/dashboard/attendee">← Back to events</Link>
+      <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/dashboard/attendee/browse">← Back to events</Link>
       {"data" in result ? <EventRegistrationForm data={result.data} /> : <Alert variant="danger">{result.error}</Alert>}
     </main>
   );

@@ -173,6 +173,19 @@ export class SupabaseBookingRepository implements BookingRepository {
     return (data as unknown as Row[]).map(toBookingRecord);
   }
 
+  async listApprovedBetween(from: Date, to: Date): Promise<BookingRecord[]> {
+    const { data, error } = await this.db
+      .from("venue_bookings")
+      .select(BOOKING_COLUMNS)
+      .in("status", ["approved", "tentative", "confirmed"])
+      .gte("event_start_datetime", from.toISOString())
+      .lt("event_start_datetime", to.toISOString())
+      .order("event_start_datetime", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw new Error("Could not read the approved venue bookings.");
+    return (data as unknown as Row[]).map(toBookingRecord);
+  }
+
   /** The conditional `status = 'requested'` makes the transition atomic: only one of two racing callers matches. */
   private async transitionFromPending(id: string, patch: Record<string, unknown>): Promise<BookingRecord | null> {
     const { data, error } = await this.db

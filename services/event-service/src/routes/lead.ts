@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { isClosedEventStatus } from "@spm-t5/shared";
+import { coordinatorClash, isClosedEventStatus, totalAttendance, type CoordinatorClash, type CoordinatorEventSlot } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireLead } from "../middlewares/lead";
 import { requireSession, type SessionUser } from "../middlewares/session";
@@ -36,6 +36,13 @@ interface Coordinator {
   id: string;
   full_name: string;
   workload: number;
+}
+
+/** SCRUM-168: a coordinator as the assign and reassign steps offer them, with what helps the Lead choose. */
+interface CoordinatorChoice extends Coordinator {
+  /** People expected across their active events; null when their events could not be read. */
+  total_attendance: number | null;
+  clash: CoordinatorClash;
 }
 
 /** The event as the assign and reassign steps show it. */
@@ -83,6 +90,23 @@ export function leadRoutes(deps: SupabaseDeps) {
     }
     return (data ?? []) as Coordinator[];
   };
+  /**
+   * SCRUM-168/AC1-AC3, AC5: each coordinator with their total expected attendance and whether they clash with `event`, from
+   * their active events (lead_coordinator_events(), which the database limits to the Lead's own coordinators). A coordinator
+   * whose events can't be read is still offered, marked unavailable: the Lead's choice is never blocked (AC4).
+   */
+  const withClashes = (token: string, event: ChangeEventRow, coordinators: Coordinator[]): Promise<CoordinatorChoice[]> =>
+    Promise.all(
+      coordinators.map(async (c) => {
+        const { data, error } = await deps.forUser(token).rpc("lead_coordinator_events", { p_coordinator_id: c.id });
+        if (error) {
+          console.error("lead_coordinator_events failed:", error.message);
+          return { ...c, total_attendance: null, clash: { status: "unavailable" } as const };
+        }
+        const events = (data ?? []) as CoordinatorEventSlot[];
+        return { ...c, total_attendance: totalAttendance(events), clash: coordinatorClash(event, events) };
+      }),
+    );
   const eligibleFailed = (res: Response) => res.status(500).json({ error: "We couldn't load your coordinators. Please try again." });
 
   /** POST handler that confirms an assignment through `fn`, turning the database's refusals into what the Lead is told. */
@@ -153,7 +177,7 @@ export function leadRoutes(deps: SupabaseDeps) {
     const coordinators = canAssign ? await loadEligible(token) : [];
     if (!coordinators) return eligibleFailed(res);
 
-    return res.json({ event: eventSummary(event), canAssign, coordinators });
+    return res.json({ event: eventSummary(event), canAssign, coordinators: await withClashes(token, event, coordinators) });
   });
 
   // SCRUM-79/AC1, AC2, AC5, AC6: what the reassign step shows: the event, who has it now, whether it can be reassigned,
@@ -172,7 +196,7 @@ export function leadRoutes(deps: SupabaseDeps) {
       event: eventSummary(event),
       current: current ? { id: current, full_name: event.coordinator?.full_name ?? null } : null,
       canReassign,
-      coordinators: eligible.filter((c) => c.id !== current),
+      coordinators: await withClashes(token, event, eligible.filter((c) => c.id !== current)),
     });
   });
 

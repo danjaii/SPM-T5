@@ -13,10 +13,10 @@ vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ refresh: vi.fn
 import LeadReassignPage from "@/app/lead/events/[id]/reassign/page";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadCoordinatorEvents } from "@/components/LeadCoordinatorEvents";
-import type { LeadCoordinator, LeadCoordinatorEvent } from "@/lib/leadServer";
+import type { LeadCoordinatorChoice, LeadCoordinatorEvent } from "@/lib/leadServer";
 
-const marcus: LeadCoordinator = { id: "c-2", full_name: "Marcus Lim", workload: 1 };
-const siti: LeadCoordinator = { id: "c-3", full_name: "Siti Aminah", workload: 0 };
+const marcus: LeadCoordinatorChoice = { id: "c-2", full_name: "Marcus Lim", workload: 1, total_attendance: 40, clash: { status: "free" } };
+const siti: LeadCoordinatorChoice = { id: "c-3", full_name: "Siti Aminah", workload: 0, total_attendance: 0, clash: { status: "free" } };
 const event: LeadCoordinatorEvent = {
   id: "evt-1",
   name: "Tech Summit",
@@ -48,22 +48,9 @@ function mockFetch(status: number, body: unknown) {
   return fetchMock;
 }
 
-/** SCRUM-126/AC2: opens the coordinator dropdown, as the Lead does by clicking it. */
-function openList() {
-  fireEvent.click(screen.getByRole("combobox", { name: "Event Coordinator" }));
-}
-
-// Picks a coordinator from the dropdown by the text the Lead sees (name, then workload)
+/** SCRUM-168: picks a coordinator from the list by name, as the Lead does by clicking their row. */
 async function choose(label: string) {
-  openList();
-  const option = await screen.findByRole("option", { name: new RegExp(label.split(" — ")[0]) });
-  // Base UI ignores a click that follows opening too quickly, as a stray double click would
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  fireEvent.pointerDown(option);
-  fireEvent.mouseDown(option);
-  fireEvent.pointerUp(option);
-  fireEvent.mouseUp(option);
-  fireEvent.click(option);
+  fireEvent.click(screen.getByRole("radio", { name: new RegExp(label.split(" — ")[0]) }));
 }
 
 const renderForm = (coordinators = [marcus, siti]) =>
@@ -98,16 +85,14 @@ describe("SCRUM-79 — Reassign an Event Coordinator", () => {
   // end of AC1
 
   // AC2: who is assigned now; the other eligible coordinators with their workload; the current one can't be chosen
-  it("SCRUM-79/AC2 SCRUM-126/AC2 offers only the other coordinators, each with their workload count", async () => {
+  it("SCRUM-79/AC2 SCRUM-126/AC2 offers only the other coordinators, each with their workload count", () => {
     renderForm();
-    openList();
 
-    await screen.findAllByRole("option");
-    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "Marcus Lim1 active event",
-      "Siti Aminah0 active events",
+    expect(screen.getAllByRole("radio").map((r) => r.closest("label")!.textContent)).toEqual([
+      "Marcus Lim1 active event · 40 people expectedFree on this date",
+      "Siti Aminah0 active events · 0 people expectedFree on this date",
     ]);
-    expect(screen.queryByRole("option", { name: /Rachel Tan/ })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /Rachel Tan/ })).toBeNull();
   });
   // end of AC2
 
@@ -176,8 +161,8 @@ describe("SCRUM-79 — The reassign page", () => {
     );
     expect(screen.getByRole("heading", { name: "Reassign Tech Summit" })).toBeTruthy();
     // SCRUM-79/AC2: who holds the event now is shown with its details
-    expect(screen.getByRole("row", { name: "Current coordinator Rachel Tan" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Event Coordinator" })).toBeTruthy();
+    expect(screen.getByText("Current coordinator").nextElementSibling!.textContent).toBe("Rachel Tan");
+    expect(screen.getByRole("radiogroup", { name: "Event Coordinator" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Cancel" }).getAttribute("href")).toBe("/lead/coordinators/c-1");
   });
 
@@ -189,7 +174,7 @@ describe("SCRUM-79 — The reassign page", () => {
     await open();
 
     expect(screen.getByText("This event is closed, so its coordinator can't be changed.")).toBeTruthy();
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(screen.queryByRole("button", { name: "Confirm reassignment" })).toBeNull();
   });
   // end of AC5

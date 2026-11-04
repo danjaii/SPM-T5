@@ -16,6 +16,7 @@ const anEvent = (id: string, name: string): ManagedEvent => ({
   status: "confirmed",
   start_at: "2026-11-20T01:00:00Z",
   registration_capacity: 100,
+  can_decide: false,
 });
 
 // ---------------------------------------------------------------------------

@@ -11,6 +11,8 @@ export interface UpcomingEvent {
   venue: { name: string | null; address: string | null };
   /** SCRUM-71/AC7: event-service picks the one label (by priority); "open" means no label. */
   availability: "cancelled" | "full" | "closed" | "open";
+  /** SCRUM-169/AC2: whether Register is offered: a full event still takes registrations, as Pending, while its window is open. */
+  can_register: boolean;
   /** SCRUM-71/AC10: the attendee's own active registration; null when they have none (or it was withdrawn/rejected). */
   my_registration: "confirmed" | "pending" | null;
   /** SCRUM-9: the event's status ("confirmed" or "cancelled"), searchable. */

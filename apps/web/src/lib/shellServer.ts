@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { isRole, type Role } from "@spm-t5/shared";
 import { SERVER_AUTH_URL, SERVER_EQUIPMENT_URL, SERVER_EVENT_URL, SERVER_VENUE_URL, SESSION_COOKIE } from "./api";
-import type { QueueCounts, QueueKey } from "./nav";
+import { QUEUE_FOR_ROLE, QUEUE_PATHS, type QueueCounts, type QueueKey } from "./nav";
 
 // Server-only: the app shell's own reads. Unlike the page helpers it never redirects: a signed-out visitor, or a service
 // that is down, just means no shell or no count, and the page itself still renders.
@@ -11,25 +11,17 @@ export interface ShellData {
   counts: QueueCounts;
 }
 
-// Where each queue lives: the same routes the queue pages read. Each answers with the list itself, a JSON array.
-const QUEUES: Record<QueueKey, { base: string; path: string }> = {
-  leadQueue: { base: SERVER_EVENT_URL, path: "/lead/queue" },
-  bookingQueue: { base: SERVER_VENUE_URL, path: "/booking-queue" },
-  equipmentQueue: { base: SERVER_EQUIPMENT_URL, path: "/equipment-requests" },
-  safetyQueue: { base: SERVER_EVENT_URL, path: "/safety-checks" },
-};
-
-const QUEUE_FOR_ROLE: Partial<Record<Role, QueueKey>> = {
-  event_coordinator_lead: "leadQueue",
-  venue_staff: "bookingQueue",
-  technical_support_staff: "equipmentQueue",
-  safety_officer: "safetyQueue",
+// Which service answers for each queue, at the address the Next.js server reaches it on.
+const QUEUE_BASES: Record<QueueKey, string> = {
+  leadQueue: SERVER_EVENT_URL,
+  bookingQueue: SERVER_VENUE_URL,
+  equipmentQueue: SERVER_EQUIPMENT_URL,
+  safetyQueue: SERVER_EVENT_URL,
 };
 
 async function queueSize(key: QueueKey, headers: HeadersInit): Promise<number | undefined> {
-  const { base, path } = QUEUES[key];
   try {
-    const res = await fetch(`${base}${path}`, { headers, cache: "no-store" });
+    const res = await fetch(`${QUEUE_BASES[key]}${QUEUE_PATHS[key]}`, { headers, cache: "no-store" });
     if (!res.ok) return undefined;
     const body: unknown = await res.json();
     return Array.isArray(body) ? body.length : undefined;
