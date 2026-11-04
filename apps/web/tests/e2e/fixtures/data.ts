@@ -34,6 +34,7 @@ export async function userId(email: string): Promise<string> {
 export interface VenueRow { id: string; name: string; max_capacity: number }
 export interface EventRow { id: string; name: string }
 export interface BookingRow { id: string; status: string }
+export interface EquipmentRow { id: string; name: string; total_quantity: number }
 
 /** A booking period in Singapore time (UTC+8), as the app reads times a person types. */
 export function sgt(day: string, hhmm: string): string {
@@ -80,6 +81,23 @@ export class TestData {
     this.created.push({ table, query });
   }
 
+  /** A piece of equipment with `totalQuantity` units, available. Reservations made against it are removed before it is. */
+  async equipment(opts: { totalQuantity?: number; label?: string } = {}): Promise<EquipmentRow> {
+    const item = await this.insert<EquipmentRow>("equipment", {
+      name: this.name(opts.label ?? "Equipment"),
+      type: "E2E",
+      total_quantity: opts.totalQuantity ?? 10,
+      operational_status: "available",
+    });
+    this.trackWhere("equipment_reservations", `equipment_id=eq.${item.id}`);
+    return item;
+  }
+
+  /** The reservation rows of a piece of equipment, for checking what a screen cannot show. */
+  reservationsOf(item: EquipmentRow): Promise<{ status: string; quantity_reserved: number | null }[]> {
+    return rest(`equipment_reservations?select=status,quantity_reserved&equipment_id=eq.${item.id}&order=created_at`);
+  }
+
   /** A venue with the given capacity and buffers (default none). */
   venue(opts: { capacity?: number; setupMinutes?: number; turnaroundMinutes?: number } = {}): Promise<VenueRow> {
     return this.insert<VenueRow>("venues", {
@@ -91,8 +109,12 @@ export class TestData {
     });
   }
 
-  /** An event, organised by `organiser` and assigned to `coordinator`, in the given status (default approved). */
-  async event(opts: { organiser?: Persona; coordinator?: Persona; status?: string; attendance?: number; label?: string } = {}): Promise<EventRow> {
+  /**
+   * An event, organised by `organiser` and assigned to `coordinator`, in the given status (default approved). Give `day`,
+   * `start` and `end` (Singapore time) for an event that has a date: equipment reservation lists only events that have not
+   * started and pre-fills the form from the event's times.
+   */
+  async event(opts: { organiser?: Persona; coordinator?: Persona; status?: string; attendance?: number; label?: string; day?: string; start?: string; end?: string } = {}): Promise<EventRow> {
     const [organiser, coordinator] = await Promise.all([this.idOf(opts.organiser ?? "organiser"), this.idOf(opts.coordinator ?? "coordinator")]);
     const event = await this.insert<EventRow>("events", {
       name: this.name(opts.label ?? "Event"),
@@ -101,10 +123,28 @@ export class TestData {
       status: opts.status ?? "approved",
       is_draft: false,
       expected_attendance: opts.attendance ?? 50,
+      ...(opts.day ? { preferred_start_datetime: sgt(opts.day, opts.start ?? "09:00"), preferred_end_datetime: sgt(opts.day, opts.end ?? "17:00") } : {}),
     });
-    // bookings a UI action adds for this event go before the event itself
+    // bookings and equipment rows a UI action adds for this event go before the event itself
     this.trackWhere("venue_bookings", `event_id=eq.${event.id}`);
+    this.trackWhere("equipment_reservations", `event_id=eq.${event.id}`);
     return event;
+  }
+
+  /**
+   * An equipment request ("requested") from the coordinator side. Technical Support Staff can only see an event once it has
+   * technical work (events_select, event_has_technical_work), so an event they reserve for needs one. A "requested" row
+   * does not count against availability: only approved and reserved reservations do (18-S8).
+   */
+  async equipmentRequest(opts: { event: EventRow; equipment: EquipmentRow; quantity?: number; day: string; start: string; end: string }): Promise<{ id: string }> {
+    return this.insert<{ id: string }>("equipment_reservations", {
+      event_id: opts.event.id,
+      equipment_id: opts.equipment.id,
+      quantity_requested: opts.quantity ?? 1,
+      status: "requested",
+      start_datetime: sgt(opts.day, opts.start),
+      end_datetime: sgt(opts.day, opts.end),
+    });
   }
 
   /** A booking held at a venue on `day` from `start` to `end` (Singapore time). `requested` is what the app calls Pending. */
