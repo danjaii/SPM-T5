@@ -162,7 +162,7 @@ export class TestData {
   }
 
   /** A booking held at a venue on `day` from `start` to `end` (Singapore time). `requested` is what the app calls Pending. */
-  async booking(opts: { event: EventRow; venue: VenueRow; requestedBy: Persona; day: string; start: string; end: string; status?: string }): Promise<BookingRow> {
+  async booking(opts: { event: EventRow; venue: VenueRow; requestedBy: Persona; day: string; start: string; end: string; status?: string; attendance?: number }): Promise<BookingRow> {
     // Removed with every other booking of the event in ONE delete, registered now so it runs before the venue is deleted:
     // bookings point at each other (an amendment or accepted suggestion refers back to the one it replaces), so deleting them
     // one at a time can fail.
@@ -176,6 +176,9 @@ export class TestData {
         status: opts.status ?? "approved",
         event_start_datetime: sgt(opts.day, opts.start),
         event_end_datetime: sgt(opts.day, opts.end),
+        // what the request form records with a booking: the replacement search compares capacity with this
+        snapshot_event_name: opts.event.name,
+        snapshot_expected_attendance: opts.attendance ?? 50,
       }),
     });
     return row;
