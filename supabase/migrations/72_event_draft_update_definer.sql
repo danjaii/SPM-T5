@@ -1,20 +1,20 @@
 -- ConnectSphere: re-save a draft through a security definer function (SCRUM-54/AC2)
--- Follows 61_resume_draft_event_request.sql (migration 61 is already applied and is not edited). Affects event-service only.
+-- Follows 71_resume_draft_event_request.sql (kept as a separate step: 71 first added a policy and trigger that could not work). Affects event-service only.
 --
 -- 14_events_rls.sql revokes UPDATE on events from authenticated and grants it only on (status, assigned_coordinator_id), on
 -- purpose: writes to events go through security definer functions (update_event_details, change_event_status,
 -- submit_event_draft), so that history and send-back logic cannot be bypassed. So the organiser UPDATE policy and the column
--- guard trigger from 61 could never be reached ("permission denied for table events"), and update_event_draft() as security
+-- guard trigger from 71 could never be reached ("permission denied for table events"), and update_event_draft() as security
 -- invoker failed for the organiser. Granting UPDATE on the draft columns is not an option: it would let an assigned coordinator
 -- edit them directly too.
 --
 -- This migration:
---  1. drops the unreachable policy, trigger and trigger function from 61;
+--  1. drops the unreachable policy, trigger and trigger function from 71;
 --  2. replaces update_event_draft() with a security definer version modelled on submit_event_draft(): only an event organiser,
 --     only their own row (DR001 if not found), only while it is a draft (DR002), and only the 14 draft fields are written.
 --     The organiser still has no UPDATE privilege on any column, so direct updates stay impossible; the function's column
 --     list is the whitelist (the protection the guard trigger tried to give).
--- Custom SQLSTATEs as in 61: DR001 not the caller's draft or not found, DR002 not a draft any more.
+-- Custom SQLSTATEs as in 71: DR001 not the caller's draft or not found, DR002 not a draft any more.
 
 drop policy if exists events_update_organiser_draft on events;
 drop trigger if exists trg_events_organiser_draft_guard on events;

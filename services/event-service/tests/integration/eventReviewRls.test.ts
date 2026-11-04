@@ -93,11 +93,13 @@ describe.skipIf(!hasDb)("SCRUM-25/26/27/28/42/43 event review row level security
       expect(error?.code).toBe(DENIED);
     });
 
-    it("SCRUM-25/AC3 comments are visible to coordinators and the event's organiser only", async () => {
+    // SCRUM-156: "coordinators" is now the event's assigned coordinator; any other coordinator reads nothing
+    it("SCRUM-25/AC3 comments are visible to the event's coordinator and organiser only", async () => {
       const id = await arrangeComment(eventA, who.coordinatorA.userId);
       const visible = async (actor: Actor) =>
         ((await actor.client.from("event_comments").select("id").eq("id", id)).data ?? []).length;
-      expect(await visible(who.coordinatorB)).toBe(1);
+      expect(await visible(who.coordinatorA)).toBe(1);
+      expect(await visible(who.coordinatorB)).toBe(0);
       expect(await visible(who.organiserA)).toBe(1);
       expect(await visible(who.organiserB)).toBe(0);
       expect(await visible(who.attendee)).toBe(0);
@@ -128,15 +130,14 @@ describe.skipIf(!hasDb)("SCRUM-25/26/27/28/42/43 event review row level security
   describe("event_comment_mentions", () => {
     it("SCRUM-27/AC2 the author can mention a user who can see the event", async () => {
       const id = await arrangeComment(eventA, who.coordinatorA.userId);
-      for (const mentioned of [who.coordinatorB.userId, who.organiserA.userId]) {
-        const { error } = await who.coordinatorA.client.from("event_comment_mentions").insert({ comment_id: id, user_id: mentioned });
-        expect(error).toBeNull();
-      }
+      const { error } = await who.coordinatorA.client.from("event_comment_mentions").insert({ comment_id: id, user_id: who.organiserA.userId });
+      expect(error).toBeNull();
     });
 
     it("SCRUM-27/AC5 a user who cannot see the event cannot be mentioned", async () => {
       const id = await arrangeComment(eventA, who.coordinatorA.userId);
-      for (const mentioned of [who.organiserB.userId, who.attendee.userId, who.venueStaff.userId]) {
+      // SCRUM-156: another coordinator cannot see the event either
+      for (const mentioned of [who.coordinatorB.userId, who.organiserB.userId, who.attendee.userId, who.venueStaff.userId]) {
         const { error } = await who.coordinatorA.client.from("event_comment_mentions").insert({ comment_id: id, user_id: mentioned });
         expect(error?.code).toBe(DENIED);
       }
@@ -234,11 +235,12 @@ describe.skipIf(!hasDb)("SCRUM-25/26/27/28/42/43 event review row level security
       }
     });
 
-    it("SCRUM-43/AC1,AC5 history is visible to coordinators and the event's organiser only", async () => {
+    it("SCRUM-43/AC1,AC5 history is visible to the event's coordinator and organiser only", async () => {
       await admin.from("coordinator_assignment_logs").insert(log(eventA, who.coordinatorA.userId, who.coordinatorA.userId));
       const count = async (actor: Actor) =>
         ((await actor.client.from("coordinator_assignment_logs").select("id").eq("event_id", eventA)).data ?? []).length;
-      expect(await count(who.coordinatorB)).toBeGreaterThan(0);
+      expect(await count(who.coordinatorA)).toBeGreaterThan(0);
+      expect(await count(who.coordinatorB)).toBe(0);
       expect(await count(who.organiserA)).toBeGreaterThan(0);
       expect(await count(who.organiserB)).toBe(0);
       expect(await count(who.attendee)).toBe(0);

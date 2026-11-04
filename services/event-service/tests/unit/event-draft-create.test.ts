@@ -29,7 +29,7 @@ function createFake() {
   };
 
   /**
-   * Pretends to be create_event_draft (migration 60). Like the real one: the organiser is auth.uid(), the
+   * Pretends to be create_event_draft (migration 70). Like the real one: the organiser is auth.uid(), the
    * organisation comes from the caller's users row, the name falls back to "Untitled draft", status is draft.
    */
   const createEventDraft = (callerId: string | undefined, args: Row) => {

@@ -50,7 +50,7 @@ export interface QueueDetail extends QueueItem {
   decidedByName: string | null;
   decidedAt: string | null;
   rejectionReason: string | null;
-  /** Reserved for SCRUM-40 (suggest an alternative); always null until then. */
+  /** A pending request has no suggestion yet: Venue Staff attach one when they reject it (SCRUM-40), so this is always null here. */
   suggestion: null;
 }
 
@@ -104,5 +104,32 @@ export function toQueueDetail(
     decidedAt: decided && b.reviewedAt ? b.reviewedAt.toISOString() : null,
     rejectionReason: rejectionReasonOf(b),
     suggestion: null,
+  };
+}
+
+/** SCRUM-163: an approved booking on the Venue Staff dashboard's schedule. Date and times are Singapore time. */
+export interface ScheduleItem {
+  id: string;
+  venueId: string;
+  venueName: string;
+  eventName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  setupMinutes: number;
+  turnaroundMinutes: number;
+}
+
+export function toScheduleItem(b: BookingRecord, venueName: string, timing: VenueTiming = { setupMinutes: 0, turnaroundMinutes: 0 }): ScheduleItem {
+  return {
+    id: b.id,
+    venueId: b.venueId,
+    venueName,
+    eventName: b.snapshot.eventName,
+    date: utcToSgt(b.start).date,
+    startTime: utcToSgt(b.start).time,
+    endTime: utcToSgt(b.end).time,
+    setupMinutes: timing.setupMinutes,
+    turnaroundMinutes: timing.turnaroundMinutes,
   };
 }

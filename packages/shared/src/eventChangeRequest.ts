@@ -202,3 +202,48 @@ export function parseEventChangeRequestInput(
   const change_description = reason || `Changed: ${fields.map((f) => FIELD_LABELS[f]).join(", ")}`;
   return { ok: true, data: { proposed_changes: proposed, change_description } };
 }
+
+// ---------------------------------------------------------------------------
+// SCRUM-176 (docs/specs/conflicting-change-request.md): a new request may not change something a pending request already
+// changes. The customer said in the Week 9 Q&A that active change requests "should be processed by the Coordinator before
+// additional major conflicting change requests are submitted." event-service refuses with these; the form warns with them.
+// ---------------------------------------------------------------------------
+
+/** The things a request can change, in the order they are named. Start and end time are one thing: moving an event changes both. */
+const CHANGE_REQUEST_THINGS: { label: string; fields: ChangeRequestField[] }[] = [
+  { label: "expected attendance", fields: ["expected_attendance"] },
+  { label: "date and time", fields: ["preferred_start_datetime", "preferred_end_datetime"] },
+  { label: "venue requirements", fields: ["venue_requirements"] },
+  { label: "equipment requirements", fields: ["equipment_requirements_notes"] },
+];
+
+/** The things a request's proposed_changes touches. Anything unreadable touches nothing, so it never causes a refusal. */
+function thingsChanged(proposedChanges: unknown): Set<string> {
+  if (!proposedChanges || typeof proposedChanges !== "object" || Array.isArray(proposedChanges)) return new Set();
+  const keys = Object.keys(proposedChanges);
+  return new Set(CHANGE_REQUEST_THINGS.filter((t) => t.fields.some((f) => keys.includes(f))).map((t) => t.label));
+}
+
+/** What the pending requests change between them, once each, in order (176-S8). */
+export function pendingChangeThings(pendingProposedChanges: unknown[]): string[] {
+  const waiting = new Set(pendingProposedChanges.flatMap((p) => [...thingsChanged(p)]));
+  return CHANGE_REQUEST_THINGS.map((t) => t.label).filter((label) => waiting.has(label));
+}
+
+/** What a new request shares with the pending ones (AC1); empty when it changes only other things (AC2). */
+export function changeRequestConflicts(proposedChanges: unknown, pendingProposedChanges: unknown[]): string[] {
+  const asked = thingsChanged(proposedChanges);
+  return pendingChangeThings(pendingProposedChanges).filter((label) => asked.has(label));
+}
+
+/** "a", "a and b", "a, b and c". */
+const listInEnglish = (items: string[]) =>
+  items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+
+/** AC1: the refusal, naming what is waiting and pointing to the coordinator (there is no withdraw button, decision 4). */
+export function conflictingRequestMessage(things: string[]): string {
+  return (
+    `A change to the ${listInEnglish(things)} is already waiting for your coordinator. ` +
+    `Ask your coordinator about it before requesting another change to ${things.length > 1 ? "them" : "it"}.`
+  );
+}

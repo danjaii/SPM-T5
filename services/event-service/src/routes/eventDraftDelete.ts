@@ -14,7 +14,7 @@ const NOT_A_DRAFT = { code: "NOT_A_DRAFT", error: "This request has been submitt
 export function eventDraftDeleteRoutes(deps: SupabaseDeps) {
   const router = Router();
 
-  // SCRUM-56/AC1: the delete is made by delete_event_draft() (migration 63, security definer), called as the caller. Nobody has
+  // SCRUM-56/AC1: the delete is made by delete_event_draft() (migration 85, security definer), called as the caller. Nobody has
   // DELETE on events (migration 14), so the function is the only way in and it checks the caller's role, ownership and status itself.
   router.delete("/drafts/:id", requireSession(deps), async (req, res) => {
     const user = res.locals.user as SessionUser;

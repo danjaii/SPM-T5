@@ -17,7 +17,7 @@ As an `event_organiser`, I want to delete a draft event request I no longer need
 Scenarios:
 - S1: `DELETE /events/drafts/:id` by the draft's organiser removes the `events` row for good (a real database delete, no soft-delete column) and answers 204 with no body.
 - S2: the draft no longer appears in `GET /events/my-requests`, and the My event requests page refreshes its list after the delete.
-- S3: the delete is made by the security definer function `delete_event_draft(p_event_id)` (migration 63), called as the caller (`deps.forUser(token)`), never with the service-role key. `authenticated` has no DELETE privilege on `events` (migration 14) and keeps none, so the function is the only way in. A direct `delete from events` as the organiser is still refused.
+- S3: the delete is made by the security definer function `delete_event_draft(p_event_id)` (migration 85), called as the caller (`deps.forUser(token)`), never with the service-role key. `authenticated` has no DELETE privilege on `events` (migration 14) and keeps none, so the function is the only way in. A direct `delete from events` as the organiser is still refused.
 - S4: no session is 401; a role that cannot create event requests (`canCreateEventRequests`) is 403.
 - S5: an id that is not a uuid is 404 and the database is not asked. A draft that does not exist, or belongs to another organiser, is 404 with the same body (the caller cannot tell the two apart; database error `DR001`).
 - S6: any other database failure is 500 "Could not delete the draft." and nothing is reported as deleted.
@@ -70,7 +70,7 @@ Scenarios:
 
 ## Affected workspaces
 
-- `supabase/migrations/63_delete_event_draft.sql`: new function `delete_event_draft()`. Migration numbering and merge order: the draft stories SCRUM-53 and SCRUM-54 use 60 to 62 (renumbered after SCRUM-154 took 52 to 54), SCRUM-156 holds 59 and the calendar uses 58; 63 is the next free number, and this migration must merge after 53 and 54 only for tidiness (it does not call anything they add: it works on any `events` row with `status = 'draft'`).
+- `supabase/migrations/85_delete_event_draft.sql`: new function `delete_event_draft()`. Migration numbering: 85, the next free number after main (79) and the open branches (78, 80 to 84). It does not call anything the draft migrations (70 to 72) add: it works on any `events` row with `status = 'draft'`.
 - `services/event-service`: new `routes/eventDraftDelete.ts`, mounted in `app.ts`.
 - `apps/web`: new `components/DeleteDraftButton.tsx`, `lib/draftDelete.ts` (the fetch), used by `MyEventRequestsTable`.
 - No `packages/shared` change, no C4 or ADR change.

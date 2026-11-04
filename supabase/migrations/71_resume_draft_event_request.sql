@@ -1,7 +1,7 @@
 -- ConnectSphere: resume editing a draft event request (SCRUM-54)
--- Follows 60_event_drafts.sql. Affects event-service; the replaced status guard below is shared by every status change.
+-- Follows 70_event_drafts.sql. Affects event-service; the replaced status guard below is shared by every status change.
 --
--- 60 left the organiser with no UPDATE policy on events ("re-saving a draft is SCRUM-54"). This adds it, for the organiser's
+-- 70 left the organiser with no UPDATE policy on events ("re-saving a draft is SCRUM-54"). This adds it, for the organiser's
 -- own drafts only, and the functions that re-save and submit one.
 --
 -- AC2 (re-save): update_event_draft() is security invoker, so the policy below is what decides which rows it can touch.
@@ -142,7 +142,7 @@ grant execute on function public.update_event_draft(
 -- ============================================================================
 -- AC3 / AC4: SUBMIT A DRAFT
 -- ============================================================================
--- events_status_change_guard (14, replaced by 43 for the Safety Officer) lets only the assigned coordinator change an event's
+-- events_status_change_guard (14, replaced by 43 for the Safety Officer and by 66 for the arrangement approvals) lets only the assigned coordinator change an event's
 -- status, so it would refuse the organiser submitting their own draft. Same function, one more exception: the organiser
 -- of the row, draft -> submitted. It is only reachable through submit_event_draft(), because the organiser UPDATE policy keeps status = 'draft'.
 
@@ -154,9 +154,12 @@ begin
   if new.status is distinct from old.status
      and auth.uid() is not null
      and old.assigned_coordinator_id is distinct from auth.uid()
-     -- SCRUM-100/AC3 (migration 43): a Safety Officer's change request returns the event to Planning
+     -- SCRUM-100/AC3 + AC1 (migrations 43 and 66): a Safety Officer's rejection or change request returns the event to Planning
      and not (old.status = 'awaiting_arrangements' and new.status = 'planning'
               and public.current_user_role() = 'safety_officer')
+     -- SCRUM-171/AC3 (migration 66): the approval that completes the arrangements starts the safety check
+     and not (old.status = 'planning' and new.status = 'awaiting_arrangements'
+              and public.current_user_role() in ('venue_staff', 'technical_support_staff'))
      -- SCRUM-54/AC3: an organiser submits their own draft
      and not (old.status = 'draft' and new.status = 'submitted' and old.organiser_id = auth.uid()) then
     raise exception 'Only the coordinator assigned to this event can change its status'

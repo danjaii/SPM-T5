@@ -117,6 +117,7 @@ describe("SCRUM-99/AC3 + AC4 review an event", () => {
 
   it("SCRUM-99/AC8 shows the recorded decision, and no choices, once the event has been decided", async () => {
     mockServer(200, details({
+      status: "planning", // SCRUM-171/AC1: a rejection returns it to Planning
       decisions: [
         { decision: "rejected", reason: "Fire exit blocked by the stage", officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z" },
       ],
@@ -144,6 +145,19 @@ describe("SCRUM-100/AC6 repeat the safety check", () => {
 
     for (const name of ["Approve", "Reject", "Request changes"]) expect(screen.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Safety decision" }).textContent).toContain("Move the stage clear of fire exit B");
+  });
+
+  it("SCRUM-171/AC2 offers the three outcomes again once the coordinator returns a rejected event", async () => {
+    mockServer(200, details({
+      status: "awaiting_arrangements",
+      decisions: [
+        { decision: "rejected", reason: "Fire exit blocked by the stage", officer_name: "Farah Ismail", decided_at: "2031-06-01T02:00:00Z" },
+      ],
+    }));
+
+    await open();
+
+    for (const name of ["Approve", "Reject", "Request changes"]) expect(screen.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeTruthy();
   });
 
   it("SCRUM-100/AC6 offers no choices while the coordinator is still making the changes (Planning)", async () => {
