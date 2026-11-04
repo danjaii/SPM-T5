@@ -33,6 +33,11 @@ export async function middleware(request: NextRequest) {
     return toLogin();
   }
 
+  // SCRUM-159/AC3: "← Back to dashboard" links to plain /dashboard, which names no role; it means the caller's own home
+  if (pathname === "/dashboard" || pathname === "/dashboard/") {
+    return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
+  }
+
   // SCRUM-122/AC3: a page outside the caller's role shows the access-denied page (with a link to their home), not a silent bounce.
   // SCRUM-83/AC2: a registration form isn't role-bound, so a signed-in user carries on to it.
   // SCRUM-75/AC7: Lead pages are for Leads only.

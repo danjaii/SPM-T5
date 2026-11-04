@@ -1,16 +1,20 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
 import { EventPicker } from "@/components/EventPicker";
 import { EventRegistrationList } from "@/components/EventRegistrationList";
+import { PageFrame } from "@/components/PageFrame";
 import { RegistrationSummary } from "@/components/RegistrationSummary";
+import { VipRegistrationForm } from "@/components/VipRegistrationForm";
+import { Alert } from "@/components/ui/alert";
 import { getEventRegistrations, getManagedEvents } from "@/lib/eventRegistrationServer";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Event registrations · ConnectSphere" };
 
-// SCRUM-74: organisers and coordinators pick one of the events they manage and see its registrations
+const empty = "rounded-xl border border-dashed border-border-strong p-8 text-center text-muted-foreground";
+
+// SCRUM-74: organisers and coordinators pick one of the events they manage and see its registrations.
+// SCRUM-139/AC4, AC5, AC11: inside the shared shell, with the count against capacity (Figma 15) and an error state.
 export default async function RegistrationsOverviewPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
   const { event: selectedId } = await searchParams;
   const result = await getManagedEvents();
@@ -21,34 +25,34 @@ export default async function RegistrationsOverviewPage({ searchParams }: { sear
   const registrations = selected ? await getEventRegistrations(selected.id) : null;
 
   return (
-    <>
-      <AppHeader />
-      <main className="dash__main">
-        <Link className="back-link" href="/dashboard">← Back to dashboard</Link>
-        <h1>Event registrations</h1>
-        {"error" in result ? (
-          // SCRUM-74/AC1: refused (not an organiser or coordinator) or couldn't load: say so, rather than "no events"
-          <div className="alert alert--error" role="alert">{result.error}</div>
-        ) : events.length === 0 ? (
-          // SCRUM-74/AC4: no events under them
-          <p className="empty">You have no events to manage yet.</p>
-        ) : (
+    <PageFrame
+      title="Event registrations"
+      description="Pick an event to see who has registered and how many places are taken."
+      // SCRUM-74/AC1: refused (not an organiser or coordinator) or couldn't load: say so, rather than "no events"
+      error={"error" in result ? result.error : undefined}
+    >
+      {events.length === 0 ? (
+        // SCRUM-74/AC4: no events under them
+        <p className={empty}>You have no events to manage yet.</p>
+      ) : (
+        <>
+          <EventPicker events={events} selectedId={selected?.id ?? null} />
+          {/* SCRUM-170/AC3: only the organiser's events can_decide; the database refuses anyone else too */}
+          {selected?.can_decide && <VipRegistrationForm eventId={selected.id} />}
+          {!selected && <p className={empty}>Choose an event to see its registrations.</p>}
+        </>
+      )}
+      {registrations &&
+        ("registrations" in registrations ? (
           <>
-            <EventPicker events={events} selectedId={selected?.id ?? null} />
-            {!selected && <p className="empty">Choose an event to see its registrations.</p>}
+            <RegistrationSummary registrations={registrations.registrations} capacity={selected?.registration_capacity ?? null} />
+            {/* SCRUM-169/AC3: only the organiser's events can_decide; a coordinator's view stays read-only */}
+            <EventRegistrationList registrations={registrations.registrations} eventId={selected?.id} canDecide={selected?.can_decide} />
           </>
-        )}
-        {registrations &&
-          ("registrations" in registrations ? (
-            <>
-              <RegistrationSummary registrations={registrations.registrations} capacity={selected?.registration_capacity ?? null} />
-              <EventRegistrationList registrations={registrations.registrations} />
-            </>
-          ) : (
-            // Couldn't load: say so, rather than an empty page
-            <div className="alert alert--error" role="alert">{registrations.error}</div>
-          ))}
-      </main>
-    </>
+        ) : (
+          // Couldn't load: say so, rather than an empty page
+          <Alert variant="danger">{registrations.error}</Alert>
+        ))}
+    </PageFrame>
   );
 }

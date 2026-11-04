@@ -1,16 +1,20 @@
 import { Router } from "express";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { validateRegistrationForm } from "@spm-t5/shared";
+import { registrationStatus, validateRegistrationForm, validateVipEmail } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { lookUpRole } from "./events";
 import { toUpcomingEvent, type PublicEventRow } from "../services/upcomingEvents";
 import {
   ALREADY_REGISTERED,
+  DECISION_REFUSALS,
+  REGISTRATION_CLOSED,
   registrationRefusal,
   toEventRegistration,
   toMyRegistration,
   withdrawalRefusal,
+  VIP_ALREADY_REGISTERED,
+  vipRefusal,
   type EventRegistrationRow,
   type MyRegistrationRow,
 } from "../services/registrations";
@@ -118,6 +122,8 @@ export function registrationRoutes(deps: SupabaseDeps) {
         status: e.status,
         start_at: e.preferred_start_datetime,
         registration_capacity: e.registration_capacity,
+        // SCRUM-169/AC3: only the organiser decides on a Pending registration; a coordinator's view stays read-only
+        can_decide: role === "event_organiser",
       })),
     );
   });
@@ -130,9 +136,12 @@ export function registrationRoutes(deps: SupabaseDeps) {
     if (!event) return res.status(404).json(EVENT_NOT_FOUND);
 
     // SCRUM-83/AC8: the form starts with the attendee's own name, email and contact number, under the keys it submits
-    const { data: profile } = await db.from("users").select("full_name, email, phone").eq("id", attendeeId).maybeSingle();
+    const { data: profile } = await db.from("users").select("full_name").eq("id", attendeeId).maybeSingle();
+    // SCRUM-154/AC5: the attendee's own email and phone are not readable from users (migration 52); a function returns them
+    const { data: contact } = await db.rpc("my_contact_details");
+    const mine = (contact as { email: string; phone: string | null }[] | null)?.[0];
     // SCRUM-83/AC9: no contact number in the profile means an empty field, not "null"
-    const prefill = { name: profile?.full_name, email: profile?.email, phone: profile?.phone ?? "" };
+    const prefill = { name: profile?.full_name, email: mine?.email, phone: mine?.phone ?? "" };
 
     res.json({ event: toUpcomingEvent(event, new Date()), prefill });
   });
@@ -141,17 +150,26 @@ export function registrationRoutes(deps: SupabaseDeps) {
   // Who may read them is RLS's job (supabase/migrations/11_event_registrations.sql), not this route's.
   router.get("/:id/registrations", requireSession(deps), async (req, res) => {
     const { token } = res.locals.user as SessionUser;
-    const { data, error } = await deps
-      .forUser(token)
+    const db = deps.forUser(token);
+    const { data, error } = await db
       .from("event_registrations")
-      // SCRUM-74/AC5: the attendee's profile too, for a registration with no form details
-      .select("id, status, registered_at, registration_details, attendee:attendee_id(full_name, email, phone)")
+      .select("id, status, registered_at, is_vip, registration_details")
       .eq("event_id", req.params.id);
+    // SCRUM-74/AC5: the attendee's profile too, for a registration with no form details. SCRUM-154/AC3, AC4: users' email and
+    // phone are not readable (migration 52), so a function returns them, and only to the event's organiser or coordinator
+    const { data: contacts, error: contactsError } = await db.rpc("event_registration_contacts", { p_event_id: req.params.id });
     // An empty list must mean nobody has registered, so a failed call is an error, not []
-    if (error) return res.status(500).json({ error: "We couldn't load this event's registrations. Please try again." });
+    const failed = "We couldn't load this event's registrations. Please try again.";
+    if (error || contactsError) return res.status(500).json({ error: failed });
+    const contactOf = new Map(
+      ((contacts ?? []) as { registration_id: string; full_name: string | null; email: string | null; phone: string | null }[]).map(
+        (c) => [c.registration_id, { full_name: c.full_name, email: c.email, phone: c.phone }] as const,
+      ),
+    );
 
     res.json(
       ((data ?? []) as EventRegistrationRow[])
+        .map((row) => ({ ...row, attendee: contactOf.get(row.id) ?? null }))
         // SCRUM-74/AC8: newest first (ISO timestamps sort in time order as text)
         .sort((a, b) => b.registered_at.localeCompare(a.registered_at))
         .map(toEventRegistration),
@@ -163,7 +181,7 @@ export function registrationRoutes(deps: SupabaseDeps) {
     const result = validateRegistrationForm(req.body);
     if (!result.ok) return res.status(400).json({ errors: result.errors });
 
-    const { id: attendeeId, token } = res.locals.user as SessionUser;
+    const { token } = res.locals.user as SessionUser;
     const db = deps.forUser(token);
 
     // SCRUM-83/AC12: only an event listed for attendees can be registered for
@@ -174,19 +192,53 @@ export function registrationRoutes(deps: SupabaseDeps) {
     const refusal = registrationRefusal(event, new Date());
     if (refusal) return res.status(409).json({ error: refusal });
 
-    // SCRUM-83/AC12: a new registration starts as Pending, stored as 'waitlisted' (the mapping agreed for SCRUM-71)
-    const { error } = await db.from("event_registrations").insert({
-      event_id: event.id,
-      attendee_id: attendeeId,
-      status: "waitlisted",
-      registration_details: result.form,
-    });
+    // SCRUM-169/AC1, AC2, AC5: the database decides Confirmed or Pending, so two attendees can't both take the last place
+    const { data: saved, error } = await db.rpc("register_for_event", { p_event_id: event.id, p_details: result.form });
     // SCRUM-83/AC16: a repeated submit raced past the check above; the database's one-active-registration rule
     // refused it (23505 = unique violation), so the attendee is told they already have one
     if (error?.code === "23505") return res.status(409).json({ error: ALREADY_REGISTERED });
-    // SCRUM-83/AC12: not saved, so not Pending: say so rather than report a registration that doesn't exist
+    // SCRUM-169/AC1: registration closed after the check above
+    if (error?.code === "CS169") return res.status(409).json({ error: REGISTRATION_CLOSED });
+    // SCRUM-83/AC12: not saved: say so rather than report a registration that doesn't exist
     if (error) return res.status(500).json({ error: "We couldn't save your registration. Please try again." });
-    res.status(201).json({ event_name: event.name, status: "pending" });
+    res.status(201).json({ event_name: event.name, status: registrationStatus(saved) });
+  });
+
+  // SCRUM-169/AC3, AC4: the event's organiser confirms or declines a Pending registration.
+  // Who may decide is decide_registration()'s job (migration 68), not this route's.
+  router.post("/:id/registrations/:registrationId/decision", requireSession(deps), async (req, res) => {
+    const { decision } = req.body ?? {};
+    if (decision !== "confirm" && decision !== "decline") {
+      return res.status(400).json({ error: "The decision must be confirm or decline." });
+    }
+
+    const { token } = res.locals.user as SessionUser;
+    const { data, error } = await deps
+      .forUser(token)
+      .rpc("decide_registration", { p_registration_id: req.params.registrationId, p_decision: decision });
+    if (error?.code === "CS169" && error.message === "NOT_FOUND") return res.status(404).json({ error: "Registration not found." });
+    if (error?.code === "CS169" && DECISION_REFUSALS[error.message]) return res.status(409).json({ error: DECISION_REFUSALS[error.message] });
+    if (error) return res.status(500).json({ error: "We couldn't save your decision. Please try again." });
+    res.json({ status: registrationStatus(data) });
+  });
+
+  // SCRUM-170: the event's organiser adds a VIP past the registration cap, up to the venue's capacity.
+  // Who may add one, and the limits, are add_vip_registration()'s job (migration 69), not this route's.
+  router.post("/:id/vip-registrations", requireSession(deps), async (req, res) => {
+    const result = validateVipEmail(req.body?.email);
+    if (!result.ok) return res.status(400).json({ errors: { email: result.error } });
+
+    const { token } = res.locals.user as SessionUser;
+    const { error } = await deps.forUser(token).rpc("add_vip_registration", { p_event_id: req.params.id, p_email: result.email });
+    if (error?.code === "23505") return res.status(409).json({ error: VIP_ALREADY_REGISTERED });
+    if (error?.code === "CS170") {
+      if (error.message === "NOT_FOUND") return res.status(404).json(EVENT_NOT_FOUND);
+      if (error.message === "ACCOUNT_NOT_FOUND") return res.status(404).json({ error: "No attendee account uses that email." });
+      const refusal = vipRefusal(error.message, error.details);
+      if (refusal) return res.status(409).json({ error: refusal });
+    }
+    if (error) return res.status(500).json({ error: "We couldn't add this VIP. Please try again." });
+    res.status(201).json({ status: "confirmed" });
   });
 
   return router;

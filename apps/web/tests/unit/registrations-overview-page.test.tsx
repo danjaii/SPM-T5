@@ -9,12 +9,12 @@ const { getManagedEvents, getEventRegistrations } = vi.hoisted(() => ({
   getEventRegistrations: vi.fn(),
 }));
 vi.mock("@/lib/eventRegistrationServer", () => ({ getManagedEvents, getEventRegistrations }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }) }));
 
 import RegistrationsOverviewPage from "@/app/registrations-overview/page";
 
 /** One of the caller's events, as GET /events/managed sends it. */
-const TECH_SUMMIT = { id: "evt-1", name: "Tech Summit", status: "confirmed", start_at: "2026-11-20T01:00:00Z", registration_capacity: 10 };
+const TECH_SUMMIT = { id: "evt-1", name: "Tech Summit", status: "confirmed", start_at: "2026-11-20T01:00:00Z", registration_capacity: 10, can_decide: false };
 
 /** Renders the page as if the address's query string were `query` (e.g. { event: "evt-1" }). */
 const renderPage = async (query: { event?: string } = {}) =>
@@ -26,13 +26,14 @@ const renderPage = async (query: { event?: string } = {}) =>
 describe("SCRUM-74 — Registrations overview page", () => {
   beforeEach(() => getEventRegistrations.mockClear());
 
-  // AC2: organisers and coordinators reach this page from their dashboard, so it links back there
-  it("SCRUM-74/AC2 links back to the dashboard", async () => {
+  // AC2: organisers and coordinators reach this page from the sidebar (SCRUM-139/AC5), so it has its own heading, not a back link
+  it("SCRUM-74/AC2, SCRUM-139/AC5 shows the page heading inside the shell instead of a back link", async () => {
     getManagedEvents.mockResolvedValue({ events: [TECH_SUMMIT] });
 
     await renderPage();
 
-    expect(screen.getByRole("link", { name: "← Back to dashboard" }).getAttribute("href")).toBe("/dashboard");
+    expect(screen.getByRole("heading", { level: 1, name: "Event registrations" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "← Back to dashboard" })).toBeNull();
   });
   // end of AC2
 
@@ -67,8 +68,10 @@ describe("SCRUM-74 — Registrations overview page", () => {
 
     expect(getEventRegistrations).toHaveBeenCalledWith("evt-1");
     expect(screen.getByText("Alicia Fernandez")).toBeTruthy();
-    const summary = screen.getByRole("table", { name: "Registration summary" });
-    expect(within(summary).getAllByRole("cell").at(-1)?.textContent).toBe("9 of 10"); // Slots remaining, the last column
+    // SCRUM-139/AC4: the count against capacity, on the Slots remaining card
+    const summary = screen.getByRole("list", { name: "Registration summary" });
+    const slots = within(summary).getByText("Slots remaining").closest("li")!;
+    expect(within(slots).getByText("9 of 10")).toBeTruthy();
   });
 
   // AC3: the chosen event's registrations couldn't load: say so, rather than an empty page
@@ -104,3 +107,42 @@ describe("SCRUM-74 — Registrations overview page", () => {
   // end of AC1
 });
 // end of SCRUM-74
+
+// ---------------------------------------------------------------------------
+// SCRUM-169 — The organiser decides on Pending registrations from this page
+// ---------------------------------------------------------------------------
+describe("SCRUM-169 — Registrations overview page", () => {
+  const PENDING = { id: "reg-1", status: "pending", registered_at: "2026-10-01T02:00:00Z", name: "Alicia", email: "a@example.com", phone: "91234567" };
+
+  it.each([
+    ["offers the organiser Confirm and Decline", true, 1],
+    ["keeps the coordinator's view read-only", false, 0],
+  ])("SCRUM-169/AC3 %s", async (_name, can_decide, buttons) => {
+    getManagedEvents.mockResolvedValue({ events: [{ ...TECH_SUMMIT, can_decide }] });
+    getEventRegistrations.mockResolvedValue({ registrations: [PENDING] });
+
+    await renderPage({ event: "evt-1" });
+
+    expect(screen.queryAllByRole("button", { name: "Confirm" })).toHaveLength(buttons);
+    expect(screen.queryAllByRole("button", { name: "Decline" })).toHaveLength(buttons);
+  });
+});
+// end of SCRUM-169
+
+// ---------------------------------------------------------------------------
+// SCRUM-170 — The organiser adds VIPs from this page
+// ---------------------------------------------------------------------------
+describe("SCRUM-170 — Registrations overview page", () => {
+  it.each([
+    ["offers the organiser the Add VIP form", true, 1],
+    ["hides it from the coordinator", false, 0],
+  ])("SCRUM-170/AC3 %s", async (_name, can_decide, forms) => {
+    getManagedEvents.mockResolvedValue({ events: [{ ...TECH_SUMMIT, can_decide }] });
+    getEventRegistrations.mockResolvedValue({ registrations: [] });
+
+    await renderPage({ event: "evt-1" });
+
+    expect(screen.queryAllByRole("button", { name: "Add VIP" })).toHaveLength(forms);
+  });
+});
+// end of SCRUM-170

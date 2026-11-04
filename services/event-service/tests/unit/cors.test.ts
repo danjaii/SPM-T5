@@ -70,3 +70,32 @@ describe("SCRUM-22: CORS for the review screens", () => {
     expect(old.headers["access-control-allow-origin"]).toBeUndefined();
   });
 });
+
+// SCRUM-54/AC2: the draft form re-saves with PUT /events/drafts/:id from the web app; without PUT in the preflight answer the
+// browser blocks the request and the form says it could not reach the server.
+describe("SCRUM-54/AC2: CORS for re-saving a draft", () => {
+  const app = createApp({} as SupabaseDeps);
+  const WEB = "http://localhost:3000";
+
+  it("allows a PUT preflight for /events/drafts/:id from the web origin, with the login cookie", async () => {
+    const res = await request(app)
+      .options("/events/drafts/3f2c9c1e-0000-4000-8000-000000000001")
+      .set("Origin", WEB)
+      .set("Access-Control-Request-Method", "PUT")
+      .set("Access-Control-Request-Headers", "content-type");
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe(WEB);
+    expect(res.headers["access-control-allow-credentials"]).toBe("true");
+    expect((res.headers["access-control-allow-methods"] as string).split(",")).toContain("PUT");
+    expect(res.headers["access-control-allow-headers"]).toMatch(/content-type/i);
+  });
+
+  it("still refuses another website the PUT", async () => {
+    const res = await request(app)
+      .options("/events/drafts/3f2c9c1e-0000-4000-8000-000000000001")
+      .set("Origin", "https://evil.example.com")
+      .set("Access-Control-Request-Method", "PUT");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(res.headers["access-control-allow-methods"]).toBeUndefined();
+  });
+});

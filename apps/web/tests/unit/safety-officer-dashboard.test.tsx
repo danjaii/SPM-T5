@@ -3,19 +3,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-// Pretend the loading helper (tested in its own file), so these tests are only about the pages
-const { getDashboard } = vi.hoisted(() => ({ getDashboard: vi.fn() }));
-vi.mock("@/lib/dashboard", () => ({ getDashboard }));
+// Pretend the loading helpers (tested in their own files), so these tests are only about the pages
+const { getSafetyHome, getShellData } = vi.hoisted(() => ({ getSafetyHome: vi.fn(), getShellData: vi.fn() }));
+vi.mock("@/lib/safetyCheckServer", () => ({ getSafetyHome }));
+vi.mock("@/lib/shellServer", () => ({ getShellData }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 
 import SafetyOfficerDashboard from "@/app/dashboard/safety_officer/page";
 import { LoginForm } from "@/components/LoginForm";
-
-/** What auth-service sends for a Safety Officer's dashboard (empty until the safety-check stories fill it). */
-const dashboard = {
-  user: { fullName: "Farah Ismail", email: "farah.ismail@connectsphere.example.com", role: "safety_officer" },
-  sections: [],
-};
 
 // ---------------------------------------------------------------------------
 // SCRUM-116 — Safety Officer sign-in (AC4)
@@ -31,12 +26,14 @@ describe("SCRUM-116 — Safety Officer sign-in and home page", () => {
 
   // AC4: after signing in, the Safety Officer lands on their own home page
   it("SCRUM-116/AC4 the Safety Officer lands on their own home page", async () => {
-    getDashboard.mockResolvedValue(dashboard);
+    getShellData.mockResolvedValue({ user: { fullName: "Farah Ismail", role: "safety_officer" }, counts: {} });
+    getSafetyHome.mockResolvedValue({
+      home: { ready: [], waiting_on_coordinator: 0, approved_this_month: 0, revoked_this_month: 0, recent: [] },
+    });
 
     render(await SafetyOfficerDashboard());
 
-    expect(getDashboard).toHaveBeenCalledWith("safety_officer");
-    expect(screen.getByRole("heading", { name: "Safety Officer dashboard" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/^Good (morning|afternoon|evening), Farah$/);
   });
   // end of AC4
 });

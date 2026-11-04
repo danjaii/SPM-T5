@@ -21,13 +21,26 @@ export function myEventRequestRoutes(deps: SupabaseDeps) {
     const { data, error } = await deps
       .forUser(user.token)
       .from("events")
-      .select("id, name, status, preferred_start_datetime, expected_attendance, submitted_at")
+      .select("id, name, status, preferred_start_datetime, expected_attendance, submitted_at, updated_at")
       .eq("organiser_id", user.id)
       .order("created_at", { ascending: false })
       .limit(MY_REQUESTS_LIMIT);
     // "No requests" must mean there are none, so a failed read, or one that gave back nothing at all, is an error, not []
     if (error || !data) return res.status(500).json({ error: "We couldn't load your event requests. Please try again." });
     return res.json(data);
+  });
+
+  // SCRUM-159: the Event Organiser Home in one read (organiser_home(), migration 76). Not under /:id, so "home" is not an id.
+  router.get("/my-requests/home", requireSession(deps), async (_req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const { data, error } = await deps.forUser(token).rpc("organiser_home");
+    if (error) {
+      // 42501: the caller is not an organiser
+      if (error.code === "42501") return res.status(403).json({ error: "You are not allowed to view event requests created by organisers." });
+      console.error("organiser_home failed:", error.message);
+      return res.status(500).json({ error: "We couldn't load your events. Please try again." });
+    }
+    return res.json(data ?? []);
   });
 
   return router;

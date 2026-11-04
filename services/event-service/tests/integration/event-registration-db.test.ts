@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
+import { createClient } from "@supabase/supabase-js";
+import { adminClient, DB_ENV, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-83: the event_registrations rules only the real database can enforce (migration 11). Signs in as a
@@ -24,6 +25,7 @@ const DENIED = "42501";
 describe.skipIf(!hasDb)("SCRUM-83 event_registrations in the database (migration 11)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const eventIds: string[] = [];
+  const venueIds: string[] = [];
   let attendee: Actor;
   let otherAttendee: Actor;
   let organiser: Actor; // the organiser of every event newEvent() creates
@@ -76,6 +78,7 @@ describe.skipIf(!hasDb)("SCRUM-83 event_registrations in the database (migration
 
   afterAll(async () => {
     if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds); // cascades registrations
+    if (venueIds.length > 0) await admin.from("venues").delete().in("id", venueIds);
   });
 
   // AC6: after a Withdrawn registration the attendee registers again; that's a new row, and the old one stays
@@ -198,6 +201,448 @@ describe.skipIf(!hasDb)("SCRUM-83 event_registrations in the database (migration
     expect(error?.code).toBe(DENIED);
   });
   // end of AC12
+
+  // -------------------------------------------------------------------------
+  // SCRUM-169 — Confirmed straight away up to capacity (migration 68)
+  // -------------------------------------------------------------------------
+  describe("SCRUM-169 confirming registrations up to capacity (migration 68)", () => {
+    /** Registers as the signed-in actor, the way POST /events/:id/registrations does. */
+    function registerThroughFunction(actor: Actor, eventId: string) {
+      return actor.client.rpc("register_for_event", { p_event_id: eventId, p_details: DETAILS });
+    }
+
+    /** The places the event's list row says are taken. */
+    async function placesTaken(eventId: string) {
+      const { data } = await otherAttendee.client.rpc("list_public_events");
+      return (data as { id: string; active_registrations: number }[]).find((row) => row.id === eventId)?.active_registrations;
+    }
+
+    // AC1: with a free place the registration is Confirmed at once and uses that place
+    it("SCRUM-169/AC1 confirms a registration at once while places remain, and it uses a place", async () => {
+      const eventId = await newEvent({ registration_capacity: 2 });
+
+      const { data, error } = await registerThroughFunction(attendee, eventId);
+
+      expect(error).toBeNull();
+      expect(data).toBe("registered");
+      expect(await placesTaken(eventId)).toBe(1);
+    });
+
+    // AC2: at capacity the registration is saved as Pending and doesn't use a place
+    it("SCRUM-169/AC2 saves a registration as Pending at capacity, using no place", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+
+      const { data, error } = await registerThroughFunction(attendee, eventId);
+
+      expect(error).toBeNull();
+      expect(data).toBe("waitlisted");
+      expect(await placesTaken(eventId)).toBe(1);
+    });
+
+    // AC5: two attendees on the last place at the same moment: each counts the places only after the other has finished
+    it("SCRUM-169/AC5 confirms only one of two attendees registering for the last place at the same moment", async () => {
+      // Repeated, because one lucky ordering would pass without the lock
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const eventId = await newEvent({ registration_capacity: 1 });
+
+        const results = await Promise.all([registerThroughFunction(attendee, eventId), registerThroughFunction(otherAttendee, eventId)]);
+
+        expect(results.map((result) => result.error)).toEqual([null, null]);
+        expect(results.map((result) => result.data as string).sort()).toEqual(["registered", "waitlisted"]);
+      }
+    });
+
+    // AC1: an attendee's token can call the function directly, and it can confirm, so it must check for itself that the
+    // event is open: otherwise an attendee could confirm themselves on a private, closed or cancelled event
+    it.each([
+      ["a private event", { registration_required: false }],
+      ["an event not yet confirmed", { status: "planning" }],
+      ["a cancelled event", { status: "cancelled" }],
+      ["an event whose registration has closed", { registration_closes_at: "2020-01-01T00:00:00+00:00" }],
+      ["an event whose registration hasn't opened", { registration_opens_at: "2030-01-01T00:00:00+00:00" }],
+      ["an event that has started", { preferred_start_datetime: "2020-01-01T00:00:00+00:00", preferred_end_datetime: "2020-01-01T02:00:00+00:00" }],
+    ])("SCRUM-169/AC1 refuses to register for %s", async (_name, fields) => {
+      const eventId = await newEvent(fields);
+
+      const { error } = await registerThroughFunction(attendee, eventId);
+
+      expect(error).toMatchObject({ code: "CS169", message: "REGISTRATION_CLOSED" });
+      const { data: rows } = await admin.from("event_registrations").select("id").eq("event_id", eventId);
+      expect(rows).toEqual([]);
+    });
+
+    // AC1: the one-active-registration rule still holds through the function (SCRUM-83/AC16)
+    it("SCRUM-169/AC1 refuses a second active registration for the same event", async () => {
+      const eventId = await newEvent();
+      await registerThroughFunction(attendee, eventId);
+
+      const { error } = await registerThroughFunction(attendee, eventId);
+
+      expect(error?.code).toBe("23505");
+    });
+
+    /** The organiser's decision on a Pending registration, the way the decision route makes it. */
+    function decideAs(actor: Actor, registrationId: string, decision: string) {
+      return actor.client.rpc("decide_registration", { p_registration_id: registrationId, p_decision: decision });
+    }
+
+    async function statusOf(registrationId: string) {
+      const { data } = await admin.from("event_registrations").select("status").eq("id", registrationId).single();
+      return data?.status;
+    }
+
+    // AC3: the event's organiser confirms a Pending registration
+    it("SCRUM-169/AC3 lets the event's organiser confirm a Pending registration, which then uses a place", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await decideAs(organiser, registrationId, "confirm");
+
+      expect(error).toBeNull();
+      expect(await statusOf(registrationId)).toBe("registered");
+      expect(await placesTaken(eventId)).toBe(1);
+    });
+
+    // AC3: declining is stored as 'cancelled', which every page shows as Rejected
+    it("SCRUM-169/AC3 lets the event's organiser decline a Pending registration", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await decideAs(organiser, registrationId, "decline");
+
+      expect(error).toBeNull();
+      expect(await statusOf(registrationId)).toBe("cancelled");
+    });
+
+    // AC3: the decision is the organiser's alone: not the attendee's, nor the assigned coordinator's, who can see the row
+    it("SCRUM-169/AC3 refuses a decision from anyone but the event's organiser", async () => {
+      const eventId = await newEvent({ assigned_coordinator_id: coordinator.userId });
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      for (const actor of [attendee, otherAttendee, coordinator]) {
+        const { error } = await decideAs(actor, registrationId, "confirm");
+        expect(error).toMatchObject({ code: "CS169", message: "NOT_FOUND" });
+      }
+      expect(await statusOf(registrationId)).toBe("waitlisted");
+    });
+
+    // AC3: only a Pending registration is waiting for a decision
+    it("SCRUM-169/AC3 refuses a decision on a registration that isn't Pending", async () => {
+      const eventId = await newEvent();
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "withdrawn");
+
+      const { error } = await decideAs(organiser, registrationId, "confirm");
+
+      expect(error).toMatchObject({ code: "CS169", message: "NOT_PENDING" });
+      expect(await statusOf(registrationId)).toBe("withdrawn");
+    });
+
+    // AC3: a cancelled or completed event has nothing left to decide
+    it("SCRUM-169/AC3 refuses a decision on an event that is no longer confirmed", async () => {
+      const eventId = await newEvent({ status: "cancelled" });
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await decideAs(organiser, registrationId, "confirm");
+
+      expect(error).toMatchObject({ code: "CS169", message: "EVENT_CLOSED" });
+    });
+
+    // AC4: on a full event, confirming is refused until a place has been freed
+    it("SCRUM-169/AC4 refuses to confirm on a full event, and allows it once a place has been freed", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      const confirmedId = await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+      const pendingId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const refused = await decideAs(organiser, pendingId, "confirm");
+      expect(refused.error).toMatchObject({ code: "CS169", message: "EVENT_FULL" });
+      expect(await statusOf(pendingId)).toBe("waitlisted");
+
+      await otherAttendee.client.from("event_registrations").update({ status: "withdrawn" }).eq("id", confirmedId).select("id");
+
+      const allowed = await decideAs(organiser, pendingId, "confirm");
+      expect(allowed.error).toBeNull();
+      expect(await statusOf(pendingId)).toBe("registered");
+    });
+
+    // AC4: declining uses no place, so a full event doesn't stop it
+    it("SCRUM-169/AC4 still lets the organiser decline on a full event", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+      const pendingId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { error } = await decideAs(organiser, pendingId, "decline");
+
+      expect(error).toBeNull();
+      expect(await statusOf(pendingId)).toBe("cancelled");
+    });
+
+    // AC6: withdrawing frees the place, and the Pending attendee stays Pending until the organiser decides
+    it("SCRUM-169/AC6 frees the place when a Confirmed attendee withdraws, and promotes no one", async () => {
+      const eventId = await newEvent({ registration_capacity: 1 });
+      const confirmedId = await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+      const pendingId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      await otherAttendee.client.from("event_registrations").update({ status: "withdrawn" }).eq("id", confirmedId).select("id");
+
+      expect(await statusOf(confirmedId)).toBe("withdrawn");
+      expect(await placesTaken(eventId)).toBe(0);
+      expect(await statusOf(pendingId)).toBe("waitlisted");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // SCRUM-170 — The organiser adds a VIP past the registration cap (migration 69)
+  // -------------------------------------------------------------------------
+  describe("SCRUM-170 adding a VIP past the registration cap (migration 69)", () => {
+    /** An event of the seeded organiser, with an approved booking for a new venue of each capacity given. */
+    async function eventInVenues(capacities: number[], fields: Record<string, unknown> = {}) {
+      const eventId = await newEvent(fields);
+      for (const max_capacity of capacities) {
+        const { data, error } = await admin
+          .from("venues")
+          .insert({ name: `IT-venue-${Math.random().toString(36).slice(2, 8)}`, address: "IT address", max_capacity })
+          .select("id")
+          .single();
+        if (error) throw new Error(error.message);
+        venueIds.push(data.id as string);
+        const booking = await admin
+          .from("venue_bookings")
+          .insert({ event_id: eventId, venue_id: data.id, status: "approved", event_start_datetime: START, event_end_datetime: END });
+        if (booking.error) throw new Error(booking.error.message);
+      }
+      return eventId;
+    }
+
+    function addVip(actor: Actor, eventId: string, email: string) {
+      return actor.client.rpc("add_vip_registration", { p_event_id: eventId, p_email: email });
+    }
+
+    async function rowsOf(eventId: string, attendeeId: string) {
+      const { data } = await admin.from("event_registrations").select("id, status, is_vip").eq("event_id", eventId).eq("attendee_id", attendeeId);
+      return data ?? [];
+    }
+
+    async function notificationsOf(eventId: string, attendeeId: string) {
+      const { data } = await admin
+        .from("notifications")
+        .select("type, title, message")
+        .eq("event_id", eventId)
+        .eq("user_id", attendeeId)
+        .eq("type", "registration_status_changed");
+      return data ?? [];
+    }
+
+    async function confirmedCount(eventId: string) {
+      const { count } = await admin.from("event_registrations").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "registered");
+      return count;
+    }
+
+    // AC1: at the cap, an ordinary attendee would be Pending, but the organiser's VIP is Confirmed
+    it("SCRUM-170/AC1 confirms a VIP on an event at its registration cap, while the venue has room", async () => {
+      const eventId = await eventInVenues([5], { registration_capacity: 1 });
+      await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+
+      const { data, error } = await addVip(organiser, eventId, ATTENDEE);
+
+      expect(error).toBeNull();
+      expect(data).toBe("registered");
+      expect(await rowsOf(eventId, attendee.userId)).toEqual([expect.objectContaining({ status: "registered", is_vip: true })]);
+      expect(await confirmedCount(eventId)).toBe(2);
+    });
+
+    // AC1: the VIP is told the same way an attendee is when their status changes (65's wording)
+    it("SCRUM-170/AC1 notifies a new VIP once, in the words attendees get", async () => {
+      const eventId = await eventInVenues([5], { registration_capacity: 1 });
+      const { data: event } = await admin.from("events").select("name").eq("id", eventId).single();
+
+      await addVip(organiser, eventId, ATTENDEE);
+
+      expect(await notificationsOf(eventId, attendee.userId)).toEqual([
+        {
+          type: "registration_status_changed",
+          title: "Your registration changed",
+          message: `Your registration for ${event?.name} is now Confirmed.`,
+        },
+      ]);
+    });
+
+    // AC1: the email is found however it was typed
+    it("SCRUM-170/AC1 finds the account whatever the case of the email", async () => {
+      const eventId = await eventInVenues([5]);
+
+      const { error } = await addVip(organiser, eventId, `  ${ATTENDEE.toUpperCase()} `);
+
+      expect(error).toBeNull();
+      expect(await rowsOf(eventId, attendee.userId)).toHaveLength(1);
+    });
+
+    // AC1: a VIP takes a place, so an attendee registering afterwards is still held at the cap
+    it("SCRUM-170/AC1 counts a VIP toward the cap for attendees who register afterwards", async () => {
+      const eventId = await eventInVenues([5], { registration_capacity: 1 });
+      await addVip(organiser, eventId, ATTENDEE);
+
+      const { data } = await otherAttendee.client.rpc("register_for_event", { p_event_id: eventId, p_details: DETAILS });
+
+      expect(data).toBe("waitlisted");
+    });
+
+    // AC2: the venue's capacity is the limit, even for a VIP
+    it("SCRUM-170/AC2 refuses a VIP who would take the event past the venue's capacity, and names the capacity", async () => {
+      const eventId = await eventInVenues([1], { registration_capacity: 1 });
+      await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+
+      const { error } = await addVip(organiser, eventId, ATTENDEE);
+
+      expect(error).toMatchObject({ code: "CS170", message: "VENUE_FULL", details: "1" });
+      expect(await rowsOf(eventId, attendee.userId)).toEqual([]);
+    });
+
+    // AC2 (decided with the team): with several venues everyone Confirmed must fit in each, so the smallest is the limit
+    it("SCRUM-170/AC2 uses the smallest venue as the limit when the event has several", async () => {
+      const eventId = await eventInVenues([50, 1]);
+      await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+
+      const { error } = await addVip(organiser, eventId, ATTENDEE);
+
+      expect(error).toMatchObject({ code: "CS170", message: "VENUE_FULL", details: "1" });
+    });
+
+    // AC2: with no approved venue there is no capacity to check against, so it isn't guessed
+    it("SCRUM-170/AC2 refuses a VIP when the event has no approved venue", async () => {
+      const eventId = await newEvent();
+
+      const { error } = await addVip(organiser, eventId, ATTENDEE);
+
+      expect(error).toMatchObject({ code: "CS170", message: "NO_VENUE" });
+      expect(await rowsOf(eventId, attendee.userId)).toEqual([]);
+    });
+
+    // AC2: two VIPs at once for the last venue place: each counts after the other has finished
+    it("SCRUM-170/AC2 lets only one of two simultaneous VIPs take the venue's last place", async () => {
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const eventId = await eventInVenues([1]);
+
+        const results = await Promise.all([addVip(organiser, eventId, ATTENDEE), addVip(organiser, eventId, OTHER_ATTENDEE)]);
+
+        expect(results.filter((result) => result.error === null)).toHaveLength(1);
+        expect(results.find((result) => result.error)?.error?.message).toBe("VENUE_FULL");
+        expect(await confirmedCount(eventId)).toBe(1);
+      }
+    });
+
+    // AC3: the database refuses everyone but the event's organiser, whatever calls it
+    it("SCRUM-170/AC3 refuses a VIP add from anyone but the event's organiser", async () => {
+      const { data: others } = await admin.from("users").select("email").eq("role", "event_organiser").neq("id", organiser.userId).limit(1);
+      const otherOrganiser = await signInAs(others?.[0].email as string);
+      const eventId = await eventInVenues([5], { assigned_coordinator_id: coordinator.userId });
+
+      for (const actor of [attendee, otherAttendee, otherOrganiser, coordinator]) {
+        const { error } = await addVip(actor, eventId, OTHER_ATTENDEE);
+        expect(error).toMatchObject({ code: "CS170", message: "NOT_FOUND" });
+      }
+      expect(await rowsOf(eventId, otherAttendee.userId)).toEqual([]);
+    });
+
+    // AC3: a signed-out caller can't reach the function at all
+    it("SCRUM-170/AC3 can't be called without signing in", async () => {
+      const eventId = await eventInVenues([5]);
+      const anon = createClient(DB_ENV.url as string, DB_ENV.publishableKey as string, { auth: { persistSession: false } });
+
+      const { error } = await anon.rpc("add_vip_registration", { p_event_id: eventId, p_email: ATTENDEE });
+
+      expect(error).not.toBeNull();
+      expect(await rowsOf(eventId, attendee.userId)).toEqual([]);
+    });
+
+    // AC4: a Pending attendee is confirmed on their existing registration, not given a second one (W9 r28)
+    it("SCRUM-170/AC4 confirms a Pending attendee's own registration instead of creating a second", async () => {
+      const eventId = await eventInVenues([5], { registration_capacity: 1 });
+      await arrangeRegistration(eventId, otherAttendee.userId, "registered");
+      const pendingId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+
+      const { data, error } = await addVip(organiser, eventId, ATTENDEE);
+
+      expect(error).toBeNull();
+      expect(data).toBe("registered");
+      expect(await rowsOf(eventId, attendee.userId)).toEqual([{ id: pendingId, status: "registered", is_vip: true }]);
+      expect(await notificationsOf(eventId, attendee.userId)).toHaveLength(1);
+    });
+
+    // AC4: someone already Confirmed has nothing to gain, and is left exactly as they were
+    it("SCRUM-170/AC4 refuses an attendee who is already Confirmed and creates no second registration", async () => {
+      const eventId = await eventInVenues([5]);
+      const confirmedId = await arrangeRegistration(eventId, attendee.userId, "registered");
+
+      const { error } = await addVip(organiser, eventId, ATTENDEE);
+
+      expect(error).toMatchObject({ code: "CS170", message: "ALREADY_REGISTERED" });
+      expect(await rowsOf(eventId, attendee.userId)).toEqual([{ id: confirmedId, status: "registered", is_vip: false }]);
+    });
+
+    // AC4: withdrawn history isn't an active registration, so it doesn't stand in the way (SCRUM-83/AC6)
+    it("SCRUM-170/AC4 adds a new registration for an attendee who had withdrawn, keeping the earlier one", async () => {
+      const eventId = await eventInVenues([5]);
+      await arrangeRegistration(eventId, attendee.userId, "withdrawn");
+
+      await addVip(organiser, eventId, ATTENDEE);
+
+      expect((await rowsOf(eventId, attendee.userId)).map((row) => row.status).sort()).toEqual(["registered", "withdrawn"]);
+    });
+
+    // AC1: the add needs a real attendee account (the assumption agreed for this story)
+    it.each(["nobody@example.com", ORGANISER])("SCRUM-170/AC1 refuses %s, which is not an attendee account", async (email) => {
+      const eventId = await eventInVenues([5]);
+
+      const { error } = await addVip(organiser, eventId, email);
+
+      expect(error).toMatchObject({ code: "CS170", message: "ACCOUNT_NOT_FOUND" });
+    });
+
+    // AC1: only an event still taking registrations
+    it.each([
+      ["cancelled", { status: "cancelled" }],
+      ["not confirmed", { status: "planning" }],
+      ["not taking registrations", { registration_required: false }],
+    ])("SCRUM-170/AC1 refuses an event that is %s", async (_name, fields) => {
+      const eventId = await eventInVenues([5], fields);
+
+      const { error } = await addVip(organiser, eventId, ATTENDEE);
+
+      expect(error).toMatchObject({ code: "CS170", message: "EVENT_CLOSED" });
+    });
+
+    // The label is the organiser's alone: an attendee's token can't set it through Supabase directly
+    it("SCRUM-170/AC1 doesn't let an attendee label their own registration as VIP", async () => {
+      const eventId = await eventInVenues([5]);
+
+      const inserted = await attendee.client
+        .from("event_registrations")
+        .insert({ event_id: eventId, attendee_id: attendee.userId, status: "waitlisted", is_vip: true });
+      expect(inserted.error?.code).toBe(DENIED);
+
+      const registrationId = await arrangeRegistration(eventId, attendee.userId, "waitlisted");
+      const updated = await attendee.client.from("event_registrations").update({ is_vip: true }).eq("id", registrationId).select("id");
+      expect(updated.error?.code).toBe(DENIED);
+      expect(await rowsOf(eventId, attendee.userId)).toEqual([{ id: registrationId, status: "waitlisted", is_vip: false }]);
+    });
+
+    // A normal registration carries no label, and withdrawing still works with the narrower grants
+    it("SCRUM-170/AC1 leaves a normal registration unlabelled and still lets its attendee withdraw", async () => {
+      const eventId = await eventInVenues([5]);
+      await attendee.client.rpc("register_for_event", { p_event_id: eventId, p_details: DETAILS });
+      const [row] = await rowsOf(eventId, attendee.userId);
+      expect(row.is_vip).toBe(false);
+
+      const { data } = await attendee.client
+        .from("event_registrations")
+        .update({ status: "withdrawn", withdrawn_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .select("id");
+
+      expect(data).toHaveLength(1);
+    });
+  });
 
   // -------------------------------------------------------------------------
   // SCRUM-73 — Withdrawing a registration (migration 29)

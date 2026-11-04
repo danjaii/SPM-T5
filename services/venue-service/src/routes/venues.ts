@@ -4,7 +4,10 @@ import {
   bookingsFlaggedMessage,
   bufferConflictSummary,
   canEditVenueTiming,
+  bookingsOverCapacity,
+  canManageVenueCatalogue,
   canMarkVenueUnavailable,
+  parseVenueInput,
   sgtToUtc,
   utcToSgt,
   canViewVenueCatalogue,
@@ -16,13 +19,15 @@ import {
   type AffectedPairDto,
   type Role,
 } from "@spm-t5/shared";
-import { forbidden, notFound, validationFailed } from "../domain/errors";
+import { confirmImpact, forbidden, notFound, validationFailed } from "../domain/errors";
 import type { SupabaseDeps } from "../supabase";
 import { asyncHandler } from "../middlewares/errors";
 import { requireSession, type SessionUser } from "../middlewares/session";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "../readers/venueSearchReader";
 import type { BookingRepository } from "../repositories/bookingRepository";
 import { SupabaseBookingRepository } from "../repositories/supabaseBookingRepository";
+import { SupabaseVenueCatalogueWriter, type VenueCatalogueWriter } from "../readers/venueCatalogueWriter";
+import { SupabaseVenueEditReader, type VenueEditReader } from "../readers/venueEditReader";
 import { SupabaseVenueTimingWriter, type AffectedPair, type VenueTimingWriter } from "../readers/venueTimingWriter";
 import { SupabaseVenueUnavailabilityStore, type VenueUnavailabilityStore } from "../readers/venueUnavailabilityStore";
 import { searchVenues } from "../services/venueSearchService";
@@ -77,6 +82,8 @@ export function venueRoutes(
   timingFor: (accessToken: string) => VenueTimingWriter = (token) => new SupabaseVenueTimingWriter(deps.forUser(token)),
   occupancyFor: (accessToken: string) => Pick<BookingRepository, "occupiedPeriods"> = (token) => new SupabaseBookingRepository(deps.forUser(token)),
   unavailabilityFor: (accessToken: string) => VenueUnavailabilityStore = (token) => new SupabaseVenueUnavailabilityStore(deps.forUser(token)),
+  catalogueFor: (accessToken: string) => VenueCatalogueWriter = (token) => new SupabaseVenueCatalogueWriter(deps.forUser(token)),
+  editFor: (accessToken: string) => VenueEditReader = (token) => new SupabaseVenueEditReader(deps.forUser(token)),
 ) {
   const router = Router();
 
@@ -99,6 +106,61 @@ export function venueRoutes(
 
     res.json((data ?? []).map((v) => ({ id: v.id, name: v.name, address: v.address, max_capacity: v.max_capacity })));
   });
+
+  // SCRUM-57: Venue Staff add a venue. The role comes before the body (57-S3), the same shared parser as the form checks
+  // the body (57-S2), and create_venue enforces the role again in the database and saves the venue whole (57-S1).
+  router.post(
+    "/",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      if (!canManageVenueCatalogue(res.locals.role as Role)) throw forbidden("Only venue staff can add a venue.");
+
+      const parsed = parseVenueInput(req.body);
+      if (!parsed.ok) throw validationFailed(parsed.fieldErrors as Record<string, string>);
+
+      res.status(201).json(await catalogueFor(token).create(parsed.data));
+    }),
+  );
+
+  // SCRUM-58: the venue as the edit form needs it (with layout and facility ids). Venue Staff only (58-S3).
+  router.get(
+    "/:id/edit",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      if (!canManageVenueCatalogue(res.locals.role as Role)) throw forbidden("Only venue staff can edit a venue.");
+
+      const venue = await editFor(token).forEdit(req.params.id as string);
+      if (!venue) throw notFound("Venue not found.");
+      res.set("Cache-Control", "no-store").json(venue);
+    }),
+  );
+
+  // SCRUM-58: Venue Staff edit a venue. The role comes before the body (58-S3), the same shared parser as the form checks the
+  // body (58-S2), and update_venue enforces the role again in the database and saves the venue whole (58-S1). A capacity cut
+  // that leaves a booking over capacity is shown first and saved only when sent again with confirmImpact (58-S4).
+  router.put(
+    "/:id",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      if (!canManageVenueCatalogue(res.locals.role as Role)) throw forbidden("Only venue staff can edit a venue.");
+
+      const parsed = parseVenueInput(req.body);
+      if (!parsed.ok) throw validationFailed(parsed.fieldErrors as Record<string, string>);
+
+      const venueId = req.params.id as string;
+      const reader = editFor(token);
+      const current = await reader.forEdit(venueId);
+      if (!current) throw notFound("Venue not found.");
+
+      if (req.body?.confirmImpact !== true && parsed.data.maxCapacity < current.maxCapacity) {
+        const affected = bookingsOverCapacity(await reader.bookings(venueId), parsed.data.maxCapacity, current.maxCapacity, now());
+        if (affected.length > 0) throw confirmImpact(affected);
+      }
+
+      await catalogueFor(token).update(venueId, parsed.data);
+      res.json({ id: venueId });
+    }),
+  );
 
   // SCRUM-65: the layouts and facilities the search form offers. Registered before /:id so it is not read as an id.
   router.get(
@@ -155,6 +217,8 @@ export function venueRoutes(
       setup_minutes: venue.setup_minutes ?? 0,
       turnaround_minutes: venue.turnaround_minutes ?? 0,
       can_edit_timing: canEditVenueTiming(res.locals.role as Role),
+      // SCRUM-57: whether to offer the add (and, with SCRUM-58, edit) actions; the server refuses anyone else regardless
+      can_manage_catalogue: canManageVenueCatalogue(res.locals.role as Role),
       can_mark_unavailable: forStaff,
       unavailability: upcoming.map((b) => unavailabilityBlockView(b, forStaff)),
       layouts: (venue.venue_supported_layouts ?? []).map((l) => ({ name: l.room_layouts.name, max_capacity: l.max_capacity_for_layout })),

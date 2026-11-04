@@ -19,9 +19,12 @@ export function profileRoutes(deps: SupabaseDeps) {
     const db = deps.forUser(token);
     const { data: profile } = await db
       .from("users")
-      .select("full_name, email, phone, communication_preferences, role, organisation_id, department")
+      .select("full_name, role, organisation_id, department")
       .eq("id", id)
       .maybeSingle();
+    // SCRUM-154/AC5: email, phone and preferences are not readable from users (migration 52); the caller's own come from a function
+    const { data: contact } = await db.rpc("my_contact_details");
+    const mine = (contact as { email: string; phone: string | null; communication_preferences: unknown }[] | null)?.[0];
 
     // SCRUM-68/AC2: only an Event Organiser has an organisation; they see its name
     let organisation: { name: string } | null = null;
@@ -45,10 +48,10 @@ export function profileRoutes(deps: SupabaseDeps) {
 
     return {
       fullName: profile?.full_name,
-      email: profile?.email,
+      email: mine?.email,
       loginEmail: email,
-      phone: profile?.phone ?? null,
-      communicationPreferences: profile?.communication_preferences,
+      phone: mine?.phone ?? null,
+      communicationPreferences: mine?.communication_preferences,
       role: profile?.role,
       organisation,
       department: internal ? (profile?.department ?? null) : null,
