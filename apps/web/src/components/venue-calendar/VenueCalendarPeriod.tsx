@@ -1,4 +1,5 @@
-import { AlertTriangle, Ban, Check, CheckCircle2, Clock, Moon, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Ban, Check, CheckCircle2, Clock, Info, Moon, type LucideIcon } from "lucide-react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatPeriodTimes, type CalendarPeriod, type CalendarPeriodKind, type CalendarStatus } from "@/lib/venueCalendar";
@@ -14,6 +15,41 @@ const STATUS_LOOK: Record<CalendarStatus, { icon: LucideIcon; className: string 
 
 // Setup and turnaround are named and drawn dashed, so they read as part of the booking but not as the event itself.
 const KIND_NAME: Partial<Record<CalendarPeriodKind, string>> = { event: "Event", setup: "Setup", turnaround: "Turnaround" };
+
+/**
+ * SCRUM-130/AC2: a block's reason on hover, on tap (click) and on keyboard focus, so it does not depend on a native title tooltip.
+ * Escape closes it. The reason is also written out in the row.
+ */
+function ReasonHint({ text }: { text: string }) {
+  const id = useId();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [tapped, setTapped] = useState(false);
+  const shown = hovered || focused || tapped;
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="Why is this blocked?"
+        aria-describedby={shown ? id : undefined}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); setTapped(false); }}
+        onClick={() => setTapped((open) => !open)}
+        onKeyDown={(e) => { if (e.key === "Escape") { setHovered(false); setFocused(false); setTapped(false); } }}
+        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <Info aria-hidden="true" className="size-4" />
+      </button>
+      {shown && (
+        <span id={id} role="tooltip" className="absolute top-full left-0 z-10 mt-1 w-max max-w-64 rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md">
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
 
 export function VenueCalendarPeriod({ period, selected = false, onSelect }: { period: CalendarPeriod; selected?: boolean; onSelect?: () => void }) {
   const { icon: Icon, className } = STATUS_LOOK[period.status];
@@ -36,6 +72,7 @@ export function VenueCalendarPeriod({ period, selected = false, onSelect }: { pe
       </span>
       {KIND_NAME[period.kind] && <span className="font-medium text-foreground">{KIND_NAME[period.kind]}</span>}
       {period.reason_label && <span className="font-medium text-foreground">{period.reason_label}</span>}
+      {period.kind === "block" && <ReasonHint text={period.reason_label ? `${period.label}: ${period.reason_label}` : period.label} />}
       <span className="text-muted-foreground">{formatPeriodTimes(period.start, period.end)}</span>
       {/* SCRUM-130/AC1: the whole time the booking holds the venue, setup and turnaround included */}
       {period.kind === "event" && period.occupied_start && period.occupied_end && (

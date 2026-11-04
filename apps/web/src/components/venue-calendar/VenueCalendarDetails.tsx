@@ -46,16 +46,16 @@ export function VenueCalendarDetails({ venue, period, onClose }: { venue: Calend
           Close details
         </Button>
       </div>
-      <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
-        <dt className="font-medium text-foreground">Status</dt>
-        <dd>{period.label}</dd>
-        <dt className="font-medium text-foreground">Starts</dt>
-        <dd>{formatPeriodInstant(period.start)}</dd>
-        <dt className="font-medium text-foreground">Ends</dt>
-        <dd>{formatPeriodInstant(period.end)}</dd>
-        {kindLines(period, venue.periods).map(({ term, text }) => (
-          <div key={term} className="contents">
-            <dt className="font-medium text-foreground">{term}</dt>
+      <dl className="flex flex-col gap-2 text-sm">
+        {[
+          { term: "Status", text: period.label },
+          { term: "Starts", text: formatPeriodInstant(period.start) },
+          { term: "Ends", text: formatPeriodInstant(period.end) },
+          ...kindLines(period, venue.periods),
+        ].map(({ term, text }) => (
+          // stacked on a phone, side by side from the sm breakpoint; no arbitrary grid value
+          <div key={term} className="flex flex-col sm:flex-row sm:gap-4">
+            <dt className="font-medium text-foreground sm:w-28 sm:shrink-0">{term}</dt>
             <dd>{text}</dd>
           </div>
         ))}
