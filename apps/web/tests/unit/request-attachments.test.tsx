@@ -329,3 +329,44 @@ describe("SCRUM-51/AC1 several files at once", () => {
     expect(calls.filter((c) => c.method === "PUT")).toHaveLength(2);
   });
 });
+
+describe("SCRUM-51/AC1 a listed document can be opened", () => {
+  it("SCRUM-51/AC1 Download asks event-service for a short-lived link to that file and opens it in a new tab", async () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    const server = mockServer([{ status: 200, body: { attachments: [stored("a1", "programme.pdf")] } }], {
+      "attachments/signed-url": { status: 200, body: { signed_url: "https://storage.test/signed/programme.pdf?token=t" } },
+    });
+    render(<SupportingDocuments eventId={EVENT} readOnly />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Download programme.pdf" }));
+
+    await waitFor(() => expect(open).toHaveBeenCalledWith("https://storage.test/signed/programme.pdf?token=t", "_blank", "noopener"));
+    const asked = server.calls.find((c) => c.url.includes("signed-url"))!;
+    expect(asked.url).toContain(`/events/${EVENT}/attachments/signed-url`);
+    expect(asked.url).toContain(`storage_path=${encodeURIComponent(`${EVENT}/x/programme.pdf`)}`);
+  });
+
+  it("SCRUM-51/AC1 each listed document has its own Download, also for a submitted request (read-only)", async () => {
+    mockServer([{ status: 200, body: { attachments: [stored("a1", "a.pdf"), stored("a2", "b.pdf")] } }]);
+    render(<SupportingDocuments eventId={EVENT} readOnly />);
+
+    expect(await screen.findByRole("button", { name: "Download a.pdf" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download b.pdf" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
+  });
+
+  it("SCRUM-51/AC1 says so, and opens nothing, when the link could not be made", async () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    mockServer([{ status: 200, body: { attachments: [stored("a1", "programme.pdf")] } }], {
+      "attachments/signed-url": { status: 500, body: { error: "Could not generate a signed URL." } },
+    });
+    render(<SupportingDocuments eventId={EVENT} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Download programme.pdf" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("We couldn't open programme.pdf");
+    expect(open).not.toHaveBeenCalled();
+  });
+});

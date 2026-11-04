@@ -138,10 +138,19 @@ export function eventRoutes(deps: SupabaseDeps) {
     const { data: events } = await deps
       .forUser(token)
       .from("events")
-      .select("id, name, status")
+      .select("id, name, status, preferred_start_datetime, preferred_end_datetime, expected_attendance, organiser:organiser_id(full_name)")
       .eq("assigned_coordinator_id", userId);
+    // SCRUM-160: the dates, attendance and organiser let the coordinator dashboard show a short peek of each event
     return res.json(
-      (events ?? []).map((e) => ({ id: e.id, name: e.name, status: e.status })),
+      (events ?? []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        status: e.status,
+        preferred_start_datetime: e.preferred_start_datetime ?? null,
+        preferred_end_datetime: e.preferred_end_datetime ?? null,
+        expected_attendance: e.expected_attendance ?? null,
+        organiser_name: embeddedName(e.organiser),
+      })),
     );
   });
 
@@ -526,8 +535,8 @@ export function eventRoutes(deps: SupabaseDeps) {
   });
 
   // SCRUM-27/AC1: search for users eligible to access the request
-  // SCRUM-27/AC5: that is the coordinators and this event's own organiser (as user_can_access_event in
-  // migration 08 decides), never another event's organiser; the caller isn't offered to themselves
+  // SCRUM-27/AC5: that is this event's own organiser and its assigned coordinator (as user_can_access_event in
+  // migration 59 decides), never another event's organiser or another coordinator; the caller isn't offered to themselves
   router.get("/:id/mentionable-users", requireSession(deps), async (req, res) => {
     const { id: callerId, token } = res.locals.user as SessionUser;
     const role = await lookUpRole(deps, res.locals.user as SessionUser);
@@ -540,11 +549,17 @@ export function eventRoutes(deps: SupabaseDeps) {
       return res.status(403).json({ error: "You are not allowed to search for users on this event." });
     }
     const query = typeof req.query.query === "string" ? req.query.query.trim().toLowerCase() : "";
-    const { data: users } = await deps
+    // SCRUM-156: the people who can see the event are its organiser and its assigned coordinator; no other coordinator can
+    const { data: event } = await deps
       .forUser(token)
-      .from("users")
-      .select("id, full_name")
-      .or(`role.eq.event_coordinator,id.eq.${organiserId}`);
+      .from("events")
+      .select("assigned_coordinator_id")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    const people = [organiserId, event?.assigned_coordinator_id as string | null | undefined].filter(
+      (id): id is string => typeof id === "string",
+    );
+    const { data: users } = await deps.forUser(token).from("users").select("id, full_name").in("id", people);
     const result = (users ?? [])
       .filter((u) => {
         if (u.id === callerId) return false;
@@ -635,6 +650,10 @@ export function eventRoutes(deps: SupabaseDeps) {
     if (status === "rejected" && !reason) {
       return res.status(400).json({ error: "A reason is required to reject an event." });
     }
+    // SCRUM-174/AC1: so is cancelling, because the reason is sent to the organiser and attendees (AC6)
+    if (status === "cancelled" && !reason) {
+      return res.status(400).json({ error: "A reason is required to cancel an event." });
+    }
 
     // SCRUM-8 AC6: only the coordinator assigned to this event may change its status
     const { data: target } = await deps
@@ -661,6 +680,13 @@ export function eventRoutes(deps: SupabaseDeps) {
     // SCRUM-99/AC7: the events_safety_gate trigger (migration 37) refuses preparation before a Safety Approved check
     if (error?.code === "SC001") {
       return res.status(409).json({ error: "This event can't move to preparation until it is Safety Approved." });
+    }
+    // SCRUM-174/AC7: migration 63 keeps a cancelled event cancelled, and a completed or rejected one from being cancelled
+    if (error?.code === "CS174") {
+      return res.status(409).json({
+        code: "EVENT_CLOSED",
+        error: "A cancelled event can't change status, and a completed or rejected event can't be cancelled.",
+      });
     }
 
     // SCRUM-8 AC2: confirm the change by sending back the updated event

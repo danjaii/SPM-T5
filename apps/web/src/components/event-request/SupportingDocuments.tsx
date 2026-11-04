@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, FileText, Trash2 } from "lucide-react";
+import { AlertCircle, Download, FileText, Trash2 } from "lucide-react";
 
 import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES, attachmentRefusal } from "@spm-t5/shared";
 import { Button } from "@/components/ui/button";
-import { uploadFile } from "@/lib/events";
+import { fetchAttachmentUrl, uploadFile } from "@/lib/events";
 import {
   listRequestAttachments, registerRequestAttachment, removeRequestAttachment, requestAttachmentUpload, type RequestAttachment,
 } from "@/lib/requestAttachments";
@@ -62,6 +62,14 @@ export function SupportingDocuments({ eventId, readOnly = false }: { eventId: st
     setBusy(false);
   }
 
+  // AC1: a listed document opens through a short-lived signed link, made as the signed-in user (the bucket's read policy decides)
+  async function download(file: RequestAttachment) {
+    setMessages([]);
+    const { ok, data } = await fetchAttachmentUrl(eventId, file.storage_path);
+    if (ok && "signed_url" in data) window.open(data.signed_url, "_blank", "noopener");
+    else setMessages([`We couldn't open ${file.file_name}. Please try again.`]);
+  }
+
   async function remove(file: RequestAttachment) {
     setMessages([]);
     const { ok, data } = await removeRequestAttachment(eventId, file.id);
@@ -92,6 +100,10 @@ export function SupportingDocuments({ eventId, readOnly = false }: { eventId: st
               <FileText aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate font-medium text-foreground">{f.file_name}</span>
               <span className="text-muted-foreground">{sizeText(f.size_bytes)}</span>
+              <Button type="button" variant="ghost" size="sm" aria-label={`Download ${f.file_name}`} onClick={() => void download(f)}>
+                <Download aria-hidden="true" />
+                Download
+              </Button>
               {readOnly ? null : (
                 <Button type="button" variant="ghost" size="sm" aria-label={`Remove ${f.file_name}`} onClick={() => void remove(f)}>
                   <Trash2 aria-hidden="true" />

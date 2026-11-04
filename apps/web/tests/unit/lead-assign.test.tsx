@@ -14,10 +14,11 @@ vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ refresh }) }))
 import LeadAssignPage from "@/app/lead/events/[id]/assign/page";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadQueueList } from "@/components/LeadQueueList";
-import type { LeadCoordinator, LeadQueueItem } from "@/lib/leadServer";
+import { ShellContext } from "@/components/shell/ShellContext";
+import type { LeadCoordinatorChoice, LeadQueueItem } from "@/lib/leadServer";
 
-const rachel: LeadCoordinator = { id: "c-1", full_name: "Rachel Tan", workload: 2 };
-const marcus: LeadCoordinator = { id: "c-2", full_name: "Marcus Lim", workload: 0 };
+const rachel: LeadCoordinatorChoice = { id: "c-1", full_name: "Rachel Tan", workload: 2, total_attendance: 150, clash: { status: "free" } };
+const marcus: LeadCoordinatorChoice = { id: "c-2", full_name: "Marcus Lim", workload: 0, total_attendance: 0, clash: { status: "free" } };
 const queueItem: LeadQueueItem = {
   id: "evt-1",
   name: "Tech Summit",
@@ -41,22 +42,9 @@ function mockPost(status: number, body: unknown) {
   return fetchMock;
 }
 
-/** SCRUM-126/AC2: opens the coordinator dropdown, as the Lead does by clicking it. */
-function openList() {
-  fireEvent.click(screen.getByRole("combobox", { name: "Event Coordinator" }));
-}
-
-// Picks a coordinator from the dropdown by the text the Lead sees (name, then workload)
+/** SCRUM-168: picks a coordinator from the list by name, as the Lead does by clicking their row. */
 async function choose(label: string) {
-  openList();
-  const option = await screen.findByRole("option", { name: new RegExp(label.split(" — ")[0]) });
-  // Base UI ignores a click that follows opening too quickly, as a stray double click would
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  fireEvent.pointerDown(option);
-  fireEvent.mouseDown(option);
-  fireEvent.pointerUp(option);
-  fireEvent.mouseUp(option);
-  fireEvent.click(option);
+  fireEvent.click(screen.getByRole("radio", { name: new RegExp(label.split(" — ")[0]) }));
 }
 
 const renderForm = (coordinators = [rachel, marcus]) =>
@@ -81,12 +69,11 @@ describe("SCRUM-78 — Assign an Event Coordinator", () => {
   });
 
   // AC1: the eligible coordinators are listed, each with their workload count
-  it("SCRUM-78/AC1 SCRUM-126/AC2 lists the eligible coordinators, each with their workload count", async () => {
+  it("SCRUM-78/AC1 SCRUM-126/AC2 lists the eligible coordinators, each with their workload count", () => {
     renderForm();
-    openList();
 
-    expect((await screen.findByRole("option", { name: /Rachel Tan/ })).textContent).toContain("2 active events");
-    expect(screen.getByRole("option", { name: /Marcus Lim/ }).textContent).toContain("0 active events");
+    expect(screen.getByRole("radio", { name: /Rachel Tan/ }).closest("label")!.textContent).toContain("2 active events");
+    expect(screen.getByRole("radio", { name: /Marcus Lim/ }).closest("label")!.textContent).toContain("0 active events");
   });
   // end of AC1
 
@@ -176,7 +163,7 @@ describe("SCRUM-78 — The assign page", () => {
     );
     expect(screen.getByRole("heading", { name: "Assign a coordinator to Tech Summit" })).toBeTruthy();
     expect(screen.getByText("Jason Chua")).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Event Coordinator" })).toBeTruthy();
+    expect(screen.getByRole("radiogroup", { name: "Event Coordinator" })).toBeTruthy();
   });
 
   // AC6: a closed event has no assign action
@@ -187,7 +174,7 @@ describe("SCRUM-78 — The assign page", () => {
 
     expect(screen.getByText("This event is closed, so a coordinator can't be assigned.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Confirm assignment" })).toBeNull();
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
   });
 
   it("SCRUM-78/AC3 offers no assign action for an event that already has a coordinator", async () => {
@@ -212,3 +199,40 @@ describe("SCRUM-78 — The assign page", () => {
   // end of AC9
 });
 // end of SCRUM-78
+
+// ---------------------------------------------------------------------------
+// SCRUM-178 — the sidebar's Unassigned requests count follows an assignment
+// ---------------------------------------------------------------------------
+describe("SCRUM-178/AC2 assigning updates the sidebar count", () => {
+  function renderInShell() {
+    const refreshCounts = vi.fn();
+    render(
+      <ShellContext.Provider value={{ user: { fullName: "Helen Ong", role: "event_coordinator_lead" }, counts: { leadQueue: 2 }, refreshCounts }}>
+        <LeadAssignForm eventId="evt-1" eventName="Tech Summit" coordinators={[rachel, marcus]} />
+      </ShellContext.Provider>,
+    );
+    return refreshCounts;
+  }
+
+  it("SCRUM-178/AC2 reads the count again once the assignment is saved, and keeps the message on screen", async () => {
+    mockPost(200, { assigned_coordinator_id: "c-2" });
+    const refreshCounts = renderInShell();
+
+    await choose("Marcus Lim — 0 active events");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+
+    await waitFor(() => expect(refreshCounts).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("status").textContent).toContain("Tech Summit is now assigned to Marcus Lim.");
+  });
+
+  it("SCRUM-178/AC2 leaves the count alone when the assignment is refused", async () => {
+    mockPost(409, { error: "This event already has a coordinator." });
+    const refreshCounts = renderInShell();
+
+    await choose("Marcus Lim — 0 active events");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("already has a coordinator"));
+    expect(refreshCounts).not.toHaveBeenCalled();
+  });
+});

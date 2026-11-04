@@ -1779,7 +1779,7 @@ describe("SCRUM-27/AC1 — Search for users", () => {
     const fake = createFake();
     const organiser = fake.signIn("event_organiser", "Alice Johnson");
     const coordinator = fake.signIn("event_coordinator", "Bob Lee");
-    const coordinator2 = fake.signIn("event_coordinator", "Alice Smith");
+    fake.signIn("event_coordinator", "Alice Smith");
     // attendee with matching name — must NOT appear
     fake.signIn("attendee", "Alice Attendee");
 
@@ -1790,6 +1790,7 @@ describe("SCRUM-27/AC1 — Search for users", () => {
       status: "submitted",
       submitted_at: "2026-09-01T10:00:00.000Z",
       organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
     });
 
     const res = await request(createApp(fake.deps))
@@ -1799,7 +1800,8 @@ describe("SCRUM-27/AC1 — Search for users", () => {
     expect(res.status).toBe(200);
     const names = (res.body as { id: string; full_name: string }[]).map((u) => u.full_name);
     expect(names).toContain("Alice Johnson");
-    expect(names).toContain("Alice Smith");
+    // 156-S9: a coordinator the event is not assigned to cannot see it, so cannot be mentioned
+    expect(names).not.toContain("Alice Smith");
     expect(names).not.toContain("Alice Attendee");
   });
 
@@ -1878,28 +1880,45 @@ describe("SCRUM-27/AC5 — Restrict mentions", () => {
     const coordinator2 = fake.signIn("event_coordinator", "Cora Coord");
     fake.signIn("venue_staff", "Vera Venue");
     const eventId = crypto.randomUUID();
-    fake.tables.events.push({ id: eventId, name: "Tech Summit", status: "submitted", organiser_id: organiser.id });
+    fake.tables.events.push({
+      id: eventId,
+      name: "Tech Summit",
+      status: "submitted",
+      organiser_id: organiser.id,
+      assigned_coordinator_id: coordinator.id,
+    });
     const search = (cookie: string, query = "") =>
       request(createApp(fake.deps)).get(`/events/${eventId}/mentionable-users?query=${query}`).set("Cookie", cookie);
     return { fake, organiser, otherOrganiser, coordinator, coordinator2, eventId, search };
   };
   const names = (body: unknown) => (body as { full_name: string }[]).map((u) => u.full_name).sort();
 
-  it("offers the coordinators and this event's organiser, not another event's organiser or other roles", async () => {
+  // 156-S9: only the people who can see the event, which is its organiser and its assigned coordinator
+  it("SCRUM-156/AC5 156-S9: offers this event's organiser to its coordinator, not another coordinator, another event's organiser or other roles", async () => {
     const { coordinator, search } = setup();
 
     const res = await search(coordinator.cookie);
 
     expect(res.status).toBe(200);
-    expect(names(res.body)).toEqual(["Cora Coord", "Olivia Org"]);
+    expect(names(res.body)).toEqual(["Olivia Org"]);
   });
 
-  it("doesn't offer the caller to themselves", async () => {
+  it("SCRUM-156/AC5 156-S9: offers the assigned coordinator, and no other coordinator, to the organiser", async () => {
     const { organiser, search } = setup();
 
     const res = await search(organiser.cookie);
 
-    expect(names(res.body)).toEqual(["Carl Coord", "Cora Coord"]);
+    expect(names(res.body)).toEqual(["Carl Coord"]);
+  });
+
+  it("SCRUM-156/AC5 156-S9: offers the organiser nobody while the event has no coordinator", async () => {
+    const { fake, organiser, eventId, search } = setup();
+    fake.tables.events.find((e) => e.id === eventId)!.assigned_coordinator_id = null;
+
+    const res = await search(organiser.cookie);
+
+    expect(res.status).toBe(200);
+    expect(names(res.body)).toEqual([]);
   });
 
   it("refuses an organiser searching on someone else's event", async () => {

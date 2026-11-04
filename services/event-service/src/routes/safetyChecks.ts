@@ -29,6 +29,17 @@ export function safetyCheckRoutes(deps: SupabaseDeps) {
     return res.json(data ?? []);
   });
 
+  // SCRUM-165: the Safety Officer Home in one read (safety_officer_home(), migration 75). Before /:id so "home" is not an id.
+  router.get("/home", async (_req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const { data, error } = await deps.forUser(token).rpc("safety_officer_home");
+    if (error) {
+      console.error("safety_officer_home failed:", error.message);
+      return res.status(500).json({ error: "We couldn't load your safety home. Please try again." });
+    }
+    return res.json(data);
+  });
+
   // AC3: the information needed for the safety check of one event (safety_check_details())
   router.get("/:id", async (req, res) => {
     const { token } = res.locals.user as SessionUser;

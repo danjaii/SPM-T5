@@ -50,7 +50,7 @@ function createFake() {
     return builder;
   };
 
-  /** Pretends to be add_event_attachment (migration 64, security definer): the organiser's own draft only. */
+  /** Pretends to be add_event_attachment (migration 86, security definer): the organiser's own draft only. */
   const addEventAttachment = (callerId: string | undefined, args: Row) => {
     if (failure.rpcCode) return { data: null, error: { message: "refused", code: failure.rpcCode } };
     const event = tables.events.find((e) => e.id === args.p_event_id && e.organiser_id === callerId);
@@ -68,7 +68,7 @@ function createFake() {
     return { data: { ...row }, error: null };
   };
 
-  /** Pretends to be remove_event_attachment (migration 64): the organiser's own draft's attachment only. */
+  /** Pretends to be remove_event_attachment (migration 86): the organiser's own draft's attachment only. */
   const removeEventAttachment = (callerId: string | undefined, args: Row) => {
     if (failure.rpcCode) return { data: null, error: { message: "refused", code: failure.rpcCode } };
     const event = tables.events.find((e) => e.id === args.p_event_id && e.organiser_id === callerId);

@@ -24,6 +24,7 @@ Scenarios:
 - Only an organiser, only on their own draft (404 for someone else's, 409 `NOT_A_DRAFT` once submitted, 403 for other roles).
 - A registered path must sit in the request's own folder in the `event-attachments` bucket (`<event id>/...`).
 - A file attached to a draft is still there, and still listed, after the draft is submitted.
+- A listed document can be opened: each row has Download, which asks `GET /events/:id/attachments/signed-url` (SCRUM-28's route, made as the caller, so the bucket's read policy decides) for a one-hour link and opens it in a new tab. It is there on a submitted request too, and for coordinators. If the link cannot be made the row says so.
 
 ### AC2 — File type restriction
 - **Given** the system only accepts specific file types (SCRUM-28's list, a team assumption: Week 2 Q31 left it to the team)
@@ -53,7 +54,7 @@ Scenarios:
 
 ## Decisions
 - Same type list and 10 MB limit as SCRUM-28 (`packages/shared/src/attachments.ts`, bucket `event-attachments`).
-- New table `event_request_attachments` (migration 64). `authenticated` has no write privilege on it: rows are written only by
+- New table `event_request_attachments` (migration 86). `authenticated` has no write privilege on it: rows are written only by
   `add_event_attachment()` and `remove_event_attachment()` (security definer, organiser's own draft only, as `update_event_draft`).
   The functions also re-check size and type, so the rule holds for every caller.
 - Storage: the bucket and its insert/select policies exist (migration 08). Migration 59 adds a delete policy so an organiser can
@@ -73,7 +74,7 @@ Scenarios:
 | AC1-4 (form) | `apps/web/tests/unit/request-attachments.test.tsx` | `SCRUM-51/AC1` ... |
 
 ## Affected workspaces
-`services/event-service`, `packages/shared` (flag: new refusal helper), `apps/web`; migration 64.
+`services/event-service`, `packages/shared` (flag: new refusal helper), `apps/web`; migration 86.
 
 ## Out of scope
 - Attachments on a submitted request (Week 9: organisers cannot edit it), change requests, coordinators' own uploads (SCRUM-28 comments).

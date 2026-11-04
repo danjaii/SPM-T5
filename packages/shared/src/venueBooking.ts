@@ -239,8 +239,8 @@ export function parseVenueBookingInput(body: unknown, now: Date): ParsedVenueBoo
 
 // ---------------------------------------------------------------------------
 // 39-S2: a rejection needs a reason, 1 to 500 characters once trimmed. Same schema in the reject
-// form (apps/web) and the API. Unknown keys are stripped, so SCRUM-40 can add an optional
-// `suggestion` to this object without breaking existing callers.
+// form (apps/web) and the API. Unknown keys are stripped. SCRUM-40 added the optional `suggestion`; it is read by
+// parseRejectionInput below, not by this schema.
 // ---------------------------------------------------------------------------
 
 export const REJECTION_REASON_MAX_LENGTH = 500;
@@ -277,16 +277,72 @@ export function parseCancellationInput(body: unknown): ParsedCancellationInput {
   return { ok: false, fieldErrors: { reason: parsed.error.issues[0].message } };
 }
 
+/** SCRUM-40: the alternative Venue Staff suggest when they reject: a venue and a period (Singapore date and times, and as UTC instants). */
+export interface RejectionSuggestion {
+  venueId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  start: Date;
+  end: Date;
+}
+
 export type ParsedRejectionInput =
-  | { ok: true; data: { reason: string } }
+  | { ok: true; data: { reason: string; suggestion?: RejectionSuggestion } }
   | { ok: false; fieldErrors: Record<string, string> };
 
-/** Validates a reject body. The reason comes back trimmed. */
-export function parseRejectionInput(body: unknown): ParsedRejectionInput {
+/** The four fields of a suggestion, so a half-filled one can be told from an untouched one. */
+const SUGGESTION_FIELDS = ["venueId", "date", "startTime", "endTime"] as const;
+
+/** Left out, null, or only spaces: a form that sends an empty field means the same as one that leaves it out. */
+const isBlank = (v: unknown) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+
+/**
+ * SCRUM-40 (40-S2): the suggestion in a reject body, or null when there is none. Left out, null, or with every field blank all mean
+ * "no suggestion", so the form can send what it has. Anything else must be complete, which the checks that follow enforce.
+ */
+function suggestionIn(body: unknown): Record<string, unknown> | null {
+  const raw = typeof body === "object" && body !== null ? (body as Record<string, unknown>).suggestion : undefined;
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "object") return {}; // present but not an object: every field is missing
+  const fields = raw as Record<string, unknown>;
+  return SUGGESTION_FIELDS.every((k) => isBlank(fields[k])) ? null : fields;
+}
+
+/**
+ * Validates a reject body. The reason comes back trimmed. SCRUM-40: an optional `suggestion` { venueId, date, startTime, endTime }
+ * (Singapore time) is checked with the same rules as a venue booking request (a real date, HH:MM times, an end after the start,
+ * a start not in the past against `now`), and every refusal is keyed `suggestion.<field>`. Whether the venue exists is the
+ * service's check. `now` defaults to the clock; the service passes its own so tests control it.
+ */
+export function parseRejectionInput(body: unknown, now: Date = new Date()): ParsedRejectionInput {
   // Anything that is not an object is treated as an empty one, so the error is always keyed `reason`.
   const parsed = rejectionShape.safeParse(typeof body === "object" && body !== null ? body : {});
-  if (parsed.success) return { ok: true, data: { reason: parsed.data.reason } };
   const fieldErrors: Record<string, string> = {};
-  for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0] ?? "form")] ??= issue.message;
-  return { ok: false, fieldErrors };
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0] ?? "form")] ??= issue.message;
+  }
+
+  let suggestion: RejectionSuggestion | undefined;
+  const given = suggestionIn(body);
+  if (given) {
+    const checked = parseVenueBookingInput(
+      Object.fromEntries(SUGGESTION_FIELDS.map((k) => [k, isBlank(given[k]) ? undefined : typeof given[k] === "string" ? (given[k] as string).trim() : given[k]])),
+      now,
+    );
+    if (checked.ok && utcToSgt(checked.data.start).date !== checked.data.date) {
+      // The booking parser lets a date that does not exist roll over to the next month (2030-02-30 becomes 2030-03-02); a suggestion is stricter.
+      fieldErrors["suggestion.date"] = "Enter a valid date.";
+    } else if (checked.ok) {
+      const { venueId, date, startTime, endTime, start, end } = checked.data;
+      suggestion = { venueId, date, startTime, endTime, start, end };
+    } else {
+      for (const field of SUGGESTION_FIELDS) {
+        if (checked.fieldErrors[field]) fieldErrors[`suggestion.${field}`] = checked.fieldErrors[field];
+      }
+    }
+  }
+
+  if (!parsed.success || Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
+  return { ok: true, data: suggestion ? { reason: parsed.data.reason, suggestion } : { reason: parsed.data.reason } };
 }

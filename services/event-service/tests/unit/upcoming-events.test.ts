@@ -310,5 +310,18 @@ describe("SCRUM-9 — Upcoming events carry what the search looks in (GET /event
     expect(res.body[0].available_slots).toBeNull();
   });
   // end of available slots
+
+  // SCRUM-169/AC2: Register stays on offer for a full event (the registration is saved as Pending), but not outside its window
+  it.each([
+    ["an open event", {}, true],
+    ["a full event", { registration_capacity: 10, active_registrations: 10 }, true],
+    ["a full event whose registration has closed", { registration_capacity: 10, active_registrations: 10, registration_closes_at: fromNow(-1 * HOUR) }, false],
+    ["a closed event", { registration_closes_at: fromNow(-1 * HOUR) }, false],
+    ["a cancelled event", { status: "cancelled" }, false],
+  ])("SCRUM-169/AC2 reports whether %s can be registered for", async (_name, fields, expected) => {
+    const res = await request(createApp(createFake([eventRow(fields)]))).get("/events/upcoming").set("Cookie", ATTENDEE);
+
+    expect(res.body[0].can_register).toBe(expected);
+  });
 });
 // end of SCRUM-9
