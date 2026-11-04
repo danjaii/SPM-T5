@@ -142,3 +142,4 @@ each flagged booking; a replacement venue tells the organiser and attendees. Nob
 attendee hears nothing (`event_update_attendees()`, kept equal to `receivesEventUpdates()` by a test). An attendee's event
 notification opens `/registrations`, because the event page refuses them.
 - Venue calendar page (SCRUM-84 UI, `/venue-calendar`, no migration): reads `GET /venue-calendar` and lists each venue's periods as Tentatively Held, Confirmed, Blocked, Available or Unavailable, with a single date or a range, Reload and the 422 messages.
+- Venue availability details (SCRUM-85, no migration): choosing a calendar period opens a panel with the venue's name, address and capacity, the period's status with its start and end, the whole free window, a block's reason, and the booking a setup or turnaround belongs to.
