@@ -70,3 +70,28 @@ export class LeadAssignPage {
     await this.page.getByRole("button", { name: kind === "assign" ? "Confirm assignment" : "Confirm reassignment" }).click();
   }
 }
+
+/** Dialogs on the coordinator's review actions (EventReviewActions.tsx) that the golden journey does not use. */
+export class ReviewDialogs {
+  constructor(private readonly page: Page) {}
+
+  group() {
+    return this.page.getByRole("group", { name: "Review this request" });
+  }
+
+  async requestClarification(question: string) {
+    await this.group().getByRole("button", { name: "Request clarification" }).click();
+    const dialog = this.page.getByRole("dialog");
+    await dialog.getByLabel("Your question for the organiser").fill(question);
+    await dialog.getByRole("button", { name: "Send question" }).click();
+    await expect(this.page.getByRole("dialog")).toHaveCount(0);
+  }
+
+  async reject(reason: string) {
+    await this.group().getByRole("button", { name: "Reject", exact: true }).click();
+    const dialog = this.page.getByRole("dialog");
+    await dialog.getByLabel("Reason for rejection").fill(reason);
+    await dialog.getByRole("button", { name: "Reject request" }).click();
+    await expect(this.page.getByRole("dialog")).toHaveCount(0);
+  }
+}

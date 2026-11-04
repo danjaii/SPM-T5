@@ -43,3 +43,44 @@ export class BookingQueuePage {
     await this.page.getByRole("dialog").getByRole("button", { name: "Yes, approve" }).click();
   }
 }
+
+/** The venue catalogue's filter panel (apps/web/src/components/VenueCatalogue.tsx). */
+export class VenueFiltersPage {
+  constructor(private readonly page: Page) {}
+
+  async open() {
+    await this.page.goto("/venues");
+    await waitForHydration(this.page, "button");
+    // the panel may already be open: press the toggle only when it is closed
+    const toggle = this.page.getByRole("button", { name: "Filters", exact: true });
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+    const form = this.page.getByRole("form", { name: "Venue filters" });
+    await expect(form).toBeVisible();
+    return form;
+  }
+
+  /** Fills the panel (When is the only required part) and presses Apply filters. */
+  async apply(v: { date: string; start: string; end: string; people?: number; location?: string }) {
+    const form = this.page.getByRole("form", { name: "Venue filters" });
+    await form.getByLabel("Start date").fill(v.date);
+    await form.getByLabel("End date").fill(v.date);
+    await form.getByLabel("Start time").fill(v.start);
+    await form.getByLabel("End time").fill(v.end);
+    await form.getByLabel("People").fill(v.people === undefined ? "" : String(v.people));
+    await form.getByLabel("Location").fill(v.location ?? "");
+    await form.getByRole("button", { name: "Apply filters" }).click();
+    await expect(this.page.getByText(/^\d+ venues? free$/)).toBeVisible();
+  }
+
+  result(venueName: string) {
+    return this.page.getByRole("listitem").filter({ hasText: venueName });
+  }
+
+  async reset() {
+    await this.page.getByRole("button", { name: "Reset" }).click();
+  }
+
+  get activeFilters() {
+    return this.page.getByRole("list", { name: "Active filters" });
+  }
+}

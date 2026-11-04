@@ -40,6 +40,10 @@ export class EventRequestPage {
     await this.page.getByLabel("Registration closes").fill(v.closes);
   }
 
+  async noRegistration() {
+    await this.page.getByRole("button", { name: "No registration" }).click();
+  }
+
   /** Presses "Continue to <next step>". */
   async continueTo(next: string) {
     await this.page.getByRole("button", { name: `Continue to ${next}` }).click();
