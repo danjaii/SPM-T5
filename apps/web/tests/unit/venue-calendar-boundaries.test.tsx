@@ -13,7 +13,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("SCRUM-84/AC6 an end date equal to the start date is allowed", () => {
   it("SCRUM-84/AC6 asks for that one day, with no error, when start and end are the same date", async () => {
-    const fetchMock = vi.fn(async () => jsonReply(200, calendarFixture()));
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<unknown>>(async () => jsonReply(200, calendarFixture()));
     vi.stubGlobal("fetch", fetchMock);
     render(<VenueCalendar />);
     await screen.findByText("Orchid Hall");
@@ -30,7 +30,7 @@ describe("SCRUM-84/AC6 an end date equal to the start date is allowed", () => {
 
 describe("SCRUM-84/AC6 a refused range keeps the previous view and says which range is shown", () => {
   it("SCRUM-84/AC6 still shows the earlier venues and the earlier range after the service answers 422", async () => {
-    const fetchMock = vi.fn(async (url: string) =>
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<unknown>>(async (url) =>
       url.includes("from=2026-12-01")
         ? jsonReply(422, { code: "VALIDATION_FAILED", fieldErrors: { from: "The start date is not available." } })
         : jsonReply(200, calendarFixture({ venues: [venueFixture({ name: "Kept Hall" })] })),
