@@ -43,9 +43,11 @@ function describePeriod(period: Period): [string, string] {
  * 103-S1: why a request was refused, for example
  * "Orchid Hall is occupied from 09:30 to 12:45, including setup and turnaround".
  * `occupied` is the holder's padded period. The suffix is left off for a venue with no setup or turnaround time.
+ * SCRUM-97 (Scenario 2): when the holder is a tentative hold (a PENDING request), the venue "is tentatively held" instead, so the
+ * person refused knows the slot may free up if the hold lapses. This supersedes SCRUM-36's wording for that case only.
  */
-export function slotConflictMessage(venueName: string, occupied: Period, timing: VenueTiming): string {
+export function slotConflictMessage(venueName: string, occupied: Period, timing: VenueTiming, tentativelyHeld = false): string {
   const [from, to] = describePeriod(occupied);
   const padded = timing.setupMinutes > 0 || timing.turnaroundMinutes > 0;
-  return `${venueName} is occupied from ${from} to ${to}${padded ? ", including setup and turnaround" : ""}`;
+  return `${venueName} is ${tentativelyHeld ? "tentatively held" : "occupied"} from ${from} to ${to}${padded ? ", including setup and turnaround" : ""}`;
 }
