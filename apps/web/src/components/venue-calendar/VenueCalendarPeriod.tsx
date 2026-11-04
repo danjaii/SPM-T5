@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { formatPeriodTimes, type CalendarPeriod, type CalendarPeriodKind, type CalendarStatus } from "@/lib/venueCalendar";
 
 // SCRUM-84/AC2 to AC4. Jerome: this file is the one place that decides how a period looks. Status is an icon plus its text label, never colour alone.
-const STATUS_LOOK: Record<CalendarStatus, { icon: LucideIcon; className: string }> = {
+export const STATUS_LOOK: Record<CalendarStatus, { icon: LucideIcon; className: string }> = {
   TENTATIVELY_HELD: { icon: Clock, className: "bg-status-warning text-status-warning-fg" },
   CONFIRMED: { icon: CheckCircle2, className: "bg-status-info text-status-info-fg" },
   BLOCKED: { icon: Ban, className: "bg-status-danger text-status-danger-fg" },
@@ -14,13 +14,13 @@ const STATUS_LOOK: Record<CalendarStatus, { icon: LucideIcon; className: string 
 };
 
 // Setup and turnaround are named and drawn dashed, so they read as part of the booking but not as the event itself.
-const KIND_NAME: Partial<Record<CalendarPeriodKind, string>> = { event: "Event", setup: "Setup", turnaround: "Turnaround" };
+export const KIND_NAME: Partial<Record<CalendarPeriodKind, string>> = { event: "Event", setup: "Setup", turnaround: "Turnaround" };
 
 /**
  * SCRUM-130/AC2: a block's reason on hover, on tap (click) and on keyboard focus, so it does not depend on a native title tooltip.
  * Escape closes it. The reason is also written out in the row.
  */
-function ReasonHint({ text }: { text: string }) {
+export function ReasonHint({ text }: { text: string }) {
   const id = useId();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);

@@ -11,7 +11,13 @@ import { VenueUnavailabilityForm } from "@/components/VenueUnavailabilityForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchVenueCalendar, type CalendarQuery, type VenueCalendarData } from "@/lib/venueCalendar";
 import { VenueCalendarRangeForm } from "./VenueCalendarRangeForm";
+import { useMediaQuery } from "@/lib/useMediaQuery";
+import { VenueCalendarLegend } from "./VenueCalendarLegend";
 import { VenueCalendarVenue } from "./VenueCalendarVenue";
+import { VenueWeekGrid } from "./VenueWeekGrid";
+
+/** SCRUM-130/AC1, AC7: from this width the calendar is a week grid per venue; below it (a phone, 375 px) it stays the list. */
+export const WEEK_GRID_QUERY = "(min-width: 640px)";
 
 // SCRUM-84/AC1 + AC5: the venue availability calendar. Opens on the current week (no dates sent); choosing dates asks venue-service
 // again. The last good answer stays on screen while a new one loads.
@@ -63,6 +69,7 @@ export function VenueCalendar({ canMarkUnavailable = false }: { canMarkUnavailab
   }, [load]);
 
   const range = calendar?.range;
+  const grid = useMediaQuery(WEEK_GRID_QUERY);
   return (
     <div className="flex flex-col gap-6">
       <VenueCalendarRangeForm busy={loading} fieldErrors={fieldErrors} onSubmit={load} />
@@ -77,9 +84,13 @@ export function VenueCalendar({ canMarkUnavailable = false }: { canMarkUnavailab
         <p className="text-sm text-muted-foreground">There are no venues to show.</p>
       ) : (
         <div aria-busy={loading} className="flex flex-col gap-4">
-          {calendar.venues.map((venue) => (
-            <VenueCalendarVenue key={venue.id} venue={venue} onMarkUnavailable={canMarkUnavailable ? () => setMarking({ id: venue.id, name: venue.name }) : undefined} />
-          ))}
+          {grid && <VenueCalendarLegend />}
+          {calendar.venues.map((venue) => {
+            const onMark = canMarkUnavailable ? () => setMarking({ id: venue.id, name: venue.name }) : undefined;
+            return grid
+              ? <VenueWeekGrid key={venue.id} venue={venue} range={calendar.range} onMarkUnavailable={onMark} />
+              : <VenueCalendarVenue key={venue.id} venue={venue} onMarkUnavailable={onMark} />;
+          })}
         </div>
       )}
       {/* SCRUM-130/AC1 (Figma 09): what the dashed rows are */}
