@@ -27,7 +27,6 @@ const DENIED = "42501";
 const CLOSED = "CL001";
 const NOT_ELIGIBLE = "CL003";
 const NOT_ASSIGNED = "CL004"; // nothing to reassign yet: that's an assignment (SCRUM-78)
-const NOT_YOUR_TEAM = "CL005"; // held by a coordinator another Lead supervises (BR4)
 const SAME_COORDINATOR = "CL006"; // the current coordinator can't be chosen (AC2)
 const NOT_FOUND = "P0002";
 
@@ -140,17 +139,16 @@ describe.skipIf(!hasDb)("SCRUM-79 Lead reassigns an Event Coordinator (migration
   });
   // end of AC5
 
-  // AC2 + AC6: the current coordinator can't be chosen, so with no one else there is nobody to reassign to
-  it("SCRUM-79/AC6 a Lead whose only coordinator is the current one cannot reassign, and the assignment is unchanged", async () => {
+  // AC2 + AC6: the current coordinator can't be chosen again, and the assignment is unchanged
+  it("SCRUM-79/AC6 a Lead cannot reassign an event to the coordinator who already holds it, and the assignment is unchanged", async () => {
     const eventId = await newEvent(who.coordB);
-    const choices = ((await who.leadB.client.rpc("lead_coordinator_overview")).data as { id: string }[]).map((c) => c.id);
-    expect(choices).toEqual([who.coordB.userId]);
 
     await expectRefused(reassignAs(who.leadB, eventId, who.coordB.userId), SAME_COORDINATOR, eventId, who.coordB.userId);
   });
 
-  it.each(["coordB", "seededCoordinator", "venueStaff", "leadB"] as const)(
-    "SCRUM-79/AC6 refuses to reassign to %s, who is not one of the Lead's active coordinators",
+  // eligibility: only an active coordinator (SCRUM-184, migration 81: whoever supervises them)
+  it.each(["venueStaff", "leadB"] as const)(
+    "SCRUM-79/AC6 refuses to reassign to %s, who is not an active coordinator",
     async (target) => {
       const eventId = await newEvent(who.coordA1);
       await expectRefused(reassignAs(who.leadA, eventId, who[target].userId), NOT_ELIGIBLE, eventId, who.coordA1.userId);
@@ -208,10 +206,14 @@ describe.skipIf(!hasDb)("SCRUM-79 Lead reassigns an Event Coordinator (migration
   });
   // end of AC9
 
-  // BR4: a Lead reassigns only events held by their own coordinators
-  it("SCRUM-79/AC9 a Lead cannot reassign an event held by another Lead's coordinator", async () => {
+  // SCRUM-184 (migration 81): a Lead reassigns an event held by any coordinator, not only by their own
+  it("SCRUM-79/AC9 a Lead can reassign an event held by another Lead's coordinator", async () => {
     const eventId = await newEvent(who.coordB);
-    await expectRefused(reassignAs(who.leadA, eventId, who.coordA1.userId), NOT_YOUR_TEAM, eventId, who.coordB.userId);
+
+    const { error } = await reassignAs(who.leadA, eventId, who.coordA1.userId);
+
+    expect(error).toBeNull();
+    expect(await assignedTo(eventId)).toBe(who.coordA1.userId);
   });
 
   it("SCRUM-79 an event with no coordinator is assigned, not reassigned", async () => {
