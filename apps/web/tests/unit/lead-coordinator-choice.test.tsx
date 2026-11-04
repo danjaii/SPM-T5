@@ -95,7 +95,7 @@ describe("SCRUM-168 — the assign and reassign steps", () => {
     const { container } = render(await LeadAssignPage({ params: Promise.resolve({ id: "evt-1" }) }));
 
     expect(screen.getByRole("heading", { level: 1, name: "Assign a coordinator to Gala" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Back to unassigned event requests" }).getAttribute("href")).toBe("/lead/queue");
+    expect(screen.getByRole("link", { name: "Back to unassigned requests" }).getAttribute("href")).toBe("/lead/queue");
     expect(screen.getByText("Clashes with Tech Summit")).toBeTruthy();
     expect(screen.getByText("Free on this date")).toBeTruthy();
     expect(container.querySelector(".dash__main, .back-link")).toBeNull();
@@ -109,7 +109,7 @@ describe("SCRUM-168 — the assign and reassign steps", () => {
     const { container } = render(await LeadReassignPage({ params: Promise.resolve({ id: "evt-1" }) }));
 
     expect(screen.getByRole("heading", { level: 1, name: "Reassign Gala" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Back" }).getAttribute("href")).toBe("/lead/coordinators/c-9");
+    expect(screen.getByRole("link", { name: /^Back to .+'s active events$/ }).getAttribute("href")).toBe("/lead/coordinators/c-9");
     expect(screen.getByText("Clashes with Tech Summit")).toBeTruthy();
     expect(screen.getByText("Free on this date")).toBeTruthy();
     expect(screen.getByText("Current coordinator").nextElementSibling!.textContent).toBe("Siti Aminah");

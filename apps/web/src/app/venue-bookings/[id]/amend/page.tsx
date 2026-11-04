@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
 import { VenueBookingAmendForm } from "@/components/VenueBookingAmendForm";
 import { getVenueBooking, getVenueBookingForm } from "@/lib/venueBookingsServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +15,8 @@ export default async function AmendVenueBookingPage({ params }: { params: Promis
 
   return (
     <>
-      <AppHeader />
-      <main className="dash__main">
-        <Link className="back-link" href={`/venue-bookings/${id}`}>← Back to the request</Link>
+      <main className={PAGE_MAIN}>
+        <BackLink href={`/venue-bookings/${id}`} to="venue booking" />
         {"error" in booking ? (
           <div className="alert alert--error" role="alert">{booking.error}</div>
         ) : form && "error" in form ? (

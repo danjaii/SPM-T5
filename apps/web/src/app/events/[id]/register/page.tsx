@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { EventRegistrationForm } from "@/components/EventRegistrationForm";
 import { Alert } from "@/components/ui/alert";
 import { getRegistrationForm } from "@/lib/eventRegistrationServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +15,8 @@ export default async function RegisterPage({ params }: { params: Promise<{ id: s
   const result = await getRegistrationForm(id);
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
-      <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/dashboard/attendee/browse">← Back to events</Link>
+    <main className={PAGE_MAIN}>
+      <BackLink href="/dashboard/attendee/browse" to="events" />
       {"data" in result ? <EventRegistrationForm data={result.data} /> : <Alert variant="danger">{result.error}</Alert>}
     </main>
   );

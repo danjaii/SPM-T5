@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { EventRegistrationList } from "@/components/EventRegistrationList";
 import { PageFrame } from "@/components/PageFrame";
 import { getEventRegistrations } from "@/lib/eventRegistrationServer";
@@ -19,7 +18,7 @@ export default async function EventRegistrationsPage({ params }: { params: Promi
     <PageFrame
       title="Registrations"
       description="Everyone who has registered for this event."
-      action={<Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href={`/events/${id}`}>← Back to event</Link>}
+      back={{ href: `/events/${id}`, to: "event" }}
       // Couldn't load: say so, rather than "Nobody has registered for this event yet."
       error={"error" in result ? result.error : undefined}
     >

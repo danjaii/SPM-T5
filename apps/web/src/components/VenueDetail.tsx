@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LiftVenueBlock } from "./LiftVenueBlock";
 import { VenueActions } from "./VenueActions";
+import { PageTitle } from "./PageFrame";
 
 export interface VenueDetails {
   id: string;
@@ -80,7 +81,7 @@ export function VenueDetail({ venue }: { venue: VenueDetails }) {
       <CardHeader className="gap-4 px-6 pt-6 sm:grid-cols-[1fr_auto]">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">{venue.name}</h1>
+            <PageTitle>{venue.name}</PageTitle>
             {unavailableNow ? (
               <StatusBadge tone="warning" icon="timer-off" label="Venue unavailable" />
             ) : (
