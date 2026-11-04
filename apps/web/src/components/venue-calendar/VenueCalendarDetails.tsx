@@ -2,14 +2,14 @@
 
 import { X } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { utcToSgt } from "@spm-t5/shared";
+import { formatShortSgt, utcToSgt } from "@spm-t5/shared";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { StatusTone } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import { formatPeriodInstant, type CalendarPeriod, type CalendarStatus, type CalendarVenue } from "@/lib/venueCalendar";
-import { blocksForDay, busyOnDay, dayStatus, freeWindow, nextFreeWindow, shortDay, type JoinedBlock } from "@/lib/venueTimeline";
+import { busyOnDay, freeWindow, joinBlocks, nextFreeWindow, shortDay, type JoinedBlock, type MonthRun } from "@/lib/venueTimeline";
 import { blockReason, STATUS_LOOK } from "./VenueCalendarPeriod";
 
 export type DetailRow = [term: string, text: string];
@@ -64,21 +64,29 @@ export function periodBadge(period: CalendarPeriod, block?: JoinedBlock): { labe
     : { label: period.label, tone: TONE[period.status] };
 }
 
-/** Month view: a day of a venue, as its busiest status and each booking and block with its times, or that it is free or closed. */
+/** Month view: a day with no booking or block, as free with its opening hours, or closed. */
 export function dayDetails(venue: CalendarVenue, day: string): { badge: { label: string; tone: StatusTone }; rows: DetailRow[] } {
-  const status = dayStatus(venue.periods, day);
-  const busy = busyOnDay(venue.periods, day);
   const free = freeWindow(venue.periods, day);
-  const rows: DetailRow[] =
-    busy.length > 0
-      ? busy.map((p) => {
-          const [part] = blocksForDay([p], day, 0, 24);
-          return [p.kind === "block" ? blockReason(p) : p.label, `${part.startTime}–${part.endTime}`];
-        })
-      : free
-        ? [["Available", `${free.start}–${free.end}`]]
-        : [["Why", "Outside operating hours"]];
-  return { badge: { label: STATUS_LOOK[status].short, tone: TONE[status] }, rows: [["Day", shortDay(day)], ...rows] };
+  const status = free ? "AVAILABLE" : "UNAVAILABLE";
+  return {
+    badge: { label: STATUS_LOOK[status].short, tone: TONE[status] },
+    rows: [["Day", shortDay(day)], free ? ["Available", `${free.start}–${free.end}`] : ["Why", "Outside operating hours"]],
+  };
+}
+
+/** Month view: a run of busy days, as its status, the days it covers, and each booking and block on them with when it starts and ends. */
+export function runDetails(venue: CalendarVenue, days: string[], run: MonthRun): { badge: { label: string; tone: StatusTone }; rows: DetailRow[] } {
+  const covered = days.slice(run.first, run.last + 1);
+  const busy = venue.periods.filter((p) => covered.some((day) => busyOnDay([p], day).length > 0));
+  const items = [...busy.filter((p) => p.kind === "event"), ...joinBlocks(busy).map((b) => ({ ...b.period, start: b.start, end: b.end }))]
+    .sort((a, b) => a.start.localeCompare(b.start))
+    .map((p): DetailRow => [p.kind === "block" ? blockReason(p) : p.label, `${formatShortSgt(new Date(p.start))} – ${formatShortSgt(new Date(p.end))}`]);
+  const label = STATUS_LOOK[run.status].short;
+  const span = run.first === run.last ? shortDay(covered[0]) : `${shortDay(covered[0])} – ${shortDay(covered[covered.length - 1])}`;
+  return {
+    badge: run.conflict ? { label: `${label} · conflict`, tone: "danger" } : { label, tone: TONE[run.status] },
+    rows: [["Days", span], ...items],
+  };
 }
 
 // SCRUM-85, Figma 09a: choosing a period (or a month day) opens its details beside it: the venue, a status badge, the rows, and

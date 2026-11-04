@@ -170,20 +170,43 @@ describe("SCRUM-130 week view (Figma 09a)", () => {
 });
 
 describe("SCRUM-130 month view", () => {
-  it("SCRUM-130 shows a month cell's busiest status as an icon and a word, and opens its details", async () => {
+  it("SCRUM-130 draws runs of booked, held or blocked days as one bar, leaves free days empty and closed days grey", async () => {
     const onOpenDay = vi.fn();
     const shut = venueFixture({ id: "x", name: "Shut Room", periods: [closed(1)] }) as unknown as CalendarVenue;
     const free = venueFixture({ id: "f", name: "Free Room", periods: [open(1)] }) as unknown as CalendarVenue;
     render(<VenueMonthGrid venues={[orchid, shut, free]} from="2026-11-01" to="2026-11-30" today="2026-11-14" onOpenDay={onOpenDay} />);
-    const cell = (name: string) => screen.getByRole("button", { name });
-    expect(cell("Details: Orchid Hall on Sat 14 Nov: Blocked").textContent).toBe("Blocked");
-    expect(cell("Details: Orchid Hall on Thu 12 Nov: Blocked").className).toContain("calendar-block");
-    expect(cell("Details: Free Room on Sun 1 Nov: Free").querySelector("svg")).not.toBeNull();
-    expect(cell("Details: Shut Room on Sun 1 Nov: Closed").className).toContain("bg-muted");
+    const button = (name: string) => screen.getByRole("button", { name });
+    // Wed 11 is blocked; Thu 12 to Fri 13 is the same block over a confirmed booking; Sat 14 to Mon 16 is blocked again
+    const plain = button("Details: Orchid Hall, Blocked, Wed 11 Nov");
+    const conflict = button("Details: Orchid Hall, Blocked (conflict), Thu 12 Nov to Fri 13 Nov");
+    const run = button("Details: Orchid Hall, Blocked, Sat 14 Nov to Mon 16 Nov");
+    expect(plain.className).toContain("calendar-block");
+    expect(conflict.className).toContain("bg-status-danger");
+    expect(run.textContent).toBe("Blocked");
+    expect(run.querySelector("svg")).not.toBeNull();
+    expect(parseFloat((run.parentElement as HTMLElement).style.width)).toBeCloseTo((3 / 30) * 100);
+    expect(document.querySelectorAll("[data-run]")).toHaveLength(3);
+    // free and closed days have no bar: their word is for screen readers only
+    expect(within(button("Details: Free Room on Sun 1 Nov: Free")).getByText("Free").className).toContain("sr-only");
+    expect(button("Details: Shut Room on Sun 1 Nov: Closed").className).toContain("bg-muted");
     expect(screen.getByText("14").className).toContain("font-bold"); // today
-    fireEvent.click(cell("Details: Orchid Hall on Sat 14 Nov: Blocked"));
-    fireEvent.click(await screen.findByRole("button", { name: "Open day view" }));
+
+    fireEvent.click(run);
+    const details = await screen.findByLabelText("Availability details");
+    const row = (term: string) => within(details).getByText(term).nextElementSibling?.textContent;
+    expect(row("Days")).toBe("Sat 14 Nov – Mon 16 Nov");
+    expect(row("Confirmed")).toBe("14 Nov 10:00 – 14 Nov 12:00");
+    expect(row("Blocked: Maintenance")).toBe("14 Nov 15:30 – 14 Nov 17:00");
+    expect(row("Blocked: Other")).toBe("15 Nov 22:00 – 16 Nov 02:00");
+    fireEvent.click(within(details).getByRole("button", { name: "Open day view" }));
     expect(onOpenDay).toHaveBeenCalledWith("2026-11-14");
+  });
+
+  it("SCRUM-130 stacks the icon over the word on a one-day bar, and calls a conflict run a conflict in its details", async () => {
+    render(<VenueMonthGrid venues={[orchid]} from="2026-11-01" to="2026-11-30" today="2026-11-14" onOpenDay={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Details: Orchid Hall, Blocked, Wed 11 Nov" }).className).toContain("flex-col");
+    fireEvent.click(screen.getByRole("button", { name: "Details: Orchid Hall, Blocked (conflict), Thu 12 Nov to Fri 13 Nov" }));
+    expect(within(await screen.findByLabelText("Availability details")).getByText("Blocked · conflict")).toBeTruthy();
   });
 
   it("SCRUM-130 shows the month grid from the page", async () => {
@@ -210,5 +233,24 @@ describe("SCRUM-130 week view review gaps", () => {
     const banner = document.querySelector("[data-banner]") as HTMLElement;
     expect(within(banner).getByRole("button").className).toContain("bg-status-neutral");
     expect(banner.textContent).toBe("Blocked11 Nov 08:00 – 12 Nov 18:00");
+  });
+});
+
+describe("SCRUM-130 month runs of bookings", () => {
+  it("SCRUM-130 draws booked days green and held days teal, each run as one bar", () => {
+    const v = venueFixture({
+      periods: [
+        { kind: "event", status: "CONFIRMED", label: "Confirmed", start: Z("10:00", 2), end: Z("12:00", 2) },
+        { kind: "event", status: "CONFIRMED", label: "Confirmed", start: Z("10:00", 3), end: Z("12:00", 3) },
+        { kind: "event", status: "TENTATIVELY_HELD", label: "Tentatively Held", start: Z("10:00", 4), end: Z("12:00", 4) },
+      ],
+    }) as unknown as CalendarVenue;
+    render(<VenueMonthGrid venues={[v]} from="2026-11-01" to="2026-11-30" today="2026-11-14" onOpenDay={vi.fn()} />);
+    const booked = screen.getByRole("button", { name: "Details: Orchid Hall, Booked, Mon 2 Nov to Tue 3 Nov" });
+    expect(booked.className).toContain("bg-status-success");
+    expect(booked.className).toContain("border-status-success-fg");
+    const held = screen.getByRole("button", { name: "Details: Orchid Hall, Held, Wed 4 Nov" });
+    expect(held.className).toContain("bg-status-info");
+    expect(held.className).toContain("border-status-info-fg");
   });
 });

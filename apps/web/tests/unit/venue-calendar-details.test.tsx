@@ -200,15 +200,15 @@ describe("SCRUM-85 on the month view", () => {
   ]);
   const month = (onOpenDay = vi.fn()) => render(<VenueMonthGrid venues={[busy]} from="2026-11-01" to="2026-11-30" today="2026-11-14" onOpenDay={onOpenDay} />);
 
-  it("SCRUM-85/AC1 opens a day's details: its busiest status, and each booking and block with its times, then Open day view", async () => {
+  it("SCRUM-85/AC1 opens a busy day's details: its status, and each booking and block with when it starts and ends, then Open day view", async () => {
     const onOpenDay = vi.fn();
     month(onOpenDay);
-    fireEvent.click(screen.getByRole("button", { name: "Details: Orchid Hall on Sat 14 Nov: Blocked" }));
+    fireEvent.click(screen.getByRole("button", { name: "Details: Orchid Hall, Blocked, Sat 14 Nov" }));
     const details = await screen.findByLabelText("Availability details");
     expect(within(details).getByText("Blocked")).toBeTruthy();
-    expect(row(details, "Day")).toBe("Sat 14 Nov");
-    expect(row(details, "Confirmed")).toBe("10:00–12:00");
-    expect(row(details, "Blocked: Maintenance")).toBe("15:00–17:00");
+    expect(row(details, "Days")).toBe("Sat 14 Nov");
+    expect(row(details, "Confirmed")).toBe("14 Nov 10:00 – 14 Nov 12:00");
+    expect(row(details, "Blocked: Maintenance")).toBe("14 Nov 15:00 – 14 Nov 17:00");
     fireEvent.click(within(details).getByRole("button", { name: "Open day view" }));
     expect(onOpenDay).toHaveBeenCalledWith("2026-11-14");
     await closed();

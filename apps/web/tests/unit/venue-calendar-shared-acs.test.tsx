@@ -69,7 +69,7 @@ describe("SCRUM-130/AC6 status is an icon and words, never colour alone", () => 
   it("SCRUM-130/AC6 the legend names every look with an icon or a pattern beside the words", () => {
     render(<VenueCalendarLegend />);
     const items = screen.getAllByRole("listitem");
-    expect(items.map((li) => li.textContent)).toEqual(["Confirmed", "Tentatively Held", "Blocked", "Unavailable", "Setup / turnaround", "Conflict"]);
+    expect(items.map((li) => li.textContent)).toEqual(["Confirmed", "Tentatively Held", "Blocked", "Closed", "Setup / turnaround", "Conflict"]);
     for (const li of items) expect(li.querySelector("svg, [data-swatch]")).not.toBeNull();
   });
 

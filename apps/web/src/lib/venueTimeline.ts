@@ -222,3 +222,26 @@ export function spanningBlocks(periods: CalendarPeriod[], days: string[]): Spann
     return touched.length > 1 ? [{ ...b, first: touched[0], last: touched[touched.length - 1] }] : [];
   });
 }
+
+export interface MonthRun {
+  status: Extract<CalendarStatus, "BLOCKED" | "CONFIRMED" | "TENTATIVELY_HELD">;
+  /** A block on these days lies over a confirmed booking. */
+  conflict: boolean;
+  /** The first and last of the days shown in the run (indexes into them). */
+  first: number;
+  last: number;
+}
+
+/** SCRUM-130 month view: consecutive days with the same busy status (and conflict), drawn as one bar. Free and closed days are not runs. */
+export function monthRuns(periods: CalendarPeriod[], days: string[]): MonthRun[] {
+  const runs: MonthRun[] = [];
+  days.forEach((day, i) => {
+    const status = dayStatus(periods, day);
+    if (status === "AVAILABLE" || status === "UNAVAILABLE") return;
+    const conflict = status === "BLOCKED" && busyOnDay(periods, day).some((p) => p.kind === "block" && p.overlaps_confirmed_booking);
+    const previous = runs[runs.length - 1];
+    if (previous && previous.last === i - 1 && previous.status === status && previous.conflict === conflict) previous.last = i;
+    else runs.push({ status, conflict, first: i, last: i });
+  });
+  return runs;
+}

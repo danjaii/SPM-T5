@@ -19,13 +19,23 @@ function BlockText({ block }: { block: TimelineBlock }) {
   // free time is the plain background, named for screen readers; closed time says so in words (SCRUM-84/AC3, AC4)
   if (period.kind === "open") return <span className="sr-only">{period.label}</span>;
   const Icon = STATUS_LOOK[period.status].icon;
+  // closed time is background, so it is the icon over "Closed", centred, which fits an hour's width; its times are in the
+  // details, and "Unavailable", the API's word, is kept for screen readers
+  if (period.kind === "closed")
+    return (
+      <span className="flex w-full flex-col items-center font-semibold">
+        <Icon aria-hidden="true" className="size-3.5" />
+        {STATUS_LOOK.UNAVAILABLE.short}
+        <span className="sr-only"> ({period.label})</span>
+      </span>
+    );
   return (
     <>
-      <span className="flex items-center gap-1 truncate font-semibold">
+      <span className="flex w-full min-w-0 items-center gap-1 font-semibold">
         {period.overlaps_confirmed_booking ? <AlertTriangle aria-hidden="true" className="size-3 shrink-0" /> : <Icon aria-hidden="true" className="size-3 shrink-0" />}
-        {period.kind === "block" ? blockReason(period) : period.label}
+        <span className="truncate">{period.kind === "block" ? blockReason(period) : period.label}</span>
       </span>
-      <span className="truncate">
+      <span className="w-full truncate">
         {block.startTime}–{block.endTime}
         {/* SCRUM-130/AC1: the whole time the booking holds the venue, setup and turnaround included */}
         {period.kind === "event" && period.occupied_start && period.occupied_end && (period.occupied_start !== period.start || period.occupied_end !== period.end)

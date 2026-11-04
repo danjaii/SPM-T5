@@ -7,7 +7,7 @@ const STATUSES: { status: CalendarStatus; label: string; pattern?: string }[] = 
   { status: "CONFIRMED", label: "Confirmed" },
   { status: "TENTATIVELY_HELD", label: "Tentatively Held" },
   { status: "BLOCKED", label: "Blocked", pattern: "calendar-block" },
-  { status: "UNAVAILABLE", label: "Unavailable" },
+  { status: "UNAVAILABLE", label: "Closed" },
 ];
 
 /** SCRUM-130/AC6 (Figma 09): what each block on the calendar means, at the right of the view controls. Every entry is its icon and its words, as in the blocks. */

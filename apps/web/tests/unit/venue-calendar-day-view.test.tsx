@@ -95,7 +95,6 @@ describe("SCRUM-84/AC2 to AC4 every period is named in words", () => {
   it("SCRUM-84/AC4 shows time outside operating hours as Unavailable, and never calls a block that", () => {
     render(<VenueDayView venues={[orchid]} date="2026-11-14" />);
     expect(block("closed").textContent).toContain("Unavailable");
-    expect(block("closed").textContent).toContain("18:00–20:00");
     expect(block("block").textContent).not.toContain("Unavailable");
   });
 });
@@ -177,4 +176,15 @@ describe("SCRUM-130 review gaps", () => {
 
 
 
+});
+
+describe("SCRUM-130 closed time fits an hour's width", () => {
+  it("SCRUM-84/AC4 shows closed time as its icon over Closed, keeps the word Unavailable for screen readers, and leaves the times to the details", () => {
+    render(<VenueDayView venues={[orchid]} date="2026-11-14" />);
+    const shut = block("closed");
+    expect(within(shut).getByText("Closed")).toBeTruthy();
+    expect(within(shut).getByText("(Unavailable)").className).toContain("sr-only");
+    expect(shut.querySelector("svg")).not.toBeNull();
+    expect(shut.textContent).not.toMatch(/\d\d:\d\d/);
+  });
 });
