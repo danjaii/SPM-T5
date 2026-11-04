@@ -117,3 +117,32 @@ describe("SCRUM-97/AC4 the lists use the service clock", () => {
     expect(byId[live.id]).toBe("PENDING");
   });
 });
+
+describe("SCRUM-97/AC2, AC3 one minute either side of the expiry (16:59 and 17:01 in the scenario)", () => {
+  const EXPIRY = new Date(NOW.getTime() + HOUR);
+  const MIN = 60_000;
+
+  function at(clock: Date) {
+    const bookings = new FakeBookingRepository(() => clock);
+    bookings.setVenue(ORCHID, { name: "Orchid Hall", setupMinutes: 0, turnaroundMinutes: 0 });
+    bookings.seed({ eventId: "summit-b", venueId: ORCHID, start: sgtToUtc(DAY, "10:00"), end: sgtToUtc(DAY, "12:00"), status: "requested", holdExpiresAt: EXPIRY });
+    const events = new FakeEventReader([anEvent({ id: "summit-a", name: "Summit A" }), anEvent({ id: "summit-b", name: "Summit B" })]);
+    const venues = new FakeVenueReader([aVenue({ id: ORCHID, name: "Orchid Hall" })]);
+    const roles = new FakeRoleReader({ "coordinator-1": "event_coordinator" });
+    const app = createApp(deps, { now: () => clock, ports: () => ({ bookings, events, venues, roles, users: new FakeUserReader(), venueDetails: FakeVenueDetailsReader.from(venues) }) });
+    return request(app).post("/venue-bookings").set("Cookie", "cs_session=tok-coordinator-1").send({ eventId: "summit-a", venueId: ORCHID, date: DAY, startTime: "11:00", endTime: "13:00" });
+  }
+
+  it("SCRUM-97/AC2 refuses the slot one minute before the hold expires, saying it is tentatively held", async () => {
+    const res = await at(new Date(EXPIRY.getTime() - MIN));
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("SLOT_CONFLICT");
+    expect(res.body.error).toContain("is tentatively held from");
+  });
+
+  it("SCRUM-97/AC3 creates the request, as Pending, one minute after the hold expires", async () => {
+    const res = await at(new Date(EXPIRY.getTime() + MIN));
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe("PENDING");
+  });
+});
