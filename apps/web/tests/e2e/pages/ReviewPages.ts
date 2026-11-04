@@ -45,3 +45,21 @@ export class EventReviewPage {
     return this.page.locator('[aria-current="step"]');
   }
 }
+
+/** The Lead's assign / reassign page (apps/web/src/components/LeadAssignForm.tsx, CoordinatorChoiceList.tsx). */
+export class LeadAssignPage {
+  constructor(private readonly page: Page) {}
+
+  async open(eventId: string, kind: "assign" | "reassign") {
+    await this.page.goto(`/lead/events/${eventId}/${kind}`);
+    await waitForHydration(this.page, "[role=radio], button");
+  }
+
+  async choose(coordinatorName: string) {
+    await this.page.getByRole("radio", { name: new RegExp(coordinatorName) }).click();
+  }
+
+  async confirm(kind: "assign" | "reassign") {
+    await this.page.getByRole("button", { name: kind === "assign" ? "Confirm assignment" : "Confirm reassignment" }).click();
+  }
+}

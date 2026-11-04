@@ -127,7 +127,7 @@ export class TestData {
    * `start` and `end` (Singapore time) for an event that has a date: equipment reservation lists only events that have not
    * started and pre-fills the form from the event's times.
    */
-  async event(opts: { organiser?: Persona; coordinator?: Persona | null; status?: string; attendance?: number; label?: string; day?: string; start?: string; end?: string } = {}): Promise<EventRow> {
+  async event(opts: { organiser?: Persona; coordinator?: Persona | null; status?: string; attendance?: number; label?: string; day?: string; start?: string; end?: string; submittedAt?: string } = {}): Promise<EventRow> {
     const [organiser, coordinator] = await Promise.all([this.idOf(opts.organiser ?? "organiser"), opts.coordinator === null ? null : this.idOf(opts.coordinator ?? "coordinator")]);
     const event = await this.insert<EventRow>("events", {
       name: this.name(opts.label ?? "Event"),
@@ -136,6 +136,7 @@ export class TestData {
       status: opts.status ?? "approved",
       is_draft: false,
       expected_attendance: opts.attendance ?? 50,
+      ...(opts.submittedAt ? { submitted_at: opts.submittedAt } : {}),
       ...(opts.day ? { preferred_start_datetime: sgt(opts.day, opts.start ?? "09:00"), preferred_end_datetime: sgt(opts.day, opts.end ?? "17:00") } : {}),
     });
     // bookings and equipment rows a UI action adds for this event go before the event itself
