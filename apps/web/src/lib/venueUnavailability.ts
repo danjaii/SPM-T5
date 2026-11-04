@@ -25,3 +25,16 @@ export async function postVenueUnavailability(venueId: string, body: Unavailabil
     return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
   }
 }
+
+/** SCRUM-185/AC2: lifts a block (Venue Staff only; venue-service checks again, and so does the database). */
+export async function liftVenueUnavailability(venueId: string, blockId: string): Promise<ApiResult<{ lifted: boolean; notifiedCoordinators: number }>> {
+  try {
+    const res = await fetch(`${VENUE_URL}/venues/${encodeURIComponent(venueId)}/unavailability/${encodeURIComponent(blockId)}/lift`, {
+      method: "POST",
+      credentials: "include",
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: "We couldn't reach the server. Please try again." } as never };
+  }
+}
