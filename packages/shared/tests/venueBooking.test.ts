@@ -267,3 +267,21 @@ describe("SCRUM-98/AC2 exceedsCapacity: the warning, not a refusal (98-S10, 98-S
     expect(exceedsCapacity(attendance, capacity)).toBe(false);
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-98/AC2 parseVenueBookingInput at the edges (98-S12)", () => {
+  const now = new Date("2026-10-01T00:00:00.000Z");
+  const valid = { venueId: "venue-1", date: "2026-11-14", startTime: "09:00", endTime: "17:00" };
+
+  it("98-S12 an attendance of 1, the smallest allowed, is accepted", () => {
+    expect(parseVenueBookingInput({ ...valid, expectedAttendance: 1 }, now)).toMatchObject({ ok: true, data: { expectedAttendance: 1 } });
+  });
+});
+
+describe("SCRUM-32 32-S5 parseVenueBookingInput at the edges", () => {
+  it("32-S5 accepts a booking that starts exactly now", () => {
+    const now = sgtToUtc("2026-11-14", "09:00");
+    const input = { venueId: "venue-1", date: "2026-11-14", startTime: "09:00", endTime: "17:00" };
+    expect(parseVenueBookingInput(input, now).ok).toBe(true);
+  });
+});

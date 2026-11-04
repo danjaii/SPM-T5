@@ -246,3 +246,28 @@ describe("SCRUM-111/AC2 the edit form's values (111-S4, 111-S10)", () => {
   });
 });
 // end of SCRUM-111
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-111/AC3 parseEventDetailsInput at the edges (111-S8)", () => {
+  // NOW is 8am on 1 Oct 2026 in Singapore
+  const today = { date: "2026-10-01", endDate: "2026-10-01", endTime: "17:00" };
+
+  it("111-S8 an attendance of 1, the smallest allowed, is accepted", () => {
+    expect(parse({ expectedAttendance: 1 })).toMatchObject({ ok: true, data: { changes: { expected_attendance: { to: 1 } } } });
+  });
+
+  it("111-S8 an attendance typed as digits with no spaces is accepted", () => {
+    expect(parse({ expectedAttendance: "150" })).toMatchObject({ ok: true, data: { changes: { expected_attendance: { to: 150 } } } });
+  });
+
+  it("111-S8 a changed start earlier today is refused, on the start time", () => {
+    expect(parse({ ...today, startTime: "07:00" })).toMatchObject({
+      ok: false,
+      fieldErrors: { startTime: "The start time must not be in the past." },
+    });
+  });
+
+  it("111-S8 a changed start exactly now is accepted", () => {
+    expect(parse({ ...today, startTime: "08:00" }).ok).toBe(true);
+  });
+});

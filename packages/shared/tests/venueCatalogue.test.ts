@@ -210,3 +210,15 @@ describe("SCRUM-58/AC4 a capacity cut and the bookings it leaves over capacity (
     expect(bookingsOverCapacity([later, sooner], 100, 150, now).map((b) => b.bookingId)).toEqual(["sooner", "later"]);
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-57/AC2 values exactly at the limits (57-S2)", () => {
+  it.each([1, 100000])("57-S2: a capacity of %i is accepted", (maxCapacity) => {
+    const parsed = parseVenueInput(complete({ maxCapacity, layouts: [{ layoutId: LAYOUT_A, maxCapacity }] }));
+    expect(parsed).toMatchObject({ ok: true, data: { maxCapacity, layouts: [{ maxCapacity }] } });
+  });
+
+  it("57-S2: a name of exactly 120 characters and a location of exactly 200 are accepted", () => {
+    expect(parseVenueInput(complete({ name: "x".repeat(120), address: "x".repeat(200) })).ok).toBe(true);
+  });
+});

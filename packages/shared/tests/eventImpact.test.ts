@@ -205,3 +205,30 @@ describe("SCRUM-112/AC1 list affected arrangements", () => {
     expect(affected[0].reasons).toHaveLength(2);
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-112/AC3 an arrangement against the edges of the event's new time (112-S9, 112-S10)", () => {
+  it("112-S10: ending at 2pm lists the Breakout Room, which runs until 3pm, and nothing that ends by noon", () => {
+    expect(affectedIds({ preferred_end_datetime: { from: event.preferred_end_datetime, to: "2026-12-12T06:00:00.000Z" } }))
+      .toEqual(["vb-breakout"]);
+  });
+
+  it("112-S9: ending exactly when the Breakout Room ends keeps it inside, so nothing is listed", () => {
+    expect(affectedIds({ preferred_end_datetime: { from: event.preferred_end_datetime, to: "2026-12-12T07:00:00.000Z" } }))
+      .toEqual([]);
+  });
+
+  it("112-S9: starting exactly when Orchid Hall starts keeps it inside, so nothing is listed", () => {
+    expect(affectedIds({ preferred_start_datetime: { from: event.preferred_start_datetime, to: "2026-12-12T02:00:00.000Z" } }))
+      .toEqual([]);
+  });
+});
+
+describe("SCRUM-112/AC2 a venue that holds exactly the new number (112-S5)", () => {
+  it("112-S5: 480 to 500 in Orchid Hall (holds 500) asks the coordinator to check, and does not say it may be unsuitable", () => {
+    const [hall] = affectedArrangements({ expected_attendance: { from: 480, to: 500 } }, event, venueBookings, equipmentRequests);
+    expect(hall.reasons).toEqual([
+      "The event now expects 500 people. This venue booking is for 480, and Orchid Hall holds 500. Check it still suits.",
+    ]);
+  });
+});

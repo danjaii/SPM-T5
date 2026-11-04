@@ -91,3 +91,21 @@ describe("SCRUM-18 parseAvailabilityInput", () => {
   // end of AC7
 });
 // end of SCRUM-18
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-18 parseAvailabilityInput at the edges", () => {
+  it.each([["1", 1], ["10", 10], ["250", 250]])("SCRUM-18/AC1: accepts a quantity of %s", (quantity, expected) => {
+    expect(parseAvailabilityInput({ ...valid, quantity }, now)).toMatchObject({ ok: true, data: { quantity: expected } });
+  });
+
+  it("SCRUM-18/AC7: refuses an end time equal to the start time", () => {
+    expect(parseAvailabilityInput({ ...valid, startTime: "09:00", endTime: "09:00" }, now)).toEqual({
+      ok: false,
+      fieldErrors: { endTime: "The end time must be after the start time." },
+    });
+  });
+
+  it("SCRUM-18/AC7: accepts a period that starts exactly now", () => {
+    expect(parseAvailabilityInput({ ...valid, date: "2026-10-06", startTime: "09:00", endTime: "10:00" }, now).ok).toBe(true);
+  });
+});

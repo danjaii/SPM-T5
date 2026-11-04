@@ -145,3 +145,10 @@ describe("SCRUM-132/AC1 includeUnsuitable", () => {
     expect(off.ok && "includeUnsuitable" in off.data).toBe(false);
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-65/AC3 expected attendance at the edge", () => {
+  it("accepts an attendance of 1, the smallest allowed", () => {
+    expect(parseVenueSearchInput({ ...valid, attendance: "1" }, now)).toMatchObject({ ok: true, data: { attendance: 1 } });
+  });
+});

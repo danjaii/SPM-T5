@@ -144,3 +144,15 @@ describe("SCRUM-182/AC5 only Technical Support Staff (182-S5)", () => {
     }
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-182/AC1 optional text exactly at the limit (182-S1)", () => {
+  it("182-S1: a type, description and location each exactly at their limit are accepted", () => {
+    const atLimit = complete({
+      type: "x".repeat(EQUIPMENT_TYPE_MAX_LENGTH),
+      description: "x".repeat(EQUIPMENT_DESCRIPTION_MAX_LENGTH),
+      location: "x".repeat(EQUIPMENT_LOCATION_MAX_LENGTH),
+    });
+    expect(parseEquipmentInput(atLimit).ok).toBe(true);
+  });
+});

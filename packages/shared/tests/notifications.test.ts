@@ -124,3 +124,10 @@ describe("SCRUM-174/AC6 the cancellation notification type", () => {
     expect(notificationRequiresAction("event_cancelled")).toBe(false);
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-46/AC1 parseNotificationLimit at the edge (46-S1)", () => {
+  it("46-S1: a limit of 1, the smallest allowed, stays 1", () => {
+    expect(parseNotificationLimit("1")).toBe(1);
+  });
+});
