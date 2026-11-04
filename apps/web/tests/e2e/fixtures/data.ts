@@ -103,7 +103,7 @@ export class TestData {
    * asked and has the layout asked for (and is accessible, when the event needs that), so give `hours` (Singapore time), `layout` (a
    * seeded layout name, such as "Theatre", seating the whole capacity) and `accessible` for a venue a search should find.
    */
-  async venue(opts: { capacity?: number; setupMinutes?: number; turnaroundMinutes?: number; hours?: [string, string]; layout?: string; accessible?: boolean; label?: string } = {}): Promise<VenueRow> {
+  async venue(opts: { capacity?: number; setupMinutes?: number; turnaroundMinutes?: number; hours?: [string, string]; layout?: string; accessible?: boolean; emergencyAccess?: string; restrictions?: string; label?: string } = {}): Promise<VenueRow> {
     const venue = await this.insert<VenueRow>("venues", {
       name: this.name(opts.label ?? "Venue"),
       address: "1 Test Road",
@@ -112,6 +112,8 @@ export class TestData {
       turnaround_minutes: opts.turnaroundMinutes ?? 0,
       ...(opts.hours ? { operating_hours_start: opts.hours[0], operating_hours_end: opts.hours[1] } : {}),
       ...(opts.accessible ? { is_accessible: true, accessibility_notes: "Step-free access." } : {}),
+      ...(opts.emergencyAccess ? { emergency_access: opts.emergencyAccess } : {}),
+      ...(opts.restrictions ? { restrictions: opts.restrictions } : {}),
     });
     if (opts.layout) {
       const [layout] = await rest<{ id: string }[]>(`room_layouts?select=id&name=eq.${encodeURIComponent(opts.layout)}`);

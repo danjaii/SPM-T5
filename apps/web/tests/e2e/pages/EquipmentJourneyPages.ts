@@ -38,12 +38,13 @@ export class EquipmentQueuePage {
   }
 
   /** Opens the item's request and moves it to a new status ("Arranged", "Cannot Fulfil", ...). */
-  async setStatus(itemName: string, status: string) {
+  async setStatus(itemName: string, status: string, reason?: string) {
     await this.page.getByRole("link", { name: new RegExp(itemName) }).first().click();
     const form = this.page.getByRole("form", { name: "Update status" });
     await waitForHydration(this.page, "#review-status");
     await form.getByRole("combobox", { name: "New status" }).click();
     await this.page.getByRole("option", { name: status, exact: true }).click();
+    if (reason !== undefined) await form.getByLabel("Why it cannot be fulfilled").fill(reason);
     await form.getByRole("button", { name: "Save status" }).click();
   }
 }

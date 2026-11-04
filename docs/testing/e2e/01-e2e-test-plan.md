@@ -126,7 +126,7 @@ A case that folds in an existing spec file names the file in section 4.
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
 | E2E-EQP-01 | 10 units, 4 reserved for an overlapping period: availability shows 6 and a reservation for 6 succeeds; 4 reserved in the morning and 4 in the afternoon leave 6 for the whole day (peak, not sum) | 18-S1, 19-S1, 19-S3, 19-S11 | P0 | C | 16, 17 | |
 | E2E-EQP-02 | Asking for 8 when 6 are available is refused with the shortfall and saves nothing | 18-S3, 19-S4 | P1 | F | 16, 17 | |
-| E2E-EQP-03 | Organiser adds an equipment requirement on the event; Technical Support review it and move it to Arranged, or to a status with a reason | SCRUM-86, 87, 88 | P1 | N | 15 | |
+| E2E-EQP-03 | The coordinator adds an equipment item against an approved venue booking (Submitted); Technical Support set it to Cannot Fulfil with a reason, which the coordinator sees on the Equipment tab. (The Arranged path is in E2E-JRN-01.) | SCRUM-86, 87, 88 | P1 | N | 15 | |
 | E2E-EQP-04 | Technical Support add, edit and mark equipment under maintenance; it drops out of availability | SCRUM-182 | P2 | N | 15 | |
 | E2E-SAFE-01 | An event with all arrangements complete shows in the Safety Officer's queue with attendance, capacity, layout, emergency access, accessibility, equipment placement and restrictions; an incomplete one does not | 99-AC1, 99-AC2, 99-AC3 | P1 | N | | C6 |
 | E2E-SAFE-02 | Request changes with comments: the event returns to Planning, the coordinator is told, and the decision is recorded with officer, time and comments | 99-AC4, 99-AC8, SCRUM-100, 171 | P0 | F | | C6 |

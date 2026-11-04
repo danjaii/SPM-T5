@@ -103,7 +103,7 @@ export const CATALOGUE: CaseDef[] = [
   // EQP
   c("E2E-EQP-01", "overlapping reservations reduce availability", "10 units, 4 reserved for an overlapping period: availability shows 6 and a reservation for 6 succeeds; 4 in the morning and 4 in the afternoon leave 6 for the whole day.", ["18-S1", "19-S1", "19-S3", "19-S11"], "P0", C, [16, 17]),
   c("E2E-EQP-02", "reservation above availability is refused", "Asking for 8 when 6 are available is refused with the shortfall and saves nothing.", ["18-S3", "19-S4"], "P1", F, [16, 17]),
-  c("E2E-EQP-03", "equipment request is reviewed and arranged", "Organiser adds an equipment requirement; Technical Support review it and move it to Arranged, or to a status with a reason.", ["SCRUM-86", "SCRUM-87", "SCRUM-88"], "P1", N, [15]),
+  c("E2E-EQP-03", "equipment request is reviewed: cannot fulfil keeps its reason", "The coordinator adds an equipment item against an approved venue booking (Submitted); Technical Support set it to Cannot Fulfil with a reason, which the coordinator sees on the Equipment tab. (The Arranged path is in E2E-JRN-01.)", ["SCRUM-86", "SCRUM-87", "SCRUM-88"], "P1", N, [15]),
   c("E2E-EQP-04", "equipment under maintenance drops out of availability", "Technical Support add, edit and mark equipment under maintenance; it drops out of availability.", ["SCRUM-182"], "P2", N, [15]),
 
   // SAFE
