@@ -10,6 +10,9 @@ const { getChangeRequests } = vi.hoisted(() => ({ getChangeRequests: vi.fn(async
 const { getEventSafetyDecisions } = vi.hoisted(() => ({ getEventSafetyDecisions: vi.fn(async () => null as unknown) }));
 vi.mock("@/lib/getEvent", () => ({ getEvent, getEventOutcome, getEventChangeHistory, getChangeRequests, getEventSafetyDecisions }));
 vi.mock("@/lib/venueBookingsServer", () => ({ getEventVenueBookings }));
+// SCRUM-185/AC4: the coordinator's registration settings, on the Registrations tab
+const { getRegistrationSettings } = vi.hoisted(() => ({ getRegistrationSettings: vi.fn(async () => null as unknown) }));
+vi.mock("@/lib/registrationSettingsServer", () => ({ getRegistrationSettings }));
 const { getEventEquipmentRequests, getEquipmentRequestForm } = vi.hoisted(() => ({
   getEventEquipmentRequests: vi.fn(),
   // SCRUM-136/AC1: the choices for the Equipment tab's add and change row
@@ -68,6 +71,55 @@ describe("Event status page route (/events/[id])", () => {
     await open("evt-1", "registrations");
 
     expect(screen.getByRole("link", { name: "View registrations" }).getAttribute("href")).toBe("/events/evt-1/registrations");
+  });
+
+  describe("SCRUM-185/AC4 185-S4g the Registrations tab's settings form", () => {
+    const view = (over: Record<string, unknown> = {}) => ({ id: "evt-1", name: "Tech Summit", status: "planning", canChangeStatus: true, ...over });
+    const settings = (over: Record<string, unknown> = {}) => ({
+      status: "planning", registrationRequired: true, capacity: 100, opensAt: null, closesAt: null, eventStart: null, confirmedCount: 2, closedByStatus: true, ...over,
+    });
+
+    it("185-S4g: the assigned coordinator sees the form with the current capacity", async () => {
+      getEvent.mockResolvedValue({ event: view() });
+      getRegistrationSettings.mockResolvedValueOnce(settings());
+
+      await open("evt-1", "registrations");
+
+      expect(getRegistrationSettings).toHaveBeenCalledWith("evt-1");
+      expect(screen.getByRole("heading", { name: "Registration settings" })).toBeTruthy();
+      expect((screen.getByLabelText("Capacity") as HTMLInputElement).value).toBe("100");
+    });
+
+    it("185-S4e: a viewer who is not the coordinator gets no form, and nothing is loaded for them", async () => {
+      getRegistrationSettings.mockClear();
+      getEvent.mockResolvedValue({ event: view({ canChangeStatus: false }) });
+
+      await open("evt-1", "registrations");
+
+      expect(getRegistrationSettings).not.toHaveBeenCalled();
+      expect(screen.queryByRole("heading", { name: "Registration settings" })).toBeNull();
+    });
+
+    it("185-S4f: an event that does not take registrations, or settings that could not load, gets no form", async () => {
+      getEvent.mockResolvedValue({ event: view() });
+      getRegistrationSettings.mockResolvedValueOnce(settings({ registrationRequired: false }));
+      await open("evt-1", "registrations");
+      expect(screen.queryByRole("heading", { name: "Registration settings" })).toBeNull();
+      cleanup();
+
+      getRegistrationSettings.mockResolvedValueOnce(null);
+      await open("evt-1", "registrations");
+      expect(screen.queryByRole("heading", { name: "Registration settings" })).toBeNull();
+    });
+
+    it("185-S4g: the other tabs do not load the settings", async () => {
+      getRegistrationSettings.mockClear();
+      getEvent.mockResolvedValue({ event: view() });
+
+      await open("evt-1");
+
+      expect(getRegistrationSettings).not.toHaveBeenCalled();
+    });
   });
 
   it("SCRUM-86/AC2 shows the event's equipment requests, when the viewer may see them", async () => {
