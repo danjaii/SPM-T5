@@ -353,9 +353,7 @@ it belongs to, what it changes and why. Where to look:
 ## Current status
 
 This is the release-1 build. All five services and `apps/web` are built out for the 20 release-1 features; what
-each story built is recorded in [`docs/current-state.md`](docs/current-state.md), and what is still missing
-against the customer's requirements, with an owner for each gap, is in
-[`REQUIREMENTS_STATUS.md`](REQUIREMENTS_STATUS.md). Requirements that were left out on purpose are in
+each story built is recorded in [`docs/current-state.md`](docs/current-state.md). Requirements that were left out on purpose are in
 [`docs/scope-decisions.md`](docs/scope-decisions.md).
 
 In short: `notification-service` serves a user's own in-app notifications (list, unread count, mark read) on

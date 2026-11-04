@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   bookingsAffectedMessage,
+  blockLiftedMessage,
   bookingsFlaggedMessage,
   bufferConflictSummary,
   canEditVenueTiming,
@@ -317,6 +318,20 @@ export function venueRoutes(
       });
       // SCRUM-106: the database has flagged the affected bookings and told their coordinators; Venue Staff see how many
       res.status(201).json({ block: unavailabilityBlockView(block, true), affectedBookings, message: bookingsFlaggedMessage(affectedBookings) });
+    }),
+  );
+
+  // SCRUM-185/AC2: Venue Staff lift a block. The role comes first (185-S2c); lift_venue_unavailability checks it again, removes the
+  // block and its flags, and tells each affected booking's assigned coordinator, all in one transaction. A POST rather than a
+  // DELETE keeps the CORS methods as they are.
+  router.post(
+    "/:id/unavailability/:blockId/lift",
+    asyncHandler(async (req, res) => {
+      const { token } = res.locals.user as SessionUser;
+      if (!canMarkVenueUnavailable(res.locals.role as Role)) throw forbidden("Only venue staff can lift an unavailable period.");
+
+      const { notified } = await unavailabilityFor(token).lift(req.params.id as string, req.params.blockId as string);
+      res.status(200).json({ lifted: true, notifiedCoordinators: notified, message: blockLiftedMessage(notified) });
     }),
   );
 
