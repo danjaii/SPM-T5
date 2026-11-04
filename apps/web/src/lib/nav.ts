@@ -50,6 +50,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
   // SCRUM-188/AC3: the Lead's Home is the unassigned queue (/dashboard/event_coordinator_lead forwards to it), with its count
   event_coordinator_lead: [
     { label: "Home", href: "/lead/queue", icon: Home, queue: "leadQueue" },
+    // SCRUM-189/AC6: every active event in one list
+    { label: "Active events", href: "/lead/events", icon: CalendarCheck },
     { label: "Coordinator overview", href: "/lead/coordinators", icon: Users },
   ],
   venue_staff: [

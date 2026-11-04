@@ -30,7 +30,7 @@ describe("SCRUM-75 — Event Coordinator Lead sign-in and home page", () => {
     LeadDashboard();
 
     expect(redirect).toHaveBeenCalledWith("/lead/queue");
-    expect(NAV_ITEMS.event_coordinator_lead.map((i) => i.href)).toEqual(["/lead/queue", "/lead/coordinators"]);
+    expect(NAV_ITEMS.event_coordinator_lead.map((i) => i.href)).toEqual(["/lead/queue", "/lead/events", "/lead/coordinators"]);
   });
   // end of AC4
 });

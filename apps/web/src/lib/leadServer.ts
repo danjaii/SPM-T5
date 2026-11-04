@@ -74,6 +74,18 @@ export async function getCoordinatorEvents(id: string): Promise<{ events: LeadCo
   return res.ok ? { events: data } : { error: data.error ?? "We couldn't load this coordinator's events." };
 }
 
+/** SCRUM-189: one active event in the Lead's list of all of them, with who is running it. */
+export interface LeadActiveEvent extends LeadCoordinatorEvent {
+  coordinator: { id: string; full_name: string } | null;
+}
+
+/** SCRUM-189/AC1, AC2: every event with a coordinator that is not closed, earliest first. Leads only. */
+export async function getLeadActiveEvents(): Promise<{ events: LeadActiveEvent[] } | { error: string }> {
+  const res = await fromEventService("/lead/events");
+  const data = await res.json();
+  return res.ok ? { events: data } : { error: data.error ?? "We couldn't load the active events." };
+}
+
 /** SCRUM-78 / SCRUM-79: an event as the assign and reassign steps show it. */
 export type LeadEvent = LeadQueueItem & { status: string };
 
