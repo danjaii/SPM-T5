@@ -30,6 +30,13 @@ export class EventReviewPage {
     await this.page.goto(`/events/${eventId}`);
   }
 
+  /** "Change status": picks a status by its label and saves. Waits for the page to be live first, or the pick is lost. */
+  async setStatus(label: string) {
+    await waitForHydration(this.page, "#new-status");
+    await this.page.getByLabel("New status").selectOption({ label });
+    await this.page.getByRole("button", { name: "Save", exact: true }).click();
+  }
+
   async startReview() {
     await this.page.getByRole("button", { name: "Start review" }).click();
     await expect(this.page.getByRole("group", { name: "Review this request" })).toBeVisible();

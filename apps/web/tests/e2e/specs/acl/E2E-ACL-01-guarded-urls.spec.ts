@@ -23,7 +23,7 @@ const OWNERS: Record<string, Role[]> = {
 const ROLES = Object.keys(PRIMARY_BY_ROLE) as Role[];
 const t = tc("E2E-ACL-01");
 
-test.describe.configure({ timeout: 240_000 }); // 7 roles, each with 3 real page loads; `next dev` compiles a page on its first visit
+test.describe.configure({ timeout: 420_000 }); // 7 roles, each with 3 real page loads; `next dev` compiles a page on its first visit
 
 test(t.title, { annotation: t.annotation }, async ({ as }) => {
   for (const role of ROLES) {

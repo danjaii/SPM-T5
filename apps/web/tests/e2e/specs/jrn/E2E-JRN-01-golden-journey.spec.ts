@@ -109,8 +109,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
   await test.step("3b the coordinator moves it into Planning", async () => {
     // arrangements are tracked from Planning: the last approval moves a Planning event on by itself (SCRUM-171)
     await coordinator.goto(`/events/${eventId}`);
-    await coordinator.getByLabel("New status").selectOption({ label: "Planning" });
-    await coordinator.getByRole("button", { name: "Save", exact: true }).click();
+    await new EventReviewPage(coordinator).setStatus("Planning");
     await expect.poll(statusOf).toBe("planning");
   });
 
@@ -166,8 +165,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
 
   await test.step("8 the coordinator confirms the event (SCRUM-99/AC5, AC7)", async () => {
     await coordinator.goto(`/events/${eventId}`);
-    await coordinator.getByLabel("New status").selectOption({ label: "Confirmed" });
-    await coordinator.getByRole("button", { name: "Save", exact: true }).click();
+    await new EventReviewPage(coordinator).setStatus("Confirmed");
     await expect.poll(statusOf).toBe("confirmed");
     // 172-AC5: the organiser is told. The coordinator made the change, so is not (the team applies "never the person who did it" to every criterion)
     await expect.poll(() => told("event_confirmed")).toEqual(await ids("organiser"));

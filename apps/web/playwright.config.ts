@@ -44,11 +44,12 @@ export default defineConfig({
   forbidOnly: CI,
   // One retry in CI so a flaky test shows up as "flaky" in results.json instead of passing silently or failing the run.
   retries: CI ? 1 : 0,
-  workers: process.env.E2E_WORKERS ? Number(process.env.E2E_WORKERS) : CI ? 2 : 4,
+  // locally one `next dev` process compiles pages for every worker, so more workers mostly make each test slower
+  workers: process.env.E2E_WORKERS ? Number(process.env.E2E_WORKERS) : CI ? 2 : 3,
   // a spec that passes alone in ~30 s can take twice that when four workers make `next dev` compile pages at once
-  timeout: CI ? 90_000 : 120_000,
+  timeout: CI ? 90_000 : 180_000,
   // `next dev` compiles each page on first use, which is slow; the production build in CI is not.
-  expect: { timeout: CI ? 15_000 : 30_000 },
+  expect: { timeout: CI ? 15_000 : 40_000 },
   reporter: [
     ["list"],
     ["html", { open: "never" }],

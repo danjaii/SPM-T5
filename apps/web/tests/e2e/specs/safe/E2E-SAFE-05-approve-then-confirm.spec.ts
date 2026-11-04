@@ -1,4 +1,5 @@
 import { SafetyCheckPages } from "../../pages/SafetyCheckPages";
+import { EventReviewPage } from "../../pages/ReviewPages";
 import { DAY } from "../../fixtures/scenarios";
 import { tc } from "../../fixtures/tc";
 import { expect, test } from "../../fixtures/test";
@@ -29,8 +30,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
 
   await test.step("the coordinator can now confirm it", async () => {
     await coordinator.goto(`/events/${event.id}`);
-    await coordinator.getByLabel("New status").selectOption({ label: "Confirmed" });
-    await coordinator.getByRole("button", { name: "Save", exact: true }).click();
+    await new EventReviewPage(coordinator).setStatus("Confirmed");
     await expect.poll(status).toBe("confirmed");
   });
 

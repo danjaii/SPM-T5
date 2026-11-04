@@ -25,6 +25,7 @@ test(t.title, { annotation: t.annotation }, async ({ page }) => {
     expect(decodeURIComponent(new URL(page.url()).searchParams.get("next") ?? "")).toBe(target);
 
     const login = new LoginPage(page);
+    await login.ready(); // the guard sent us here, so open() was not used: wait for the form to be live before typing
     await login.submit(ACCOUNTS.attendee.email, "attendee");
     await expect(page, "signing in returns to the page they were going to").toHaveURL(new RegExp(`${target}$`));
   });

@@ -10,6 +10,11 @@ export class LoginPage {
 
   async open(next?: string) {
     await this.page.goto(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
+    await this.ready();
+  }
+
+  /** Waits until React owns the form: a value typed before that is thrown away. For a page the guard redirected to. */
+  async ready() {
     await waitForHydration(this.page, "input[type=password]");
   }
 

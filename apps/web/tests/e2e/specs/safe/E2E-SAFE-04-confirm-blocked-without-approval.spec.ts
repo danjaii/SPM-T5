@@ -1,3 +1,4 @@
+import { EventReviewPage } from "../../pages/ReviewPages";
 import { DAY } from "../../fixtures/scenarios";
 import { tc } from "../../fixtures/tc";
 import { expect, test } from "../../fixtures/test";
@@ -15,8 +16,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
   const status = async () => (await data.rest<{ status: string }[]>(`events?select=status&id=eq.${event.id}`))[0].status;
 
   await coordinator.goto(`/events/${event.id}`);
-  await coordinator.getByLabel("New status").selectOption({ label: "Confirmed" });
-  await coordinator.getByRole("button", { name: "Save", exact: true }).click();
+  await new EventReviewPage(coordinator).setStatus("Confirmed");
 
   await expect(coordinator.getByText("This event can't move to preparation until it is Safety Approved."), "the coordinator is told why").toBeVisible();
   expect(await status(), "the event is not Confirmed").toBe("awaiting_arrangements");
