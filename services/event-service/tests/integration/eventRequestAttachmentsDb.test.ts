@@ -91,6 +91,32 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
       expect(hidden.body.attachments).toEqual([]);
     });
 
+    it("SCRUM-51/AC1 gives the owner a signed link to the file and gives another organiser none", async () => {
+      const draft = await newDraft(who.organiser, "IT-51-AC1-link");
+      const { res } = await attach(who.organiser, draft.id);
+      const path = encodeURIComponent(res!.body.storage_path);
+
+      const mine = await request(app).get(`/events/${draft.id}/attachments/signed-url?storage_path=${path}`).set("Cookie", cookie(who.organiser));
+      expect(mine.status).toBe(200);
+      expect(mine.body.signed_url).toMatch(/^https?:\/\//);
+      expect((await fetch(mine.body.signed_url)).ok).toBe(true);
+
+      const theirs = await request(app).get(`/events/${draft.id}/attachments/signed-url?storage_path=${path}`).set("Cookie", cookie(who.otherOrganiser));
+      expect(theirs.status).not.toBe(200);
+      expect(theirs.body.signed_url).toBeUndefined();
+    });
+
+    it("SCRUM-51/AC4 deleting the draft takes its attachment rows with it (SCRUM-56 and SCRUM-51 together)", async () => {
+      const draft = await newDraft(who.organiser, "IT-51-AC4-cascade");
+      await attach(who.organiser, draft.id);
+      expect((await admin.from("event_request_attachments").select("id").eq("event_id", draft.id)).data).toHaveLength(1);
+
+      const del = await request(app).delete(`/events/drafts/${draft.id}`).set("Cookie", cookie(who.organiser));
+
+      expect(del.status).toBe(204);
+      expect((await admin.from("event_request_attachments").select("id").eq("event_id", draft.id)).data).toEqual([]);
+    });
+
     it("refuses a path in another request's folder (AT001) and a direct table write (42501)", async () => {
       const mine = await newDraft(who.organiser, "IT-51-AC1-mine");
       const theirs = await newDraft(who.otherOrganiser, "IT-51-AC1-theirs");
