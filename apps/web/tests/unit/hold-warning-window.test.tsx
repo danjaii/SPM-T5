@@ -35,6 +35,8 @@ describe("SCRUM-108/AC4 holdCountdown uses the hold's own window", () => {
     expect(holdCountdown(inHours(20), NOW).state).toBe("expiring");
     expect(holdCountdown(inHours(30), NOW).state).toBe("active");
     expect(holdCountdown(inHours(1), NOW, window8h).remaining).toBe("in 1 hour");
+    // the edge: exactly at the window is expiring, one millisecond outside it is not
+    expect(holdCountdown(new Date(NOW.getTime() + window8h + 1).toISOString(), NOW, window8h).state).toBe("active");
   });
 });
 

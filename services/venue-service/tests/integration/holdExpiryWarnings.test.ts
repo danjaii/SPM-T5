@@ -131,4 +131,91 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect((await notes(id)).filter((n) => n.type === "hold_expiring")).toHaveLength(2);
     });
   });
+
+  describe("SCRUM-108 the exact moments, a chosen warning time, and nothing double-written", () => {
+    const minutesBefore = (m: number) => new Date(expiry.getTime() - m * 60_000).toISOString();
+    const setWarning = (id: string, minutes: number) => who.coordinatorA.client.rpc("set_hold_warning", { p_booking_id: id, p_minutes: minutes });
+
+    it("SCRUM-108/AC2 writes the warning at the warning moment itself and not one second before", async () => {
+      const id = await hold();
+      await check(new Date(expiry.getTime() - 24 * HOUR - 1000).toISOString());
+      expect(await notes(id)).toEqual([]);
+      await check(at(24));
+      expect((await notes(id)).map((n) => n.type)).toEqual(["hold_expiring"]);
+    });
+
+    it("SCRUM-108/AC3 writes the expiry notice at the expiry moment itself and not one second before", async () => {
+      const id = await hold();
+      await check(new Date(expiry.getTime() - 1000).toISOString());
+      expect((await notes(id)).map((n) => n.type)).toEqual(["hold_expiring"]);
+      await check(expiry.toISOString());
+      expect((await notes(id)).map((n) => n.type).sort()).toEqual(["hold_expired", "hold_expiring"]);
+    });
+
+    it("SCRUM-108/AC1 uses the coordinator's own warning time: nothing at 3 hours out, one at 1.9 hours with a 2 hour warning", async () => {
+      const id = await hold();
+      expect((await setWarning(id, 120)).error).toBeNull();
+      await check(at(3));
+      expect(await notes(id)).toEqual([]);
+      await check(minutesBefore(114));
+      expect((await notes(id)).map((n) => n.type)).toEqual(["hold_expiring"]);
+    });
+
+    it("SCRUM-108/AC7 warns again when the coordinator changes the warning time after a warning was sent", async () => {
+      const id = await hold();
+      await check(at(23));
+      expect(await notes(id)).toHaveLength(1);
+      expect((await setWarning(id, 60)).error).toBeNull();
+      await check(minutesBefore(50));
+      expect((await notes(id)).filter((n) => n.type === "hold_expiring")).toHaveLength(2);
+    });
+
+    it("SCRUM-108/AC5 sends no expiry notice for a hold that was confirmed after its warning, or withdrawn, rejected or cancelled", async () => {
+      for (const status of ["approved", "withdrawn", "rejected", "cancelled"]) {
+        const id = await hold();
+        await check(at(23));
+        await admin.from("venue_bookings").update({ status }).eq("id", id);
+        await check(at(-1));
+        expect((await notes(id)).map((n) => n.type)).toEqual(["hold_expiring"]);
+      }
+    });
+
+    it("SCRUM-108/AC6 tells each event's coordinator about their own hold only, naming the venue and event", async () => {
+      const own = await hold();
+      const venueId = await fixtures.venue("IT-warn-b");
+      const otherEvent = await fixtures.event("approved", who.coordinatorB.userId);
+      const { data } = await admin.from("venue_bookings").insert({
+        event_id: otherEvent, venue_id: venueId, requested_by: who.coordinatorB.userId, status: "requested", hold_expires_at: expiry.toISOString(),
+        event_start_datetime: sgtToUtc("2030-11-15", "10:00").toISOString(), event_end_datetime: sgtToUtc("2030-11-15", "12:00").toISOString(),
+      }).select("id").single();
+      const other = data!.id as string;
+
+      await check(at(23));
+
+      const mine = await notes(own);
+      const theirs = await notes(other);
+      expect(mine).toHaveLength(1);
+      expect(theirs).toHaveLength(1);
+      expect(mine[0].user_id).toBe(who.coordinatorA.userId);
+      expect(theirs[0].user_id).toBe(who.coordinatorB.userId);
+      const row = (await admin.from("venue_bookings").select("event_id, venue_id").eq("id", own).single()).data as { event_id: string; venue_id: string };
+      const eventName = (await admin.from("events").select("name").eq("id", row.event_id).single()).data!.name as string;
+      const venueName = (await admin.from("venues").select("name").eq("id", row.venue_id).single()).data!.name as string;
+      expect(mine[0].message).toContain(eventName);
+      expect(mine[0].message).toContain(venueName);
+    });
+
+    it("SCRUM-108/AC3 says a new venue request is needed in the expiry notice", async () => {
+      const id = await hold();
+      await check(at(-1));
+      expect((await notes(id))[0].message).toMatch(/submit a new venue request/);
+    });
+
+    it("SCRUM-108/AC2 writes one notification when two checks run at the same moment", async () => {
+      const id = await hold();
+      const [a, b] = await Promise.all([check(at(23)), check(at(23))]);
+      expect((await notes(id)).filter((n) => n.type === "hold_expiring")).toHaveLength(1);
+      expect(a + b).toBeGreaterThanOrEqual(1);
+    });
+  });
 });
