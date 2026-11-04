@@ -2,13 +2,13 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { VenueCalendarVenue } from "@/components/venue-calendar/VenueCalendarVenue";
+import { VenueDayView } from "@/components/venue-calendar/VenueDayTimeline";
 import type { CalendarVenue } from "@/lib/venueCalendar";
 import { venueFixture } from "./venue-calendar-fixtures";
 
 const block = { kind: "block", status: "BLOCKED", label: "Blocked", start: "2026-11-14T07:00:00.000Z", end: "2026-11-14T09:00:00.000Z", reason: "maintenance", reason_label: "Maintenance" };
 const open = { kind: "open", status: "AVAILABLE", label: "Available", start: "2026-11-14T00:00:00.000Z", end: "2026-11-14T07:00:00.000Z" };
-const show = (periods: unknown[]) => render(<VenueCalendarVenue venue={venueFixture({ periods }) as unknown as CalendarVenue} />);
+const show = (periods: unknown[]) => render(<VenueDayView venues={[venueFixture({ periods }) as unknown as CalendarVenue]} date="2026-11-14" />);
 const hint = () => screen.getByRole("button", { name: /why is this blocked/i });
 
 describe("SCRUM-130/AC2 the block's reason on hover, tap and keyboard focus", () => {
@@ -50,5 +50,14 @@ describe("SCRUM-130/AC2 the block's reason on hover, tap and keyboard focus", ()
     show([{ ...block, reason: undefined, reason_label: undefined }]);
     fireEvent.focus(hint());
     expect(screen.getByRole("tooltip").textContent).toBe("Blocked");
+  });
+});
+
+describe("SCRUM-130/AC2 review gaps", () => {
+  it("SCRUM-130/AC2 keeps the reason open on a key other than Escape", () => {
+    show([block]);
+    fireEvent.click(hint());
+    fireEvent.keyDown(hint(), { key: "Tab" });
+    expect(screen.getByRole("tooltip")).toBeTruthy();
   });
 });

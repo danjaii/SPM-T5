@@ -21,7 +21,7 @@ type Errors = Partial<Record<"startDate" | "startTime" | "endDate" | "endTime" |
 const LABEL = "text-sm font-semibold text-foreground";
 const ERROR = "text-sm font-medium text-destructive";
 // The reason list is a native select so a screen reader and the keyboard get it for free; it is styled like the Input.
-const SELECT =
+export const SELECT =
   "h-10 w-full rounded-lg border border-input bg-card px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive";
 
 // SCRUM-105: Venue Staff mark a venue unavailable for a period with a reason. Shown only to them (the server says so with

@@ -3,7 +3,7 @@
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { VenueCalendarVenue } from "@/components/venue-calendar/VenueCalendarVenue";
+import { VenueDayView } from "@/components/venue-calendar/VenueDayTimeline";
 import type { CalendarVenue } from "@/lib/venueCalendar";
 import { venueFixture } from "./venue-calendar-fixtures";
 
@@ -26,7 +26,7 @@ const venue = venueFixture({
 }) as unknown as CalendarVenue;
 
 const open = (nameStart: RegExp) => {
-  render(<VenueCalendarVenue venue={venue} />);
+  render(<VenueDayView venues={[venue]} date="2026-11-14" />);
   fireEvent.click(screen.getByRole("button", { name: nameStart }));
   return screen.getByRole("region", { name: "Availability details" });
 };
@@ -43,7 +43,7 @@ describe("SCRUM-85/AC1 open the details of a period", () => {
   });
 
   it("shows no details until a period is chosen, and a different period replaces the last", () => {
-    render(<VenueCalendarVenue venue={venue} />);
+    render(<VenueDayView venues={[venue]} date="2026-11-14" />);
     expect(screen.queryByRole("region", { name: "Availability details" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Details.*Blocked/ }));
     expect(within(screen.getByRole("region", { name: "Availability details" })).getByText("Blocked")).toBeTruthy();
@@ -60,7 +60,7 @@ describe("SCRUM-85/AC1 open the details of a period", () => {
   });
 
   it("marks which period is open", () => {
-    render(<VenueCalendarVenue venue={venue} />);
+    render(<VenueDayView venues={[venue]} date="2026-11-14" />);
     const button = screen.getByRole("button", { name: /Details.*Blocked/ });
     expect(button.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(button);
@@ -106,7 +106,7 @@ describe("SCRUM-85/AC4 setup and turnaround time", () => {
 
   it("says plainly when the setup or turnaround belongs to a booking outside the dates shown", () => {
     const lone = venueFixture({ periods: [{ kind: "setup", status: "CONFIRMED", label: "Confirmed", start: Z("09:30"), end: Z("10:00") }] }) as unknown as CalendarVenue;
-    render(<VenueCalendarVenue venue={lone} />);
+    render(<VenueDayView venues={[lone]} date="2026-11-14" />);
     fireEvent.click(screen.getByRole("button", { name: /Details/ }));
     expect(within(screen.getByRole("region", { name: "Availability details" })).getByText(/Setup time for a booking/)).toBeTruthy();
   });
@@ -122,7 +122,7 @@ describe("SCRUM-85/AC1 a period outside operating hours", () => {
 // Added after the independent review
 const mk = (periods: unknown[], over: Record<string, unknown> = {}) => venueFixture({ periods, ...over }) as unknown as CalendarVenue;
 const pick = (v: CalendarVenue, name: RegExp) => {
-  render(<VenueCalendarVenue venue={v} />);
+  render(<VenueDayView venues={[v]} date="2026-11-14" />);
   fireEvent.click(screen.getByRole("button", { name }));
   return screen.getByRole("region", { name: "Availability details" });
 };
@@ -153,7 +153,7 @@ describe("SCRUM-85 review gaps", () => {
     const details = open(range);
     expect(within(details).queryByText("Available")).toBeNull();
     expect(within(details).getByText("Confirmed")).toBeTruthy();
-    for (const row of document.querySelectorAll('li[data-kind="setup"], li[data-kind="turnaround"]')) expect(row.textContent).not.toMatch(/Available/);
+    for (const row of document.querySelectorAll('[data-kind="setup"], [data-kind="turnaround"]')) expect(row.textContent).not.toMatch(/Available/);
   });
 
   it("SCRUM-85/AC4 ties setup and turnaround to the right booking when there are two", () => {
@@ -165,7 +165,7 @@ describe("SCRUM-85 review gaps", () => {
       { kind: "event", status: "TENTATIVELY_HELD", label: "Tentatively Held", start: Z("15:00"), end: Z("17:00") },
       { kind: "turnaround", status: "TENTATIVELY_HELD", label: "Tentatively Held", start: Z("17:00"), end: Z("17:45") },
     ]);
-    render(<VenueCalendarVenue venue={v} />);
+    render(<VenueDayView venues={[v]} date="2026-11-14" />);
     fireEvent.click(screen.getByRole("button", { name: /Details.*Tentatively Held.*14:30 to 15:00/ }));
     expect(within(screen.getByRole("region", { name: "Availability details" })).getByText("Setup time for the booking that starts 2026-11-14 15:00")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Details.*Confirmed.*12:00 to 12:45/ }));
@@ -183,7 +183,7 @@ describe("SCRUM-85 review gaps", () => {
   it("SCRUM-85/AC1 keeps each venue's selection to itself and shows the right venue's facts", () => {
     const a = mk([{ kind: "open", status: "AVAILABLE", label: "Available", start: Z("08:00"), end: Z("18:00") }], { id: "a", name: "Orchid Hall" });
     const b = mk([{ kind: "block", status: "BLOCKED", label: "Blocked", start: Z("08:00"), end: Z("18:00"), reason_label: "Renovation" }], { id: "b", name: "Jasmine Room", address: "2 Marina Boulevard", max_capacity: 40 });
-    render(<><VenueCalendarVenue venue={a} /><VenueCalendarVenue venue={b} /></>);
+    render(<VenueDayView venues={[a, b]} date="2026-11-14" />);
     fireEvent.click(screen.getByRole("button", { name: /Details: Blocked/ }));
     const regions = screen.getAllByRole("region", { name: "Availability details" });
     expect(regions).toHaveLength(1);
@@ -200,7 +200,7 @@ describe("SCRUM-85 review gaps", () => {
   });
 
   it("SCRUM-85/AC1 switching clears the first period's pressed state and shows the second one's times", () => {
-    render(<VenueCalendarVenue venue={venue} />);
+    render(<VenueDayView venues={[venue]} date="2026-11-14" />);
     const first = screen.getByRole("button", { name: /Details.*Blocked/ });
     fireEvent.click(first);
     fireEvent.click(screen.getByRole("button", { name: /Details.*Unavailable/ }));
@@ -209,7 +209,8 @@ describe("SCRUM-85 review gaps", () => {
   });
 
   it("SCRUM-85/AC1 converts times across midnight into Singapore dates", () => {
-    const v = mk([{ kind: "open", status: "AVAILABLE", label: "Available", start: "2026-11-14T15:30:00.000Z", end: "2026-11-14T17:15:00.000Z" }]);
+    // a setup stretch, which widens the day view to midnight, so the late period is on screen
+    const v = mk([{ kind: "setup", status: "CONFIRMED", label: "Confirmed", start: "2026-11-14T15:30:00.000Z", end: "2026-11-14T17:15:00.000Z" }]);
     const details = pick(v, /Details/);
     expect(within(details).getByText("2026-11-14 23:30")).toBeTruthy();
     expect(within(details).getByText("2026-11-15 01:15")).toBeTruthy();

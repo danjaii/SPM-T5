@@ -1,116 +1,168 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { parseCalendarRange } from "@spm-t5/shared";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { formatShortSgt } from "@spm-t5/shared";
 import { AuthAlert } from "@/components/auth/AuthParts";
-import { Button } from "@/components/ui/button";
+import { SELECT, VenueUnavailabilityForm } from "@/components/VenueUnavailabilityForm";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { VenueUnavailabilityForm } from "@/components/VenueUnavailabilityForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchVenueCalendar, type CalendarQuery, type VenueCalendarData } from "@/lib/venueCalendar";
-import { VenueCalendarRangeForm } from "./VenueCalendarRangeForm";
-import { useMediaQuery } from "@/lib/useMediaQuery";
+import { affectedBlocks, stepAnchor, todaySgt, viewRange, type CalendarView } from "@/lib/venueTimeline";
 import { VenueCalendarLegend } from "./VenueCalendarLegend";
-import { VenueCalendarVenue } from "./VenueCalendarVenue";
-import { VenueWeekGrid } from "./VenueWeekGrid";
+import { VenueCalendarToolbar } from "./VenueCalendarToolbar";
+import { VenueDayView } from "./VenueDayTimeline";
+import { VenueRangeGrid } from "./VenueRangeGrid";
 
-/** SCRUM-130/AC1, AC7: from this width the calendar is a week grid per venue; below it (a phone, 375 px) it stays the list. */
-export const WEEK_GRID_QUERY = "(min-width: 640px)";
 
-// SCRUM-84/AC1 + AC5: the venue availability calendar. Opens on the current week (no dates sent); choosing dates asks venue-service
-// again. The last good answer stays on screen while a new one loads.
-export function VenueCalendar({ canMarkUnavailable = false }: { canMarkUnavailable?: boolean }) {
+// SCRUM-84/AC1, SCRUM-130 (Figma 09): the venue availability calendar. Opens on today's day view; Day, Week, Month and the date
+// stepper each ask venue-service for their range. The last good answer stays on screen while a new one loads.
+export function VenueCalendar({
+  heading,
+  canMarkUnavailable = false,
+  now,
+}: {
+  /** The page title block, shown with Mark venue unavailable beside it. */
+  heading?: ReactNode;
+  canMarkUnavailable?: boolean;
+  /** For tests: the clock. */
+  now?: Date;
+}) {
   const router = useRouter();
+  const today = todaySgt(now);
+  const [view, setView] = useState<CalendarView>("day");
+  const [anchor, setAnchor] = useState(today);
   const [calendar, setCalendar] = useState<VenueCalendarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [marking, setMarking] = useState<{ id: string; name: string } | null>(null); // SCRUM-130/AC3: the venue being marked unavailable
-  const shown = useRef<CalendarQuery>({}); // the dates last applied, so Reload asks for the same ones
+  const [marking, setMarking] = useState(false); // SCRUM-130/AC3: the Mark unavailable dialog is open
+  const [markVenue, setMarkVenue] = useState("");
   const pending = useRef<AbortController | null>(null);
-  const routerRef = useRef(router); // read when a reply arrives, so a new router object never re-runs the first load
+  const routerRef = useRef(router); // read when a reply arrives, so a new router object never re-runs a load
   routerRef.current = router;
 
-  const load = useCallback(
-    async (query: CalendarQuery) => {
-      // SCRUM-84/AC6: the same check venue-service makes, so a bad range is refused here and the previous view stays
-      const checked = parseCalendarRange(query, new Date());
-      if (!checked.ok) {
-        setFieldErrors(checked.fieldErrors);
-        return;
-      }
-      pending.current?.abort();
-      const controller = new AbortController();
-      pending.current = controller;
-      setLoading(true);
-      try {
-        const result = await fetchVenueCalendar(query, controller.signal);
-        if (result.kind === "ok") {
-          shown.current = query;
-          setCalendar(result.calendar);
-          setMessage(null);
-          setFieldErrors({});
-        } else if (result.kind === "invalid") setFieldErrors(result.fieldErrors);
-        else if (result.kind === "unauthenticated") routerRef.current.replace("/login");
-        else if (result.kind === "error" || result.kind === "forbidden") setMessage(result.message);
-      } catch {
-        return; // replaced by a newer request
-      }
-      setLoading(false);
-    },
-    [],
-  );
+  // Every range comes from a view (a day, a week or a month), so it is always one venue-service accepts. Should it refuse one
+  // anyway (SCRUM-84/AC6), its message is shown and the previous view stays.
+  const load = useCallback(async (query: CalendarQuery) => {
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
+    setLoading(true);
+    try {
+      const result = await fetchVenueCalendar(query, controller.signal);
+      if (result.kind === "ok") {
+        setCalendar(result.calendar);
+        setMessage(null);
+      } else if (result.kind === "invalid") setMessage(Object.values(result.fieldErrors).join(" "));
+      else if (result.kind === "unauthenticated") routerRef.current.replace("/login");
+      else setMessage(result.message);
+    } catch {
+      return; // replaced by a newer request
+    }
+    setLoading(false);
+  }, []);
 
+  const { from, to } = viewRange(view, anchor);
+  const reload = useCallback(() => void load({ from, to }), [load, from, to]);
   useEffect(() => {
-    void load({});
+    reload();
     return () => pending.current?.abort();
-  }, [load]);
+  }, [reload]);
 
-  const range = calendar?.range;
-  const grid = useMediaQuery(WEEK_GRID_QUERY);
+  const show = (nextView: CalendarView, nextAnchor: string) => {
+    setView(nextView);
+    setAnchor(nextAnchor);
+  };
+
+  const venues = calendar?.venues ?? [];
+  const markingName = venues.find((v) => v.id === markVenue)?.name;
+
   return (
-    <div className="flex flex-col gap-6">
-      <VenueCalendarRangeForm busy={loading} fieldErrors={fieldErrors} onSubmit={load} />
-      <Button type="button" variant="outline" className="self-start" disabled={loading} onClick={() => void load(shown.current)}>
-        <RefreshCw aria-hidden="true" /> Reload
-      </Button>
+    <div className="flex flex-col gap-4">
+      {/* Figma 09: the page title on the left, Mark venue unavailable on the right */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">{heading}</div>
+        {/* SCRUM-130/AC3: only Venue Staff are given this (the page decides; the service and the database check it again) */}
+        {canMarkUnavailable && (
+          <Button type="button" variant="outline" disabled={venues.length === 0} onClick={() => { setMarkVenue(venues[0].id); setMarking(true); }}>
+            Mark venue unavailable
+          </Button>
+        )}
+      </div>
+      {/* Figma 09: the view and date controls on the left, the status legend on the right */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <VenueCalendarToolbar
+          view={view}
+          anchor={anchor}
+          busy={loading}
+          onView={(next) => show(next, anchor)}
+          onStep={(direction) => show(view, stepAnchor(view, anchor, direction))}
+          onToday={() => show(view, today)}
+        />
+        <VenueCalendarLegend />
+      </div>
+
+      {/* SCRUM-130/AC2 (Figma 09 banner): a closure that lies over confirmed bookings is called out above the calendar */}
+      {affectedBlocks(venues).map((block) => (
+        <Alert key={`${block.venue.id}-${block.start}`} className="flex-row items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <div>
+              <AlertTitle>
+                {block.venue.name} is unavailable {formatShortSgt(new Date(block.start))} to {formatShortSgt(new Date(block.end))}
+                {block.reasonLabel ? ` (${block.reasonLabel})` : ""}
+              </AlertTitle>
+              <AlertDescription>Confirmed bookings in this period are affected. They were kept, and their coordinators were told.</AlertDescription>
+            </div>
+          </div>
+          {canMarkUnavailable && (
+            <Link href="/booking-queue" className={buttonVariants({ variant: "outline", size: "sm" })}>View affected bookings</Link>
+          )}
+        </Alert>
+      ))}
+
       {message && <AuthAlert tone="error">{message}</AuthAlert>}
-      {range && <p className="text-sm font-medium text-foreground">{range.from === range.to ? `Showing ${range.from}` : `Showing ${range.from} to ${range.to}`}</p>}
       {!calendar ? (
         loading && <CalendarSkeleton />
-      ) : calendar.venues.length === 0 ? (
-        <p className="text-sm text-muted-foreground">There are no venues to show.</p>
+      ) : venues.length === 0 ? (
+        <p className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">There are no venues to show.</p>
       ) : (
         <div aria-busy={loading} className="flex flex-col gap-4">
-          {grid && <VenueCalendarLegend />}
-          {calendar.venues.map((venue) => {
-            const onMark = canMarkUnavailable ? () => setMarking({ id: venue.id, name: venue.name }) : undefined;
-            return grid
-              ? <VenueWeekGrid key={venue.id} venue={venue} range={calendar.range} onMarkUnavailable={onMark} />
-              : <VenueCalendarVenue key={venue.id} venue={venue} onMarkUnavailable={onMark} />;
-          })}
+          {view === "day" ? (
+            <VenueDayView key={from} venues={venues} date={from} now={now} />
+          ) : (
+            <VenueRangeGrid view={view} venues={venues} from={from} to={to} today={today} onOpenDay={(day) => show("day", day)} />
+          )}
+          {/* SCRUM-130/AC1 (Figma 09): what the dashed blocks are */}
+          <p className="text-sm text-muted-foreground">
+            Dashed blocks either side of each booking are the venue&apos;s setup and turnaround time. They count as occupied when checking conflicts.
+          </p>
         </div>
       )}
-      {/* SCRUM-130/AC1 (Figma 09): what the dashed rows are */}
-      {calendar && calendar.venues.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          Dashed rows either side of each booking are the venue&apos;s setup and turnaround time. They count as occupied when checking conflicts.
-        </p>
-      )}
-      <Dialog open={marking !== null} onOpenChange={(open) => !open && setMarking(null)}>
+
+      <Dialog open={marking} onOpenChange={setMarking}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mark {marking?.name} unavailable</DialogTitle>
+            <DialogTitle>Mark {markingName ?? "a venue"} unavailable</DialogTitle>
             <DialogDescription>Bookings in this period are flagged and their coordinators told. Times are Singapore time.</DialogDescription>
           </DialogHeader>
-          {marking && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="markVenue" className="text-sm font-semibold text-foreground">Venue</label>
+            <select id="markVenue" className={SELECT} value={markVenue} onChange={(e) => setMarkVenue(e.target.value)}>
+              {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+          {markVenue && (
             <VenueUnavailabilityForm
-              venueId={marking.id}
+              key={markVenue}
+              venueId={markVenue}
               onSaved={() => {
-                setMarking(null);
-                void load(shown.current); // SCRUM-130/AC3: show the new block straight away
+                setMarking(false);
+                reload(); // SCRUM-130/AC3: show the new block straight away
               }}
             />
           )}
@@ -122,8 +174,9 @@ export function VenueCalendar({ canMarkUnavailable = false }: { canMarkUnavailab
 
 export function CalendarSkeleton() {
   return (
-    <div role="status" aria-label="Loading the venue calendar" className="flex flex-col gap-4">
-      {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-28 w-full" />)}
+    <div role="status" aria-label="Loading the venue calendar" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+      <Skeleton className="h-6 w-full" />
+      {Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-12 w-full" />)}
     </div>
   );
 }

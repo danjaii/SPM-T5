@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { VenueCalendarVenue } from "@/components/venue-calendar/VenueCalendarVenue";
+import { VenueDayView } from "@/components/venue-calendar/VenueDayTimeline";
 import type { CalendarVenue } from "@/lib/venueCalendar";
 import { venueFixture } from "./venue-calendar-fixtures";
 
@@ -10,7 +10,7 @@ const Z = (hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number);
   return new Date(Date.UTC(2026, 10, 14, h - 8, m)).toISOString();
 };
-const show = (periods: unknown[]) => render(<VenueCalendarVenue venue={venueFixture({ periods }) as unknown as CalendarVenue} />);
+const show = (periods: unknown[]) => render(<VenueDayView venues={[venueFixture({ periods }) as unknown as CalendarVenue]} date="2026-11-14" />);
 const details = () => screen.getByRole("region", { name: "Availability details" });
 
 describe("SCRUM-85/AC3 every reason Venue Staff can record is shown", () => {
@@ -41,8 +41,8 @@ describe("SCRUM-85/AC4 setup and turnaround are never called Available, and say 
       { kind: "setup", status: "CONFIRMED", label: "Confirmed", start: Z("09:30"), end: Z("10:00") },
       { kind: "event", status: "CONFIRMED", label: "Confirmed", start: Z("10:00"), end: Z("12:00"), event_start: Z("10:00"), event_end: Z("12:00"), occupied_start: Z("09:30"), occupied_end: Z("12:00") },
     ]);
-    expect(document.querySelectorAll('li[data-kind="setup"]').length).toBe(1);
-    fireEvent.click(within(document.querySelector('li[data-kind="setup"]') as HTMLElement).getByRole("button", { name: /Details/ }));
+    expect(document.querySelectorAll('[data-kind="setup"]').length).toBe(1);
+    fireEvent.click(within(document.querySelector('[data-kind="setup"]') as HTMLElement).getByRole("button", { name: /Details/ }));
     const panel = within(details());
     expect(panel.getByText("What it is").nextElementSibling?.textContent).toMatch(/^Setup time for the booking that starts 2026-11-14 10:00/);
     expect(panel.getByText("Status").nextElementSibling?.textContent).toBe("Confirmed");
