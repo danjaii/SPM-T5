@@ -64,17 +64,29 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
   });
 
   describe("SCRUM-51/AC1 upload an attachment", () => {
-    it("stores the file, lists it for the organiser and a coordinator, and hides it from another organiser", async () => {
+    it("stores the file, lists it for the organiser and, once submitted and assigned, the coordinator, and hides it from another organiser", async () => {
       const draft = await newDraft(who.organiser, "IT-51-AC1-upload");
 
       const { put, res } = await attach(who.organiser, draft.id);
 
       expect(put?.ok).toBe(true);
       expect(res?.status).toBe(201);
-      for (const actor of [who.organiser, who.coordinator]) {
-        const list = await request(app).get(`/events/${draft.id}/request-attachments`).set("Cookie", cookie(actor));
-        expect(list.body.attachments.map((a: any) => a.file_name)).toEqual(["plan.pdf"]);
-      }
+      const names = async (actor: Actor) =>
+        (await request(app).get(`/events/${draft.id}/request-attachments`).set("Cookie", cookie(actor))).body.attachments.map((a: any) => a.file_name);
+      expect(await names(who.organiser)).toEqual(["plan.pdf"]);
+      // Since SCRUM-156 a coordinator reads only the events assigned to them: not this draft, but a submitted request assigned to
+      // them, whose attachment the organiser added while it was a draft (arranged here with the secret key, because only a Lead assigns)
+      expect(await names(who.coordinator)).toEqual([]);
+      const { data: assigned, error } = await admin.from("events").insert({
+        name: "IT-51-AC1-assigned", organiser_id: who.organiser.userId, assigned_coordinator_id: who.coordinator.userId, status: "submitted", is_draft: false,
+      }).select("id").single();
+      if (error) throw new Error(error.message);
+      eventIds.push(assigned.id as string);
+      await admin.from("event_request_attachments").insert({
+        event_id: assigned.id, file_name: "plan.pdf", storage_path: `${assigned.id}/a/plan.pdf`, content_type: "application/pdf", size_bytes: 1, uploaded_by: who.organiser.userId,
+      });
+      const seen = await request(app).get(`/events/${assigned.id}/request-attachments`).set("Cookie", cookie(who.coordinator));
+      expect(seen.body.attachments.map((a: any) => a.file_name)).toEqual(["plan.pdf"]);
       const hidden = await request(app).get(`/events/${draft.id}/request-attachments`).set("Cookie", cookie(who.otherOrganiser));
       expect(hidden.body.attachments).toEqual([]);
     });
@@ -87,7 +99,7 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
         p_event_id: mine.id, p_file_name: "x.pdf", p_storage_path: `${theirs.id}/a/x.pdf`, p_content_type: "application/pdf", p_size_bytes: 1,
       });
       const direct = await who.organiser.client.from("event_request_attachments").insert({
-        event_id: mine.id, file_name: "x.pdf", storage_path: `${mine.id}/a/x.pdf`, content_type: "application/pdf", size_bytes: 1, uploaded_by: who.organiser.id,
+        event_id: mine.id, file_name: "x.pdf", storage_path: `${mine.id}/a/x.pdf`, content_type: "application/pdf", size_bytes: 1, uploaded_by: who.organiser.userId,
       });
 
       expect(wrongFolder.error?.code).toBe("AT001");
