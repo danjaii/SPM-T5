@@ -14,6 +14,7 @@ import { InlineMessage } from "./event/InlineMessage";
 import { StatusStepper } from "./event/StatusStepper";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { PageTitle } from "./PageFrame";
 
 /** The statuses that need a reason: what to say when it is missing, and who will be told it. */
 const REASON_REQUIRED: Partial<Record<string, { missing: string; toldTo: string }>> = {
@@ -78,7 +79,7 @@ export function EventStatusPanel({ event, activeTab = "overview", meta, notice, 
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold break-words">{event.name}</h1>
+            <PageTitle>{event.name}</PageTitle>
             <StatusBadge {...(EVENT_STATUS_DISPLAY[status as EventStatus] ?? { label: statusLabel(status) })} />
           </div>
           {meta && <p className="text-sm text-muted-foreground">{meta}</p>}

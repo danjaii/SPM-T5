@@ -13,6 +13,7 @@ export * from "./eventStatus";
 export * from "./notifications";
 export * from "./profile";
 export * from "./registration";
+export * from "./registrationSettings";
 export * from "./roles";
 export * from "./sentBack";
 export * from "./supabaseClient";

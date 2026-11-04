@@ -13,6 +13,7 @@ import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBookings } from "@/components/EventVenueBookings";
 import { NeedsAttentionBanner } from "@/components/NeedsAttentionBanner";
+import { RegistrationSettingsForm } from "@/components/RegistrationSettingsForm";
 import { EventSafetyDecisions } from "@/components/EventSafetyDecisions";
 import { EventSection, Unavailable } from "@/components/event/EventSection";
 import { InlineMessage } from "@/components/event/InlineMessage";
@@ -23,7 +24,9 @@ import { getEquipmentRequestForm, getEventEquipmentRequests } from "@/lib/equipm
 import { getEventTechnicalAssignments } from "@/lib/technicalAssignmentsServer";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import { getChangeRequests, getEvent, getEventChangeHistory, getEventOutcome, getEventSafetyDecisions } from "@/lib/getEvent";
+import { getRegistrationSettings } from "@/lib/registrationSettingsServer";
 import { getEventVenueBookings } from "@/lib/venueBookingsServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 // Rendered per request: what's shown depends on who is signed in.
 export const dynamic = "force-dynamic";
@@ -73,6 +76,9 @@ export default async function EventPage({
   const seesChangeRequests = "event" in result && (result.event.isOrganiser || result.event.canChangeStatus);
   const changeRequests = seesChangeRequests ? await getChangeRequests(id) : [];
 
+  // SCRUM-185/AC4: the assigned coordinator adjusts registration capacity and window on the Registrations tab
+  const registrationSettings = tab === "registrations" && "event" in result && result.event.canChangeStatus ? await getRegistrationSettings(id) : null;
+
   const view = "event" in result ? result.event : null;
   // SCRUM-127: the line under the title (Figma frame 05): who, when and how many
   const meta = view
@@ -86,8 +92,8 @@ export default async function EventPage({
 
   // SCRUM-159/AC3: inside the shared app shell only; the old top bar (AppHeader) is gone, for organisers and coordinators
   return (
-    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6">
-      <Link className="mb-4 inline-block text-sm font-medium text-fg-primary hover:underline" href="/dashboard">← Back to dashboard</Link>
+    <main className={PAGE_MAIN}>
+      <BackLink href="/dashboard" to="Home" />
       {view ? (
         <EventStatusPanel event={view} activeTab={tab} meta={meta} notice={venueBookings && <NeedsAttentionBanner bookings={venueBookings} />}>
           {tab === "overview" && (
@@ -140,6 +146,13 @@ export default async function EventPage({
                 <p className="text-sm text-muted-foreground">See who has registered for this event.</p>
                 <Link className={cn(buttonVariants({ variant: "outline" }))} href={`/events/${id}/registrations`}>View registrations</Link>
               </div>
+              {/* SCRUM-185/AC4: only the assigned coordinator, and only for an event that takes registrations */}
+              {view.canChangeStatus && registrationSettings?.registrationRequired && (
+                <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+                  <h3 className="text-sm font-semibold text-foreground">Registration settings</h3>
+                  <RegistrationSettingsForm eventId={view.id} settings={registrationSettings} />
+                </div>
+              )}
             </EventSection>
           )}
           {tab === "changes" && (

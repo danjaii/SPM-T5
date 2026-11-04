@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookingQueueDetail } from "@/components/BookingQueueDetail";
@@ -9,6 +7,7 @@ import { SuitabilityReport } from "@/components/SuitabilityReport";
 import { getQueuedBooking } from "@/lib/bookingQueueServer";
 import { getVenues } from "@/lib/getVenues";
 import { getSuitability } from "@/lib/venueSuitabilityServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -38,13 +37,8 @@ export default async function QueuedBookingPage({ params }: { params: Promise<{ 
   const venues = catalogue && "venues" in catalogue ? catalogue.venues.map((v) => ({ id: v.id, name: v.name })) : undefined;
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
-      <Link
-        href="/booking-queue"
-        className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ArrowLeft aria-hidden="true" className="size-4" /> Back to booking requests
-      </Link>
+    <main className={PAGE_MAIN}>
+      <BackLink href="/booking-queue" to="booking requests" />
         {"booking" in result ? (
           <>
             <BookingQueueDetail booking={result.booking} />

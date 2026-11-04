@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
 import { VenueAvailabilityDay } from "@/components/VenueAvailabilityDay";
 import { todaySgt } from "@/lib/venueAvailability";
 import { getVenueAvailability } from "@/lib/venueAvailabilityServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 // Rendered per request: what is booked changes, and who may see it depends on who is signed in.
 export const dynamic = "force-dynamic";
@@ -24,9 +23,8 @@ export default async function VenueAvailabilityPage({
 
   return (
     <>
-      <AppHeader />
-      <main className="dash__main">
-        <Link className="back-link" href={`/venues/${id}`}>← Back to venue details</Link>
+      <main className={PAGE_MAIN}>
+        <BackLink href={`/venues/${id}`} to="venue" />
         {"data" in result ? (
           <VenueAvailabilityDay data={result.data} />
         ) : (

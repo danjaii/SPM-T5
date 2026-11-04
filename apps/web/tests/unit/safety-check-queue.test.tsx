@@ -81,7 +81,7 @@ describe("SCRUM-99/AC2 view events waiting for review", () => {
       "http://localhost:4002/safety-checks",
       expect.objectContaining({ headers: { cookie: "cs_session=token-safety" }, cache: "no-store" }),
     );
-    expect(screen.getByRole("heading", { level: 1, name: "Events waiting for a safety check" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Safety checks" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Review Tech Summit" })).toBeTruthy();
   });
 
