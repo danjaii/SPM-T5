@@ -1,5 +1,7 @@
 # Flag Bookings Affected by Venue Unavailability: Final User Story
 
+> **Superseded in part by SCRUM-185/AC1** ([venue-block-reverts-event.md](venue-block-reverts-event.md), migration 82): where this spec says the event is never changed, that now holds for every status except Confirmed, which a block returns to Planning (decided 2026-11-03, following W9 r44 and r51).
+
 User story for **Flag Bookings Affected by Venue Unavailability** (ConnectSphere, IS212), compiled 2026-10-15.
 
 - Scenario numbers are the test IDs: `106-S4` means SCRUM-106, Scenario 4. Jira does not number the ACs, so
