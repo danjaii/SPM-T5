@@ -24,6 +24,7 @@ Scenarios:
 - Only an organiser, only on their own draft (404 for someone else's, 409 `NOT_A_DRAFT` once submitted, 403 for other roles).
 - A registered path must sit in the request's own folder in the `event-attachments` bucket (`<event id>/...`).
 - A file attached to a draft is still there, and still listed, after the draft is submitted.
+- A listed document can be opened: each row has Download, which asks `GET /events/:id/attachments/signed-url` (SCRUM-28's route, made as the caller, so the bucket's read policy decides) for a one-hour link and opens it in a new tab. It is there on a submitted request too, and for coordinators. If the link cannot be made the row says so.
 
 ### AC2 — File type restriction
 - **Given** the system only accepts specific file types (SCRUM-28's list, a team assumption: Week 2 Q31 left it to the team)
