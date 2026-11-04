@@ -61,6 +61,25 @@ describe("SCRUM-130/AC1 a week grid per venue: days across, hours down", () => {
     expect(within(saturday).queryByRole("button", { name: /Tentatively Held/ })).toBeNull();
   });
 
+  it("SCRUM-130/AC1 puts the held, free and closed periods at their own times too", () => {
+    render(<VenueWeekGrid venue={booked} range={WEEK} />);
+    const top = (col: string, name: RegExp) => (within(day(col)).getByRole("button", { name }).closest("[data-block]") as HTMLElement).style;
+    // held 14:00 to 16:00: 8 hours into the 16 hour column, 2 hours long
+    expect([top("Wed 11 Nov", /Tentatively Held/).top, top("Wed 11 Nov", /Tentatively Held/).height]).toEqual(["50%", "12.5%"]);
+    // free 08:00 to 20:00, closed 20:00 to 22:00
+    expect([top("Fri 13 Nov", /Details: Available/).top, top("Fri 13 Nov", /Details: Available/).height]).toEqual(["12.5%", "75%"]);
+    expect([top("Fri 13 Nov", /Details: Unavailable/).top, top("Fri 13 Nov", /Details: Unavailable/).height]).toEqual(["87.5%", "12.5%"]);
+  });
+
+  it("SCRUM-130/AC1 says on the booking how long it occupies the venue, setup and turnaround included", () => {
+    render(<VenueWeekGrid venue={booked} range={WEEK} />);
+    const event = blockIn(day("Sat 14 Nov"), /Details: Confirmed, 2026-11-14 10:00 to 12:00/).closest("[data-block]") as HTMLElement;
+    expect(event.textContent).toContain("Occupied 09:30 to 12:45");
+    expect(event.textContent).toContain("setup 30 min, turnaround 45 min");
+    // a hold with no occupied window says nothing of the kind
+    expect((within(day("Wed 11 Nov")).getByRole("button", { name: /Tentatively Held/ }).closest("[data-block]") as HTMLElement).textContent).not.toContain("Occupied");
+  });
+
   it("SCRUM-130/AC1 shows setup and turnaround dashed and named, and the event itself solid", () => {
     render(<VenueWeekGrid venue={booked} range={WEEK} />);
     const saturday = day("Sat 14 Nov");
@@ -139,6 +158,17 @@ describe("SCRUM-130/AC2 a Blocked period is striped, with its reason on hover, t
     expect(screen.queryByText("Conflicts with a confirmed booking")).toBeNull();
   });
 
+  it("SCRUM-130/AC2 keeps the reason tooltip outside the block's clipped area and aligned to its right edge, so the last column cannot cut it off", () => {
+    render(<VenueWeekGrid venue={booked} range={WEEK} />);
+    fireEvent.focus(reasonButton());
+    const block = reasonButton().closest("[data-block]") as HTMLElement;
+    expect(block.className).not.toContain("overflow-hidden");
+    expect(reasonButton().closest(".overflow-hidden")).toBeNull();
+    expect(screen.getByRole("tooltip").className).toContain("right-0");
+    // the text of the block is still clipped inside its own button, not the hint
+    expect(within(block).getByRole("button", { name: /Details: Blocked/ }).className).toContain("overflow-hidden");
+  });
+
   it("SCRUM-130/AC2 has the hint only on a block", () => {
     render(<VenueWeekGrid venue={booked} range={WEEK} />);
     expect(screen.getAllByRole("button", { name: /why is this blocked/i })).toHaveLength(1);
@@ -207,6 +237,12 @@ describe("SCRUM-130/AC7 the list stays as the fallback on a narrow screen", () =
     render(<Pick />);
     expect(screen.queryByRole("region", { name: /week of/ })).toBeNull();
     expect(screen.getAllByRole("listitem")).toHaveLength(7);
+  });
+
+  it("SCRUM-130/AC2 the list fallback marks a block over a confirmed booking too", () => {
+    const over = venueFixture({ periods: [{ kind: "block", status: "BLOCKED", label: "Blocked", start: Z("2026-11-12", "08:00"), end: Z("2026-11-12", "18:00"), reason_label: "Maintenance", overlaps_confirmed_booking: true }] }) as unknown as CalendarVenue;
+    render(<VenueCalendarVenue venue={over} />);
+    expect(screen.getByText("Conflicts with a confirmed booking")).toBeTruthy();
   });
 
   it("SCRUM-130/AC7 shows the list when the browser cannot answer media queries at all", () => {

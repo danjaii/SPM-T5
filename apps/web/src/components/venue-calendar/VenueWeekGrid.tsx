@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
+import { utcToSgt } from "@spm-t5/shared";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatPeriodTimes, type CalendarPeriod, type CalendarVenue } from "@/lib/venueCalendar";
@@ -40,7 +41,7 @@ function GridBlock({ block, selected, onSelect }: { block: DayBlock; selected: b
       data-block
       data-kind={period.kind}
       className={cn(
-        "absolute inset-x-0.5 overflow-hidden rounded-md text-xs",
+        "absolute inset-x-0.5 rounded-md text-xs",
         blockLook(period),
         // SCRUM-130/AC2: a block is striped, so it is not told apart by colour alone
         period.kind === "block" && "calendar-block",
@@ -53,7 +54,7 @@ function GridBlock({ block, selected, onSelect }: { block: DayBlock; selected: b
         aria-label={name}
         aria-pressed={selected}
         onClick={onSelect}
-        className="flex size-full flex-col items-start gap-0.5 overflow-hidden p-1 text-left focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex size-full flex-col items-start gap-0.5 overflow-hidden rounded-md p-1 text-left focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <span className="flex items-center gap-1 font-semibold">
           <Icon aria-hidden="true" className="size-3 shrink-0" />
@@ -61,6 +62,13 @@ function GridBlock({ block, selected, onSelect }: { block: DayBlock; selected: b
         </span>
         {KIND_NAME[period.kind] && <span>{KIND_NAME[period.kind]}</span>}
         <span className="text-muted-foreground">{block.startTime}–{block.endTime}</span>
+        {/* SCRUM-130/AC1: the whole time the booking holds the venue, setup and turnaround included */}
+        {period.kind === "event" && period.occupied_start && period.occupied_end && (
+          <span className="font-medium">
+            Occupied {utcToSgt(new Date(period.occupied_start)).time} to {utcToSgt(new Date(period.occupied_end)).time}
+            {period.setup_minutes !== undefined && period.turnaround_minutes !== undefined ? ` (setup ${period.setup_minutes} min, turnaround ${period.turnaround_minutes} min)` : ""}
+          </span>
+        )}
         {period.overlaps_confirmed_booking && (
           <span className="flex items-center gap-1 font-semibold text-status-danger-fg">
             <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
@@ -70,7 +78,7 @@ function GridBlock({ block, selected, onSelect }: { block: DayBlock; selected: b
       </button>
       {period.kind === "block" && (
         <span className="absolute top-0 right-0 z-10">
-          <ReasonHint text={period.reason_label ? `${period.label}: ${period.reason_label}` : period.label} />
+          <ReasonHint align="right" text={period.reason_label ? `${period.label}: ${period.reason_label}` : period.label} />
         </span>
       )}
     </div>

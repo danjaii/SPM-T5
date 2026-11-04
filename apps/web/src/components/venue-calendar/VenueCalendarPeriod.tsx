@@ -20,7 +20,7 @@ export const KIND_NAME: Partial<Record<CalendarPeriodKind, string>> = { event: "
  * SCRUM-130/AC2: a block's reason on hover, on tap (click) and on keyboard focus, so it does not depend on a native title tooltip.
  * Escape closes it. The reason is also written out in the row.
  */
-export function ReasonHint({ text }: { text: string }) {
+export function ReasonHint({ text, align = "left" }: { text: string; align?: "left" | "right" }) {
   const id = useId();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -43,7 +43,7 @@ export function ReasonHint({ text }: { text: string }) {
         <Info aria-hidden="true" className="size-4" />
       </button>
       {shown && (
-        <span id={id} role="tooltip" className="absolute top-full left-0 z-10 mt-1 w-max max-w-64 rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md">
+        <span id={id} role="tooltip" className={cn("absolute top-full z-10 mt-1 w-max max-w-64 rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md", align === "right" ? "right-0" : "left-0")}>
           {text}
         </span>
       )}
