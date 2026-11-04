@@ -81,7 +81,8 @@ function Block({ venue, block }: { venue: CalendarVenue; block: TimelineBlock })
 export function VenueDayView({ venues, date, now }: { venues: CalendarVenue[]; date: string; now?: Date }) {
   const { startHour, endHour } = hourBounds(venues, date);
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
-  const nowAt = nowPct(date, startHour, endHour, now);
+  const clock = now ?? new Date();
+  const nowAt = nowPct(date, startHour, endHour, clock);
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card" role="region" aria-label={`Venue timeline for ${date}`} tabIndex={0}>
       <div className="min-w-3xl">
@@ -95,7 +96,7 @@ export function VenueDayView({ venues, date, now }: { venues: CalendarVenue[]; d
             ))}
             {nowAt !== null && (
               <span data-now-label className="absolute top-1.5 z-10 -translate-x-1/2 rounded-full bg-destructive px-1.5 font-semibold text-primary-foreground" style={{ left: pct(nowAt) }}>
-                {utcToSgt(now ?? new Date()).time}
+                {utcToSgt(clock).time}
               </span>
             )}
           </div>

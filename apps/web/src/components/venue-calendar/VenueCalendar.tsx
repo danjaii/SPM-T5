@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchVenueCalendar, type CalendarQuery, type VenueCalendarData } from "@/lib/venueCalendar";
 import { affectedBlocks, stepAnchor, todaySgt, viewRange, type CalendarView } from "@/lib/venueTimeline";
+import { NewBookingButton, type BookableEvent } from "./NewBookingButton";
 import { VenueCalendarLegend } from "./VenueCalendarLegend";
 import { VenueCalendarToolbar } from "./VenueCalendarToolbar";
 import { VenueDayView } from "./VenueDayTimeline";
@@ -25,11 +26,14 @@ import { VenueWeekGrid } from "./VenueWeekGrid";
 export function VenueCalendar({
   heading,
   canMarkUnavailable = false,
+  bookableEvents,
   now,
 }: {
-  /** The page title block, shown with Mark venue unavailable beside it. */
+  /** The page title block, shown with Mark venue unavailable and New booking beside it. */
   heading?: ReactNode;
   canMarkUnavailable?: boolean;
+  /** Only for an Event Coordinator: their events that can take a venue request, for New booking. */
+  bookableEvents?: BookableEvent[];
   /** For tests: the clock. */
   now?: Date;
 }) {
@@ -84,15 +88,18 @@ export function VenueCalendar({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Figma 09: the page title on the left, Mark venue unavailable on the right */}
+      {/* Figma 09: the page title on the left, Mark venue unavailable and New booking on the right */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">{heading}</div>
-        {/* SCRUM-130/AC3: only Venue Staff are given this (the page decides; the service and the database check it again) */}
-        {canMarkUnavailable && (
-          <Button type="button" variant="outline" disabled={venues.length === 0} onClick={() => { setMarkVenue(venues[0].id); setMarking(true); }}>
-            Mark venue unavailable
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-3">
+          {/* SCRUM-130/AC3: only Venue Staff are given this (the page decides; the service and the database check it again) */}
+          {canMarkUnavailable && (
+            <Button type="button" variant="outline" disabled={venues.length === 0} onClick={() => { setMarkVenue(venues[0].id); setMarking(true); }}>
+              Mark venue unavailable
+            </Button>
+          )}
+          {bookableEvents && <NewBookingButton events={bookableEvents} />}
+        </div>
       </div>
       {/* Figma 09: the view and date controls on the left, the status legend on the right */}
       <div className="flex flex-wrap items-center justify-between gap-3">
