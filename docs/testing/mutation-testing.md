@@ -4,8 +4,8 @@ Coverage tells us a line ran during a test. It does not tell us a test would fai
 testing checks that second part, so we ran it on our shared business rules to find edge cases we had missed (SCRUM-187).
 
 **Result: our tests detect 3,555 of 3,647 small deliberate changes, and 92 are undetected.** Every undetected change has a
-reason [below](#the-92-undetected-changes). The work added 118 test cases and found one real bug, which needs its own fix.
-This shows how well the tests notice changes to these rules. It does not prove the rules are free of bugs.
+reason [below](#the-92-undetected-changes). The work added 118 test cases and found one real bug, since fixed in SCRUM-190.
+These figures were measured before that fix. They show how well the tests notice changes to these rules. It does not prove the rules are free of bugs.
 
 ## How it works
 
@@ -49,14 +49,14 @@ Two kinds of test were not used to detect changes:
 
 ## The bug it led to
 
-**Four rules accept a date that does not exist.** Change requests, event edits, venue bookings and technical assignments
-all accept 31 February 2031 and save 3 March 2031 with no warning, because JavaScript rolls the extra days into the next
+**Four rules accepted a date that does not exist.** Change requests, event edits, venue bookings and technical assignments
+all accepted 31 February 2031 and saved 3 March 2031 with no warning, because JavaScript rolls the extra days into the next
 month. The date pickers on the change request and booking forms should stop people choosing such a date, but someone
-calling the API directly can still send one.
+calling the API directly could still send one. A month such as 13 also crashed the technical assignment check.
 
 The report pointed to this by showing that the "Enter a valid date" check on change requests was never reached. Trying
-the date by hand showed why. Fixing it changes what the app accepts, so it is tracked as its own bug ticket and is not
-part of SCRUM-187.
+the date by hand showed why. Fixing it changed what the app accepts, so the fix had its own ticket, SCRUM-190. All four
+rules now refuse these dates with a message on the date.
 
 ## The results, run by run
 
@@ -102,7 +102,7 @@ are our judgement, not proof. `:` gives the line in that file, and `×` how many
 | **Roll-over checks that overlap.** 31 February becomes 3 March, so the day and month both change, and removing one check changes nothing. Impossible dates are tested in these rules | 15 | `equipmentAvailability:17 ×6`, `venueSearch:13 ×6`, `registrationSettings:31 ×3` |
 | **A second check that repeats the first.** The first check has already given the same result | 13 | `eventRequest:109`, `eventRequest:116`, `eventRequest:119`, `equipmentCatalogue:93`, `venueCatalogue:99`, `venueCatalogue:140`, `venueCatalogue:182`, `venueBooking:204`, `coordinatorClash:37`, `eventDetails:235`, `venueSearch:48 ×2`, `changeRequestReview:61` |
 | **A looser number or date pattern.** The value is still refused when it is converted, or the change only matters with spaces before a date, which no form sends | 9 | `eventChangeRequest:119 ×2`, `eventDetails:214 ×2`, `notifications:122 ×2`, `registrationSettings:28 ×2`, `registrationSettings:53` |
-| **"Not a real date" checks that cannot run.** JavaScript rolls the date over instead of failing. This is the [bug above](#the-bug-it-led-to), and its fix will change these lines | 6 | `eventChangeRequest:160 ×2`, `eventChangeRequest:161 ×2`, `venueBooking:230 ×2` |
+| **"Not a real date" checks that could not run.** JavaScript rolled the date over instead of failing. This was the [bug above](#the-bug-it-led-to). SCRUM-190 replaced these checks, so a new run will count them differently | 6 | `eventChangeRequest:160 ×2`, `eventChangeRequest:161 ×2`, `venueBooking:230 ×2` |
 | **A value left out or set to undefined.** The result looks the same to the code that reads it | 5 | `venueBooking:235`, `venueBooking:236`, `venueBooking:341`, `venueUnavailability:212`, `venueUnavailability:214` |
 | **The default for a value that is not text.** The value is refused either way | 5 | `venueBooking:189`, `venueUnavailability:189`, `equipmentCatalogue:57`, `venueCatalogue:57`, `venueTiming:25` |
 | **A fallback that cannot run.** The input never reaches it | 4 | `eventChangeRequest:241`, `venueBooking:323`, `venueBookingFlags:78`, `venueUnavailability:173` |
