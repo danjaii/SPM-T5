@@ -2,6 +2,7 @@ export * from "./attachments";
 export * from "./changeRequestReview";
 export * from "./coordinatorClash";
 export * from "./equipmentAvailability";
+export * from "./equipmentCatalogue";
 export * from "./equipmentRequest";
 export * from "./eventChangeRequest";
 export * from "./eventDetails";

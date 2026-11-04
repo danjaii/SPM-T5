@@ -4,6 +4,7 @@ import { describeFlag, type FlagDto } from "../src/venueBookingFlags";
 import {
   FLAGGED_BOOKING_NOTIFICATION_TITLE,
   bookedPeriodText,
+  blockLiftedMessage,
   bookingsFlaggedMessage,
   flaggedBookingMessage,
   notificationReasonLabel,
@@ -87,5 +88,14 @@ describe("SCRUM-106 what Venue Staff are told after saving a block (open questio
   it("106-S5: one, or several, bookings affected", () => {
     expect(bookingsFlaggedMessage(1)).toBe("1 booking affected; its coordinator has been notified.");
     expect(bookingsFlaggedMessage(3)).toBe("3 bookings affected; their coordinators have been notified.");
+  });
+});
+
+describe("SCRUM-185/AC2 185-S2 what Venue Staff are told after lifting a block", () => {
+  it("185-S2: says how many coordinators were told, in singular and plural", () => {
+    expect(blockLiftedMessage(0)).toBe("Unavailable period lifted. No coordinators needed to be told.");
+    expect(blockLiftedMessage(-1)).toBe("Unavailable period lifted. No coordinators needed to be told.");
+    expect(blockLiftedMessage(1)).toBe("Unavailable period lifted. 1 coordinator has been notified.");
+    expect(blockLiftedMessage(3)).toBe("Unavailable period lifted. 3 coordinators have been notified.");
   });
 });
