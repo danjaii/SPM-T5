@@ -199,13 +199,17 @@ describe.skipIf(!hasDb)("SCRUM-47 Receive relevant notifications (migration 44)"
     expect(await notificationsOf(who.coordA, eventId)).toEqual([{ type: "clarification_answered", event_id: eventId }]);
   });
 
-  it("SCRUM-47/AC3 another coordinator's reply to a clarification request is an ordinary reply, not an answer", async () => {
+  // SCRUM-156: another coordinator can no longer see the event, so they cannot reply to the request at all, let alone have
+  // the reply mistaken for the organiser's answer
+  it("SCRUM-47/AC3 another coordinator cannot reply to a clarification request, so nothing is mistaken for an answer", async () => {
     const eventId = await newEvent({ assigned_coordinator_id: who.coordA.userId });
     const { data: requestId } = await postComment(who.coordA, eventId, "How many guests use wheelchairs?", [], null, true);
 
-    await postComment(who.coordB, eventId, "I asked them last week; it was three.", [], requestId as string);
+    const { error } = await postComment(who.coordB, eventId, "I asked them last week; it was three.", [], requestId as string);
 
-    expect(await notificationsOf(who.coordA, eventId)).toEqual([{ type: "comment_reply", event_id: eventId }]);
+    expect(error?.code).toBe("42501");
+    expect(await notificationsOf(who.coordA, eventId)).toEqual([]);
+    expect(await notificationsOf(who.organiser, eventId)).toEqual([{ type: "clarification_requested", event_id: eventId }]);
   });
   // end of AC3
 

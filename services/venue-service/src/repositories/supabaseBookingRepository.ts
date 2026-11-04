@@ -97,7 +97,7 @@ function translate(error: PgError): Error {
   if (error.code === "CS105") return bookingError("VENUE_UNAVAILABLE");
   // SCRUM-104: the approve guard (migration 36) refuses a request that still carries an open flag
   if (error.code === "CS104") return bookingError("BOOKING_FLAGGED");
-  // SCRUM-97/AC5: the expired-hold guard (migration 65) refuses confirming a hold whose time has run out
+  // SCRUM-97/AC5: the expired-hold guard (migration 87) refuses confirming a hold whose time has run out
   if (error.code === "CS097") return bookingError("HOLD_EXPIRED");
   if (error.code === "23505") {
     // 98-S20 (migration 28): the rejected venue booking already has an active replacement
@@ -173,6 +173,19 @@ export class SupabaseBookingRepository implements BookingRepository {
       .order("created_at", { ascending: true })
       .order("id", { ascending: true });
     if (error) throw new Error("Could not read the pending venue booking requests.");
+    return (data as unknown as Row[]).map(toBookingRecord);
+  }
+
+  async listApprovedBetween(from: Date, to: Date): Promise<BookingRecord[]> {
+    const { data, error } = await this.db
+      .from("venue_bookings")
+      .select(BOOKING_COLUMNS)
+      .in("status", ["approved", "tentative", "confirmed"])
+      .gte("event_start_datetime", from.toISOString())
+      .lt("event_start_datetime", to.toISOString())
+      .order("event_start_datetime", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw new Error("Could not read the approved venue bookings.");
     return (data as unknown as Row[]).map(toBookingRecord);
   }
 

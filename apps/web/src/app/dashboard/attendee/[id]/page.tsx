@@ -21,7 +21,7 @@ export default async function AttendeeEventPage({ params }: { params: Promise<{ 
       description="Everything you need to know before you register."
       error={"error" in result ? result.error : undefined}
     >
-      <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/dashboard/attendee">← Back to events</Link>
+      <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/dashboard/attendee/browse">← Back to events</Link>
       {"data" in result && <EventDetails event={result.data.event} />}
     </PageFrame>
   );

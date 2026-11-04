@@ -36,22 +36,33 @@ export interface UpcomingEvent {
   coordinator: string | null;
   /** SCRUM-9/AC2: places left; null when the event has no limit. */
   available_slots: number | null;
+  /** SCRUM-169/AC2: whether Register is offered: a full event still takes registrations, as Pending, while its window is open. */
+  can_register: boolean;
 }
 
 /** SCRUM-71/AC7: the one label a card shows ("open" means no label, and the Register button shows). */
 export type Availability = "cancelled" | "full" | "closed" | "open";
+
+/** Whether `now` is inside the event's registration window. */
+function registrationWindowOpen(row: PublicEventRow, now: Date): boolean {
+  // Outside the registration window: it has closed, or (decided with the team) it hasn't opened yet
+  if (row.registration_closes_at !== null && new Date(row.registration_closes_at) <= now) return false;
+  if (row.registration_opens_at !== null && new Date(row.registration_opens_at) > now) return false;
+  // SCRUM-83/AC3: with no deadline (or a deadline after the start), registration closes when the event starts
+  return new Date(row.start_at) > now;
+}
 
 /** SCRUM-71/AC7: which label applies to this event at `now`. */
 export function availabilityOf(row: PublicEventRow, now: Date): Availability {
   if (row.status === "cancelled") return "cancelled";
   // No capacity means no cap, so it never fills up
   if (row.registration_capacity !== null && row.active_registrations >= row.registration_capacity) return "full";
-  // Outside the registration window: it has closed, or (decided with the team) it hasn't opened yet
-  if (row.registration_closes_at !== null && new Date(row.registration_closes_at) <= now) return "closed";
-  if (row.registration_opens_at !== null && new Date(row.registration_opens_at) > now) return "closed";
-  // SCRUM-83/AC3: with no deadline (or a deadline after the start), registration closes when the event starts
-  if (new Date(row.start_at) <= now) return "closed";
-  return "open";
+  return registrationWindowOpen(row, now) ? "open" : "closed";
+}
+
+/** SCRUM-169/AC2: whether the event takes registrations at `now`; being full doesn't stop it, the registration is just Pending. */
+export function canRegister(row: PublicEventRow, now: Date): boolean {
+  return row.status !== "cancelled" && registrationWindowOpen(row, now);
 }
 
 /** SCRUM-71/AC10: the attendee's own active registration, which the card shows instead of the Register button. */
@@ -90,6 +101,7 @@ export function toUpcomingEvent(row: PublicEventRow, now: Date): UpcomingEvent {
     category: row.category_name,
     coordinator: row.coordinator_name,
     available_slots: availableSlots(row),
+    can_register: canRegister(row, now),
   };
 }
 

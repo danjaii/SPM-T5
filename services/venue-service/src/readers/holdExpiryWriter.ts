@@ -7,7 +7,7 @@ export interface HoldExpiryWriter {
 }
 
 /**
- * Calls the set_hold_expiry database function as the caller (migration 65). The function is the only way to write the column and
+ * Calls the set_hold_expiry database function as the caller (migration 87). The function is the only way to write the column and
  * allows Venue Staff only, so the database stays the authority; the service's checks just give the clear refusals first.
  */
 export class SupabaseHoldExpiryWriter implements HoldExpiryWriter {

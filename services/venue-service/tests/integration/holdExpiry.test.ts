@@ -4,7 +4,7 @@ import { sgtToUtc } from "@spm-t5/shared";
 import { adminClient, Fixtures, hasDb, signInAs } from "./support/db";
 
 /**
- * SCRUM-97: tentative hold expiry against Postgres (migration 65). A hold is a PENDING ("requested") booking with hold_expires_at
+ * SCRUM-97: tentative hold expiry against Postgres (migration 87). A hold is a PENDING ("requested") booking with hold_expires_at
  * set. Venue Staff and coordinators sign in as seeded users, so RLS and the security definer functions behave as in the app.
  * Fixtures are throwaway ("IT-") and dated 2030. Times are relative to now, so no test moves the database clock.
  */
@@ -21,7 +21,7 @@ const slot = (start: string, end: string) => ({ start: sgtToUtc(DAY, start), end
 
 type Actor = { client: SupabaseClient; userId: string };
 
-describe.skipIf(!hasDb)("SCRUM-97 tentative hold expiry (migration 65)", () => {
+describe.skipIf(!hasDb)("SCRUM-97 tentative hold expiry (migration 87)", () => {
   const admin = hasDb ? adminClient() : (undefined as never);
   const fixtures = new Fixtures(admin);
   const who = {} as Record<keyof typeof EMAILS, Actor>;

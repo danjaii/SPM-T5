@@ -28,7 +28,7 @@ Equipment requests and technical assignments tied to a lapsed hold are not relea
 non-holding booking applies). Email and push (in-app only, as the notification system stands). A scheduler outside the database.
 
 ## Mechanism
-- `venue_bookings.hold_expires_at timestamptz null` and `hold_warning_minutes int not null default 1440` (migration 65).
+- `venue_bookings.hold_expires_at timestamptz null` and `hold_warning_minutes int not null default 1440` (migration 87).
 - One SQL function, `venue_booking_holds_slot(status, hold_expires_at, now)`, says whether a booking still holds its slot. Every place
   that listed the holding statuses now calls it: `venue_slot_is_held`, `venue_slot_conflicts`, `venue_occupied_periods`,
   `available_venues` and the padded-overlap trigger.

@@ -295,3 +295,90 @@ describe("SCRUM-66/AC8, AC9, AC10 editable fields and date and time rules", () =
     expect(res.body.fieldErrors.endTime).toMatch(/after the start/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SCRUM-176 — Hold a conflicting change request while one is pending (docs/specs/conflicting-change-request.md)
+// ---------------------------------------------------------------------------
+describe("SCRUM-176 a change request that clashes with a pending one", () => {
+  /** A request already stored for the event, as the organiser made it earlier. */
+  const earlier = (fake: ReturnType<typeof createFake>, eventId: string, status: string, proposed: Row) =>
+    fake.tables.event_change_requests.push({
+      id: crypto.randomUUID(), event_id: eventId, status, proposed_changes: proposed, requested_at: "2031-01-01T00:00:00Z",
+    });
+  const ATTENDANCE = { expected_attendance: { from: 100, to: 150 } };
+  const START = { preferred_start_datetime: { from: "x", to: "y" } };
+
+  it("176-S1 SCRUM-176/AC1 refuses a second attendance change with 409, naming it and pointing to the coordinator; nothing is saved", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, "planning");
+    earlier(fake, event.id, "pending", ATTENDANCE);
+
+    const res = await post(fake, event.id, organiser.cookie, { expectedAttendance: 180 });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({
+      code: "CONFLICTING_REQUEST",
+      error: "A change to the expected attendance is already waiting for your coordinator. Ask your coordinator about it before requesting another change to it.",
+      waiting: ["expected attendance"],
+    });
+    expect(fake.tables.event_change_requests).toHaveLength(1);
+  });
+
+  it("176-S2 SCRUM-176/AC1 refuses an end-time change while a start-time change is pending: both are the date and time", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, "planning");
+    earlier(fake, event.id, "pending", START);
+
+    const res = await post(fake, event.id, organiser.cookie, { date: "2031-11-14", startTime: "09:00", endTime: "18:00" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.waiting).toEqual(["date and time"]);
+  });
+
+  it("176-S4 SCRUM-176/AC2 accepts a change to something else while a request is pending", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, "planning");
+    earlier(fake, event.id, "pending", ATTENDANCE);
+
+    const res = await post(fake, event.id, organiser.cookie, { date: "2031-12-01", startTime: "10:00", endTime: "16:00" });
+
+    expect(res.status).toBe(201);
+    expect(fake.tables.event_change_requests).toHaveLength(2);
+  });
+
+  it("176-S5 SCRUM-176/AC3 accepts an attendance change once the earlier ones were approved or rejected", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, "planning");
+    earlier(fake, event.id, "approved", ATTENDANCE);
+    earlier(fake, event.id, "rejected", ATTENDANCE);
+
+    expect((await post(fake, event.id, organiser.cookie, { expectedAttendance: 180 })).status).toBe(201);
+  });
+
+  it("176-S7 SCRUM-176/AC1 ignores a pending request on another event", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, "planning");
+    const other = fake.addEvent(organiser.id, "planning");
+    earlier(fake, other.id, "pending", ATTENDANCE);
+
+    expect((await post(fake, event.id, organiser.cookie, { expectedAttendance: 180 })).status).toBe(201);
+  });
+
+  it("176-S6 SCRUM-176/AC1 answers the database's own refusal (CS176) the same way, when two arrive at once", async () => {
+    const fake = createFake();
+    const organiser = fake.signIn("event_organiser");
+    const event = fake.addEvent(organiser.id, "planning");
+    // the route saw nothing pending, but another request was saved just before this insert
+    fake.failInsertWith("CS176", () => earlier(fake, event.id, "pending", ATTENDANCE));
+
+    const res = await post(fake, event.id, organiser.cookie, { expectedAttendance: 180 });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "CONFLICTING_REQUEST", waiting: ["expected attendance"] });
+  });
+});

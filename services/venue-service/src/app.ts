@@ -6,9 +6,13 @@ import { SupabaseHoldExpiryWriter, type HoldExpiryWriter } from "./readers/holdE
 import type { VenueTimingWriter } from "./readers/venueTimingWriter";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "./readers/venueSearchReader";
 import type { VenueCalendarReader } from "./readers/venueCalendarReader";
+import type { LayoutTypeStore } from "./readers/layoutTypeStore";
+import type { VenueCatalogueWriter } from "./readers/venueCatalogueWriter";
+import type { VenueEditReader } from "./readers/venueEditReader";
 import type { VenueUnavailabilityStore } from "./readers/venueUnavailabilityStore";
 import { supabasePorts, type PortsFactory } from "./ports";
 import { bookingQueueRoutes } from "./routes/bookingQueue";
+import { layoutTypeRoutes } from "./routes/layoutTypes";
 import { suitabilityRoutes } from "./routes/suitability";
 import { venueBookingRoutes } from "./routes/venueBookings";
 import { venueCalendarRoutes } from "./routes/venueCalendar";
@@ -31,8 +35,14 @@ export interface AppOptions {
   venueUnavailability?: (accessToken: string) => VenueUnavailabilityStore;
   /** Where a hold's expiry is saved (SCRUM-97); tests pass a fake. Defaults to the set_hold_expiry function as the caller. */
   holdExpiry?: (accessToken: string) => HoldExpiryWriter;
+  /** Where a new venue is saved (SCRUM-57); tests pass a fake. Defaults to the create_venue function as the caller. */
+  venueCatalogue?: (accessToken: string) => VenueCatalogueWriter;
+  /** What the venue edit reads (SCRUM-58): the form's values and the bookings a capacity cut is checked against; tests pass a fake. */
+  venueEdit?: (accessToken: string) => VenueEditReader;
   /** Where the venue availability calendar (SCRUM-84) reads venues, bookings and blocks from; tests pass a fake. */
   venueCalendar?: (accessToken: string) => VenueCalendarReader;
+  /** Where layout types are listed, added, renamed and deleted (SCRUM-181); tests pass a fake. Defaults to the layout type functions as the caller. */
+  layoutTypes?: (accessToken: string) => LayoutTypeStore;
 }
 
 // Exported separately from listen() so tests can mount the app without opening a port.
@@ -44,7 +54,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use(express.json());
 
   // The web app (a different origin in dev) calls this service directly from the browser, with cookies.
-  // Same approach as event-service's app.ts, plus POST for submit/withdraw/amend, PATCH for change (SCRUM-102) and PUT for venue times (SCRUM-101).
+  // Same approach as event-service's app.ts, plus POST for submit/withdraw/amend, PATCH for change (SCRUM-102) and PUT for venue times (SCRUM-101) and DELETE for layout types (SCRUM-181).
   app.use((req, res, next) => {
     const allowed = process.env.WEB_ORIGIN ?? "http://localhost:3000";
     if (req.headers.origin === allowed) {
@@ -52,7 +62,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
         "Access-Control-Allow-Origin": allowed,
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,POST,PATCH,PUT,DELETE,OPTIONS",
         Vary: "Origin",
       });
     }
@@ -64,13 +74,16 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.get("/health", (_req, res) => res.json(healthCheck()));
 
   // SCRUM-29: the read-only venue catalogue, GET /venues and /venues/:id (coordinators and venue staff).
-  app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability));
+  app.use("/venues", venueRoutes(deps, options.venueSearch, now, options.venueTiming, options.venueAvailability, options.venueUnavailability, options.venueCatalogue, options.venueEdit));
 
   // SCRUM-84: the venue availability calendar. Outside the /venues gate (which keeps out Technical Support Staff).
   app.use("/venue-calendar", venueCalendarRoutes(deps, now, options.venueCalendar));
 
+  // SCRUM-181: Venue Staff maintain the room layout types. Its own session and role check, so it sits outside the /venues gate.
+  app.use("/layout-types", layoutTypeRoutes(deps, options.layoutTypes));
+
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
-  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor, options.holdExpiry ?? ((token: string) => new SupabaseHoldExpiryWriter(deps.forUser(token)))), bookingQueueRoutes(portsFor), suitabilityRoutes(portsFor));
+  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor, options.holdExpiry ?? ((token: string) => new SupabaseHoldExpiryWriter(deps.forUser(token)))), bookingQueueRoutes(portsFor, now), suitabilityRoutes(portsFor));
 
   app.use(errorHandler);
   return app;

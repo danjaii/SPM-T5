@@ -148,9 +148,20 @@ export const setHoldExpiry = (id: string, expiresAt: string) =>
 export const approveVenueBooking = (id: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/approve`);
 
-/** SCRUM-39: Venue Staff reject a pending request; the reason is required (1 to 500 characters). */
-export const rejectVenueBooking = (id: string, reason: string) =>
-  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/reject`, { reason });
+/** SCRUM-40: the alternative Venue Staff may suggest with a rejection (Singapore date and times). */
+export interface RejectionSuggestionInput {
+  venueId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+/**
+ * SCRUM-39: Venue Staff reject a pending request; the reason is required (1 to 500 characters). SCRUM-40: they may add a suggested
+ * alternative venue and period, which the Coordinator then sees and can accept.
+ */
+export const rejectVenueBooking = (id: string, reason: string, suggestion?: RejectionSuggestionInput) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/reject`, suggestion ? { reason, suggestion } : { reason });
 
 /**
  * GET /events/:id/venue-bookings (SCRUM-98/AC5): one venue booking of the event, as its assigned Coordinator sees it.

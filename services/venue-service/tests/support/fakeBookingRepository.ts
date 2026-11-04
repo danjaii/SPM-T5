@@ -248,6 +248,12 @@ export class FakeBookingRepository implements BookingRepository {
     return this.rows.filter((r) => r.status === "requested").sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
   }
 
+  async listApprovedBetween(from: Date, to: Date): Promise<BookingRecord[]> {
+    return this.rows
+      .filter((r) => ["approved", "tentative", "confirmed"].includes(r.status) && r.start >= from && r.start < to)
+      .sort((a, b) => a.start.getTime() - b.start.getTime() || a.id.localeCompare(b.id));
+  }
+
   async withdraw(id: string, by: string, at: Date): Promise<BookingRecord | null> {
     const row = this.rows.find((r) => r.id === id);
     if (!row || row.status !== "requested") return null;
