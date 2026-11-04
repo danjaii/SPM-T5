@@ -285,3 +285,11 @@ export function bookingsFlaggedMessage(count: number): string {
     ? "1 booking affected; its coordinator has been notified."
     : `${count} bookings affected; their coordinators have been notified.`;
 }
+
+/** SCRUM-185/AC2: what Venue Staff are told after lifting a block (a count of coordinators told). */
+export function blockLiftedMessage(notified: number): string {
+  if (notified <= 0) return "Unavailable period lifted. No coordinators needed to be told.";
+  return notified === 1
+    ? "Unavailable period lifted. 1 coordinator has been notified."
+    : `Unavailable period lifted. ${notified} coordinators have been notified.`;
+}
