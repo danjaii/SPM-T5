@@ -13,7 +13,7 @@ const draft = { id: "evt-1", name: "Tech Summit", status: "draft", preferred_sta
 afterEach(() => { vi.unstubAllGlobals(); router.refresh.mockClear(); });
 
 describe("SCRUM-56/AC3 dismissing the confirmation", () => {
-  it("Escape while idle closes the dialog and sends nothing", async () => {
+  it("SCRUM-56/AC3 Escape while idle closes the dialog and sends nothing", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     render(<MyEventRequestsTable requests={[draft]} />);
@@ -28,7 +28,7 @@ describe("SCRUM-56/AC3 dismissing the confirmation", () => {
 });
 
 describe("SCRUM-56/AC1 a failed delete", () => {
-  it("shows the reason, does not refresh, and the draft is still listed after cancelling", async () => {
+  it("SCRUM-56/AC1 shows the reason, does not refresh, and the draft is still listed after cancelling", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "Could not delete the draft." }) }));
     render(<MyEventRequestsTable requests={[draft]} />);
     fireEvent.click(screen.getByRole("button", { name: "Delete draft Tech Summit" }));
