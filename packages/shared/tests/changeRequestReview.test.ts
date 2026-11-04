@@ -121,3 +121,11 @@ describe("SCRUM-67/AC4 the reason for rejecting (67-S6)", () => {
     });
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-67/AC4 a reason exactly at the limit (67-S6)", () => {
+  it("67-S6: a reason of exactly 2000 characters is accepted", () => {
+    const reason = "x".repeat(2000);
+    expect(parseChangeRequestRejection({ reason })).toEqual({ ok: true, reason });
+  });
+});

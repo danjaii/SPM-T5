@@ -148,3 +148,10 @@ describe("SCRUM-66/AC10 end time before start time is not allowed", () => {
     expect(!result.ok && result.fieldErrors).toMatchObject({ startTime: "Enter a start time.", endTime: "Enter an end time." });
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-66/AC8 requirements text exactly at the limit", () => {
+  it("accepts requirements text of exactly 2000 characters", () => {
+    expect(parse({ venueRequirements: "x".repeat(2000) }).ok).toBe(true);
+  });
+});

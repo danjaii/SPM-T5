@@ -112,3 +112,10 @@ describe("SCRUM-185/AC4 185-S4d parseRegistrationSettings refuses bad settings, 
     expect(result).toEqual({ ok: true, data: GOOD });
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-185/AC4 185-S4b the smallest capacity", () => {
+  it("185-S4b: a capacity of 1 is allowed", () => {
+    expect(parseRegistrationSettings({ ...GOOD, registration_capacity: 1 }, START).ok).toBe(true);
+  });
+});
