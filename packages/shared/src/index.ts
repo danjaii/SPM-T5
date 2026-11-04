@@ -1,5 +1,6 @@
 export * from "./attachments";
 export * from "./changeRequestReview";
+export * from "./coordinatorClash";
 export * from "./equipmentAvailability";
 export * from "./equipmentRequest";
 export * from "./eventChangeRequest";
@@ -18,6 +19,8 @@ export * from "./technicalAssignment";
 export * from "./venueBooking";
 export * from "./venueCalendar";
 export * from "./venueBookingFlags";
+export * from "./venueCatalogue";
+export * from "./layoutType";
 export * from "./venueSearch";
 export * from "./venueSuitability";
 export * from "./venueTiming";

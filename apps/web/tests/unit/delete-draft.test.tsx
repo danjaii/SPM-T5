@@ -217,3 +217,16 @@ describe("SCRUM-56/AC2 only drafts have a Delete control", () => {
     expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Delete draft Draft A", "Delete draft Draft C"]);
   });
 });
+
+describe("SCRUM-56/AC3 the whole row opens a request (SCRUM-159), but deleting never opens the draft", () => {
+  it("SCRUM-56/AC3 choosing Delete, or clicking inside its dialog, does not open the draft", async () => {
+    router.push.mockClear();
+    mockDelete(204);
+    render(<MyEventRequestsTable requests={[request()]} />);
+
+    const dialog = await chooseDelete();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(router.push).not.toHaveBeenCalled();
+  });
+});

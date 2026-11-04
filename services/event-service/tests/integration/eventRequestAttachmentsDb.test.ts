@@ -6,7 +6,7 @@ import { createSupabaseDeps } from "../../src/supabase";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-51: supporting documents on a draft event request (migration 64: event_request_attachments, add_event_attachment(),
+ * SCRUM-51: supporting documents on a draft event request (migration 86: event_request_attachments, add_event_attachment(),
  * remove_event_attachment(), the storage delete policy) against the real database, as seeded users so RLS applies.
  * Fixtures are drafts named "IT-51-", removed afterwards with their attachments and stored files. Only rows these tests
  * create are asserted on.

@@ -21,6 +21,7 @@ function formData(overrides: { event?: Partial<RegistrationFormData["event"]>; p
       category: "Conference",
       coordinator: "Rachel Tan",
       available_slots: 40,
+      can_register: (overrides.event?.availability ?? "open") === "open",
       ...overrides.event,
     },
     prefill: { name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "+65 9123 4567", ...overrides.prefill },
@@ -114,13 +115,13 @@ describe("SCRUM-83 — Registration form", () => {
 
   // AC14: after a successful submission the attendee sees a success message with the event name and the status.
   // (The in-app notification is deferred to the notification-service story.)
-  it("SCRUM-83/AC14 submits the details and confirms with the event name and the Pending status", async () => {
-    const fetchMock = mockEventService(201, { event_name: "Tech Summit", status: "pending" });
+  it("SCRUM-83/AC14 submits the details and confirms with the event name and the status", async () => {
+    const fetchMock = mockEventService(201, { event_name: "Tech Summit", status: "confirmed" });
     render(<EventRegistrationForm data={formData()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Register" }));
 
-    expect((await screen.findByRole("status")).textContent).toBe("You're registered for Tech Summit. Status: Pending.");
+    expect((await screen.findByRole("status")).textContent).toBe("You're registered for Tech Summit. Status: Confirmed.");
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:4002/events/evt-1/registrations");
     expect(JSON.parse(init.body)).toEqual({ name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "+65 9123 4567" });
@@ -182,3 +183,41 @@ describe("SCRUM-83 — Registration form", () => {
   });
 });
 // end of SCRUM-83
+
+// ---------------------------------------------------------------------------
+// SCRUM-169 — Confirmed up to capacity, Pending beyond it
+// ---------------------------------------------------------------------------
+describe("SCRUM-169 — Registration form on a full event", () => {
+  const FULL = { event: { availability: "full", available_slots: 0, can_register: true } } as const;
+
+  // AC2: the attendee knows before submitting that the event is full, and can still register
+  it("SCRUM-169/AC2 shows the form on a full event, with a note that the organiser will decide", () => {
+    render(<EventRegistrationForm data={formData(FULL)} />);
+
+    expect(screen.getByText("This event is full. You can still register, and the organiser will decide.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Register" })).toBeTruthy();
+  });
+
+  // AC2: a Pending registration is told it is waiting for the organiser
+  it("SCRUM-169/AC2 tells the attendee a Pending registration is waiting for the organiser", async () => {
+    mockEventService(201, { event_name: "Tech Summit", status: "pending" });
+    render(<EventRegistrationForm data={formData(FULL)} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
+
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "This event is full, so your registration for Tech Summit is waiting for the organiser.",
+    );
+  });
+
+  // AC1: a Confirmed registration says so, with no waiting message
+  it("SCRUM-169/AC1 tells the attendee their registration is Confirmed", async () => {
+    mockEventService(201, { event_name: "Tech Summit", status: "confirmed" });
+    render(<EventRegistrationForm data={formData()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
+
+    expect((await screen.findByRole("status")).textContent).toBe("You're registered for Tech Summit. Status: Confirmed.");
+  });
+});
+// end of SCRUM-169

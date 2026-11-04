@@ -53,7 +53,7 @@ Scenarios:
 
 ## Decisions
 - Same type list and 10 MB limit as SCRUM-28 (`packages/shared/src/attachments.ts`, bucket `event-attachments`).
-- New table `event_request_attachments` (migration 64). `authenticated` has no write privilege on it: rows are written only by
+- New table `event_request_attachments` (migration 86). `authenticated` has no write privilege on it: rows are written only by
   `add_event_attachment()` and `remove_event_attachment()` (security definer, organiser's own draft only, as `update_event_draft`).
   The functions also re-check size and type, so the rule holds for every caller.
 - Storage: the bucket and its insert/select policies exist (migration 08). Migration 59 adds a delete policy so an organiser can
@@ -73,7 +73,7 @@ Scenarios:
 | AC1-4 (form) | `apps/web/tests/unit/request-attachments.test.tsx` | `SCRUM-51/AC1` ... |
 
 ## Affected workspaces
-`services/event-service`, `packages/shared` (flag: new refusal helper), `apps/web`; migration 64.
+`services/event-service`, `packages/shared` (flag: new refusal helper), `apps/web`; migration 86.
 
 ## Out of scope
 - Attachments on a submitted request (Week 9: organisers cannot edit it), change requests, coordinators' own uploads (SCRUM-28 comments).

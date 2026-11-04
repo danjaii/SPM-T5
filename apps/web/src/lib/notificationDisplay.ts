@@ -40,6 +40,12 @@ const BY_TYPE: Record<NotificationType, NotificationDisplay> = {
   safety_changes_requested: { icon: ShieldAlert, tone: "danger" },
   clarification_requested: { icon: MessageSquare, tone: "warning" },
   clarification_answered: { icon: MessageSquare, tone: "info" },
+  venue_booking_approved: { icon: CheckCircle2, tone: "success" },
+  venue_booking_rejected: { icon: XCircle, tone: "danger" },
+  event_changed: { icon: RefreshCw, tone: "info" },
+  registration_status_changed: { icon: Users, tone: "info" },
+  event_cancelled: { icon: XCircle, tone: "danger" },
+  venue_replaced: { icon: RefreshCw, tone: "info" },
 };
 
 export const notificationDisplay = (type: string): NotificationDisplay =>

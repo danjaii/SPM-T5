@@ -1,7 +1,7 @@
 import { layoutIdsIn, type FlagDto } from "@spm-t5/shared";
 import { forbidden, notFound } from "../domain/errors";
 import { toFlagDto } from "../domain/dto";
-import { toQueueDetail, toQueueItem, type QueueDetail, type QueueItem } from "../domain/queueDto";
+import { toQueueDetail, toQueueItem, toScheduleItem, type QueueDetail, type QueueItem, type ScheduleItem } from "../domain/queueDto";
 import type { BookingRecord } from "../domain/types";
 import type { UserReader } from "../readers/userReader";
 import type { VenueInfo, VenueReader } from "../readers/venueReader";
@@ -61,6 +61,17 @@ export class QueueService {
     return pending.map((b) => {
       const venue = venues.get(b.venueId);
       return toQueueItem(b, venue?.name ?? "Unknown venue", (b.requestedBy && people.get(b.requestedBy)) || null, flags.get(b.id), layouts, venue);
+    });
+  }
+
+  /** SCRUM-163: the approved bookings whose event starts in [from, to), earliest first, for the Venue Staff dashboard. */
+  async schedule(caller: Caller, from: Date, to: Date): Promise<ScheduleItem[]> {
+    this.requireVenueStaff(caller);
+    const approved = await this.deps.bookings.listApprovedBetween(from, to);
+    const venues = await this.venuesOf(approved);
+    return approved.map((b) => {
+      const venue = venues.get(b.venueId);
+      return toScheduleItem(b, venue?.name ?? "Unknown venue", venue);
     });
   }
 
