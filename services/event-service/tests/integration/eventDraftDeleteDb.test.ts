@@ -5,7 +5,7 @@ import { createSupabaseDeps } from "../../src/supabase";
 import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
- * SCRUM-56: DELETE /events/drafts/:id and delete_event_draft() (migration 63) against the real database, as seeded users so
+ * SCRUM-56: DELETE /events/drafts/:id and delete_event_draft() (migration 85) against the real database, as seeded users so
  * RLS and privileges apply. Fixtures are made with the secret key (create_event_draft belongs to SCRUM-53 and is not needed),
  * named "IT-56-" and removed afterwards. The seeded organisers have other events, so these tests only look at their own rows.
  */

@@ -91,7 +91,7 @@ describe("SCRUM-55/AC3 filter by status", () => {
   const names = () => screen.queryAllByRole("link").map((a) => a.textContent);
 
   it("SCRUM-55/AC3 shows everything at first, with an All chip chosen and one chip per status present with its count", () => {
-    render(<MyEventRequestsList requests={REQUESTS} />);
+    render(<MyEventRequestsList result={{ requests: REQUESTS }} />);
 
     expect(names()).toEqual(["Alpha", "Beta", "Gamma", "Delta"]);
     expect(screen.getByRole("button", { name: "All 4" }).getAttribute("aria-pressed")).toBe("true");
@@ -102,7 +102,7 @@ describe("SCRUM-55/AC3 filter by status", () => {
   });
 
   it("SCRUM-55/AC3 choosing a status shows only the requests with that status, and All brings the rest back", () => {
-    render(<MyEventRequestsList requests={REQUESTS} />);
+    render(<MyEventRequestsList result={{ requests: REQUESTS }} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Draft 2" }));
     expect(names()).toEqual(["Alpha", "Gamma"]);
@@ -118,7 +118,7 @@ describe("SCRUM-55/AC3 filter by status", () => {
   });
 
   it("SCRUM-55/AC3 orders the chips by the request lifecycle, not by the list order", () => {
-    render(<MyEventRequestsList requests={[make("1", "A", "approved"), make("2", "B", "draft"), make("3", "C", "mystery")]} />);
+    render(<MyEventRequestsList result={{ requests: [make("1", "A", "approved"), make("2", "B", "draft"), make("3", "C", "mystery")] }} />);
 
     // the status chips only: a draft row also has its own Delete button (SCRUM-56)
     const chips = screen.getAllByRole("button").filter((b) => !b.getAttribute("aria-label")?.startsWith("Delete draft"));
@@ -126,17 +126,17 @@ describe("SCRUM-55/AC3 filter by status", () => {
   });
 
   it("SCRUM-55/AC3 offers no filter when there are no requests, and says so", () => {
-    render(<MyEventRequestsList requests={[]} />);
+    render(<MyEventRequestsList result={{ requests: [] }} />);
 
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText("You have not created any event requests yet.")).toBeTruthy();
   });
 
   it("SCRUM-55/AC3 says so when the chosen status has no requests left (for example after a refresh)", () => {
-    const { rerender } = render(<MyEventRequestsList requests={REQUESTS} />);
+    const { rerender } = render(<MyEventRequestsList result={{ requests: REQUESTS }} />);
     fireEvent.click(screen.getByRole("button", { name: "Approved 1" }));
 
-    rerender(<MyEventRequestsList requests={REQUESTS.filter((r) => r.status !== "approved")} />);
+    rerender(<MyEventRequestsList result={{ requests: REQUESTS.filter((r) => r.status !== "approved") }} />);
 
     expect(screen.getByText("No requests match this status.")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
@@ -172,7 +172,7 @@ describe("SCRUM-55 mixed lists", () => {
   });
 
   it("SCRUM-55/AC3 filtering a mix leaves exactly the matching rows, with their own markings", () => {
-    render(<MyEventRequestsList requests={[make("1", "A", "draft"), make("2", "B", "submitted"), make("3", "C", "draft")]} />);
+    render(<MyEventRequestsList result={{ requests: [make("1", "A", "draft"), make("2", "B", "submitted"), make("3", "C", "draft")] }} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Draft 2" }));
     let rows = screen.getAllByRole("row").slice(1); // minus the header

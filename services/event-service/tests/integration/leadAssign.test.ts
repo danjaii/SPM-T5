@@ -247,22 +247,30 @@ describe.skipIf(!hasDb)("SCRUM-78 Lead assigns an Event Coordinator (migration 2
     await expectRefused(assignAs(who[actor], eventId, who.coordA1.userId), DENIED, eventId);
   });
 
+  // SCRUM-156: a coordinator cannot even see an unassigned event, so a claim finds no row to change; before, the
+  // events_assignment_guard trigger refused it with 42501. Either way the event stays unassigned and nothing is logged.
   it("SCRUM-78/AC9 a coordinator can no longer claim an unassigned event by updating it directly", async () => {
     const eventId = await newEvent();
-    await expectRefused(
-      who.coordA1.client.from("events").update({ assigned_coordinator_id: who.coordA1.userId }).eq("id", eventId),
-      DENIED,
-      eventId,
-    );
+    const { data, error } = await who.coordA1.client
+      .from("events")
+      .update({ assigned_coordinator_id: who.coordA1.userId })
+      .eq("id", eventId)
+      .select("id");
+    expect(error).toBeNull();
+    expect(data ?? []).toEqual([]);
+    expect(await assignedTo(eventId)).toBeNull();
+    expect(await logsFor(eventId)).toEqual([]);
   });
 
   it("SCRUM-78/AC9 a coordinator can no longer claim an unassigned event through assign_coordinator()", async () => {
     const eventId = await newEvent();
-    await expectRefused(
-      who.coordA1.client.rpc("assign_coordinator", { p_event_id: eventId, p_coordinator_id: who.coordA1.userId }),
-      DENIED,
-      eventId,
-    );
+    const { data } = await who.coordA1.client.rpc("assign_coordinator", {
+      p_event_id: eventId,
+      p_coordinator_id: who.coordA1.userId,
+    });
+    expect(data ?? []).toEqual([]);
+    expect(await assignedTo(eventId)).toBeNull();
+    expect(await logsFor(eventId)).toEqual([]);
   });
 
   it("SCRUM-78/AC9 a Lead cannot bypass the checks by updating the event directly", async () => {

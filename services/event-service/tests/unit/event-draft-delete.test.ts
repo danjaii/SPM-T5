@@ -31,7 +31,7 @@ function createFake() {
     return builder;
   };
 
-  /** Pretends to be delete_event_draft (migration 63, security definer): the caller's own draft only. */
+  /** Pretends to be delete_event_draft (migration 85, security definer): the caller's own draft only. */
   const deleteEventDraft = (callerId: string | undefined, args: Row) => {
     if (failure.code !== undefined || failure.message !== "database error") {
       return { error: { message: failure.message, code: failure.code } };

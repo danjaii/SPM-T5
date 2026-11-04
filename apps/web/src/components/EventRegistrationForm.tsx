@@ -11,13 +11,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { InputField } from "@/components/ui/input-field";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import {
+  FULL_EVENT_NOTE,
   STATUS_LABELS,
   submitRegistration,
   type RegistrationFormData,
   type RegistrationStatus,
 } from "@/lib/eventRegistration";
 
-// SCRUM-83/AC3, AC4: why registration isn't open, shown instead of the form ("open" shows the form)
+// SCRUM-83/AC3, AC4: why registration isn't open, shown instead of the form when it can't be registered for
 const UNAVAILABLE: Record<RegistrationFormData["event"]["availability"], string | null> = {
   closed: "Registration closed",
   full: "Event full",
@@ -87,7 +88,10 @@ export function EventRegistrationForm({ data }: { data: RegistrationFormData }) 
           <CardContent className="flex flex-wrap items-center gap-3">
             <RegistrationStatusBadge status={registered.status} />
             <p role="status" className="text-sm font-medium text-foreground">
-              {`You're registered for ${registered.event_name}. Status: ${STATUS_LABELS[registered.status]}.`}
+              {/* SCRUM-169/AC2: Pending means the event was full, so the attendee is told who they are waiting for */}
+              {registered.status === "pending"
+                ? `This event is full, so your registration for ${registered.event_name} is waiting for the organiser.`
+                : `You're registered for ${registered.event_name}. Status: ${STATUS_LABELS[registered.status]}.`}
             </p>
             <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/registrations">
               View my registrations
@@ -96,13 +100,14 @@ export function EventRegistrationForm({ data }: { data: RegistrationFormData }) 
         </Card>
       )}
 
-      {event.my_registration ? null : UNAVAILABLE[event.availability] ? (
+      {event.my_registration ? null : !event.can_register ? (
         <p className="rounded-xl border border-dashed border-border-strong p-8 text-center text-muted-foreground">{UNAVAILABLE[event.availability]}</p>
       ) : (
         !registered && (
           <Card>
             <CardContent>
               <form className="space-y-4" onSubmit={onSubmit} noValidate>
+                {event.availability === "full" && <p className="text-sm text-muted-foreground">{FULL_EVENT_NOTE}</p>}
                 {/* Each field shows its own error right under its input ("an error next to the field") */}
                 <InputField id="name" label="Name" autoComplete="name" value={name} error={fieldErrors.name}
                   onChange={(e) => setName(e.target.value)} />

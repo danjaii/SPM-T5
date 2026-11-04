@@ -11,6 +11,7 @@ const EMAILS = {
   organiserA: "jason.chua@techconnect.example.com",
   organiserB: "weiling.ong@techconnect.example.com",
   coordinator: "rachel.tan@connectsphere.example.com",
+  otherCoordinator: "marcus.lim@connectsphere.example.com",
   attendee: "alicia.fernandez@example.com",
 };
 
@@ -22,12 +23,13 @@ describe.skipIf(!hasDb)("SCRUM-66 event change request row level security (migra
   const who = {} as Record<keyof typeof EMAILS, Actor>;
   const eventIds: string[] = [];
 
-  async function newEvent(organiser: string, status: string): Promise<string> {
+  async function newEvent(organiser: string, status: string, coordinator: string | null = null): Promise<string> {
     const { data, error } = await admin
       .from("events")
       .insert({
         name: `IT-change-${Math.random().toString(36).slice(2, 8)}`,
         organiser_id: organiser,
+        assigned_coordinator_id: coordinator,
         status,
         is_draft: status === "draft",
         expected_attendance: 50,
@@ -97,14 +99,16 @@ describe.skipIf(!hasDb)("SCRUM-66 event change request row level security (migra
     expect((await request(who.organiserA, id, { reviewed_by: who.coordinator.userId })).error?.code).toBe(DENIED);
   });
 
-  it("SCRUM-66/AC7 the organiser and a coordinator can read the request's status; another organiser cannot", async () => {
-    const id = await newEvent(who.organiserA.userId, "submitted");
+  // SCRUM-156: "a coordinator" is the one the event is assigned to; any other coordinator reads nothing
+  it("SCRUM-66/AC7 the organiser and the event's coordinator can read the request's status; another organiser or coordinator cannot", async () => {
+    const id = await newEvent(who.organiserA.userId, "submitted", who.coordinator.userId);
     expect((await request(who.organiserA, id)).error).toBeNull();
     const read = async (actor: Actor) =>
       (await actor.client.from("event_change_requests").select("status").eq("event_id", id)).data ?? [];
     expect(await read(who.organiserA)).toEqual([{ status: "pending" }]);
     expect(await read(who.coordinator)).toEqual([{ status: "pending" }]);
     expect(await read(who.organiserB)).toEqual([]);
+    expect(await read(who.otherCoordinator)).toEqual([]);
   });
 
   it("SCRUM-66/AC6 an organiser cannot edit, approve or delete a request", async () => {

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import type { CoordinatorClash } from "@spm-t5/shared";
 import { SERVER_EVENT_URL, SESSION_COOKIE } from "./api";
 
 // Server-only: reads event-service's Lead routes with the session cookie via next/headers. Client components must not
@@ -43,6 +44,12 @@ export interface LeadCoordinator {
   workload: number;
 }
 
+/** SCRUM-168: a coordinator as the assign and reassign steps offer them: their workload, the people expected across it, and any clash. */
+export interface LeadCoordinatorChoice extends LeadCoordinator {
+  total_attendance: number | null;
+  clash: CoordinatorClash;
+}
+
 /** SCRUM-81: one of a coordinator's non-closed events. */
 export interface LeadCoordinatorEvent {
   id: string;
@@ -74,7 +81,7 @@ export type LeadEvent = LeadQueueItem & { status: string };
 export interface LeadAssignment {
   event: LeadEvent;
   canAssign: boolean;
-  coordinators: LeadCoordinator[];
+  coordinators: LeadCoordinatorChoice[];
 }
 
 /** SCRUM-78/AC1: the assign step for one event. Leads only. */
@@ -89,7 +96,7 @@ export interface LeadReassignment {
   event: LeadEvent;
   current: { id: string; full_name: string | null } | null;
   canReassign: boolean;
-  coordinators: LeadCoordinator[];
+  coordinators: LeadCoordinatorChoice[];
 }
 
 /** SCRUM-79/AC1, AC2: the reassign step for one event. Leads only. */
