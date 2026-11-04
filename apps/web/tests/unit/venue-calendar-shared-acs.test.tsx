@@ -82,3 +82,18 @@ describe("SCRUM-130/AC6 contrast comes from the status tokens", () => {
     }
   });
 });
+
+describe("SCRUM-130/AC5 status is never colour alone", () => {
+  it.each([
+    ["TENTATIVELY_HELD", "Tentatively Held", "event"], ["CONFIRMED", "Confirmed", "event"], ["BLOCKED", "Blocked", "block"],
+    ["AVAILABLE", "Available", "open"], ["UNAVAILABLE", "Unavailable", "closed"],
+  ])("SCRUM-130/AC5 shows %s as an icon and the words %s", (status, label, kind) => {
+    const venue = venueFixture({ periods: [{ kind, status, label, start: "2026-11-14T02:00:00.000Z", end: "2026-11-14T04:00:00.000Z" }] }) as unknown as CalendarVenue;
+    render(<VenueCalendarVenue venue={venue} />);
+
+    const row = document.querySelector(`li[data-kind="${kind}"]`) as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.textContent).toContain(label);
+    expect(row.querySelector("svg")).not.toBeNull();
+  });
+});
