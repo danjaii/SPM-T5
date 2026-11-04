@@ -41,3 +41,23 @@ non-holding booking applies). Email and push (in-app only, as the notification s
 
 ## Acceptance criteria and where each is tested
 See the AC to test table in `.local/SCRUM-97-report.md` and `.local/SCRUM-108-report.md`.
+
+## SCRUM-108 acceptance criteria (Week 9 text; test names cite `SCRUM-108/AC<n>` with these numbers)
+**User story:** As an Event Coordinator, I want to be warned before and when a tentative hold on my event's venue expires, with a warning time I choose for each hold, so that I can confirm it in time or arrange another venue.
+
+**AC1 Set the warning time per hold.** Given a tentative hold on a venue for an event I coordinate, when I set a warning time for that hold (for example 24 hours before it expires), then it is saved against that hold; a new hold starts with a default of 24 hours until I change it.
+
+**AC2 Notification before expiry.** Given the warning time has been reached and the hold is still unconfirmed, then I receive an in-app notification saying the hold on "Orchid Hall" for "Summit A" expires in N hours (written once).
+
+**AC3 Notification at expiry.** Given the hold has expired unconfirmed, then I receive a notification saying the hold expired, the venue is no longer reserved, and that I must submit a new request (written once).
+
+**AC4 The list shows the state.** Given I open my venue booking requests, then a hold inside its warning window shows "Hold expires in 8 hours", an expired hold shows "Hold expired, venue no longer reserved", and a hold outside the window shows no warning.
+
+**AC5 Confirmation clears it.** Given a hold that showed a warning, when it is confirmed before expiry, then no warning is shown and no further notification is sent.
+
+**AC6 Only the event's coordinator.** Given an event coordinated by someone else, then I see no warning and receive no notification about it.
+
+**AC7 Expiry changed by Venue Staff.** Given Venue Staff change the hold's expiry, then I am notified of the new expiry and the warning is recalculated from it (shared with SCRUM-97's extension scenario).
+
+**Decision (numbering).** The text given for this story lists seven numbered scenarios; the old Jira text (five scenarios: warning shown, none while far off, expired flagged, gone once confirmed, only the coordinator) is covered by AC4 to AC6. No eighth scenario text was available, so there is no AC8; renumbering is a one-line change in the test names if the Jira list differs.
+**Decision (one configurable window).** The 24-hour default is the single value `HOLD_WARNING_DEFAULT_MINUTES` (`packages/shared/src/holdExpiry.ts`) and the column default `hold_warning_minutes` in migration 88.

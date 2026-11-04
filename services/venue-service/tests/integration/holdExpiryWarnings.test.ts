@@ -218,4 +218,31 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect(a + b).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe("SCRUM-108 scenarios 6 and 7 end to end in the database", () => {
+    it("SCRUM-108/AC6 another coordinator cannot read the hold at all, so no list of theirs can show a warning about it", async () => {
+      const id = await hold();
+      const { data } = await who.coordinatorB.client.from("venue_bookings").select("id").eq("id", id);
+      expect(data).toEqual([]);
+      const mine = await who.coordinatorA.client.from("venue_bookings").select("id, hold_warning_minutes").eq("id", id);
+      expect(mine.data).toHaveLength(1);
+    });
+
+    it("SCRUM-108/AC7 tells the coordinator the new expiry when Venue Staff change it, and the warning counts from the new expiry", async () => {
+      const id = await hold();
+      await check(at(23));
+      const later = new Date(expiry.getTime() + 6 * HOUR);
+      expect((await who.venueStaff.client.rpc("set_hold_expiry", { p_booking_id: id, p_expires_at: later.toISOString() })).error).toBeNull();
+
+      const told = (await admin.from("notifications").select("user_id, type, message").eq("venue_booking_id", id).eq("type", "hold_expiry_changed")).data ?? [];
+      expect(told).toHaveLength(1);
+      expect(told[0].user_id).toBe(who.coordinatorA.userId);
+
+      // 23 hours before the OLD expiry is more than 24 hours before the NEW one: no second warning yet
+      await check(at(23));
+      expect((await notes(id)).filter((n) => n.type === "hold_expiring")).toHaveLength(1);
+      await check(new Date(later.getTime() - 23 * HOUR).toISOString());
+      expect((await notes(id)).filter((n) => n.type === "hold_expiring")).toHaveLength(2);
+    });
+  });
 });
