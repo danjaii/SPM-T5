@@ -12,9 +12,8 @@ const ASSIGNMENT_REFUSALS: Record<string, { status: number; error: string }> = {
   [PG_DENIED]: { status: 403, error: "Only an Event Coordinator Lead can do this." }, // SCRUM-78/AC9, SCRUM-79/AC9
   CL001: { status: 409, error: "This event is closed, so its coordinator can't be changed." }, // BR2
   CL002: { status: 409, error: "This event has already been assigned to a coordinator." }, // SCRUM-78/AC5
-  CL003: { status: 422, error: "Choose one of your active coordinators." }, // BR4, SCRUM-78/AC7, SCRUM-79/AC6
+  CL003: { status: 422, error: "Choose an active coordinator." }, // SCRUM-78/AC7, SCRUM-79/AC6; any active coordinator since SCRUM-184
   CL004: { status: 409, error: "This event has no coordinator yet. Assign one from the unassigned queue." },
-  CL005: { status: 403, error: "You can only reassign events held by coordinators you supervise." }, // BR4
   CL006: { status: 409, error: "This coordinator is already assigned to the event." }, // SCRUM-79/AC2
   P0002: { status: 404, error: "Event not found." },
 };
@@ -154,11 +153,11 @@ export function leadRoutes(deps: SupabaseDeps) {
     return coordinators ? res.json(coordinators) : eligibleFailed(res);
   });
 
-  // SCRUM-81/AC2, AC4: one coordinator's non-closed events; the database refuses a coordinator the Lead doesn't supervise
+  // SCRUM-81/AC2, AC4: one coordinator's non-closed events; the database refuses a coordinator who is not active (SCRUM-184: whoever supervises them)
   router.get("/coordinators/:id/events", async (req, res) => {
     const { token } = res.locals.user as SessionUser;
     const { data, error } = await deps.forUser(token).rpc("lead_coordinator_events", { p_coordinator_id: req.params.id });
-    if (error?.code === PG_DENIED) return res.status(403).json({ error: "You can only view coordinators you supervise." });
+    if (error?.code === PG_DENIED) return res.status(403).json({ error: "You can only view an active coordinator's events." });
     if (error) {
       console.error("lead_coordinator_events failed:", error.message);
       return res.status(500).json({ error: "We couldn't load this coordinator's events. Please try again." });
