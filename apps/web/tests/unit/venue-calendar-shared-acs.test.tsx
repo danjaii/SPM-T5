@@ -97,3 +97,30 @@ describe("SCRUM-130/AC5 status is never colour alone", () => {
     expect(row.querySelector("svg")).not.toBeNull();
   });
 });
+
+describe("SCRUM-130/AC4, AC6, AC7 the week grid is covered by the same criteria", () => {
+  const grid = () => sources.find(([f]) => f === "VenueWeekGrid.tsx")![1];
+
+  it("SCRUM-130/AC4 includes the grid, its legend and the hook in the tokens-only scan above", () => {
+    const names = sources.map(([f]) => f);
+    expect(names).toContain("VenueWeekGrid.tsx");
+    expect(names).toContain("VenueCalendarLegend.tsx");
+  });
+
+  it("SCRUM-130/AC6 colours every grid block from a status token pair, never a fixed colour", () => {
+    for (const token of ["status-success", "status-neutral"]) expect(grid()).toContain(`bg-${token}/`);
+    expect(grid()).toContain("STATUS_LOOK");
+    expect(grid()).not.toMatch(/\b(?:bg|text|border)-(?:red|green|blue|yellow|gray|slate|zinc|black|white)\b/);
+  });
+
+  it("SCRUM-130/AC7 only draws the grid from 640 px up, so a 375 px phone gets the list", () => {
+    const page = sources.find(([f]) => f === "VenueCalendar.tsx")![1];
+    expect(page).toContain('WEEK_GRID_QUERY = "(min-width: 640px)"');
+    expect(page).toMatch(/grid\s*\?\s*<VenueWeekGrid/);
+    expect(page).toContain("<VenueCalendarVenue");
+  });
+
+  it("SCRUM-130/AC7 lets a week wider than the screen scroll sideways inside its own box, not the page", () => {
+    expect(grid()).toContain("overflow-x-auto");
+  });
+});
