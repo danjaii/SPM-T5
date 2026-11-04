@@ -231,7 +231,6 @@ numbers of statements and branches that did not run.
 | `components/ui/status-badge.tsx` | 100 | 83.33 | 100 | 100 | D | 56 |
 | `components/ui/table.tsx` | 77.77 | 100 | 75 | 77.77 | E | 42, 97 |
 | `components/UnsuitableConfirm.tsx` | 92.3 | 91.66 | 100 | 100 | G: Refusing a missing override reason. | 24 |
-| `components/venue-calendar/VenueCalendar.tsx` | 100 | 95.83 | 100 | 100 | D | 48 |
 | `components/VenueBookingActions.tsx` | 96.87 | 100 | 90.9 | 96.29 | E | 76 |
 | `components/VenueBookingCancel.tsx` | 100 | 95.65 | 100 | 100 | D | 44 |
 | `components/VenueBookingCard.tsx` | 100 | 95.55 | 100 | 100 | D | 30, 105 |

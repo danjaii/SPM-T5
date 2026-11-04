@@ -19,6 +19,13 @@ export interface CalendarPeriod {
   reason?: string;
   reason_label?: string;
   overlaps_confirmed_booking?: boolean;
+  /** Only on an event (SCRUM-85/AC4): the booking's own times and the whole time it occupies the venue with setup and turnaround. */
+  event_start?: string;
+  event_end?: string;
+  occupied_start?: string;
+  occupied_end?: string;
+  setup_minutes?: number;
+  turnaround_minutes?: number;
 }
 
 export interface CalendarVenue {
@@ -78,4 +85,10 @@ export function formatPeriodTimes(startIso: string, endIso: string): string {
   const start = utcToSgt(new Date(startIso));
   const end = utcToSgt(new Date(endIso));
   return `${start.date} ${start.time} to ${end.date === start.date ? end.time : `${end.date} ${end.time}`}`;
+}
+
+/** "2026-11-14 10:00" in Singapore time, for the details of one period (SCRUM-85). */
+export function formatPeriodInstant(iso: string): string {
+  const at = utcToSgt(new Date(iso));
+  return `${at.date} ${at.time}`;
 }
