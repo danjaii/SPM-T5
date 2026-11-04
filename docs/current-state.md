@@ -141,3 +141,4 @@ event tells the organiser and coordinator; a cancelled one tells them and the at
 each flagged booking; a replacement venue tells the organiser and attendees. Nobody is told about their own action, and a withdrawn
 attendee hears nothing (`event_update_attendees()`, kept equal to `receivesEventUpdates()` by a test). An attendee's event
 notification opens `/registrations`, because the event page refuses them.
+- Delete a draft (SCRUM-56; spec `docs/specs/SCRUM-56-delete-draft-event-request.md`, migration 85): `DELETE /events/drafts/:id` calls the security definer `delete_event_draft()` as the caller, which removes only the caller's own `draft` event; the Delete button on My event requests asks first.
