@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Settings2 } from "lucide-react";
 import { utcToSgt } from "@spm-t5/shared";
+import { buttonVariants } from "@/components/ui/button";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { InventoryPeriodForm } from "@/components/equipment/InventoryPeriodForm";
 import { InventoryTable } from "@/components/equipment/InventoryTable";
 import type { InventoryPeriodQuery } from "@/lib/equipmentInventory";
 import { getEquipmentInventory } from "@/lib/equipmentInventoryServer";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +40,19 @@ export default async function EquipmentInventoryPage({ searchParams }: { searchP
         >
           <ArrowLeft aria-hidden="true" className="size-4" /> Back to dashboard
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Inventory</h1>
-        <p className="text-sm text-muted-foreground">
-          Only working units that no other event holds at that time count as free.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Inventory</h1>
+            <p className="text-sm text-muted-foreground">
+              Only working units that no other event holds at that time count as free.
+            </p>
+          </div>
+          {/* SCRUM-182: this page is Technical Support Staff's own (route guard), so the catalogue is offered to them only. */}
+          <Link href="/equipment-catalogue" className={cn(buttonVariants({ variant: "outline" }))}>
+            <Settings2 aria-hidden="true" />
+            Manage catalogue
+          </Link>
+        </div>
       </div>
 
       <InventoryPeriodForm period={period} fieldErrors={"fieldErrors" in result ? result.fieldErrors : undefined} />
