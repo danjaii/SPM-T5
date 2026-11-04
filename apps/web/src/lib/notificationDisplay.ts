@@ -48,6 +48,7 @@ const BY_TYPE: Record<NotificationType, NotificationDisplay> = {
   venue_replaced: { icon: RefreshCw, tone: "info" },
   venue_block_lifted: { icon: CheckCircle2, tone: "success" },
   event_returned_to_planning: { icon: AlertTriangle, tone: "warning" },
+  arrangements_reconfirmed: { icon: CheckCircle2, tone: "success" },
 };
 
 export const notificationDisplay = (type: string): NotificationDisplay =>

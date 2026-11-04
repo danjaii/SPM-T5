@@ -108,7 +108,10 @@ safety decision on the event page (`GET /events/:id/safety-decisions`, `event_sa
 approved event revokes the approval (`safety_checks.revoked_at`, migration 43's trigger), so it needs another check; a
 confirmed event goes back to awaiting arrangements. Reject now returns the event to planning as Request Changes does, and the
 last venue booking or equipment request approved moves a planning event to awaiting arrangements by itself, so it enters the
-queue with no manual step (SCRUM-171; same spec, migration 66, `event_arrangements_complete()`).
+queue with no manual step (SCRUM-171; same spec, migration 66, `event_arrangements_complete()`). When that event had been
+returned to Planning by a venue block (the latest move to Planning was Confirmed to Planning made by Venue Staff), the same
+move also tells its organiser and every attendee with an active registration, once, with an `arrangements_reconfirmed`
+notification naming the current venue (SCRUM-185/AC3; spec `docs/specs/replacement-confirmed-notice.md`, migration 83).
 The assigned coordinator cancels an event by setting it to Cancelled with a
 required reason (SCRUM-174; spec in `docs/specs/cancel-event.md`, migrations 60 to 63): in the same transaction, triggers cancel its
 active venue bookings, release its equipment requests and on-site technician assignments, close its pending change requests (as

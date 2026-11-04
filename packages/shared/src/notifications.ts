@@ -38,6 +38,8 @@ export const NOTIFICATION_TYPES = [
   "venue_block_lifted",
   // SCRUM-185/AC1: a venue block returned a Confirmed event to Planning (migration 82)
   "event_returned_to_planning",
+  // SCRUM-185/AC3: the replacement arrangements of an event a venue block returned to Planning are confirmed (migration 83)
+  "arrangements_reconfirmed",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
