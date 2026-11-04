@@ -110,14 +110,14 @@ describe("SCRUM-81 — One coordinator's events (GET /lead/coordinators/:id/even
   });
   // end of AC2
 
-  // AC7 / BR4: the database refuses a coordinator the Lead doesn't supervise; the route says so
-  it("SCRUM-81/AC7 refuses a coordinator the Lead does not supervise", async () => {
+  // AC7: the database refuses a coordinator who is not active (SCRUM-184: whoever supervises them); the route says so
+  it("SCRUM-81/AC7 refuses a coordinator who is not an active coordinator", async () => {
     const { app } = makeApp({ lead_coordinator_events: { data: null, error: { code: "42501", message: "not yours" } } });
 
     const res = await request(app).get("/lead/coordinators/c-9/events").set("Cookie", lead);
 
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ error: "You can only view coordinators you supervise." });
+    expect(res.body).toEqual({ error: "You can only view an active coordinator's events." });
   });
   // end of AC7
 
