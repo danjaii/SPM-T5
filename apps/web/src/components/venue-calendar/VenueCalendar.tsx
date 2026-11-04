@@ -82,6 +82,12 @@ export function VenueCalendar({ canMarkUnavailable = false }: { canMarkUnavailab
           ))}
         </div>
       )}
+      {/* SCRUM-130/AC1 (Figma 09): what the dashed rows are */}
+      {calendar && calendar.venues.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Dashed rows either side of each booking are the venue&apos;s setup and turnaround time. They count as occupied when checking conflicts.
+        </p>
+      )}
       <Dialog open={marking !== null} onOpenChange={(open) => !open && setMarking(null)}>
         <DialogContent>
           <DialogHeader>
