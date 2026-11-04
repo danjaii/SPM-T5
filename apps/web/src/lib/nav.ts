@@ -50,6 +50,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
   event_coordinator_lead: [
     dashboard("event_coordinator_lead"),
     { label: "Unassigned requests", href: "/lead/queue", icon: ClipboardList, queue: "leadQueue" },
+    // SCRUM-189/AC6: every active event in one list
+    { label: "Active events", href: "/lead/events", icon: CalendarCheck },
     { label: "Coordinator overview", href: "/lead/coordinators", icon: Users },
   ],
   venue_staff: [

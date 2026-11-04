@@ -274,7 +274,7 @@ numbers of statements and branches that did not run.
 | `lib/http.ts` | 90.47 | 78.56 | 80 | 100 | G: A cancelled request, and a failure response with no readable body. | 31, 37, 40 |
 | `lib/layoutTypesServer.ts` | 92.3 | 100 | 66.66 | 100 | C | 34 |
 | `lib/lead.ts` | 75 | 100 | 100 | 75 | G: The "couldn't reach the server" message. | 18 |
-| `lib/leadServer.ts` | 96 | 70 | 100 | 100 | C | 29, 37, 67, 74, 91, 106, +1 more |
+| `lib/leadServer.ts` | 96.42 | 82.35 | 100 | 100 | C | 29, 37, 67, 74, 103, 118 |
 | `lib/nav.ts` | 88.88 | 100 | 75 | 100 | G: Choosing the longest matching menu link. | 87 |
 | `lib/notificationDisplay.ts` | 83.33 | 66.66 | 100 | 100 | G: The "2 min ago", "3 h ago" and "Yesterday" wording. | 73, 74, 76, 78, 79, 98 |
 | `lib/notifications.ts` | 94.73 | 50 | 100 | 100 | G: A failed or malformed unread count. | 21, 23 |
@@ -354,7 +354,7 @@ numbers of statements and branches that did not run.
 | `routes/eventDetails.ts` | 100 | 94.8 | 100 | 100 | D | 67, 117, 123, 126 |
 | `routes/eventRequests.ts` | 100 | 92.85 | 100 | 100 | D | 15 |
 | `routes/events.ts` | 98.66 | 91.64 | 100 | 99.25 | G: Some 403, 404 and 500 answers. | 78, 111, 118, 145, 207, 288, +23 more |
-| `routes/lead.ts` | 97.75 | 82.14 | 100 | 100 | G: Failure answers when the eligible coordinators cannot be read. | 53, 90, 105, 119, 135, 146, +4 more |
+| `routes/lead.ts` | 97.91 | 83.33 | 100 | 100 | G: Failure answers when the eligible coordinators cannot be read. | 53, 90, 105, 119, 135, 146, +4 more |
 | `routes/registrations.ts` | 100 | 89.02 | 100 | 100 | D | 40, 61, 66, 88, 119, 165, +3 more |
 | `routes/safetyChecks.ts` | 100 | 92.3 | 100 | 100 | D | 29, 68 |
 | `routes/upcomingEvents.ts` | 100 | 75 | 100 | 100 | D | 17 |
