@@ -1,10 +1,11 @@
 import { SUPABASE_SECRET_KEY, SUPABASE_URL } from "./env";
+import { ACCOUNTS, type Persona } from "./accounts";
 
 // Arranging data for a test. The service-role REST API bypasses row-level security, so it can create rows a signed-in user
 // never could (an event already Confirmed, a venue with set buffers). It is for arranging and for checking what the screen
 // cannot prove, never for the action under test: that goes through the UI.
 //
-// Every row a test creates is tracked and deleted afterwards, in reverse order, so tests assert only on data they made
+// Every row a test creates is tracked and deleted afterwards, newest first, so tests assert only on data they made
 // (CLAUDE.md, SCRUM-143) and leave the shared database as they found it.
 
 export async function rest<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
@@ -30,9 +31,21 @@ export async function userId(email: string): Promise<string> {
   return rows[0].id;
 }
 
+export interface VenueRow { id: string; name: string; max_capacity: number }
+export interface EventRow { id: string; name: string }
+export interface BookingRow { id: string; status: string }
+
+/** A booking period in Singapore time (UTC+8), as the app reads times a person types. */
+export function sgt(day: string, hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const utc = new Date(`${day}T00:00:00Z`);
+  utc.setUTCHours(h - 8, m);
+  return utc.toISOString();
+}
+
 /** Test data for one test: unique names, and cleanup of everything it inserted. */
 export class TestData {
-  private created: { table: string; id: string }[] = [];
+  private created: { table: string; query: string }[] = [];
   private readonly prefix: string;
   private readonly suffix = Math.random().toString(36).slice(2, 7);
 
@@ -48,26 +61,76 @@ export class TestData {
 
   rest = rest;
   userId = userId;
+  /** The id of a seeded persona's account. */
+  idOf = (who: Persona) => userId(ACCOUNTS[who].email);
 
   /** Inserts a row, remembers it for cleanup, and returns it. */
   async insert<T extends { id: string }>(table: string, row: Record<string, unknown>): Promise<T> {
     const [created] = await rest<T[]>(table, { method: "POST", body: JSON.stringify(row) });
-    this.created.push({ table, id: created.id });
+    this.created.push({ table, query: `id=eq.${created.id}` });
     return created;
   }
 
-  /** Remembers a row some other call created (a UI action) so cleanup removes it too. */
-  track(table: string, id: string): void {
-    this.created.push({ table, id });
+  /**
+   * Remembers rows that a UI action will create, matched by a PostgREST filter (for example `event_id=eq.<id>`), so cleanup
+   * removes them too. Register it right after the parent row is inserted: cleanup runs newest first, so the children go
+   * before the parent.
+   */
+  trackWhere(table: string, query: string): void {
+    this.created.push({ table, query });
+  }
+
+  /** A venue with the given capacity and buffers (default none). */
+  venue(opts: { capacity?: number; setupMinutes?: number; turnaroundMinutes?: number } = {}): Promise<VenueRow> {
+    return this.insert<VenueRow>("venues", {
+      name: this.name("Venue"),
+      address: "1 Test Road",
+      max_capacity: opts.capacity ?? 200,
+      setup_minutes: opts.setupMinutes ?? 0,
+      turnaround_minutes: opts.turnaroundMinutes ?? 0,
+    });
+  }
+
+  /** An event, organised by `organiser` and assigned to `coordinator`, in the given status (default approved). */
+  async event(opts: { organiser?: Persona; coordinator?: Persona; status?: string; attendance?: number; label?: string } = {}): Promise<EventRow> {
+    const [organiser, coordinator] = await Promise.all([this.idOf(opts.organiser ?? "organiser"), this.idOf(opts.coordinator ?? "coordinator")]);
+    const event = await this.insert<EventRow>("events", {
+      name: this.name(opts.label ?? "Event"),
+      organiser_id: organiser,
+      assigned_coordinator_id: coordinator,
+      status: opts.status ?? "approved",
+      is_draft: false,
+      expected_attendance: opts.attendance ?? 50,
+    });
+    // bookings a UI action adds for this event go before the event itself
+    this.trackWhere("venue_bookings", `event_id=eq.${event.id}`);
+    return event;
+  }
+
+  /** A booking held at a venue on `day` from `start` to `end` (Singapore time). `requested` is what the app calls Pending. */
+  async booking(opts: { event: EventRow; venue: VenueRow; requestedBy: Persona; day: string; start: string; end: string; status?: string }): Promise<BookingRow> {
+    return this.insert<BookingRow>("venue_bookings", {
+      event_id: opts.event.id,
+      venue_id: opts.venue.id,
+      requested_by: await this.idOf(opts.requestedBy),
+      status: opts.status ?? "approved",
+      event_start_datetime: sgt(opts.day, opts.start),
+      event_end_datetime: sgt(opts.day, opts.end),
+    });
+  }
+
+  /** The booking rows of an event, for checking what the screen cannot show (that nothing was created). */
+  bookingsOf(event: EventRow): Promise<BookingRow[]> {
+    return rest<BookingRow[]>(`venue_bookings?select=id,status&event_id=eq.${event.id}`);
   }
 
   /** Deletes tracked rows, newest first. A failed delete is reported, not thrown: it must not hide the test's own result. */
   async cleanup(): Promise<void> {
-    for (const { table, id } of this.created.reverse()) {
+    for (const { table, query } of this.created.reverse()) {
       try {
-        await rest(`${table}?id=eq.${id}`, { method: "DELETE" });
+        await rest(`${table}?${query}`, { method: "DELETE" });
       } catch (error) {
-        console.warn(`[${this.prefix}] cleanup of ${table} ${id} failed:`, (error as Error).message);
+        console.warn(`[${this.prefix}] cleanup of ${table} ${query} failed:`, (error as Error).message);
       }
     }
     this.created = [];

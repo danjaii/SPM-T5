@@ -84,7 +84,7 @@ export const CATALOGUE: CaseDef[] = [
   c("E2E-BOOK-05", "changing a booking: back to pending, clash refused, own period allowed", "Changing an Approved booking sends it back to Pending; changing it into a clash is refused and changes nothing; moving within its own period is allowed.", ["102-S2", "102-S4", "102-S6"], "P1", B, [12], ["C3"]),
 
   // CONF
-  c("E2E-CONF-01", "refuses an overlapping booking", "A request overlapping another event's booking is refused with 'This venue is already held for part of that period.'; no booking is created.", ["36-S1"], "P0", C, [14]),
+  c("E2E-CONF-01", "refuses an overlapping booking", "A request overlapping another event's pending or approved booking at a venue with no buffers is refused with '<venue> is occupied from 10:00 to 12:00' (no setup/turnaround suffix); no booking is created.", ["36-S1", "103-S6"], "P0", C, [14]),
   c("E2E-CONF-02", "refuses a booking inside the setup and turnaround buffers", "10:00-12:00 with 30/45 minutes occupies 09:30-12:45; 12:30-14:00 and 08:00-08:50 are refused with the occupied period.", ["103-S1", "103-S3"], "P0", C, [14], ["C1"]),
   c("E2E-CONF-03", "accepts padded periods that only touch", "A request at 13:15-15:00 is accepted: the padded periods only touch.", ["103-S2"], "P0", B, [14], ["C1"]),
   c("E2E-CONF-04", "same event cannot hold the same venue twice at overlapping times", "The same event asking for the same venue overlapping its own booking is refused as a duplicate; a different venue is fine.", ["98-S13", "98-S4", "103-S9"], "P1", C, [12, 14], ["C3"]),
