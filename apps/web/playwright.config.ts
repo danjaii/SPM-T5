@@ -45,7 +45,8 @@ export default defineConfig({
   // One retry in CI so a flaky test shows up as "flaky" in results.json instead of passing silently or failing the run.
   retries: CI ? 1 : 0,
   workers: process.env.E2E_WORKERS ? Number(process.env.E2E_WORKERS) : CI ? 2 : 4,
-  timeout: 60_000,
+  // a spec that passes alone in ~30 s can take twice that when four workers make `next dev` compile pages at once
+  timeout: CI ? 90_000 : 120_000,
   // `next dev` compiles each page on first use, which is slow; the production build in CI is not.
   expect: { timeout: CI ? 15_000 : 30_000 },
   reporter: [
@@ -55,6 +56,9 @@ export default defineConfig({
   ],
   use: {
     baseURL: WEB_URL,
+    // without these a missing element waits for the whole test timeout; `next dev` is slow on a first visit, hence the generous values
+    actionTimeout: CI ? 20_000 : 40_000,
+    navigationTimeout: 60_000,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
