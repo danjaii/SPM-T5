@@ -28,10 +28,10 @@ can differ by a few hundredths between runs of the same code, so a change that s
 
 The figures count unit tests only, so they understate what is tested in some places and say nothing about others.
 
-- **Integration tests are not counted.** They run in CI's `integration` job with coverage turned off. Measured once
-  against a local database at commit `4354b95` (the previous measurement), with all 642 passing, adding them moved the
-  totals only slightly: statements 93.90% against 93.66%, branches 89.78% against 89.50%, functions 91.88% against
-  91.54%. So they are not the explanation for most gaps. That check has not been repeated at `adbdd6c`.
+- **Integration tests are not counted.** They run in CI's `integration` job with coverage turned off. Measured
+  against a local database at the same commit, with all 1022 of them passing, adding them moves the totals only slightly:
+  statements 94.49%, branches 90.78%, functions 92.49%, lines 95.37%. The number of files at 100% stays 242. So they
+  are not the explanation for most gaps.
 - **Playwright tests are not counted.** They also do most of their work outside CI: 24 of the 25 spec files skip unless
   `E2E_FULL_STACK` is set, and CI does not set it, so only `smoke.spec.ts` runs there.
 - **Database code is not counted.** Functions, triggers and row-level security policies in `supabase/migrations/` are
@@ -96,9 +96,9 @@ Each file below 100% has one main reason, the one that accounts for most of what
 - **`event-service`** has high statement coverage and lower branch coverage, because of many `data ?? []` fallbacks after
   database reads. A few error answers in `routes/events.ts` and `routes/lead.ts` are untested.
 - **`notification-service`** is close to complete. It is missing one race: a notification disappearing mid-update.
-- **`venue-service`** has the most reason G files among the services. Unit tests replace the database with fakes, and
-  the integration tests barely reach the database readers either, so `venueSearchReader.ts` is only 50% run even with
-  them. Turning database refusals into answers (`venueUnavailabilityStore.ts`), a failed read in `venueEditReader.ts`,
+- **`venue-service`** has the most reason G files among the services. Unit tests replace the database with fakes, so its
+  database readers are barely run in these figures. The integration tests raise `venueSearchReader.ts` to 82% of
+  statements, but none of its read failures. Turning database refusals into answers (`venueUnavailabilityStore.ts`), a failed read in `venueEditReader.ts`,
   two readers in `supabaseBookingRepository.ts` and some permission refusals in `bookingService.ts` are also untested.
 
 ## Keeping this up to date
@@ -382,7 +382,7 @@ numbers of statements and branches that did not run.
 | `domain/errors.ts` | 96.66 | 100 | 90 | 100 | F | 69 |
 | `domain/queueDto.ts` | 100 | 96.15 | 100 | 100 | D | 103 |
 | `readers/venueEditReader.ts` | 85.71 | 83.33 | 100 | 100 | G: A failed read of the venue or of its bookings. | 47, 70, 71 |
-| `readers/venueSearchReader.ts` | 18.18 | 18.18 | 33.33 | 25 | G: Reading the filter options, and every read failure. Integration tests raise statements to 50%, no further. | 60, 61, 64, 69, 74, 78, +10 more |
+| `readers/venueSearchReader.ts` | 18.18 | 18.18 | 33.33 | 25 | G: Reading the filter options, and every read failure. Integration tests run the filter options, raising statements to 82%, but no read failure. | 60, 61, 64, 69, 74, 78, +10 more |
 | `readers/venueTimingWriter.ts` | 100 | 83.33 | 100 | 100 | D | 58, 65 |
 | `readers/venueUnavailabilityStore.ts` | 75.67 | 73.52 | 100 | 85.18 | G: Turning database refusals into 403, 404 and validation answers. | 61, 62, 63, 64, 65, 77, +1 more |
 | `repositories/supabaseBookingRepository.ts` | 91.74 | 87.5 | 88 | 92.4 | G: `flagHistoryFor()` and `listApprovedBetween()`, which read a booking's flag history and the approved bookings in a period. | 54, 90, 102, 162, 177, 185, +9 more |
