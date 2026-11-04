@@ -101,7 +101,7 @@ describe("SCRUM-130/AC8 a 375 px screen", () => {
     expect(get("VenueCalendarToolbar.tsx")).toContain("flex-wrap");
     expect(get("VenueCalendarLegend.tsx")).toContain("flex-wrap");
     expect(get("VenueCalendar.tsx")).toContain("flex-wrap");
-    expect(get("VenueCalendarDetails.tsx")).toMatch(/flex-col sm:flex-row/);
+    expect(get("VenueCalendarDetails.tsx")).toContain("break-words"); // a long value wraps inside the popover
   });
 });
 

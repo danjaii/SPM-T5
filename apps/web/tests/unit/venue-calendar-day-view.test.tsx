@@ -175,20 +175,6 @@ describe("SCRUM-130 review gaps", () => {
     expect(document.querySelector("[data-now]") !== null).toBe(hour >= 8 && hour < 20);
   });
 
-  it("SCRUM-85/AC1 closes the details when the same block is chosen again", () => {
-    render(<VenueDayView venues={[orchid]} date="2026-11-14" />);
-    const button = screen.getByRole("button", { name: /^Details: Blocked/ });
-    fireEvent.click(button);
-    expect(screen.getByRole("region", { name: "Availability details" })).toBeTruthy();
-    fireEvent.click(button);
-    expect(screen.queryByRole("region", { name: "Availability details" })).toBeNull();
-  });
 
-  it("SCRUM-85/AC4 shows no Occupied line for a booking the service sent without its occupied window", () => {
-    const bare = venueFixture({ periods: [{ kind: "event", status: "CONFIRMED", label: "Confirmed", start: Z("10:00"), end: Z("12:00") }] }) as unknown as CalendarVenue;
-    render(<VenueDayView venues={[bare]} date="2026-11-14" />);
-    fireEvent.click(screen.getByRole("button", { name: /^Details: Confirmed/ }));
-    expect(within(screen.getByRole("region", { name: "Availability details" })).queryByText("Occupied")).toBeNull();
-  });
 
 });

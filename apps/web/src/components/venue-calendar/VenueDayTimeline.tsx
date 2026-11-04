@@ -1,16 +1,14 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { useState } from "react";
 import { utcToSgt } from "@spm-t5/shared";
 import { cn } from "@/lib/utils";
-import { formatPeriodTimes, type CalendarPeriod, type CalendarVenue } from "@/lib/venueCalendar";
+import { formatPeriodTimes, type CalendarVenue } from "@/lib/venueCalendar";
 import { blocksForDay, hourBounds, hourLabel, nowPct, type TimelineBlock } from "@/lib/venueTimeline";
-import { VenueCalendarDetails } from "./VenueCalendarDetails";
+import { DetailsPopover, periodBadge, periodRows } from "./VenueCalendarDetails";
 import { blockReason, KIND_NAME, periodLook, ReasonHint, STATUS_LOOK } from "./VenueCalendarPeriod";
 
 const pct = (n: number) => `${Number(n.toFixed(3))}%`;
-export const periodKey = (venueId: string, p: CalendarPeriod) => `${venueId}:${p.start}-${p.kind}`;
 /** The width of the venue name column and of the whole grid, shared by the day, week and month views so they line up. */
 export const NAME_COLUMN = "w-36 shrink-0 sm:w-44";
 
@@ -39,25 +37,26 @@ function BlockText({ block }: { block: TimelineBlock }) {
   );
 }
 
-function Block({ venueId, block, selected, onSelect }: { venueId: string; block: TimelineBlock; selected: boolean; onSelect: (key: string) => void }) {
+// SCRUM-85: choosing a block opens its details beside it (the same popover as the week and month views).
+function Block({ venue, block }: { venue: CalendarVenue; block: TimelineBlock }) {
   const { period } = block;
   const background = period.kind === "open" || period.kind === "closed";
   return (
     <div
       data-block
       data-kind={period.kind}
-      className={cn("absolute rounded-md text-xs", background ? "inset-y-0" : "inset-y-1.5", periodLook(period), selected && "z-10 ring-2 ring-ring")}
+      className={cn("absolute rounded-md text-xs", background ? "inset-y-0" : "inset-y-1.5", periodLook(period))}
       style={{ left: pct(block.leftPct), width: pct(block.widthPct) }}
     >
-      <button
-        type="button"
-        aria-label={`Details: ${period.label}${KIND_NAME[period.kind] ? ` ${KIND_NAME[period.kind]}` : ""}, ${formatPeriodTimes(period.start, period.end)}`}
-        aria-pressed={selected}
-        onClick={() => onSelect(periodKey(venueId, period))}
-        className="flex size-full flex-col items-start justify-center overflow-hidden rounded-md px-2 text-left focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      <DetailsPopover
+        venue={venue}
+        badge={periodBadge(period)}
+        rows={periodRows(period, venue)}
+        triggerLabel={`Details: ${period.label}${KIND_NAME[period.kind] ? ` ${KIND_NAME[period.kind]}` : ""}, ${formatPeriodTimes(period.start, period.end)}`}
+        triggerClassName="relative flex size-full flex-col items-start justify-center overflow-hidden rounded-md px-2 text-left focus-visible:z-10"
       >
         <BlockText block={block} />
-      </button>
+      </DetailsPopover>
       {period.kind === "block" && (
         <span className="absolute top-0 right-0 z-10">
           <ReasonHint text={blockReason(period)} />
@@ -69,19 +68,7 @@ function Block({ venueId, block, selected, onSelect }: { venueId: string; block:
 
 // SCRUM-130/AC1, AC2 (Figma 09): one day, every venue a row, the hours across. Setup and turnaround are dashed either side of a
 // booking, a block is striped with its reason, and a red line marks now. It scrolls sideways inside its box on a narrow screen.
-export function VenueDayTimeline({
-  venues,
-  date,
-  selected,
-  onSelect,
-  now,
-}: {
-  venues: CalendarVenue[];
-  date: string;
-  selected: string | null;
-  onSelect: (key: string) => void;
-  now?: Date;
-}) {
+export function VenueDayView({ venues, date, now }: { venues: CalendarVenue[]; date: string; now?: Date }) {
   const { startHour, endHour } = hourBounds(venues, date);
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
   const nowAt = nowPct(date, startHour, endHour, now);
@@ -114,13 +101,7 @@ export function VenueDayTimeline({
                 <span key={hour} aria-hidden="true" className="absolute inset-y-0 border-l border-border" style={{ left: pct((i / hours.length) * 100) }} />
               ))}
               {blocksForDay(venue.periods, date, startHour, endHour).map((block) => (
-                <Block
-                  key={periodKey(venue.id, block.period)}
-                  venueId={venue.id}
-                  block={block}
-                  selected={selected === periodKey(venue.id, block.period)}
-                  onSelect={onSelect}
-                />
+                <Block key={`${block.period.start}-${block.period.kind}`} venue={venue} block={block} />
               ))}
               {nowAt !== null && <span aria-hidden="true" data-now className="absolute inset-y-0 z-10 w-0.5 bg-destructive" style={{ left: pct(nowAt) }} />}
             </div>
@@ -128,17 +109,5 @@ export function VenueDayTimeline({
         ))}
       </div>
     </div>
-  );
-}
-
-/** SCRUM-85 on the day view: choosing a block opens its details under the timeline; choosing it again, or Close, shuts them. */
-export function VenueDayView({ venues, date, now }: { venues: CalendarVenue[]; date: string; now?: Date }) {
-  const [selected, setSelected] = useState<string | null>(null);
-  const chosen = venues.flatMap((venue) => venue.periods.map((period) => ({ venue, period }))).find(({ venue, period }) => periodKey(venue.id, period) === selected);
-  return (
-    <>
-      <VenueDayTimeline venues={venues} date={date} selected={selected} onSelect={(key) => setSelected(key === selected ? null : key)} now={now} />
-      {chosen && <VenueCalendarDetails venue={chosen.venue} period={chosen.period} onClose={() => setSelected(null)} />}
-    </>
   );
 }

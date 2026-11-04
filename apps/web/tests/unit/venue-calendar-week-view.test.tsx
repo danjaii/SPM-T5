@@ -128,8 +128,8 @@ describe("SCRUM-130 week view (Figma 09a)", () => {
     const details = await screen.findByLabelText("Availability details");
     const row = (term: string) => within(details).getByText(term).nextElementSibling?.textContent;
     expect(row("Reason")).toBe("Renovation");
-    expect(row("From")).toBe("11 Nov 08:00");
-    expect(row("Until")).toBe("13 Nov 18:00");
+    expect(row("Starts")).toBe("2026-11-11 08:00");
+    expect(row("Ends")).toBe("2026-11-13 18:00");
     expect(row("Note")).toBe("Conflicts with a confirmed booking");
     expect(within(details).getByText("Blocked · conflict")).toBeTruthy();
     fireEvent.click(within(details).getByRole("button", { name: "Close details" }));
@@ -152,7 +152,7 @@ describe("SCRUM-130 week view (Figma 09a)", () => {
     await waitFor(() => expect(screen.queryByLabelText("Availability details")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: /^Details: Blocked, / }));
     details = await screen.findByLabelText("Availability details");
-    expect(within(details).getByText("Not recorded")).toBeTruthy();
+    expect(within(details).queryByText("Reason")).toBeNull();
     expect(within(details).queryByText("Note")).toBeNull();
   });
 
@@ -170,18 +170,19 @@ describe("SCRUM-130 week view (Figma 09a)", () => {
 });
 
 describe("SCRUM-130 month view", () => {
-  it("SCRUM-130 shows a month cell's busiest status as an icon and a word, and opens the day", () => {
+  it("SCRUM-130 shows a month cell's busiest status as an icon and a word, and opens its details", async () => {
     const onOpenDay = vi.fn();
     const shut = venueFixture({ id: "x", name: "Shut Room", periods: [closed(1)] }) as unknown as CalendarVenue;
     const free = venueFixture({ id: "f", name: "Free Room", periods: [open(1)] }) as unknown as CalendarVenue;
     render(<VenueMonthGrid venues={[orchid, shut, free]} from="2026-11-01" to="2026-11-30" today="2026-11-14" onOpenDay={onOpenDay} />);
     const cell = (name: string) => screen.getByRole("button", { name });
-    expect(cell("Open Orchid Hall on Sat 14 Nov: Blocked").textContent).toBe("Blocked");
-    expect(cell("Open Orchid Hall on Thu 12 Nov: Blocked").className).toContain("calendar-block");
-    expect(cell("Open Free Room on Sun 1 Nov: Free").querySelector("svg")).not.toBeNull();
-    expect(cell("Open Shut Room on Sun 1 Nov: Closed").className).toContain("bg-muted");
+    expect(cell("Details: Orchid Hall on Sat 14 Nov: Blocked").textContent).toBe("Blocked");
+    expect(cell("Details: Orchid Hall on Thu 12 Nov: Blocked").className).toContain("calendar-block");
+    expect(cell("Details: Free Room on Sun 1 Nov: Free").querySelector("svg")).not.toBeNull();
+    expect(cell("Details: Shut Room on Sun 1 Nov: Closed").className).toContain("bg-muted");
     expect(screen.getByText("14").className).toContain("font-bold"); // today
-    fireEvent.click(cell("Open Orchid Hall on Sat 14 Nov: Blocked"));
+    fireEvent.click(cell("Details: Orchid Hall on Sat 14 Nov: Blocked"));
+    fireEvent.click(await screen.findByRole("button", { name: "Open day view" }));
     expect(onOpenDay).toHaveBeenCalledWith("2026-11-14");
   });
 

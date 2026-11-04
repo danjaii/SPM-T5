@@ -154,7 +154,8 @@ describe("SCRUM-84/AC5 change the date range (Figma 09: Day, Week, Month and the
     render(<VenueCalendar now={NOW} />);
     await screen.findByText("Orchid Hall");
     fireEvent.click(screen.getByRole("tab", { name: "Month" }));
-    fireEvent.click(await screen.findByRole("button", { name: /^Open Jasmine Room on Fri 20 Nov/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Details: Jasmine Room on Fri 20 Nov/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open day view" }));
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-11-20&to=2026-11-20`));
     expect(screen.getByRole("tab", { name: "Day" }).getAttribute("aria-selected")).toBe("true");
   });

@@ -1,26 +1,19 @@
 "use client";
 
-import { AlertTriangle, Lock, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { formatShortSgt, utcToSgt } from "@spm-t5/shared";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { StatusBadge } from "@/components/ui/status-badge";
-import type { StatusTone } from "@/lib/status";
+import { AlertTriangle, Lock } from "lucide-react";
+import type { ReactNode } from "react";
+import { formatShortSgt } from "@spm-t5/shared";
 import { cn } from "@/lib/utils";
 import type { CalendarPeriod, CalendarVenue } from "@/lib/venueCalendar";
 import {
-  BAR_END_HOUR, BAR_START_HOUR, blocksForDay, busyOnDay, daysOf, freeWindow, nextFreeWindow, shortDay, spanningBlocks, type SpanningBlock,
+  BAR_END_HOUR, BAR_START_HOUR, blocksForDay, busyOnDay, daysOf, freeWindow, shortDay, spanningBlocks, type SpanningBlock,
 } from "@/lib/venueTimeline";
+import { DetailsPopover, periodBadge, periodRows } from "./VenueCalendarDetails";
 import { blockReason, STATUS_LOOK } from "./VenueCalendarPeriod";
 import { NAME_COLUMN } from "./VenueDayTimeline";
 
 const WEEKDAY = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const pct = (n: number) => `${Number(n.toFixed(3))}%`;
-const time = (iso: string) => utcToSgt(new Date(iso)).time;
-const TONE: Record<CalendarPeriod["status"], StatusTone> = {
-  CONFIRMED: "success", TENTATIVELY_HELD: "info", BLOCKED: "neutral", AVAILABLE: "success", UNAVAILABLE: "neutral",
-};
 
 /** A segment of the occupancy bar: bookings dark, setup and turnaround grey, blocks dark grey or red over a confirmed booking. */
 function barColour(p: CalendarPeriod): string {
@@ -41,27 +34,7 @@ function OccupancyBar({ periods, day }: { periods: CalendarPeriod[]; day: string
   );
 }
 
-/** The rows of a period's details, as Figma 09a's popover lists them. */
-function detailRows(period: CalendarPeriod, venue: CalendarVenue, span?: SpanningBlock): [string, string][] {
-  if (period.kind === "block") {
-    const start = span?.start ?? period.start;
-    const end = span?.end ?? period.end;
-    return [
-      ["Reason", period.reason_label ?? "Not recorded"],
-      ["From", formatShortSgt(new Date(start))],
-      ["Until", formatShortSgt(new Date(end))],
-      ...((span?.overlapsConfirmed ?? period.overlaps_confirmed_booking) ? [["Note", "Conflicts with a confirmed booking"] as [string, string]] : []),
-    ];
-  }
-  const rows: [string, string][] = [["Held", `${shortDay(utcToSgt(new Date(period.start)).date)}, ${time(period.start)}–${time(period.end)}`]];
-  if (period.occupied_start && period.occupied_start !== period.start) rows.push(["Setup", `${time(period.occupied_start)}–${time(period.start)}`]);
-  if (period.occupied_end && period.occupied_end !== period.end) rows.push(["Turnaround", `${time(period.end)}–${time(period.occupied_end)}`]);
-  const next = nextFreeWindow(venue.periods, period.occupied_end ?? period.end);
-  if (next) rows.push(["Next free window", next]);
-  return rows;
-}
-
-/** Figma 09a: choosing a period opens its details beside it, with a way into that day. */
+/** A period on the week grid, opening its details (SCRUM-85, Figma 09a) with Open day view. */
 function PeriodPopover({
   venue, period, day, span, onOpenDay, className, children,
 }: {
@@ -73,41 +46,17 @@ function PeriodPopover({
   className: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const conflict = span?.overlapsConfirmed ?? period.overlaps_confirmed_booking;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        data-kind={period.kind}
-        aria-label={`Details: ${period.kind === "block" ? blockReason(period) : period.label}, ${venue.name}, ${shortDay(day)}`}
-        className={cn("flex min-w-0 flex-col items-stretch rounded-md px-1.5 py-1 text-left text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", className, open && "ring-2 ring-fg-primary")}
-      >
-        {children}
-      </PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="gap-3 p-4" aria-label="Availability details">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-base font-bold text-foreground">{venue.name}</p>
-            <p className="text-xs text-muted-foreground">{venue.address} · Max capacity {venue.max_capacity}</p>
-          </div>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="Close details" onClick={() => setOpen(false)}>
-            <X aria-hidden="true" />
-          </Button>
-        </div>
-        <StatusBadge label={conflict ? `${period.label} · conflict` : period.label} tone={conflict ? "danger" : TONE[period.status]} className="self-start" />
-        <dl className="flex flex-col gap-1.5 text-sm">
-          {detailRows(period, venue, span).map(([term, text]) => (
-            <div key={term} className="flex gap-3">
-              <dt className="w-32 shrink-0 text-muted-foreground">{term}</dt>
-              <dd className="font-medium text-foreground">{text}</dd>
-            </div>
-          ))}
-        </dl>
-        <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => { setOpen(false); onOpenDay(day); }}>
-          Open day view
-        </Button>
-      </PopoverContent>
-    </Popover>
+    <DetailsPopover
+      venue={venue}
+      badge={periodBadge(period, span)}
+      rows={periodRows(period, venue, span)}
+      triggerLabel={`Details: ${period.kind === "block" ? blockReason(period) : period.label}, ${venue.name}, ${shortDay(day)}`}
+      triggerClassName={cn("flex min-w-0 flex-col items-stretch rounded-md px-1.5 py-1 text-left text-xs", className)}
+      onOpenDay={() => onOpenDay(day)}
+    >
+      {children}
+    </DetailsPopover>
   );
 }
 

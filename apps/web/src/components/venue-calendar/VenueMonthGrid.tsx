@@ -3,11 +3,12 @@
 import { cn } from "@/lib/utils";
 import type { CalendarVenue } from "@/lib/venueCalendar";
 import { dayStatus, daysOf, shortDay } from "@/lib/venueTimeline";
+import { DetailsPopover, dayDetails } from "./VenueCalendarDetails";
 import { STATUS_LOOK } from "./VenueCalendarPeriod";
 import { NAME_COLUMN } from "./VenueDayTimeline";
 
 // SCRUM-130 (Month): every venue a row, the days across, each cell the day's busiest status as its icon and a word. Choosing a cell
-// opens that day in the day view.
+// opens that day's details (the same popover as the day and week views), with Open day view.
 export function VenueMonthGrid({
   venues,
   from,
@@ -43,13 +44,14 @@ export function VenueMonthGrid({
               const status = dayStatus(venue.periods, day);
               const { icon: Icon, className, short } = STATUS_LOOK[status];
               return (
-                <button
+                <DetailsPopover
                   key={day}
-                  type="button"
-                  aria-label={`Open ${venue.name} on ${shortDay(day)}: ${short}`}
-                  onClick={() => onOpenDay(day)}
-                  className={cn(
-                    "flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-border text-xs focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  venue={venue}
+                  {...dayDetails(venue, day)}
+                  triggerLabel={`Details: ${venue.name} on ${shortDay(day)}: ${short}`}
+                  onOpenDay={() => onOpenDay(day)}
+                  triggerClassName={cn(
+                    "flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-border text-xs focus-visible:relative focus-visible:z-10",
                     // free and closed days stay quiet so the booked and blocked ones stand out
                     status === "AVAILABLE" || status === "UNAVAILABLE" ? "text-muted-foreground" : className,
                     status === "UNAVAILABLE" && "bg-muted",
@@ -58,7 +60,7 @@ export function VenueMonthGrid({
                 >
                   <Icon aria-hidden="true" className="size-3.5" />
                   {short}
-                </button>
+                </DetailsPopover>
               );
             })}
           </div>
