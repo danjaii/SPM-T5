@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,12 @@ function GridBlock({ block, selected, onSelect }: { block: DayBlock; selected: b
         </span>
         {KIND_NAME[period.kind] && <span>{KIND_NAME[period.kind]}</span>}
         <span className="text-muted-foreground">{block.startTime}–{block.endTime}</span>
+        {period.overlaps_confirmed_booking && (
+          <span className="flex items-center gap-1 font-semibold text-status-danger-fg">
+            <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
+            Conflicts with a confirmed booking
+          </span>
+        )}
       </button>
       {period.kind === "block" && (
         <span className="absolute top-0 right-0 z-10">

@@ -128,6 +128,17 @@ describe("SCRUM-130/AC2 a Blocked period is striped, with its reason on hover, t
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
+  it("SCRUM-130/AC2 says so, in words and with an icon, when a block lies over a confirmed booking (the grid's Conflict marker)", () => {
+    const over = venueFixture({ periods: [{ kind: "block", status: "BLOCKED", label: "Blocked", start: Z("2026-11-12", "08:00"), end: Z("2026-11-12", "18:00"), reason: "maintenance", reason_label: "Maintenance", overlaps_confirmed_booking: true }] }) as unknown as CalendarVenue;
+    const { unmount } = render(<VenueWeekGrid venue={over} range={WEEK} />);
+    const flagged = within(day("Thu 12 Nov")).getByText("Conflicts with a confirmed booking");
+    expect(flagged.closest("[data-block]")?.querySelector("svg")).not.toBeNull();
+    unmount();
+
+    render(<VenueWeekGrid venue={booked} range={WEEK} />);
+    expect(screen.queryByText("Conflicts with a confirmed booking")).toBeNull();
+  });
+
   it("SCRUM-130/AC2 has the hint only on a block", () => {
     render(<VenueWeekGrid venue={booked} range={WEEK} />);
     expect(screen.getAllByRole("button", { name: /why is this blocked/i })).toHaveLength(1);
