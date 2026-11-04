@@ -25,7 +25,8 @@ export default async function LeadQueuePage() {
       title="Unassigned requests"
       description="New requests wait here until you give them a coordinator. Oldest first."
       action={
-        <Link className={buttonVariants({ variant: "outline" })} href="/lead/coordinators">
+        // SCRUM-189/AC6: the list of every active event, not the per-coordinator overview
+        <Link className={buttonVariants({ variant: "outline" })} href="/lead/events">
           View all active events
         </Link>
       }
