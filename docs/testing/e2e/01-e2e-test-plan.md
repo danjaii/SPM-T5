@@ -56,7 +56,7 @@ A case that folds in an existing spec file names the file in section 4.
 
 | ID | Scenario | Refs | Pri | Type | Feat | Chg |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| E2E-JRN-01 | Organiser drafts, saves, resumes and submits a request; Lead assigns; Coordinator reviews and approves; finds a venue and checks suitability; books; Venue Staff approve; Technical Support arranges equipment; the event reaches Awaiting Arrangements by itself; Safety Officer approves; Coordinator confirms; Attendee registers and withdraws; Organiser raises a change request. One `test.step` per stage, one context per role, and after each stage the right user's notification is checked. | 49, 53, 54, 77, 78, 24/44 (AC to confirm), 65, 109, 110, 32, 38, 86-88, 19, 171, 99 AC5, 83, 73, 66, 47 | P0 | N | 1-6, 10-13, 15, 17-20 | C5, C6 |
+| E2E-JRN-01 | Organiser drafts, saves, resumes and submits a request; Lead assigns; Coordinator approves, moves it to Planning, searches venues, checks suitability and books; Venue Staff approve; the coordinator adds equipment and Technical Support arrange it; the Safety Officer approves; Coordinator confirms; Attendee registers and withdraws; Organiser raises a change request. One `test.step` per stage, one context per person; after each stage the notification recipients are checked against spec 47/172. (Not exercised: the Reserve equipment page, 19-S1, covered by E2E-EQP-01; the unsuitable-venue override, SCRUM-110, covered by E2E-VEN-02.) | 49, 53, 54, 77, 78, 24 (AC to confirm), 65, 109, 32, 38-S1, 86-88, 171, 99-AC5, 83, 73, 66-S6, 47 | P0 | N | 2-6, 10-13, 15, 18-20 | C5, C6 |
 
 ### AUTH and ACL
 

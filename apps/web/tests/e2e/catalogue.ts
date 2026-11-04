@@ -43,8 +43,8 @@ export const CATALOGUE: CaseDef[] = [
   // JRN: golden journey
   c("E2E-JRN-01", "golden journey from draft to withdrawn registration and change request",
     "Organiser drafts, saves, resumes and submits; Lead assigns; Coordinator approves, searches, books; Venue Staff approve; Technical Support arranges equipment; Safety Officer approves; Coordinator confirms; Attendee registers and withdraws; Organiser raises a change request; each stage notifies the right user.",
-    ["SCRUM-49", "SCRUM-53", "SCRUM-54", "SCRUM-77", "SCRUM-78", "SCRUM-24?", "SCRUM-65", "SCRUM-109", "SCRUM-110", "SCRUM-32", "38-S1", "SCRUM-86", "SCRUM-87", "SCRUM-88", "19-S1", "SCRUM-171", "SCRUM-99/AC5", "SCRUM-83", "SCRUM-73", "66-S6", "SCRUM-47"],
-    "P0", N, [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 15, 17, 18, 19, 20], ["C5", "C6"]),
+    ["SCRUM-49", "SCRUM-53", "SCRUM-54", "SCRUM-77", "SCRUM-78", "SCRUM-24?", "SCRUM-65", "SCRUM-109", "SCRUM-32", "38-S1", "SCRUM-86", "SCRUM-87", "SCRUM-88", "SCRUM-171", "SCRUM-99/AC5", "SCRUM-83", "SCRUM-73", "66-S6", "SCRUM-47"],
+    "P0", N, [2, 3, 4, 5, 6, 10, 11, 12, 13, 15, 18, 19, 20], ["C5", "C6"]),
 
   // AUTH and ACL
   c("E2E-AUTH-01", "signing in lands each role on its own home", "Signing in through the form lands each of the 7 roles on its own home.", ["SCRUM-122/AC1"], "P1", N, [1]),
