@@ -109,18 +109,19 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
     for (const id of madeUsers) await admin.auth.admin.deleteUser(id); // cascades to users
   });
 
-  // AC1: every active coordinator linked to me, each with their workload count
-  it("SCRUM-81/AC1 shows exactly the active coordinators linked to the Lead", async () => {
+  // AC1: every active coordinator, each with their workload count. Since SCRUM-184 (migration 81) that is whoever supervises
+  // them: the Lead's own, another Lead's, and ones linked to nobody
+  it("SCRUM-81/AC1 shows every active coordinator, whoever supervises them", async () => {
     const { rows, error } = await overviewAs(who.ownLead);
     expect(error).toBeNull();
-    expect(rows.map((r) => r.id).sort()).toEqual([who.zero.userId, who.busy.userId].sort());
+    expect(rows.map((r) => r.id)).toEqual(expect.arrayContaining([who.zero.userId, who.busy.userId, who.stranger.userId, who.unlinked.userId]));
   });
 
-  it("SCRUM-81/AC1 does not show a deactivated, unlinked or other Lead's coordinator", async () => {
+  it("SCRUM-81/AC1 does not show a deactivated coordinator, or a Lead", async () => {
     const ids = (await overviewAs(who.ownLead)).rows.map((r) => r.id);
     expect(ids).not.toContain(who.retired.userId);
-    expect(ids).not.toContain(who.unlinked.userId);
-    expect(ids).not.toContain(who.stranger.userId);
+    expect(ids).not.toContain(who.otherLead.userId);
+    expect(ids).not.toContain(who.ownLead.userId);
   });
 
   // Only this suite's coordinators: other suites give the seeded ones events in parallel, so their counts can change
@@ -134,12 +135,11 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
     }
   });
 
-  it("SCRUM-81/AC1 a Lead cannot list another Lead's coordinator's events, an unlinked one's, or a deactivated one's", async () => {
-    for (const coordinator of [who.stranger, who.unlinked, who.retired]) {
-      const { rows, error } = await eventsAs(who.ownLead, coordinator.userId);
-      expect(error?.code).toBe(DENIED);
-      expect(rows).toEqual([]);
-    }
+  it("SCRUM-81/AC1 a Lead can list another Lead's coordinator's events and an unlinked one's, but not a deactivated one's", async () => {
+    for (const coordinator of [who.stranger, who.unlinked]) expect((await eventsAs(who.ownLead, coordinator.userId)).error).toBeNull();
+    const { rows, error } = await eventsAs(who.ownLead, who.retired.userId);
+    expect(error?.code).toBe(DENIED);
+    expect(rows).toEqual([]);
   });
   // end of AC1
 
@@ -190,11 +190,11 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
   });
   // end of AC5
 
-  // AC6: a Lead with no coordinators gets an empty overview (the page shows the message)
-  it("SCRUM-81/AC6 a Lead with no linked coordinators gets an empty overview", async () => {
+  // AC6: a Lead with no linked coordinators still sees every active coordinator (SCRUM-184, migration 81)
+  it("SCRUM-81/AC6 a Lead with no linked coordinators still gets the overview of every active coordinator", async () => {
     const { rows, error } = await overviewAs(who.loneLead);
     expect(error).toBeNull();
-    expect(rows).toEqual([]);
+    expect(rows.map((r) => r.id)).toEqual(expect.arrayContaining([who.zero.userId, who.busy.userId]));
   });
   // end of AC6
 
@@ -209,11 +209,11 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
     expect(events.rows).toEqual([]);
   });
 
-  it("SCRUM-81/AC7 a Lead reads their own coordinators' events directly, but not another Lead's team's", async () => {
+  it("SCRUM-81/AC7 a Lead reads the events of any coordinator directly, whoever supervises them (SCRUM-184)", async () => {
     const mine = await who.ownLead.client.from("events").select("id").eq("id", ev.approved);
     const theirs = await who.otherLead.client.from("events").select("id").eq("id", ev.approved);
     expect((mine.data ?? []).map((r) => r.id)).toEqual([ev.approved]);
-    expect(theirs.data ?? []).toEqual([]);
+    expect((theirs.data ?? []).map((r) => r.id)).toEqual([ev.approved]);
   });
   // end of AC7
 });
