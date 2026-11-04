@@ -52,7 +52,7 @@ describe("SCRUM-108/AC1 PUT /venue-bookings/:id/hold-warning", () => {
     expect(writer.calls).toEqual([]);
   });
 
-  it.each(["staff-1", "organiser-1"])("SCRUM-108/AC6 answers 403 to %s: only an Event Coordinator sets it", async (user) => {
+  it.each(["staff-1", "organiser-1"])("SCRUM-108/AC7 answers 403 to %s: only an Event Coordinator sets it", async (user) => {
     const { put, pending, writer } = setup();
     expect((await put(pending().id, { minutes: 60 }, user)).status).toBe(403);
     expect(writer.calls).toEqual([]);
@@ -66,7 +66,7 @@ describe("SCRUM-108/AC1 PUT /venue-bookings/:id/hold-warning", () => {
     expect(res.body.code).toBe("NOT_PENDING");
   });
 
-  it("SCRUM-108/AC6 passes on the database's refusal (not this event's coordinator is a 404), saving nothing", async () => {
+  it("SCRUM-108/AC7 passes on the database's refusal (not this event's coordinator is a 404), saving nothing", async () => {
     const { put, pending, writer } = setup();
     writer.failWith = notFound("Venue booking request not found.");
     expect((await put(pending().id, { minutes: 60 })).status).toBe(404);

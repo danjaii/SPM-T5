@@ -42,22 +42,24 @@ non-holding booking applies). Email and push (in-app only, as the notification s
 ## Acceptance criteria and where each is tested
 See the AC to test table in `.local/SCRUM-97-report.md` and `.local/SCRUM-108-report.md`.
 
-## SCRUM-108 acceptance criteria (Week 9 text; test names cite `SCRUM-108/AC<n>` with these numbers)
+## SCRUM-108 acceptance criteria (Jira: eight scenarios; test names cite `SCRUM-108/AC<n>` with these numbers)
 **User story:** As an Event Coordinator, I want to be warned before and when a tentative hold on my event's venue expires, with a warning time I choose for each hold, so that I can confirm it in time or arrange another venue.
 
-**AC1 Set the warning time per hold.** Given a tentative hold on a venue for an event I coordinate, when I set a warning time for that hold (for example 24 hours before it expires), then it is saved against that hold; a new hold starts with a default of 24 hours until I change it.
+**AC1 Set the warning time per hold (default 24 h).** Given a tentative hold on a venue for an event I coordinate, when I set a warning time for that hold (for example 24 hours before it expires), then it is saved against that hold; a new hold starts at 24 hours until I change it.
 
-**AC2 Notification before expiry.** Given the warning time has been reached and the hold is still unconfirmed, then I receive an in-app notification saying the hold on "Orchid Hall" for "Summit A" expires in N hours (written once).
+**AC2 Warning shown when expiry is near.** Given "Orchid Hall" is held for "Summit A", which I coordinate, expiring 2026-11-01 17:00, and the time is 2026-11-01 09:00 (inside the hold's warning window), when I open my venue booking requests, then the hold shows "Hold expires in 8 hours".
 
-**AC3 Notification at expiry.** Given the hold has expired unconfirmed, then I receive a notification saying the hold expired, the venue is no longer reserved, and that I must submit a new request (written once).
+**AC3 No warning while expiry is still far off.** Given the same hold and the time is 2026-10-30 09:00 (outside its warning window), when I open my venue booking requests, then no expiry warning is shown (and none is written).
 
-**AC4 The list shows the state.** Given I open my venue booking requests, then a hold inside its warning window shows "Hold expires in 8 hours", an expired hold shows "Hold expired, venue no longer reserved", and a hold outside the window shows no warning.
+**AC4 Notified once when the warning time is reached.** Given the warning time has been reached and the hold is still unconfirmed, then I receive one in-app notification saying the hold on "Orchid Hall" for "Summit A" expires in N hours; later checks do not write it again.
 
-**AC5 Confirmation clears it.** Given a hold that showed a warning, when it is confirmed before expiry, then no warning is shown and no further notification is sent.
+**AC5 Expired hold is flagged in the list and notified once.** Given the hold expired at 2026-11-01 17:00 unconfirmed, when I open my venue booking requests, then "Orchid Hall" shows "Hold expired, venue no longer reserved", and I received one notification that it expired, the venue is no longer reserved and I must submit a new request.
 
-**AC6 Only the event's coordinator.** Given an event coordinated by someone else, then I see no warning and receive no notification about it.
+**AC6 Confirmation clears the warning and stops notifications.** Given a hold that showed a warning, when it is confirmed before expiry, then no warning is shown and no further notification is sent.
 
-**AC7 Expiry changed by Venue Staff.** Given Venue Staff change the hold's expiry, then I am notified of the new expiry and the warning is recalculated from it (shared with SCRUM-97's extension scenario).
+**AC7 Only the event's coordinator is warned or notified.** Given "Summit A" is coordinated by someone else, when I open my venue booking requests, then I see no warning about its hold and receive no notification about it.
 
-**Decision (numbering).** The text given for this story lists seven numbered scenarios; the old Jira text (five scenarios: warning shown, none while far off, expired flagged, gone once confirmed, only the coordinator) is covered by AC4 to AC6. No eighth scenario text was available, so there is no AC8; renumbering is a one-line change in the test names if the Jira list differs.
-**Decision (one configurable window).** The 24-hour default is the single value `HOLD_WARNING_DEFAULT_MINUTES` (`packages/shared/src/holdExpiry.ts`) and the column default `hold_warning_minutes` in migration 88.
+**AC8 Expiry changed by Venue Staff.** Given Venue Staff change the hold's expiry, then I am notified of the new expiry and the warning is recalculated from it (shared with SCRUM-97's extension scenario).
+
+**Decision (one configurable window).** The 24-hour default is the single value `HOLD_WARNING_DEFAULT_MINUTES` (`packages/shared/src/holdExpiry.ts`) and the column default `hold_warning_minutes` in migration 88, so a different answer from the customer is a one-line change.
+**Decision (how the scenarios map to the code).** AC2, AC3 and the list half of AC5 are the booking card (`holdCountdown(expiresAt, now, warningMs)`, "Hold expires in N hours", "Hold expired, venue no longer reserved"); AC4 and the notification half of AC5 are `notify_hold_expiries()` run every minute by notification-service (the periodic-check tests cite AC4 and AC5); AC1 is `set_hold_warning()` and `PUT /venue-bookings/:id/hold-warning`.

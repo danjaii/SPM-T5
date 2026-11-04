@@ -27,8 +27,8 @@ function mockPut(status: number, body: unknown) {
 }
 afterEach(() => { vi.unstubAllGlobals(); router.refresh.mockClear(); });
 
-describe("SCRUM-108/AC4 holdCountdown uses the hold's own window", () => {
-  it("SCRUM-108/AC4 is expiring only inside the given window, and keeps SCRUM-133's 24 hours when none is given", () => {
+describe("SCRUM-108/AC2, AC3 holdCountdown uses the hold's own window", () => {
+  it("SCRUM-108/AC2, AC3 is expiring only inside the given window, and keeps SCRUM-133's 24 hours when none is given", () => {
     const window8h = 8 * H;
     expect(holdCountdown(inHours(10), NOW, window8h).state).toBe("active");
     expect(holdCountdown(inHours(8), NOW, window8h).state).toBe("expiring");
@@ -40,25 +40,25 @@ describe("SCRUM-108/AC4 holdCountdown uses the hold's own window", () => {
   });
 });
 
-describe("SCRUM-108/AC4 the list warns inside each hold's own window", () => {
-  it("SCRUM-108/AC4 shows no warning for a hold outside its window, even though it is inside 24 hours", () => {
+describe("SCRUM-108/AC2, AC3, AC5 the list warns inside each hold's own window", () => {
+  it("SCRUM-108/AC3 shows no warning for a hold outside its window, even though it is inside 24 hours", () => {
     render(<EventVenueBookings bookings={[aHold({ holdExpiresAt: inHours(10), holdWarningMinutes: 480 })]} now={NOW} />);
     expect(screen.getByTestId("hold-countdown").getAttribute("data-state")).toBe("active");
     expect(screen.queryByTestId("hold-warning")).toBeNull();
   });
 
-  it("SCRUM-108/AC4 shows 'Hold expires in 8 hours' inside the window", () => {
+  it("SCRUM-108/AC2 shows 'Hold expires in 8 hours' inside the window", () => {
     render(<EventVenueBookings bookings={[aHold({ holdExpiresAt: inHours(8), holdWarningMinutes: 480 })]} now={NOW} />);
     expect(screen.getByTestId("hold-warning").textContent).toBe("Hold expires in 8 hours");
     expect(screen.getByTestId("hold-countdown").getAttribute("data-state")).toBe("expiring");
   });
 
-  it("SCRUM-108/AC4 uses 24 hours for a hold that has no window of its own", () => {
+  it("SCRUM-108/AC2 uses 24 hours for a hold that has no window of its own", () => {
     render(<EventVenueBookings bookings={[aHold({ holdExpiresAt: inHours(20) })]} now={NOW} />);
     expect(screen.getByTestId("hold-warning").textContent).toBe("Hold expires in 20 hours");
   });
 
-  it("SCRUM-108/AC4 says an expired hold is expired and the venue is no longer reserved", () => {
+  it("SCRUM-108/AC5 says an expired hold is expired and the venue is no longer reserved", () => {
     render(<EventVenueBookings bookings={[aHold({ holdExpiresAt: inHours(-1) })]} now={NOW} />);
     expect(screen.getByTestId("expired-hold").textContent).toContain("Hold expired, venue no longer reserved");
   });

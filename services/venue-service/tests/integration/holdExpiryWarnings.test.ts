@@ -62,8 +62,8 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
     });
   });
 
-  describe("SCRUM-108/AC2 and AC3 one warning, then one expiry notice, each written once", () => {
-    it("SCRUM-108/AC2 writes nothing before the warning time, one warning when it is reached, and not again", async () => {
+  describe("SCRUM-108/AC4, AC5 one warning, then one expiry notice, each written once", () => {
+    it("SCRUM-108/AC3, AC4 writes nothing before the warning time, one warning when it is reached, and not again", async () => {
       const id = await hold();
       await check(at(25));
       expect(await notes(id)).toEqual([]);
@@ -79,7 +79,7 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect(await notes(id)).toHaveLength(1);
     });
 
-    it("SCRUM-108/AC3 writes the expiry notice once the hold has expired, and not again", async () => {
+    it("SCRUM-108/AC5 writes the expiry notice once the hold has expired, and not again", async () => {
       const id = await hold();
       await check(at(23));
       await check(at(-1));
@@ -89,22 +89,22 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect(written.find((n) => n.type === "hold_expired")!.message).toMatch(/no longer reserved/);
     });
 
-    it("SCRUM-108/AC3 sends only the expiry notice when the warning was missed", async () => {
+    it("SCRUM-108/AC5 sends only the expiry notice when the warning was missed", async () => {
       const id = await hold();
       await check(at(-1));
       expect((await notes(id)).map((n) => n.type)).toEqual(["hold_expired"]);
     });
   });
 
-  describe("SCRUM-108/AC5 and AC6 a confirmed hold is left alone, and only the event's coordinator is told", () => {
-    it("SCRUM-108/AC5 sends nothing for a hold that was confirmed before the warning time", async () => {
+  describe("SCRUM-108/AC6, AC7 a confirmed hold is left alone, and only the event's coordinator is told", () => {
+    it("SCRUM-108/AC6 sends nothing for a hold that was confirmed before the warning time", async () => {
       const id = await hold({ status: "approved" });
       await check(at(23));
       await check(at(-1));
       expect(await notes(id)).toEqual([]);
     });
 
-    it("SCRUM-108/AC6 tells the event's coordinator and nobody else; another coordinator cannot set its warning time", async () => {
+    it("SCRUM-108/AC7 tells the event's coordinator and nobody else; another coordinator cannot set its warning time", async () => {
       const id = await hold();
       await check(at(23));
       expect((await notes(id)).every((n) => n.user_id === who.coordinatorA.userId)).toBe(true);
@@ -112,14 +112,14 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect((await who.venueStaff.client.rpc("set_hold_warning", { p_booking_id: id, p_minutes: 60 })).error?.code).toBe("P0002");
     });
 
-    it("SCRUM-108/AC6 is not callable by a signed-in user: only the service role runs the check", async () => {
+    it("SCRUM-108/AC7 is not callable by a signed-in user: only the service role runs the check", async () => {
       const { error } = await who.coordinatorA.client.rpc("notify_hold_expiries", { p_now: at(23) });
       expect(error?.code).toBe(DENIED);
     });
   });
 
-  describe("SCRUM-108/AC7 a changed expiry or warning time recalculates the warning", () => {
-    it("SCRUM-108/AC7 warns again after Venue Staff move the expiry", async () => {
+  describe("SCRUM-108/AC8 a changed expiry or warning time recalculates the warning", () => {
+    it("SCRUM-108/AC8 warns again after Venue Staff move the expiry", async () => {
       const id = await hold();
       await check(at(23));
       expect(await notes(id)).toHaveLength(1);
@@ -136,7 +136,7 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
     const minutesBefore = (m: number) => new Date(expiry.getTime() - m * 60_000).toISOString();
     const setWarning = (id: string, minutes: number) => who.coordinatorA.client.rpc("set_hold_warning", { p_booking_id: id, p_minutes: minutes });
 
-    it("SCRUM-108/AC2 writes the warning at the warning moment itself and not one second before", async () => {
+    it("SCRUM-108/AC4 writes the warning at the warning moment itself and not one second before", async () => {
       const id = await hold();
       await check(new Date(expiry.getTime() - 24 * HOUR - 1000).toISOString());
       expect(await notes(id)).toEqual([]);
@@ -144,7 +144,7 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect((await notes(id)).map((n) => n.type)).toEqual(["hold_expiring"]);
     });
 
-    it("SCRUM-108/AC3 writes the expiry notice at the expiry moment itself and not one second before", async () => {
+    it("SCRUM-108/AC5 writes the expiry notice at the expiry moment itself and not one second before", async () => {
       const id = await hold();
       await check(new Date(expiry.getTime() - 1000).toISOString());
       expect((await notes(id)).map((n) => n.type)).toEqual(["hold_expiring"]);
@@ -161,7 +161,7 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect((await notes(id)).map((n) => n.type)).toEqual(["hold_expiring"]);
     });
 
-    it("SCRUM-108/AC7 warns again when the coordinator changes the warning time after a warning was sent", async () => {
+    it("SCRUM-108/AC8 warns again when the coordinator changes the warning time after a warning was sent", async () => {
       const id = await hold();
       await check(at(23));
       expect(await notes(id)).toHaveLength(1);
@@ -170,7 +170,7 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect((await notes(id)).filter((n) => n.type === "hold_expiring")).toHaveLength(2);
     });
 
-    it("SCRUM-108/AC5 sends no expiry notice for a hold that was confirmed after its warning, or withdrawn, rejected or cancelled", async () => {
+    it("SCRUM-108/AC6 sends no expiry notice for a hold that was confirmed after its warning, or withdrawn, rejected or cancelled", async () => {
       for (const status of ["approved", "withdrawn", "rejected", "cancelled"]) {
         const id = await hold();
         await check(at(23));
@@ -180,7 +180,7 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       }
     });
 
-    it("SCRUM-108/AC6 tells each event's coordinator about their own hold only, naming the venue and event", async () => {
+    it("SCRUM-108/AC7 tells each event's coordinator about their own hold only, naming the venue and event", async () => {
       const own = await hold();
       const venueId = await fixtures.venue("IT-warn-b");
       const otherEvent = await fixtures.event("approved", who.coordinatorB.userId);
@@ -205,13 +205,13 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect(mine[0].message).toContain(venueName);
     });
 
-    it("SCRUM-108/AC3 says a new venue request is needed in the expiry notice", async () => {
+    it("SCRUM-108/AC5 says a new venue request is needed in the expiry notice", async () => {
       const id = await hold();
       await check(at(-1));
       expect((await notes(id))[0].message).toMatch(/submit a new venue request/);
     });
 
-    it("SCRUM-108/AC2 writes one notification when two checks run at the same moment", async () => {
+    it("SCRUM-108/AC4 writes one notification when two checks run at the same moment", async () => {
       const id = await hold();
       const [a, b] = await Promise.all([check(at(23)), check(at(23))]);
       expect((await notes(id)).filter((n) => n.type === "hold_expiring")).toHaveLength(1);
@@ -219,8 +219,8 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
     });
   });
 
-  describe("SCRUM-108 scenarios 6 and 7 end to end in the database", () => {
-    it("SCRUM-108/AC6 another coordinator cannot read the hold at all, so no list of theirs can show a warning about it", async () => {
+  describe("SCRUM-108/AC7, AC8 end to end in the database", () => {
+    it("SCRUM-108/AC7 another coordinator cannot read the hold at all, so no list of theirs can show a warning about it", async () => {
       const id = await hold();
       const { data } = await who.coordinatorB.client.from("venue_bookings").select("id").eq("id", id);
       expect(data).toEqual([]);
@@ -228,7 +228,7 @@ describe.skipIf(!hasDb)("SCRUM-108 hold expiry warnings (migration 88)", () => {
       expect(mine.data).toHaveLength(1);
     });
 
-    it("SCRUM-108/AC7 tells the coordinator the new expiry when Venue Staff change it, and the warning counts from the new expiry", async () => {
+    it("SCRUM-108/AC8 tells the coordinator the new expiry when Venue Staff change it, and the warning counts from the new expiry", async () => {
       const id = await hold();
       await check(at(23));
       const later = new Date(expiry.getTime() + 6 * HOUR);
