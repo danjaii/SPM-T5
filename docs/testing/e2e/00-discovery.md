@@ -154,7 +154,7 @@ is mapped to ACs through the spec's table. A title such as `AC5/AC1: ...` withou
 | C1 setup and turnaround | 101, 103, 104 | built, specs |
 | C2 venue unavailable | 105, 106, 107, 185 AC1-AC4 | built, specs |
 | C3 several bookings per event | 98, 102 (and parts of 110, 112) | built, specs |
-| C4 hold expiry | none | **not built, no spec**; no UI to create a hold |
+| C4 hold expiry | SCRUM-97, SCRUM-108 (no spec in `docs/specs/`) | **not built**; no UI to create a hold |
 | C5 Lead role | 75, 77, 78, 79, 81, 184, 156, 183 | built, specs |
 | C6 Safety Officer | 99, 100, 171; 116 (sign-in) | built; 116 has no spec |
 
@@ -185,7 +185,22 @@ None found. No `.xlsx`, `.csv`, `.docx` or `.pdf` anywhere in the repo; `scope-d
 spreadsheets and `Project Brief.pdf` that are not committed. The plan uses the fallback columns: Test ID, Story/AC refs,
 Scenario, Preconditions, Steps, Test data, Expected results (plus Automated spec).
 
-## 12. Open questions
+## 12. Open questions, and how they were settled
+
+**Settled on 2026-11-04 (the user told me to use the defaults or my best judgment):**
+1. Template: use the default columns; re-map if the course template turns up.
+2. Manual cases: every catalogue row is also a manual case (the template columns are filled in); the automated count is
+   reported next to it.
+3. C4: stays reported as uncovered with defect D-001. The stories are SCRUM-97 "Tentative Venue Holds Expire" and
+   SCRUM-108 "Warn Coordinator Before and When a Hold Expires" (keys and titles taken from a private draft spec dated
+   2026-11-02; I have not read them in Jira). Verified again on 2026-11-04: no hold column, job or notification on `main`
+   (newest migration 84), no open PR and no remote branch for it. When it merges, one case (`E2E-HOLD-01`) is added.
+4. Stories without a spec (features 1, 4, 6, 8, 18): cases cite the Jira story and say "AC to confirm". When I write each of
+   those specs I will try to read the ACs from Jira and cite them; if Jira is not reachable the cases keep "AC to confirm".
+5. Windows `webServer`: try `pnpm exec`; fall back to documented manual start.
+6. `docs/traceability.md` stays stale on purpose; E2E docs do not depend on it.
+
+Original questions, kept for the record:
 
 1. **Course template.** If the course template turns up, `02-test-cases` gets re-mapped to its columns. Path or column list?
 2. **"Number of manual E2E cases".** The submission asks for it. Are manual cases separate from the automated catalogue, or
