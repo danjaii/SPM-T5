@@ -13,7 +13,8 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: 
 import { VenueCalendar } from "@/components/venue-calendar/VenueCalendar";
 import { VenueCalendarLegend } from "@/components/venue-calendar/VenueCalendarLegend";
 import { VenueDayView } from "@/components/venue-calendar/VenueDayTimeline";
-import { VenueRangeGrid } from "@/components/venue-calendar/VenueRangeGrid";
+import { VenueMonthGrid } from "@/components/venue-calendar/VenueMonthGrid";
+import { VenueWeekGrid } from "@/components/venue-calendar/VenueWeekGrid";
 import type { CalendarVenue } from "@/lib/venueCalendar";
 import { NAV_ITEMS } from "@/lib/nav";
 import { calendarFixture, jsonReply, venueFixture } from "./venue-calendar-fixtures";
@@ -89,7 +90,7 @@ describe("SCRUM-130/AC7 contrast comes from the theme's token pairs", () => {
 
 describe("SCRUM-130/AC8 a 375 px screen", () => {
   it("SCRUM-130/AC8 lets the timeline and grids scroll sideways inside their own box, so the page itself never does", () => {
-    for (const file of ["VenueDayTimeline.tsx", "VenueRangeGrid.tsx"]) {
+    for (const file of ["VenueDayTimeline.tsx", "VenueWeekGrid.tsx", "VenueMonthGrid.tsx"]) {
       const source = sources.find(([f]) => f === file)![1];
       expect(source).toContain('className="overflow-x-auto rounded-lg border');
     }
@@ -113,8 +114,12 @@ describe("SCRUM-130/AC9 keyboard", () => {
       expect(button.className).toMatch(/focus-visible:ring/);
     }
     unmount();
-    render(<VenueRangeGrid view="week" venues={[venue]} from="2026-11-09" to="2026-11-15" today="2026-11-14" onOpenDay={vi.fn()} />);
+    const week = render(<VenueWeekGrid venues={[venue]} from="2026-11-09" to="2026-11-15" today="2026-11-14" onOpenDay={vi.fn()} />);
     expect(screen.getByRole("region", { name: "Venue week from 2026-11-09 to 2026-11-15" }).tabIndex).toBe(0);
+    for (const button of screen.getAllByRole("button")) expect(button.className).toMatch(/focus-visible:ring/);
+    week.unmount();
+    render(<VenueMonthGrid venues={[venue]} from="2026-11-01" to="2026-11-30" today="2026-11-14" onOpenDay={vi.fn()} />);
+    expect(screen.getByRole("region", { name: "Venue month from 2026-11-01 to 2026-11-30" }).tabIndex).toBe(0);
     for (const button of screen.getAllByRole("button")) expect(button.className).toMatch(/focus-visible:ring/);
   });
 });
@@ -148,6 +153,6 @@ describe("SCRUM-130/AC11 theme tokens and shadcn components only", () => {
 
   it("SCRUM-130/AC11 builds its controls from the shadcn components in components/ui", () => {
     const all = sources.map(([, s]) => s).join("\n");
-    for (const ui of ["button", "tabs", "dialog", "alert", "skeleton"]) expect(all).toContain(`@/components/ui/${ui}`);
+    for (const ui of ["button", "tabs", "dialog", "alert", "skeleton", "popover", "status-badge"]) expect(all).toContain(`@/components/ui/${ui}`);
   });
 });

@@ -151,6 +151,29 @@ export function dayStatus(periods: CalendarPeriod[], date: string): CalendarStat
   return open ? "AVAILABLE" : "UNAVAILABLE";
 }
 
+/** A venue block with the pieces the service cut it into joined again (it cuts a block where a booking starts or ends inside it). */
+export interface JoinedBlock {
+  /** The first piece, for its status, label and reason. */
+  period: CalendarPeriod;
+  start: string;
+  end: string;
+  /** True when any piece lies over a confirmed booking. */
+  overlapsConfirmed: boolean;
+}
+
+export function joinBlocks(periods: CalendarPeriod[]): JoinedBlock[] {
+  const joined: JoinedBlock[] = [];
+  for (const p of periods) {
+    if (p.kind !== "block") continue;
+    const previous = joined[joined.length - 1];
+    if (previous && previous.end === p.start) {
+      previous.end = p.end;
+      previous.overlapsConfirmed ||= Boolean(p.overlaps_confirmed_booking);
+    } else joined.push({ period: p, start: p.start, end: p.end, overlapsConfirmed: Boolean(p.overlaps_confirmed_booking) });
+  }
+  return joined;
+}
+
 export interface AffectedBlock {
   venue: CalendarVenue;
   start: string;
@@ -158,24 +181,44 @@ export interface AffectedBlock {
   reasonLabel?: string;
 }
 
-/**
- * SCRUM-130/AC2 (Figma 09 banner): each unavailable period that lies over a confirmed booking. The service cuts a block where a
- * booking starts or ends inside it, so pieces of one block that touch are joined again here.
- */
+/** SCRUM-130/AC2 (Figma 09 banner): each unavailable period that lies over a confirmed booking. */
 export function affectedBlocks(venues: CalendarVenue[]): AffectedBlock[] {
-  const found: AffectedBlock[] = [];
-  for (const venue of venues) {
-    let current: (AffectedBlock & { flagged: boolean }) | null = null;
-    for (const p of venue.periods) {
-      if (p.kind === "block" && current && current.end === p.start) {
-        current.end = p.end;
-        current.flagged ||= Boolean(p.overlaps_confirmed_booking);
-        continue;
-      }
-      if (current?.flagged) found.push({ venue, start: current.start, end: current.end, reasonLabel: current.reasonLabel });
-      current = p.kind === "block" ? { venue, start: p.start, end: p.end, reasonLabel: p.reason_label, flagged: Boolean(p.overlaps_confirmed_booking) } : null;
-    }
-    if (current?.flagged) found.push({ venue, start: current.start, end: current.end, reasonLabel: current.reasonLabel });
-  }
-  return found;
+  return venues.flatMap((venue) =>
+    joinBlocks(venue.periods)
+      .filter((b) => b.overlapsConfirmed)
+      .map((b) => ({ venue, start: b.start, end: b.end, reasonLabel: b.period.reason_label })),
+  );
+}
+
+/** SCRUM-130 week view (Figma 09a): the hours the occupancy bar at the top of each day covers. */
+export const BAR_START_HOUR = 8;
+export const BAR_END_HOUR = 22;
+
+/** The free time of `date` as one window, from its first Available stretch to its last, or null when the venue is closed all day. */
+export function freeWindow(periods: CalendarPeriod[], date: string): { start: string; end: string } | null {
+  const open = blocksForDay(periods.filter((p) => p.kind === "open"), date, 0, 24);
+  if (open.length === 0) return null;
+  const last = open[open.length - 1];
+  return { start: open[0].startTime, end: last.endTime };
+}
+
+/** The first Available stretch that starts at or after `iso` on the same Singapore day, as "17:30–22:00", or null. */
+export function nextFreeWindow(periods: CalendarPeriod[], iso: string): string | null {
+  const day = utcToSgt(new Date(iso)).date;
+  const next = blocksForDay(periods.filter((p) => p.kind === "open" && p.start >= iso), day, 0, 24)[0];
+  return next ? `${next.startTime}–${next.endTime}` : null;
+}
+
+export interface SpanningBlock extends JoinedBlock {
+  /** The first and last of the days shown that the block touches (indexes into them). */
+  first: number;
+  last: number;
+}
+
+/** SCRUM-130/AC2 week view (Figma 09a): a block that runs over more than one of the days shown is drawn once, as a banner across them. */
+export function spanningBlocks(periods: CalendarPeriod[], days: string[]): SpanningBlock[] {
+  return joinBlocks(periods).flatMap((b) => {
+    const touched = days.flatMap((day, i) => (busyOnDay([{ ...b.period, start: b.start, end: b.end }], day).length > 0 ? [i] : []));
+    return touched.length > 1 ? [{ ...b, first: touched[0], last: touched[touched.length - 1] }] : [];
+  });
 }

@@ -4,14 +4,13 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 
 import { VenueCalendar } from "@/components/venue-calendar/VenueCalendar";
 import { VenueDayView } from "@/components/venue-calendar/VenueDayTimeline";
-import { VenueRangeGrid } from "@/components/venue-calendar/VenueRangeGrid";
 import type { CalendarVenue } from "@/lib/venueCalendar";
 import { todaySgt } from "@/lib/venueTimeline";
 import { calendarFixture, jsonReply, venueFixture } from "./venue-calendar-fixtures";
@@ -161,64 +160,6 @@ describe("SCRUM-130 the now line", () => {
   });
 });
 
-describe("SCRUM-130 week and month cells", () => {
-  const busyWeek = venueFixture({
-    periods: [
-      { kind: "open", status: "AVAILABLE", label: "Available", start: Z("08:00", 1), end: Z("18:00", 1) },
-      { kind: "open", status: "AVAILABLE", label: "Available", start: Z("08:00", 9), end: Z("18:00", 9) },
-      ...booking,
-      { kind: "event", status: "CONFIRMED", label: "Confirmed", start: Z("08:00", 16), end: Z("09:00", 16) },
-      { kind: "event", status: "CONFIRMED", label: "Confirmed", start: Z("10:00", 16), end: Z("11:00", 16) },
-      { kind: "event", status: "CONFIRMED", label: "Confirmed", start: Z("12:00", 16), end: Z("13:00", 16) },
-      { kind: "block", status: "BLOCKED", label: "Blocked", start: Z("22:00", 16), end: Z("02:00", 17), reason_label: "Renovation" },
-    ],
-  }) as unknown as CalendarVenue;
-
-  it("SCRUM-130 lists a day's bookings and blocks with an icon, a word and the times that day, and opens the day", () => {
-    const onOpenDay = vi.fn();
-    render(<VenueRangeGrid view="week" venues={[busyWeek]} from="2026-11-09" to="2026-11-15" today="2026-11-14" onOpenDay={onOpenDay} />);
-    const sat = screen.getByRole("button", { name: "Open Orchid Hall on Sat 14 Nov" });
-    expect(sat.textContent).toContain("Booked10:00–12:00");
-    expect(sat.textContent).toContain("Held14:00–15:00");
-    expect(sat.textContent).toContain("Blocked15:30–17:00");
-    expect(sat.querySelectorAll("svg").length).toBe(3);
-    expect(screen.getByRole("button", { name: "Open Orchid Hall on Mon 9 Nov" }).textContent).toBe("Free");
-    fireEvent.click(sat);
-    expect(onOpenDay).toHaveBeenCalledWith("2026-11-14");
-    expect(screen.getByText("Sat 14 Nov").className).toContain("font-bold"); // today
-  });
-
-  it("SCRUM-130 shows at most three periods in a week cell, then how many more, and cuts one across midnight at the day's edge", () => {
-    render(<VenueRangeGrid view="week" venues={[busyWeek]} from="2026-11-16" to="2026-11-22" today="2026-11-14" onOpenDay={vi.fn()} />);
-    const mon = screen.getByRole("button", { name: "Open Orchid Hall on Mon 16 Nov" });
-    expect(mon.textContent).toContain("+1 more");
-    expect(screen.getByRole("button", { name: "Open Orchid Hall on Tue 17 Nov" }).textContent).toContain("Blocked00:00–02:00");
-  });
-
-  it("SCRUM-130 shows a month cell's busiest status as an icon and a word, and opens the day", () => {
-    const onOpenDay = vi.fn();
-    const closed = venueFixture({ id: "x", name: "Shut Room", periods: [{ kind: "closed", status: "UNAVAILABLE", label: "Unavailable", start: Z("00:00", 1), end: Z("24:00", 30) }] }) as unknown as CalendarVenue;
-    render(<VenueRangeGrid view="month" venues={[busyWeek, closed]} from="2026-11-01" to="2026-11-30" today="2026-11-14" onOpenDay={onOpenDay} />);
-    const cell = (name: string) => screen.getByRole("button", { name });
-    expect(cell("Open Orchid Hall on Sat 14 Nov: Blocked").textContent).toBe("Blocked");
-    expect(cell("Open Orchid Hall on Mon 16 Nov: Blocked").className).toContain("calendar-block");
-    expect(cell("Open Orchid Hall on Sun 1 Nov: Free").querySelector("svg")).not.toBeNull();
-    expect(cell("Open Shut Room on Sun 1 Nov: Closed").className).toContain("bg-muted");
-    fireEvent.click(cell("Open Orchid Hall on Sat 14 Nov: Blocked"));
-    expect(onOpenDay).toHaveBeenCalledWith("2026-11-14");
-  });
-
-  it("SCRUM-130 shows the week and month grids from the page", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => jsonReply(200, calendarFixture({ venues: [busyWeek] }))));
-    render(<VenueCalendar now={NOW} />);
-    await screen.findByText("Orchid Hall");
-    fireEvent.click(screen.getByRole("tab", { name: "Week" }));
-    expect(await screen.findByRole("region", { name: "Venue week from 2026-11-09 to 2026-11-15" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "Month" }));
-    await waitFor(() => expect(screen.getByRole("region", { name: "Venue month from 2026-11-01 to 2026-11-30" })).toBeTruthy());
-  });
-});
-
 describe("SCRUM-130 review gaps", () => {
   it("SCRUM-130/AC2 leaves the reason out of the banner when none was recorded", async () => {
     const flagged = { kind: "block", status: "BLOCKED", label: "Blocked", start: Z("09:00"), end: Z("11:00"), overlaps_confirmed_booking: true };
@@ -250,9 +191,4 @@ describe("SCRUM-130 review gaps", () => {
     expect(within(screen.getByRole("region", { name: "Availability details" })).queryByText("Occupied")).toBeNull();
   });
 
-  it("SCRUM-130 cuts a week chip that runs past midnight at the end of its day", () => {
-    const late = venueFixture({ periods: [{ kind: "block", status: "BLOCKED", label: "Blocked", start: Z("22:00", 16), end: Z("02:00", 17) }] }) as unknown as CalendarVenue;
-    render(<VenueRangeGrid view="week" venues={[late]} from="2026-11-16" to="2026-11-22" today="2026-11-14" onOpenDay={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Open Orchid Hall on Mon 16 Nov" }).textContent).toContain("Blocked22:00–24:00");
-  });
 });

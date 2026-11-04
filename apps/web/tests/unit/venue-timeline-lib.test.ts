@@ -4,7 +4,8 @@
 import { describe, expect, it } from "vitest";
 import type { CalendarPeriod, CalendarVenue } from "@/lib/venueCalendar";
 import {
-  affectedBlocks, blocksForDay, busyOnDay, dayStatus, daysOf, hourBounds, hourLabel, nowPct, shortDay, stepAnchor, todaySgt, viewRange, viewTitle,
+  affectedBlocks, blocksForDay, busyOnDay, dayStatus, daysOf, freeWindow, hourBounds, hourLabel, joinBlocks, nextFreeWindow, nowPct, shortDay, spanningBlocks, stepAnchor,
+  todaySgt, viewRange, viewTitle,
 } from "@/lib/venueTimeline";
 import { venueFixture } from "./venue-calendar-fixtures";
 
@@ -128,5 +129,42 @@ describe("SCRUM-130/AC2 closures that lie over confirmed bookings", () => {
       p("block", "BLOCKED", Z("09:00"), Z("10:00"), { overlaps_confirmed_booking: true }),
     ], "late");
     expect(affectedBlocks([quiet, late]).map((b) => [b.venue.id, b.start])).toEqual([["late", Z("06:00")], ["late", Z("09:00")]]);
+  });
+});
+
+describe("SCRUM-130 week view helpers (Figma 09a)", () => {
+  const day14 = [
+    p("open", "AVAILABLE", Z("08:00"), Z("10:00")),
+    p("event", "CONFIRMED", Z("10:00"), Z("12:00")),
+    p("open", "AVAILABLE", Z("12:30"), Z("22:00")),
+  ];
+
+  it("SCRUM-130 gives a day's free time as one window from its first free stretch to its last, or none when closed", () => {
+    expect(freeWindow(day14, "2026-11-14")).toEqual({ start: "08:00", end: "22:00" });
+    expect(freeWindow([p("closed", "UNAVAILABLE", Z("00:00"), Z("24:00"))], "2026-11-14")).toBeNull();
+  });
+
+  it("SCRUM-130 finds the next free stretch after a booking on the same day", () => {
+    expect(nextFreeWindow(day14, Z("12:00"))).toBe("12:30–22:00");
+    expect(nextFreeWindow(day14, Z("22:00"))).toBeNull();
+  });
+
+  it("SCRUM-130/AC2 joins the pieces of a block, keeping the conflict of any piece", () => {
+    const joined = joinBlocks([
+      p("block", "BLOCKED", Z("08:00"), Z("10:00"), { overlaps_confirmed_booking: false }),
+      p("block", "BLOCKED", Z("10:00"), Z("12:00"), { overlaps_confirmed_booking: true }),
+      p("open", "AVAILABLE", Z("12:00"), Z("13:00")),
+      p("block", "BLOCKED", Z("13:00"), Z("14:00")),
+    ]);
+    expect(joined.map((b) => [b.start, b.end, b.overlapsConfirmed])).toEqual([[Z("08:00"), Z("12:00"), true], [Z("13:00"), Z("14:00"), false]]);
+  });
+
+  it("SCRUM-130/AC2 spans a block over the days it touches, and leaves a one-day block to its day's cell", () => {
+    const days = daysOf("2026-11-09", "2026-11-15");
+    const spans = spanningBlocks(
+      [p("block", "BLOCKED", Z("08:00", 11), Z("18:00", 13)), p("block", "BLOCKED", Z("09:00", 14), Z("10:00", 14)), p("block", "BLOCKED", Z("20:00", 15), Z("02:00", 16))],
+      days,
+    );
+    expect(spans.map((s) => [s.first, s.last])).toEqual([[2, 4]]);
   });
 });

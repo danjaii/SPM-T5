@@ -16,7 +16,8 @@ import { affectedBlocks, stepAnchor, todaySgt, viewRange, type CalendarView } fr
 import { VenueCalendarLegend } from "./VenueCalendarLegend";
 import { VenueCalendarToolbar } from "./VenueCalendarToolbar";
 import { VenueDayView } from "./VenueDayTimeline";
-import { VenueRangeGrid } from "./VenueRangeGrid";
+import { VenueMonthGrid } from "./VenueMonthGrid";
+import { VenueWeekGrid } from "./VenueWeekGrid";
 
 
 // SCRUM-84/AC1, SCRUM-130 (Figma 09): the venue availability calendar. Opens on today's day view; Day, Week, Month and the date
@@ -134,12 +135,16 @@ export function VenueCalendar({
         <div aria-busy={loading} className="flex flex-col gap-4">
           {view === "day" ? (
             <VenueDayView key={from} venues={venues} date={from} now={now} />
+          ) : view === "week" ? (
+            <VenueWeekGrid venues={venues} from={from} to={to} today={today} onOpenDay={(day) => show("day", day)} />
           ) : (
-            <VenueRangeGrid view={view} venues={venues} from={from} to={to} today={today} onOpenDay={(day) => show("day", day)} />
+            <VenueMonthGrid venues={venues} from={from} to={to} today={today} onOpenDay={(day) => show("day", day)} />
           )}
-          {/* SCRUM-130/AC1 (Figma 09): what the dashed blocks are */}
+          {/* SCRUM-130/AC1 (Figma 09 and 09a): how setup and turnaround are drawn, and that they count as occupied */}
           <p className="text-sm text-muted-foreground">
-            Dashed blocks either side of each booking are the venue&apos;s setup and turnaround time. They count as occupied when checking conflicts.
+            {view === "week"
+              ? "The bar at the top of each day shows occupied hours from 08:00 to 22:00. Grey segments either side of a booking are setup and turnaround time; they count as occupied when checking conflicts. Select any period to see its details."
+              : "Dashed blocks either side of each booking are the venue's setup and turnaround time. They count as occupied when checking conflicts."}
           </p>
         </div>
       )}
