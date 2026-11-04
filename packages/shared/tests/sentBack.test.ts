@@ -58,3 +58,10 @@ describe("SCRUM-113/AC3 what changed, as staff read it", () => {
     expect(layoutIdsIn(null)).toEqual([]);
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-113/AC3 stored changes that are not readable (113-S7)", () => {
+  it.each([["text"], [[]], [42]])("113-S7: %j gives no note", (changes) => {
+    expect(sentBackNote(changes, AT)).toBeNull();
+  });
+});

@@ -119,3 +119,31 @@ describe("SCRUM-185/AC4 185-S4b the smallest capacity", () => {
     expect(parseRegistrationSettings({ ...GOOD, registration_capacity: 1 }, START).ok).toBe(true);
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-185/AC4 185-S4d settings that are empty, or only partly valid", () => {
+  it.each([["null", null], ["empty", ""]])("185-S4d: %s times are asked for", (_label, value) => {
+    expect(parseRegistrationSettings({ ...GOOD, registration_opens_at: value, registration_closes_at: value }, START)).toEqual({
+      ok: false,
+      fieldErrors: {
+        registration_opens_at: "Enter the registration opening date and time.",
+        registration_closes_at: "Enter the registration closing date and time.",
+      },
+    });
+  });
+
+  it("185-S4d: a null capacity is asked for", () => {
+    expect(parseRegistrationSettings({ ...GOOD, registration_capacity: null }, START)).toEqual({
+      ok: false,
+      fieldErrors: { registration_capacity: "Enter the registration capacity." },
+    });
+  });
+
+  it("185-S4d: a bad opening time is not reported again against a closing time that is fine by itself", () => {
+    const body = { ...GOOD, registration_opens_at: "soon", registration_closes_at: "2031-12-01T00:00:00.000Z" };
+    expect(parseRegistrationSettings(body, START)).toEqual({
+      ok: false,
+      fieldErrors: { registration_opens_at: "Enter a valid opening date and time." },
+    });
+  });
+});

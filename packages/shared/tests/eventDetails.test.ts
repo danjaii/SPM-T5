@@ -271,3 +271,77 @@ describe("SCRUM-111/AC3 parseEventDetailsInput at the edges (111-S8)", () => {
     expect(parse({ ...today, startTime: "08:00" }).ok).toBe(true);
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-111/AC3 parseEventDetailsInput: empty, spaced and over-long values (111-S7, 111-S8)", () => {
+  it.each([[null], [undefined]])("111-S7 a name of %j is asked for", (name) => {
+    expect(parse({ name })).toMatchObject({ ok: false, fieldErrors: { name: "Enter the event name." } });
+  });
+
+  it("111-S7 a null attendance is asked for, not called invalid", () => {
+    expect(parse({ expectedAttendance: null })).toMatchObject({ fieldErrors: { expectedAttendance: "Enter the expected attendance." } });
+  });
+
+  it("111-S7 a body that is not an object asks for the form", () => {
+    expect(parseEventDetailsInput(null, current, NOW)).toEqual({ ok: false, noChanges: false, fieldErrors: { form: "Fill in the event details." } });
+  });
+
+  it("111-S8 spaces around text, dates and times are ignored", () => {
+    const result = parse({ description: "  New text  ", date: " 2026-12-13 ", startTime: " 10:00 ", endDate: " 2026-12-13 ", endTime: " 18:00 " });
+    expect(result).toMatchObject({ ok: true, data: { changes: { description: { to: "New text" } } } });
+  });
+
+  it("111-S8 a malformed end date and end time each say so", () => {
+    expect(parse({ endDate: "12/12/2026", endTime: "5pm" })).toMatchObject({
+      fieldErrors: { endDate: "Enter the end date as YYYY-MM-DD.", endTime: "Enter the end time as HH:MM." },
+    });
+  });
+
+  it.each([
+    ["description", "description"],
+    ["purpose", "purpose"],
+    ["accessibilityRequirements", "accessibility needs"],
+    ["venueRequirements", "venue requirements"],
+    ["equipmentRequirements", "equipment requirements"],
+  ])("111-S8 %s over the limit names it", (field, label) => {
+    expect(parse({ [field]: "x".repeat(2001) })).toMatchObject({ fieldErrors: { [field]: `The ${label} must be 2000 characters or fewer.` } });
+  });
+});
+
+describe("SCRUM-111/AC2 the edit form's values when details are missing (111-S4, 111-S10)", () => {
+  it("111-S4 details with no value show as empty boxes", () => {
+    const empty = {
+      ...current,
+      description: null,
+      purpose: null,
+      event_category_id: null,
+      preferred_start_datetime: null,
+      preferred_end_datetime: null,
+      expected_attendance: null,
+      preferred_room_layout_id: null,
+      accessibility_requirements: null,
+      venue_requirements: null,
+      equipment_requirements_notes: null,
+    };
+    expect(eventDetailsFormValues(empty)).toEqual({
+      name: "Tech Summit",
+      description: "",
+      purpose: "",
+      categoryId: "",
+      date: "",
+      startTime: "",
+      endDate: "",
+      endTime: "",
+      expectedAttendance: "",
+      roomLayoutId: "",
+      accessibilityRequirements: "",
+      venueRequirements: "",
+      equipmentRequirements: "",
+    });
+  });
+
+  it("111-S10 a form with a time but no date has no stored time, and blank text is stored as none", () => {
+    const values = { ...eventDetailsFormValues(current), date: "", description: "  Keep  ", purpose: "   " };
+    expect(eventDetailsFromFormValues(values)).toMatchObject({ preferred_start_datetime: null, description: "Keep", purpose: null });
+  });
+});

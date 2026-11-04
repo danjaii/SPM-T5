@@ -41,3 +41,14 @@ describe("SCRUM-28/AC6 file size", () => {
     expect(attachmentProblem({ type: "application/pdf", size: ATTACHMENT_MAX_BYTES + 1 })).toBe(ATTACHMENT_TOO_LARGE);
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-28/AC4,AC5 file types close to a supported one", () => {
+  it("accepts an image type with a one-letter name", () => {
+    expect(attachmentProblem({ type: "image/x", size: 1 })).toBeUndefined();
+  });
+
+  it.each(["imagery/png", "video/mp4x", "text/plainer"])("refuses %s", (type) => {
+    expect(attachmentProblem({ type, size: 1 })).toBe(ATTACHMENT_TYPE_REFUSED);
+  });
+});
