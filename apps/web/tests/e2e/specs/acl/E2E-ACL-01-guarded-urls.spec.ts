@@ -1,5 +1,6 @@
 import type { Role } from "@spm-t5/shared";
 import { PRIMARY_BY_ROLE } from "../../fixtures/accounts";
+import { WEB_URL } from "../../fixtures/env";
 import { expect, test } from "../../fixtures/test";
 import { tc } from "../../fixtures/tc";
 
@@ -22,7 +23,7 @@ const OWNERS: Record<string, Role[]> = {
 const ROLES = Object.keys(PRIMARY_BY_ROLE) as Role[];
 const t = tc("E2E-ACL-01");
 
-test.describe.configure({ timeout: 240_000 }); // 7 roles x ~17 page loads, and `next dev` compiles a page on its first visit
+test.describe.configure({ timeout: 240_000 }); // 7 roles, each with 3 real page loads; `next dev` compiles a page on its first visit
 
 test(t.title, { annotation: t.annotation }, async ({ as }) => {
   for (const role of ROLES) {
@@ -33,11 +34,19 @@ test(t.title, { annotation: t.annotation }, async ({ as }) => {
         ...Object.entries(OWNERS).filter(([, owners]) => !owners.includes(role)).map(([path]) => path),
         ...ROLES.filter((other) => other !== role).map((other) => `/dashboard/${other}`),
       ];
+      // Every refused URL: the guard answers with a redirect to the access-denied page. Asked with the role's own session and
+      // without following the redirect, which is the same decision a browser would get, minus loading a full page each time
+      // (`next dev` takes seconds per page, and 7 roles x 15 pages ran past the test timeout).
       for (const path of refused) {
-        await page.goto(path);
-        await expect(page, `${role} opening ${path}`).toHaveURL(/\/access-denied/);
-        await expect(page.getByRole("heading", { name: "You don't have access to this page" })).toBeVisible();
+        const res = await page.request.get(new URL(path, WEB_URL).href, { maxRedirects: 0 });
+        expect(res.status(), `${role} requesting ${path}`).toBeGreaterThanOrEqual(300);
+        expect(res.status(), `${role} requesting ${path}`).toBeLessThan(400);
+        expect(res.headers()["location"] ?? "", `${role} requesting ${path}`).toMatch(/\/access-denied/);
       }
+      // ...and what the person actually sees, once per role in a real browser navigation
+      await page.goto(refused[0]);
+      await expect(page, `${role} opening ${refused[0]}`).toHaveURL(/\/access-denied/);
+      await expect(page.getByRole("heading", { name: "You don't have access to this page" })).toBeVisible();
 
       // positive controls: a guard that refused everyone would also pass the loop above
       await page.goto(`/dashboard/${role}`);

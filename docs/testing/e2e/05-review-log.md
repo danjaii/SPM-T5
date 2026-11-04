@@ -15,7 +15,7 @@ How rows get here: the AI adds a row when it writes a test and records the self-
 
 | Test ID | Drafted by | Reviewer | Date | AI self-checks | Human checks (H1-H4) | Changes made in review |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| E2E-ACL-01 | AI (Claude Code) | | | Passed locally (2026-11-04). Negative cases: every other role's guarded page and dashboard is refused. Positive controls: each role opens its own dashboard and a page it owns. Owners table is written out in the spec, not imported from the app. Test-the-test: see T1. | | |
+| E2E-ACL-01 | AI (Claude Code) | | | Passed locally (2026-11-04) on a freshly reset database. Negative cases: every other role's guarded page and dashboard is refused (redirect checked for each, visible "no access" page once per role). Positive controls: each role opens its own dashboard and a page it owns. Owners table is written out in the spec, not imported from the app. Test-the-test: see T1 and T2. | | First version loaded every refused page in the browser and timed out (240 s) once dashboards rendered fully; revised to check the guard's redirect per URL plus one real navigation per role. |
 
 ## Test-the-test records
 
@@ -25,3 +25,4 @@ committed, and is reverted with `git checkout`.
 | Ref | Test ID | Date | Break made | Result | Reverted |
 | ----- | ----- | ----- | ----- | ----- | ----- |
 | T1 | E2E-ACL-01 | 2026-11-04 | Deleted the `/safety-checks` entry from `ROLE_ONLY` in `apps/web/src/lib/roleAccess.ts`, so nobody is refused that page | **Failed as it should**: "event_organiser opening /safety-checks ... Expected /access-denied, Received http://localhost:3000/safety-checks" | Yes, `git checkout apps/web/src/lib/roleAccess.ts`; `git status` clean |
+| T2 | E2E-ACL-01 (revised version) | 2026-11-04 | Same break as T1, repeated because the test was rewritten after T1 | **Failed as it should**: "event_organiser requesting /safety-checks ... Expected >= 300, Received 200" | Yes, `git checkout apps/web/src/lib/roleAccess.ts`; only the spec file remained modified |
