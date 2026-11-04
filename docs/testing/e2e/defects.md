@@ -1,0 +1,12 @@
+# E2E defects
+
+Problems the E2E work found in the product, or gaps it could not test. Maintained by hand; `scripts/e2e` counts the **Open**
+rows for the metrics. A defect is never fixed by changing the test: the test keeps the assertion the acceptance criterion
+asks for and is marked as expected to fail (`test.fail()`), so it flags itself the day the product or the spec changes.
+
+Severity here is the author's proposal from what was observed, for the team to confirm.
+
+| ID | Test ID | Story | Description | Severity (proposed) | Status |
+| ----- | ----- | ----- | ----- | ----- | ----- |
+| D-001 | none (no test can be written) | SCRUM-97, SCRUM-108 (Week 7 change 4) | **Tentative hold expiry is not built.** There is no expiry column, job or notification in the database or services, and no screen creates a hold. The web app only shows a countdown if a booking carries `holdExpiresAt`, which no service sends (`apps/web/src/lib/holds.ts`). Expected by the change: an expired hold releases the venue, the coordinator is notified before or at expiry, and an expired hold is not a booking. Re-checked on `main` on 2026-11-04: no migration, branch or open PR for it. Not recorded in `docs/scope-decisions.md`. | High (a mandatory customer change is missing) | Open: reported to the team; a hand-over prompt to build it in a separate branch was written. Add `E2E-HOLD-01` when it merges |
+| D-002 | E2E-ACL-05 | SCRUM-98/AC6 (98-S26, 98-S27) | **An unassigned coordinator gets 404, not the 403 the spec says.** `POST /venue-bookings` and `GET /events/:id/venue-bookings` by a coordinator the event is not assigned to answer 404. Since SCRUM-156 (migration 59) a coordinator reads only their own events, so for anyone else the event looks like it does not exist. Access is refused and nothing is created or leaked, so this is a spec-versus-behaviour mismatch, not a data exposure. The unit tests (`submitBooking.test.ts`, `eventVenueBookings.test.ts`) use in-memory fakes that bypass the database rule, which is why they still pass with 403. Decision needed: update spec 98-S26/S27 to 404 (consistent with SCRUM-156's own AC2 "not-found or forbidden"), or make venue-service answer 403. | Low | Open: needs a team decision |

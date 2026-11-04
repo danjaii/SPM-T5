@@ -69,8 +69,9 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-AUTH-05 | The shared sidebar shows each role's own items and no others | SCRUM-121/AC1, AC3 | P2 | N | 1 | |
 | E2E-AUTH-06 | Sign-in works at a 375 px wide screen | SCRUM-177/AC8 | P2 | B | 1 | |
 | E2E-ACL-01 | For each role, opening a URL guarded for another role lands on "You don't have access to this page" | SCRUM-122/AC3, 77-AC7, 78-AC9 | P0 | A | 1 | C5 |
-| E2E-ACL-02 | Calling a service with the wrong role's cookie gets 403, or rows that row-level security hides: Lead queue, booking decision, safety decision, equipment reservation, venue-booking list | 77-AC7, 78-AC9, 98-S26-S28, 19-S13, 39-S7, 156-S1 | P0 | A | 1 | C5 |
+| E2E-ACL-02 | Calling a service with the wrong role's cookie gets 403 (and no session gets 401), and nothing changes: Lead queue and assign, booking approve and reject, safety decision, venue bookings of an event, equipment reservation | 77-AC7, 78-AC9, 98-S28, 19-S13, 39-S7, SCRUM-99/AC7 | P0 | A | 1 | C5 |
 | E2E-ACL-03 | A coordinator cannot open or act on an event assigned to another coordinator | 156-S1, 156-S8, 102-S21 | P1 | A | 5 | C5 |
+| E2E-ACL-05 | A coordinator the event is not assigned to cannot request a venue for it or list its bookings: 403 and no booking. **Expected to fail**: the real stack answers 404 (defect D-002) | 98-S26, 98-S27 | P1 | A | 12 | C3, C5 |
 | E2E-ACL-04 | A coordinator's page shows other users' names but no contact details | SCRUM-154/AC3-AC5 | P2 | A | 1 | |
 
 ### EVT, ASSIGN: requests and assignment
@@ -145,8 +146,9 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-NOTIF-02 | One action sends one notification to the right user and none to others: assignment, approval, booking decision, venue flag | SCRUM-47, 172, 106-S5 | P1 | A | 20 | |
 | E2E-NOTIF-03 | The replacement-confirmed notice reaches the organiser and the affected attendees, not a withdrawn one | SCRUM-185/AC3, SCRUM-172 | P2 | A | 20 | C2 |
 
-**Counts** (counted from the tables above, lean scope): 58 cases. Priority: 8 P0, 38 P1, 12 P2. Type: 31 normal, 5 failure,
-6 boundary, 8 conflict, 8 access-control. The metrics script will recompute these from the catalogue file, which becomes the source.
+**Counts** (counted from the tables above, lean scope): 59 cases. Priority: 8 P0, 39 P1, 12 P2. Type: 31 normal, 5 failure,
+6 boundary, 8 conflict, 9 access-control. (E2E-ACL-05 was added during writing, when the unassigned-coordinator check turned out
+to contradict spec 98; see defect D-002.) The metrics script will recompute these from the catalogue file, which becomes the source.
 Week 7 changes with at least one case: C1, C2, C3, C5, C6. **C4 has no case (not built).** The number of features covered
 out of 20 is computed by the script from the Feat column; I have not hand-counted it.
 

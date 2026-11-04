@@ -110,12 +110,13 @@ export class TestData {
   }
 
   /**
-   * An event, organised by `organiser` and assigned to `coordinator`, in the given status (default approved). Give `day`,
+   * An event, organised by `organiser` and assigned to `coordinator` (null: not assigned yet), in the given status (default
+   * approved). Give `day`,
    * `start` and `end` (Singapore time) for an event that has a date: equipment reservation lists only events that have not
    * started and pre-fills the form from the event's times.
    */
-  async event(opts: { organiser?: Persona; coordinator?: Persona; status?: string; attendance?: number; label?: string; day?: string; start?: string; end?: string } = {}): Promise<EventRow> {
-    const [organiser, coordinator] = await Promise.all([this.idOf(opts.organiser ?? "organiser"), this.idOf(opts.coordinator ?? "coordinator")]);
+  async event(opts: { organiser?: Persona; coordinator?: Persona | null; status?: string; attendance?: number; label?: string; day?: string; start?: string; end?: string } = {}): Promise<EventRow> {
+    const [organiser, coordinator] = await Promise.all([this.idOf(opts.organiser ?? "organiser"), opts.coordinator === null ? null : this.idOf(opts.coordinator ?? "coordinator")]);
     const event = await this.insert<EventRow>("events", {
       name: this.name(opts.label ?? "Event"),
       organiser_id: organiser,

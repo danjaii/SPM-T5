@@ -54,8 +54,9 @@ export const CATALOGUE: CaseDef[] = [
   c("E2E-AUTH-05", "sidebar shows each role its own items", "The shared sidebar shows each role's own items and no others.", ["SCRUM-121/AC1", "SCRUM-121/AC3"], "P2", N, [1]),
   c("E2E-AUTH-06", "sign-in works at 375 px", "Sign-in works at a 375 px wide screen.", ["SCRUM-177/AC8"], "P2", B, [1]),
   c("E2E-ACL-01", "each role is refused another role's guarded URL", "For each role, opening a URL guarded for another role lands on the access-denied page.", ["SCRUM-122/AC3", "SCRUM-77-AC7", "SCRUM-78-AC9"], "P0", A, [1], ["C5"]),
-  c("E2E-ACL-02", "wrong-role API calls are refused or see no rows", "Calling a service with the wrong role's cookie gets 403, or rows that row-level security hides.", ["SCRUM-77-AC7", "SCRUM-78-AC9", "98-S26", "98-S27", "98-S28", "19-S13", "39-S7", "156-S1"], "P0", A, [1], ["C5"]),
+  c("E2E-ACL-02", "wrong-role API calls are refused or see no rows", "Calling a service with the wrong role's cookie gets 403, or rows that row-level security hides.", ["SCRUM-77-AC7", "SCRUM-78-AC9", "98-S28", "19-S13", "39-S7", "SCRUM-99/AC7"], "P0", A, [1], ["C5"]),
   c("E2E-ACL-03", "a coordinator cannot reach another coordinator's event", "A coordinator cannot open or act on an event assigned to another coordinator.", ["156-S1", "156-S8", "102-S21"], "P1", A, [5], ["C5"]),
+  c("E2E-ACL-05", "an unassigned coordinator is refused with 403 for another coordinator's event bookings", "A coordinator the event is not assigned to cannot request a venue for it or list its bookings: 403 and no booking (spec 98). Expected to fail while defect D-002 is open: the real stack answers 404 since SCRUM-156 hides the event.", ["98-S26", "98-S27"], "P1", A, [12], ["C3", "C5"]),
   c("E2E-ACL-04", "other users' contact details stay private", "A coordinator's page shows other users' names but no contact details.", ["SCRUM-154/AC3", "SCRUM-154/AC4", "SCRUM-154/AC5"], "P2", A, [1]),
 
   // EVT, ASSIGN
