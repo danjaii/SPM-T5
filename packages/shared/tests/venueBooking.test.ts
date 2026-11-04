@@ -5,6 +5,7 @@ import {
   exceedsCapacity,
   HOLDING_DB_STATUSES,
   isHoldingDbStatus,
+  parseCancellationInput,
   parseRejectionInput,
   parseVenueBookingInput,
   periodsOverlap,
@@ -283,5 +284,45 @@ describe("SCRUM-32 32-S5 parseVenueBookingInput at the edges", () => {
     const now = sgtToUtc("2026-11-14", "09:00");
     const input = { venueId: "venue-1", date: "2026-11-14", startTime: "09:00", endTime: "17:00" };
     expect(parseVenueBookingInput(input, now).ok).toBe(true);
+  });
+});
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-98/AC2 parseVenueBookingInput: bodies and values that are not what it expects (98-S12)", () => {
+  const now = new Date("2026-10-01T00:00:00.000Z");
+  const valid = { venueId: "venue-1", date: "2026-11-14", startTime: "09:00", endTime: "17:00" };
+
+  it("98-S12 requirements that are not text are refused, not a crash", () => {
+    expect(parseVenueBookingInput({ ...valid, venueRequirements: 123 }, now)).toEqual({
+      ok: false,
+      fieldErrors: { venueRequirements: "The venue requirements must be 500 characters or fewer." },
+    });
+  });
+
+  it("98-S12 a bad attendance is reported along with the missing fields", () => {
+    const result = parseVenueBookingInput({ expectedAttendance: 0 }, now);
+    expect(result).toMatchObject({ ok: false, fieldErrors: { expectedAttendance: expect.any(String), date: "Enter a date." } });
+  });
+
+  it("98-S12 a null body is refused, not a crash", () => {
+    expect(parseVenueBookingInput(null, now)).toMatchObject({ ok: false, fieldErrors: { venueId: "Choose a venue." } });
+  });
+
+  it("98-S12 a body that is not an object is refused on the form", () => {
+    expect(parseVenueBookingInput("text", now)).toMatchObject({ ok: false, fieldErrors: { form: expect.any(String) } });
+  });
+});
+
+describe("SCRUM-102 parseCancellationInput: a body that is not an object", () => {
+  it.each([[null], ["text"], [42]])("asks for a reason when the body is %j", (body) => {
+    expect(parseCancellationInput(body)).toEqual({ ok: false, fieldErrors: { reason: "Enter a reason for cancelling." } });
+  });
+});
+
+describe("SCRUM-40 parseRejectionInput: a suggestion with a value that is not text (40-S2)", () => {
+  it("40-S2 refuses it on that field, not a crash", () => {
+    const suggestion = { venueId: 123, date: "2030-01-15", startTime: "09:00", endTime: "17:00" };
+    const result = parseRejectionInput({ reason: "Full", suggestion }, new Date("2026-10-01T00:00:00.000Z"));
+    expect(result).toMatchObject({ ok: false, fieldErrors: { "suggestion.venueId": expect.any(String) } });
   });
 });

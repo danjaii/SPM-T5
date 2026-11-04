@@ -156,3 +156,28 @@ describe("SCRUM-182/AC1 optional text exactly at the limit (182-S1)", () => {
     expect(parseEquipmentInput(atLimit).ok).toBe(true);
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-182/AC4 what each refusal says (182-S4)", () => {
+  it("182-S4: a null body asks for the name, not a crash", () => {
+    expect(parseEquipmentInput(null)).toMatchObject({ ok: false, fieldErrors: { name: "Enter the equipment's name." } });
+  });
+
+  it("182-S4: text over the limit names the field and its limit", () => {
+    const parsed = parseEquipmentInput(complete({
+      name: "x".repeat(EQUIPMENT_NAME_MAX_LENGTH + 1),
+      type: "x".repeat(EQUIPMENT_TYPE_MAX_LENGTH + 1),
+      description: "x".repeat(EQUIPMENT_DESCRIPTION_MAX_LENGTH + 1),
+      location: "x".repeat(EQUIPMENT_LOCATION_MAX_LENGTH + 1),
+    }));
+    expect(parsed).toEqual({
+      ok: false,
+      fieldErrors: {
+        name: `The name can be at most ${EQUIPMENT_NAME_MAX_LENGTH} characters.`,
+        type: `The type can be at most ${EQUIPMENT_TYPE_MAX_LENGTH} characters.`,
+        description: `The description can be at most ${EQUIPMENT_DESCRIPTION_MAX_LENGTH} characters.`,
+        location: `The location can be at most ${EQUIPMENT_LOCATION_MAX_LENGTH} characters.`,
+      },
+    });
+  });
+});
