@@ -103,7 +103,7 @@ pnpm run lint:all                            # apps/web uses ESLint flat config 
 pnpm --filter @spm-t5/web run test:e2e        # Playwright
 pnpm run traceability                        # regenerate docs/traceability.md (runs every test; local Supabase up)
 pnpm run test:scripts                        # tests for scripts/traceability
-pnpm run test:mutation                       # mutation testing on packages/shared, by hand and not in CI (about 25 min); see docs/testing/mutation-testing.md
+pnpm run test:mutation                       # mutation testing on packages/shared, by hand and not in CI (up to an hour); see docs/testing/mutation-testing.md
 ```
 
 Local full stack: create a root `.env` (variables listed in README → Getting started), then `supabase start` (the Supabase CLI stack runs
