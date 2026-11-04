@@ -55,6 +55,8 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
       "registration_status_changed",
       "event_cancelled",
       "venue_replaced",
+      // SCRUM-185: written by migration 80
+      "venue_block_lifted",
       // SCRUM-185/AC3: written by migration 83
       "arrangements_reconfirmed",
     ]);

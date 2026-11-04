@@ -5,6 +5,7 @@ import { formatShortSgt, type UnavailabilityBlockView } from "@spm-t5/shared";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { LiftVenueBlock } from "./LiftVenueBlock";
 import { VenueActions } from "./VenueActions";
 
 export interface VenueDetails {
@@ -176,6 +177,16 @@ export function VenueDetail({ venue }: { venue: VenueDetails }) {
                       <span className="text-muted-foreground">{`Recorded by ${b.recordedBy} on ${formatShortSgt(new Date(b.recordedAt))}`}</span>
                     )}
                   </span>
+                  {/* SCRUM-185/AC2: Venue Staff can lift the block; nobody else is offered it */}
+                  {venue.can_mark_unavailable && (
+                    <span className="ml-auto shrink-0">
+                      <LiftVenueBlock
+                        venueId={venue.id}
+                        blockId={b.id}
+                        period={`${formatShortSgt(new Date(b.start))} to ${formatShortSgt(new Date(b.end))}`}
+                      />
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
