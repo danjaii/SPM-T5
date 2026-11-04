@@ -144,6 +144,10 @@ export const acceptVenueSuggestion = (id: string, overrideReason?: string) =>
 export const setHoldExpiry = (id: string, expiresAt: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/hold-expiry`, { expiresAt }, "PUT");
 
+/** SCRUM-108/AC1: the event's coordinator sets how many minutes before a hold expires they are warned. */
+export const setHoldWarning = (id: string, minutes: number) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/hold-warning`, { minutes }, "PUT");
+
 /** SCRUM-38: Venue Staff approve a pending request. */
 export const approveVenueBooking = (id: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/approve`);
@@ -178,6 +182,8 @@ export interface EventVenueBookingItem extends VenueBookingChainItem {
   sentBackForReview?: boolean;
   /** SCRUM-133/AC2, AC3: when a hold on this venue lapses (ISO). venue-service does not send it yet, so no booking is a hold today. */
   holdExpiresAt?: string | null;
+  /** SCRUM-108: minutes before the expiry that the coordinator is warned; absent means the 24-hour default. */
+  holdWarningMinutes?: number;
   /** SCRUM-107 (107-S3): "Replaced by Lotus Room" / "Replaces Orchid Hall". */
   replacedBy?: ReplacementRefDto | null;
   replaces?: ReplacementRefDto | null;

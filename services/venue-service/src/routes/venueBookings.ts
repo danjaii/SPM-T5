@@ -9,6 +9,7 @@ import type { VenueSearchReader } from "../readers/venueSearchReader";
 import { DecisionService } from "../services/decisionService";
 import { HoldService } from "../services/holdService";
 import type { HoldExpiryWriter } from "../readers/holdExpiryWriter";
+import type { HoldWarningWriter } from "../readers/holdWarningWriter";
 import { ReplacementService } from "../services/replacementService";
 import { TrackingService } from "../services/trackingService";
 
@@ -18,6 +19,7 @@ export function venueBookingRoutes(
   now: () => Date,
   searchFor: (accessToken: string) => VenueSearchReader,
   holdsFor: (accessToken: string) => HoldExpiryWriter,
+  warningsFor: (accessToken: string) => HoldWarningWriter,
 ) {
   const router = Router();
 
@@ -31,7 +33,7 @@ export function venueBookingRoutes(
       service: new BookingService({ ...ports, now }),
       tracking: new TrackingService({ ...ports, now }),
       decisions: new DecisionService({ ...ports, now }),
-      holds: new HoldService({ bookings: ports.bookings, holds: () => holdsFor(user.token), now }),
+      holds: new HoldService({ bookings: ports.bookings, holds: () => holdsFor(user.token), warnings: () => warningsFor(user.token), now }),
       // the search reader is only built when a replacement is asked for, so other requests never touch it
       replacements: new ReplacementService({
         ...ports,
@@ -153,6 +155,16 @@ export function venueBookingRoutes(
       const { caller, holds } = await context(res.locals.user as SessionUser);
       const saved = await holds.setExpiry(caller, String(req.params.id), req.body);
       res.json({ id: saved.id, status: saved.status, holdExpiresAt: saved.holdExpiresAt.toISOString() });
+    }),
+  );
+
+  // SCRUM-108/AC1: the event's coordinator sets the warning time of a hold (body { minutes }).
+  router.put(
+    "/venue-bookings/:id/hold-warning",
+    asyncHandler(async (req, res) => {
+      const { caller, holds } = await context(res.locals.user as SessionUser);
+      const saved = await holds.setWarning(caller, String(req.params.id), req.body);
+      res.json({ id: saved.id, status: saved.status, holdWarningMinutes: saved.holdWarningMinutes });
     }),
   );
 

@@ -74,6 +74,8 @@ export interface BookingDto {
   status: VenueBookingStatus | "EXPIRED" | undefined;
   /** SCRUM-97: when the hold expires or expired; null when it has no expiry. */
   holdExpiresAt: string | null;
+  /** SCRUM-108: how many minutes before the expiry the coordinator is warned; absent when the record has none. */
+  holdWarningMinutes?: number;
   date: string;
   startTime: string;
   endTime: string;
@@ -101,6 +103,7 @@ export function toBookingDto(b: BookingRecord, now: Date = new Date()): BookingD
     venueId: b.venueId,
     status: apiStatusAt(b, now),
     holdExpiresAt: b.holdExpiresAt ? b.holdExpiresAt.toISOString() : null,
+    ...(b.holdWarningMinutes != null && { holdWarningMinutes: b.holdWarningMinutes }),
     date: start.date,
     startTime: start.time,
     endTime: utcToSgt(b.end).time,
@@ -168,6 +171,8 @@ export interface BookingListItem {
   status: VenueBookingStatus | "EXPIRED" | undefined;
   /** SCRUM-97: when the hold expires or expired; null when it has no expiry. */
   holdExpiresAt: string | null;
+  /** SCRUM-108: how many minutes before the expiry the coordinator is warned; absent when the record has none. */
+  holdWarningMinutes?: number;
   /** Only for APPROVED and REJECTED (33-S1). */
   decidedAt: string | null;
   submittedAt: string;
@@ -190,6 +195,7 @@ export function toBookingListItem(b: BookingRecord, venueName: string, flags: Fl
     endTime: utcToSgt(b.end).time,
     status,
     holdExpiresAt: b.holdExpiresAt ? b.holdExpiresAt.toISOString() : null,
+    ...(b.holdWarningMinutes != null && { holdWarningMinutes: b.holdWarningMinutes }),
     decidedAt: decided ? b.reviewedAt!.toISOString() : null,
     submittedAt: b.createdAt.toISOString(),
     flags,

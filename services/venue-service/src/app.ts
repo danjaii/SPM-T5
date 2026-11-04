@@ -3,6 +3,7 @@ import { errorHandler } from "./middlewares/errors";
 import { requireSession } from "./middlewares/session";
 import type { BookingRepository } from "./repositories/bookingRepository";
 import { SupabaseHoldExpiryWriter, type HoldExpiryWriter } from "./readers/holdExpiryWriter";
+import { SupabaseHoldWarningWriter, type HoldWarningWriter } from "./readers/holdWarningWriter";
 import type { VenueTimingWriter } from "./readers/venueTimingWriter";
 import { SupabaseVenueSearchReader, type VenueSearchReader } from "./readers/venueSearchReader";
 import type { VenueCalendarReader } from "./readers/venueCalendarReader";
@@ -35,6 +36,8 @@ export interface AppOptions {
   venueUnavailability?: (accessToken: string) => VenueUnavailabilityStore;
   /** Where a hold's expiry is saved (SCRUM-97); tests pass a fake. Defaults to the set_hold_expiry function as the caller. */
   holdExpiry?: (accessToken: string) => HoldExpiryWriter;
+  /** Where a hold's warning time is saved (SCRUM-108); tests pass a fake. Defaults to the set_hold_warning function as the caller. */
+  holdWarning?: (accessToken: string) => HoldWarningWriter;
   /** Where a new venue is saved (SCRUM-57); tests pass a fake. Defaults to the create_venue function as the caller. */
   venueCatalogue?: (accessToken: string) => VenueCatalogueWriter;
   /** What the venue edit reads (SCRUM-58): the form's values and the bookings a capacity cut is checked against; tests pass a fake. */
@@ -83,7 +86,7 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/layout-types", layoutTypeRoutes(deps, options.layoutTypes));
 
   // Everything below needs a signed-in caller (DR2: 401). Routes are added as each story lands.
-  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor, options.holdExpiry ?? ((token: string) => new SupabaseHoldExpiryWriter(deps.forUser(token)))), bookingQueueRoutes(portsFor, now), suitabilityRoutes(portsFor));
+  app.use(requireSession(deps), venueBookingRoutes(portsFor, now, searchFor, options.holdExpiry ?? ((token: string) => new SupabaseHoldExpiryWriter(deps.forUser(token))), options.holdWarning ?? ((token: string) => new SupabaseHoldWarningWriter(deps.forUser(token)))), bookingQueueRoutes(portsFor, now), suitabilityRoutes(portsFor));
 
   app.use(errorHandler);
   return app;
