@@ -22,6 +22,11 @@ export interface VenueUnavailabilityStore {
    * member of staff who made each block; coordinators do not get it.
    */
   list(venueId: string, withRecorder: boolean): Promise<UnavailabilityBlockRow[]>;
+  /**
+   * SCRUM-185/AC2: removes a block of the venue. The database clears the flags it raised and tells each affected booking's
+   * assigned coordinator, in the same transaction. 404 when the block is not this venue's.
+   */
+  lift(venueId: string, blockId: string): Promise<{ flagsCleared: number; notified: number }>;
 }
 
 const COLUMNS = "id, start_datetime, end_datetime, reason, notes, created_at";
@@ -71,6 +76,19 @@ export class SupabaseVenueUnavailabilityStore implements VenueUnavailabilityStor
       .maybeSingle();
     if (readError || !row) throw new Error("Could not read back the unavailability.", { cause: readError });
     return { block: toRow(row as unknown as Row), affectedBookings };
+  }
+
+  async lift(venueId: string, blockId: string): Promise<{ flagsCleared: number; notified: number }> {
+    const { data, error } = await this.db.rpc("lift_venue_unavailability", { p_venue_id: venueId, p_block_id: blockId });
+    if (error) {
+      if (error.code === "42501") throw forbidden("Only venue staff can lift an unavailable period.");
+      // P0002: no such venue or block (or not this venue's); 22P02: the id is not a uuid at all
+      if (error.code === "P0002" || error.code === "22P02") throw notFound("Unavailable period not found.");
+      throw new Error("Could not lift the unavailable period.", { cause: error });
+    }
+    const result = (data as { flags_cleared: number; notified: number }[] | null)?.[0];
+    if (!result) throw new Error("Could not lift the unavailable period.");
+    return { flagsCleared: Number(result.flags_cleared), notified: Number(result.notified) };
   }
 
   async list(venueId: string, withRecorder: boolean): Promise<UnavailabilityBlockRow[]> {
