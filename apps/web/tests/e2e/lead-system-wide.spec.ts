@@ -78,7 +78,8 @@ async function signInAsLead(page: Page) {
   await page.getByRole("combobox", { name: "Continue as" }).click();
   await page.getByRole("option", { name: "Event Coordinator Lead", exact: true }).click();
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/event_coordinator_lead$/);
+  // SCRUM-188/AC1: the Lead's home is the unassigned queue
+  await expect(page).toHaveURL(/\/lead\/queue$/);
 }
 
 test.describe("SCRUM-184 the Lead works across every coordinator", () => {

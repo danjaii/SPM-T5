@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { coordinatorClash, isClosedEventStatus, totalAttendance, type CoordinatorClash, type CoordinatorEventSlot } from "@spm-t5/shared";
+import { CLOSED_EVENT_STATUSES, coordinatorClash, isClosedEventStatus, totalAttendance, type CoordinatorClash, type CoordinatorEventSlot } from "@spm-t5/shared";
 import type { SupabaseDeps } from "../supabase";
 import { requireLead } from "../middlewares/lead";
 import { requireSession, type SessionUser } from "../middlewares/session";
@@ -161,6 +161,28 @@ export function leadRoutes(deps: SupabaseDeps) {
     if (error) {
       console.error("lead_coordinator_events failed:", error.message);
       return res.status(500).json({ error: "We couldn't load this coordinator's events. Please try again." });
+    }
+    return res.json(data ?? []);
+  });
+
+  // SCRUM-189/AC1, AC2: every event with a coordinator that is not closed, earliest first. RLS (events_select_lead_team,
+  // migration 81) already limits a Lead to assigned, non-draft events; "closed" is the same rule as the workload counts.
+  router.get("/events", async (_req, res) => {
+    const { token } = res.locals.user as SessionUser;
+    const { data, error } = await deps
+      .forUser(token)
+      .from("events")
+      .select(
+        "id, name, status, preferred_start_datetime, preferred_end_datetime, expected_attendance, " +
+        "coordinator:assigned_coordinator_id(id, full_name)",
+      )
+      .not("assigned_coordinator_id", "is", null)
+      .not("status", "in", `(${CLOSED_EVENT_STATUSES.join(",")})`)
+      .order("preferred_start_datetime", { ascending: true, nullsFirst: false })
+      .order("name");
+    if (error) {
+      console.error("lead active events failed:", error.message);
+      return res.status(500).json({ error: "We couldn't load the active events. Please try again." });
     }
     return res.json(data ?? []);
   });

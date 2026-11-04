@@ -71,7 +71,8 @@ describe("SCRUM-186/AC1 the frame's own parts", () => {
 describe("SCRUM-186/AC2 sidebar pages have no back link", () => {
   it.each(SIDEBAR)("$label ($href)", ({ file }) => {
     const page = source(file);
-    expect(page).not.toMatch(/<BackLink|back=\{|>\s*(?:←\s*)?Back to /);
+    // \b so a <Suspense fallback={...}> is not taken for PageFrame's back prop
+    expect(page).not.toMatch(/<BackLink|\bback=\{|>\s*(?:←\s*)?Back to /);
   });
 });
 
