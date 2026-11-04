@@ -164,7 +164,7 @@ describe("SCRUM-78 — Confirm the assignment (POST /lead/events/:id/assign)", (
     // AC6: closed
     ["SCRUM-78/AC6", "CL001", 409, "This event is closed, so its coordinator can't be changed."],
     // AC7 / BR4: not one of the Lead's active coordinators
-    ["SCRUM-78/AC7", "CL003", 422, "Choose one of your active coordinators."],
+    ["SCRUM-78/AC7", "CL003", 422, "Choose an active coordinator."],
     ["SCRUM-78", "P0002", 404, "Event not found."],
     // AC9: the database also refuses anyone who isn't a Lead
     ["SCRUM-78/AC9", "42501", 403, "Only an Event Coordinator Lead can do this."],

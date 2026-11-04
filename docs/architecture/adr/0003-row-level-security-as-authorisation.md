@@ -78,7 +78,8 @@ asked for; the others are write access to catalogue data.
 - A coordinator reads an event, and its comments, mentions, attachments and history, only while it is assigned to them
   (SCRUM-156, migration 59, spec `docs/specs/coordinator-event-reads.md`). A reassigned event moves with the coordinator:
   the previous one keeps nothing. `user_can_access_event()` is the one definition of who may read an event's review data.
-- A Lead is not yet the system-wide reader the Week 9 answers describe (W9 r37). The database lets a Lead read unassigned
-  submitted events (migration 21) and the events of their own linked coordinators (migration 22), and no comments or
-  history. That is a known gap against r37, left for a later story.
+- A Lead reads every submitted event, as the Week 9 answers describe (W9 r37): unassigned ones through migration 21's
+  policy and every event with a coordinator, whoever supervises them, through `events_select_lead_team` (SCRUM-184,
+  migration 81; drafts stay private). Until then a Lead read only their own linked coordinators' events. A Lead still reads no
+  comments or history of events they do not hold; that remains a gap against r37, left for a later story.
 - Venue create and edit (SCRUM-57, SCRUM-58) depend on the catalogue-write story (SCRUM-155) for their write policy.
