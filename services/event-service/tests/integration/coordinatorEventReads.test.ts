@@ -291,7 +291,7 @@ describe.skipIf(!hasDb)("SCRUM-156 coordinators read only the events assigned to
     for (const other of [who.venueStaff, who.technicalSupport, who.attendee]) {
       expect(await seen(other, eventA)).toBe(0);
     }
-    // a Lead reads an assigned event only through a linked coordinator (migration 22): eventA's coordinator is not theirs
-    expect(await seen(who.lead, eventA)).toBe(0);
+    // SCRUM-184 (migration 81): a Lead reads an assigned event whoever supervises its coordinator (this Lead supervises nobody here)
+    expect(await seen(who.lead, eventA)).toBe(1);
   });
 });
