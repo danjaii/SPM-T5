@@ -58,16 +58,16 @@ export function shortDay(date: string): string {
   return `${WEEKDAYS[weekday(date)]} ${day} ${MONTHS[month]}`;
 }
 
-/** What the page subtitle says the view shows: "Saturday 14 November 2026", "9 to 15 November 2026" or "November 2026". */
+/** What the date stepper says the view shows: "Saturday 14 November 2026", "9–15 Nov 2026" (short, so the legend fits beside it) or "November 2026". */
 export function viewTitle(view: CalendarView, anchor: string): string {
   const { from, to } = viewRange(view, anchor);
   const a = parts(from);
   const b = parts(to);
   if (view === "day") return `${LONG_WEEKDAYS[weekday(from)]} ${a.day} ${LONG_MONTHS[a.month]} ${a.year}`;
   if (view === "month") return `${LONG_MONTHS[a.month]} ${a.year}`;
-  if (a.year !== b.year) return `${a.day} ${LONG_MONTHS[a.month]} ${a.year} to ${b.day} ${LONG_MONTHS[b.month]} ${b.year}`;
-  if (a.month !== b.month) return `${a.day} ${LONG_MONTHS[a.month]} to ${b.day} ${LONG_MONTHS[b.month]} ${b.year}`;
-  return `${a.day} to ${b.day} ${LONG_MONTHS[b.month]} ${b.year}`;
+  if (a.year !== b.year) return `${a.day} ${MONTHS[a.month]} ${a.year} – ${b.day} ${MONTHS[b.month]} ${b.year}`;
+  if (a.month !== b.month) return `${a.day} ${MONTHS[a.month]} – ${b.day} ${MONTHS[b.month]} ${b.year}`;
+  return `${a.day}–${b.day} ${MONTHS[b.month]} ${b.year}`;
 }
 
 /** "08:00": a whole hour as a column heading. */

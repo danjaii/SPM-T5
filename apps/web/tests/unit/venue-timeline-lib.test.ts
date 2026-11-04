@@ -40,9 +40,9 @@ describe("SCRUM-130 the dates each view shows", () => {
 
   it("SCRUM-130 names what is shown in words", () => {
     expect(viewTitle("day", "2026-11-14")).toBe("Saturday 14 November 2026");
-    expect(viewTitle("week", "2026-11-14")).toBe("9 to 15 November 2026");
-    expect(viewTitle("week", "2026-12-02")).toBe("30 November to 6 December 2026");
-    expect(viewTitle("week", "2026-12-30")).toBe("28 December 2026 to 3 January 2027");
+    expect(viewTitle("week", "2026-11-14")).toBe("9–15 Nov 2026");
+    expect(viewTitle("week", "2026-12-02")).toBe("30 Nov – 6 Dec 2026");
+    expect(viewTitle("week", "2026-12-30")).toBe("28 Dec 2026 – 3 Jan 2027");
     expect(viewTitle("month", "2026-11-14")).toBe("November 2026");
     expect(shortDay("2026-11-14")).toBe("Sat 14 Nov");
     expect(daysOf("2026-11-29", "2026-12-02")).toEqual(["2026-11-29", "2026-11-30", "2026-12-01", "2026-12-02"]);

@@ -119,7 +119,7 @@ describe("SCRUM-84/AC5 change the date range (Figma 09: Day, Week, Month and the
 
     fireEvent.click(screen.getByRole("tab", { name: "Week" }));
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-11-09&to=2026-11-15`));
-    expect(screen.getByText("9 to 15 November 2026")).toBeTruthy();
+    expect(screen.getByText("9–15 Nov 2026")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("tab", { name: "Month" }));
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-11-01&to=2026-11-30`));
