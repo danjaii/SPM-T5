@@ -142,7 +142,7 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-REG-02 | Attendee withdraws from My registrations after confirming; the registration shows Withdrawn and a withdrawn attendee is not on the active list | SCRUM-73 | P1 | N | 18 | |
 | E2E-REG-03 | Event with capacity 1: the first attendee registers, the second is told the event is full (or is put on pending, as SCRUM-169 decides) | SCRUM-169 (AC to confirm) | P1 | B | 18 | |
 | E2E-REG-04 | While an event is back in Planning, registration is closed and the coordinator can adjust capacity and window | SCRUM-185/AC4 | P2 | B | 18 | C2 |
-| E2E-NOTIF-01 | The bell shows the unread count; the page lists notifications, "Mark as read" and "Acknowledge" change them, and "Open" goes to the item | SCRUM-46, 46-S1, S4-S7 | P1 | N | 20 | |
+| E2E-NOTIF-01 | The bell shows the unread count; the page lists notifications with unread ones marked in words; Mark as read changes one (the bell follows after a reload); opening one goes to what it is about and marks it read. (Acknowledge is not covered: it needs an action-needed notification.) | SCRUM-46 | P1 | N | 20 | |
 | E2E-NOTIF-02 | One action sends one notification to the right user and none to others: assignment, approval, booking decision, venue flag | SCRUM-47, 172, 106-S5 | P1 | A | 20 | |
 | E2E-NOTIF-03 | The replacement-confirmed notice reaches the organiser and the affected attendees, not a withdrawn one | SCRUM-185/AC3, SCRUM-172 | P2 | A | 20 | C2 |
 

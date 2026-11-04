@@ -20,6 +20,8 @@ export const ACCOUNTS = {
   safety: { email: "farah.ismail@connectsphere.example.com", role: "safety_officer" },
   attendee: { email: "alicia.fernandez@example.com", role: "attendee" },
   attendee2: { email: "bryan.ho@example.com", role: "attendee" },
+  // used by E2E-NOTIF-01 only, so nothing else writes to this account's notifications while it counts them
+  attendee3: { email: "dylan.heng@example.com", role: "attendee" },
 } as const satisfies Record<string, { email: string; role: Role }>;
 
 export type Persona = keyof typeof ACCOUNTS;

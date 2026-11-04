@@ -120,7 +120,7 @@ export const CATALOGUE: CaseDef[] = [
   c("E2E-REG-04", "registration is closed while the event is back in planning", "While an event is back in Planning, registration is closed and the coordinator can adjust capacity and window.", ["SCRUM-185/AC4"], "P2", B, [18], ["C2"]),
 
   // NOTIF
-  c("E2E-NOTIF-01", "bell and list: unread, read, acknowledge, open", "The bell shows the unread count; the page lists notifications; Mark as read and Acknowledge change them; Open goes to the item.", ["SCRUM-46"], "P1", N, [20]),
+  c("E2E-NOTIF-01", "bell and list: unread, mark as read, open", "The bell shows the unread count; the page lists notifications with unread ones marked in words; Mark as read changes one (the bell follows after a reload); opening one goes to what it is about and marks it read. (Acknowledge is not covered: it needs an action-needed notification.)", ["SCRUM-46"], "P1", N, [20]),
   c("E2E-NOTIF-02", "one action notifies exactly the right user", "One action sends one notification to the right user and none to others: assignment, approval, booking decision, venue flag.", ["SCRUM-47", "SCRUM-172", "106-S5"], "P1", A, [20]),
   c("E2E-NOTIF-03", "replacement-confirmed notice reaches the right people", "The replacement-confirmed notice reaches the organiser and the affected attendees, not a withdrawn one.", ["SCRUM-185/AC3", "SCRUM-172"], "P2", A, [20], ["C2"]),
 ];
