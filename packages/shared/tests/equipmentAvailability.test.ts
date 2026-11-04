@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAvailabilityInput } from "../src/equipmentAvailability";
+import { parseAvailabilityInput, parseInventoryPeriod, quantityError } from "../src/equipmentAvailability";
 
 // ----------------------------------------------------------------------------
 // SCRUM-18 input checks, shared by the web form and equipment-service so both say exactly the same thing.
@@ -107,5 +107,42 @@ describe("SCRUM-18 parseAvailabilityInput at the edges", () => {
 
   it("SCRUM-18/AC7: accepts a period that starts exactly now", () => {
     expect(parseAvailabilityInput({ ...valid, date: "2026-10-06", startTime: "09:00", endTime: "10:00" }, now).ok).toBe(true);
+  });
+});
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-18 parseAvailabilityInput ignores spaces around the quantity", () => {
+  it("SCRUM-18/AC1: accepts a quantity with spaces", () => {
+    expect(parseAvailabilityInput({ ...valid, quantity: " 4 " }, now)).toMatchObject({ ok: true, data: { quantity: 4 } });
+  });
+});
+
+describe("SCRUM-137/AC2 parseInventoryPeriod", () => {
+  const period = { date: "2026-10-15", startTime: "09:00", endTime: "17:00" };
+
+  it("SCRUM-137/AC2: ignores spaces around the date and times", () => {
+    expect(parseInventoryPeriod({ date: " 2026-10-15 ", startTime: " 09:00 ", endTime: " 17:00 " })).toMatchObject({
+      ok: true,
+      data: period,
+    });
+  });
+
+  it("SCRUM-137/AC2: refuses a malformed date", () => {
+    expect(parseInventoryPeriod({ ...period, date: "15/10/2026" })).toMatchObject({ ok: false, fieldErrors: { date: expect.any(String) } });
+  });
+});
+
+// The last cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-18 quantityError on its own, as SCRUM-19 uses it", () => {
+  it("SCRUM-18/AC1: ignores spaces around a quantity, and treats spaces alone or nothing as empty", () => {
+    expect(quantityError(" 4 ")).toBeUndefined();
+    expect(quantityError("   ")).toBe("Please enter the quantity required.");
+    expect(quantityError(undefined)).toBe("Please enter the quantity required.");
+  });
+});
+
+describe("SCRUM-137/AC2 parseInventoryPeriod with nothing filled in", () => {
+  it("SCRUM-137/AC2: prompts for the date instead of calling it malformed", () => {
+    expect(parseInventoryPeriod({})).toMatchObject({ ok: false, fieldErrors: { date: "Please enter a date." } });
   });
 });

@@ -129,3 +129,37 @@ describe("SCRUM-67/AC4 a reason exactly at the limit (67-S6)", () => {
     expect(parseChangeRequestRejection({ reason })).toEqual({ ok: true, reason });
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-67/AC3 whether a field has changed since the request (67-S5)", () => {
+  const since = (field: string, from: unknown) =>
+    readChangeRequest({ [field]: { from, to: "New" } }, event).rows[0].changedSince;
+
+  it.each([[""], [null], [undefined]])("67-S5: an empty field that was %j when requested has not changed", (from) => {
+    expect(since("accessibility_requirements", from)).toBe(false);
+  });
+
+  it("67-S5: a value that has since been emptied has changed", () => {
+    expect(since("accessibility_requirements", "Ramp")).toBe(true);
+  });
+
+  it("67-S5: an empty value that has since been filled has changed", () => {
+    expect(since("venue_requirements", "")).toBe(true);
+  });
+
+  it("67-S5: text with a different time written in it is compared as text, and the same time as an instant", () => {
+    expect(since("preferred_start_datetime", "2026-12-12T09:00:00+08:00")).toBe(false);
+    expect(since("venue_requirements", "2026-12-12T09:00:00+08:00")).toBe(true);
+  });
+
+  it("67-S5: a stored change of null is read as the value, not a crash", () => {
+    expect(readChangeRequest({ expected_attendance: null }, event).rows[0]).toMatchObject({ requested: null, changedSince: false });
+  });
+});
+
+// The last cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-67/AC3 ordinary text that has not changed (67-S5)", () => {
+  it("67-S5: text the same as when it was requested has not changed", () => {
+    expect(readChangeRequest({ venue_requirements: { from: "Stage", to: "New" } }, event).rows[0].changedSince).toBe(false);
+  });
+});

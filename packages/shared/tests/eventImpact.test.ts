@@ -232,3 +232,15 @@ describe("SCRUM-112/AC2 a venue that holds exactly the new number (112-S5)", () 
     ]);
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-112/AC6 changes that do not touch a booking's time or number (112-S16)", () => {
+  it("112-S16: a name change does not list a booking outside the event's own times", () => {
+    const early = { ...orchidHall, start: "2026-12-12T00:00:00.000Z" };
+    expect(affectedIds({ name: { from: "Tech Summit", to: "Summit" } }, [early], [])).toEqual([]);
+  });
+
+  it("112-S7: an attendance that stays the same lists no venue booking", () => {
+    expect(affectedIds({ expected_attendance: { from: 480, to: 480 } }, [orchidHall], [])).toEqual([]);
+  });
+});

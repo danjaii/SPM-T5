@@ -212,3 +212,21 @@ describe("SCRUM-105/AC1 unavailabilityBlockView (105-S1)", () => {
     expect(view).toMatchObject({ reasonLabel: "Safety concern", startDate: "2026-11-14" });
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-105/AC1 notes and times on an unavailability block", () => {
+  it("keeps the notes message when notes are not text, and does not ask for notes as well", () => {
+    expect(errorsOf({ ...valid, reason: "other", notes: 123 }).notes).toMatch(/characters or fewer/);
+  });
+
+  it("asks for a missing end time", () => {
+    expect(errorsOf({ ...valid, endTime: undefined }).endTime).toBe("Enter an end time.");
+  });
+});
+
+// The last cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-105/AC1 a body that is not an object", () => {
+  it("treats it as an empty form and asks for the reason", () => {
+    expect(errorsOf("text")?.reason).toBe("Choose a reason.");
+  });
+});

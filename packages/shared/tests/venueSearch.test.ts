@@ -152,3 +152,10 @@ describe("SCRUM-65/AC3 expected attendance at the edge", () => {
     expect(parseVenueSearchInput({ ...valid, attendance: "1" }, now)).toMatchObject({ ok: true, data: { attendance: 1 } });
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-65/AC4 a period with only the start date missing", () => {
+  it("asks for the start date", () => {
+    expect(errorsOf({ startTime: "09:00", endDate: "2026-10-15", endTime: "17:00" })).toEqual({ startDate: "Please enter a start date." });
+  });
+});
