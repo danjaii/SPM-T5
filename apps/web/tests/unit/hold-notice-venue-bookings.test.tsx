@@ -66,7 +66,7 @@ describe("SCRUM-108/AC2, AC3, AC5 and SCRUM-97/AC4 My venue bookings", () => {
     expect(within(row).getByText("Expired")).toBeTruthy();
     expect(within(row).getByText("Hold expired, venue no longer reserved")).toBeTruthy();
   });
-  it("SCRUM-108/AC7 only the rows of holds carry a notice", () => {
+  it("only the rows of holds carry a notice (AC7 itself, another coordinator never receiving the hold, is the service's RLS test)", () => {
     render(<VenueBookingList bookings={[listItem(), listItem({ id: "b-2", eventName: "Other", status: "APPROVED", holdExpiresAt: null })]} now={NOW} />);
     expect(screen.getAllByText(/Hold expires/)).toHaveLength(1);
   });
@@ -107,5 +107,65 @@ describe("SCRUM-108/AC1, AC2, AC5 and SCRUM-97/AC4 the booking detail page", () 
     expect(String(url)).toContain("/venue-bookings/b-1/hold-warning");
     expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toEqual({ minutes: 360 });
+  });
+});
+
+describe("review gaps: SCRUM-108/AC1, AC3, AC5, AC6 through the components", () => {
+  it("SCRUM-108/AC3 a custom 8-hour window hides a hold 10 hours away on the list and the detail page, though 24 hours would show it", () => {
+    const over = { holdExpiresAt: inHours(10), holdWarningMinutes: 8 * 60 };
+    const { unmount } = render(<VenueBookingList bookings={[listItem(over)]} now={NOW} />);
+    expect(screen.queryByText(/Hold expires/)).toBeNull();
+    unmount();
+    render(<VenueBookingDetail booking={detail(over)} now={NOW} />);
+    expect(screen.queryByText(/Hold expires/)).toBeNull();
+  });
+  it("SCRUM-108/AC3 the window edge: exactly at it warns, a minute outside it does not", () => {
+    const at = { holdExpiresAt: inHours(8), holdWarningMinutes: 480 };
+    const past = { holdExpiresAt: new Date(NOW.getTime() + 8 * H + 60_000).toISOString(), holdWarningMinutes: 480 };
+    expect(holdNotice(listItem(at), NOW)?.kind).toBe("warning");
+    expect(holdNotice(listItem(past), NOW)).toBeUndefined();
+  });
+  it("SCRUM-108/AC6 a confirmed booking with a near or past expiry shows no warning and no expired line on either page", () => {
+    for (const hours of [2, -2]) {
+      const over = { status: "APPROVED", holdExpiresAt: inHours(hours) };
+      const { unmount } = render(<VenueBookingList bookings={[listItem(over)]} now={NOW} />);
+      expect(screen.queryByText(/Hold expire/)).toBeNull();
+      unmount();
+      const second = render(<VenueBookingDetail booking={detail(over)} now={NOW} />);
+      expect(screen.queryByText(/Hold expire/)).toBeNull();
+      second.unmount();
+    }
+  });
+  it("SCRUM-108/AC5 a pending hold whose expiry has passed is flagged expired even before the status says so", () => {
+    render(<VenueBookingList bookings={[listItem({ holdExpiresAt: inHours(-1) })]} now={NOW} />);
+    expect(screen.getByText("Hold expired, venue no longer reserved")).toBeTruthy();
+  });
+  it("SCRUM-97/AC4 the detail page's Expired is the status badge next to the title, not other text", () => {
+    render(<VenueBookingDetail booking={detail({ status: "EXPIRED", holdExpiresAt: inHours(-3) })} now={NOW} />);
+    const heading = screen.getByRole("heading", { name: "Summit A" });
+    expect(within(heading.parentElement as HTMLElement).getByText("Expired")).toBeTruthy();
+  });
+  it("SCRUM-108/AC1 starts at 24 hours when the hold has no window of its own", () => {
+    render(<VenueBookingDetail booking={detail({ holdExpiresAt: inHours(40) })} now={NOW} />);
+    expect((screen.getByLabelText(/hours before the hold expires/i) as HTMLInputElement).value).toBe("24");
+  });
+  it("SCRUM-108/AC1 sends nothing for empty, zero, negative or fractional hours, and shows the reason", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VenueBookingDetail booking={detail()} now={NOW} />);
+    const input = screen.getByLabelText(/hours before the hold expires/i);
+    for (const bad of ["", "0", "-3", "1.5"]) {
+      fireEvent.change(input, { target: { value: bad } });
+      fireEvent.click(screen.getByRole("button", { name: "Save warning time" }));
+      expect(screen.getByText("Enter a whole number of hours, 1 or more.")).toBeTruthy();
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("SCRUM-108/AC1 shows the service's refusal and does not reload when the save fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "This hold has expired." }) }));
+    render(<VenueBookingDetail booking={detail()} now={NOW} />);
+    fireEvent.click(screen.getByRole("button", { name: "Save warning time" }));
+    await waitFor(() => expect(screen.getByText("This hold has expired.")).toBeTruthy());
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 });
