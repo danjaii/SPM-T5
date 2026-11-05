@@ -74,3 +74,12 @@ describe("SCRUM-124/AC2 the Drafts page", () => {
     expect(screen.getByText("We couldn't load your events.")).toBeTruthy();
   });
 });
+
+describe("SCRUM-124/AC10 the Drafts page while it loads", () => {
+  it("SCRUM-124/AC10 shows a busy placeholder in the shared page frame, named for the drafts", async () => {
+    const { default: Loading } = await import("@/app/dashboard/event_organiser/drafts/loading");
+    render(<Loading />);
+    const status = screen.getByRole("status");
+    expect(status.getAttribute("aria-label") ?? status.textContent).toMatch(/drafts/i);
+  });
+});
