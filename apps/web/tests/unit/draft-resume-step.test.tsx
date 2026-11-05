@@ -1,6 +1,6 @@
 // SCRUM-124: Save draft is on every step with a confirmation (AC1); an opened draft resumes at the last step that has something in it (AC3)
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const nav = vi.hoisted(() => ({ push: vi.fn() }));
@@ -12,7 +12,7 @@ vi.mock("@/lib/eventRequests", () => ({
 
 import { EventRequestForm } from "@/components/event-request/EventRequestForm";
 import { EMPTY_VALUES, STEPS, draftToValues, lastEditedStep } from "@/lib/eventRequestForm";
-import { click, layouts, stored, toReview } from "./draftFixtures";
+import { click, layouts, stored } from "./draftFixtures";
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
@@ -26,11 +26,13 @@ describe("SCRUM-124/AC1 Save draft on every step", () => {
     for (let step = 0; step < STEPS.length; step++) {
       expect(screen.getByText(new RegExp(`Step ${step + 1} of 6`))).toBeTruthy();
       click("Save as draft");
+      // this step's own save went out (a count, so a confirmation left over from the step before cannot satisfy it)
+      await waitFor(() => expect(api.update).toHaveBeenCalledTimes(step + 1));
       await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Draft saved/));
       if (step < STEPS.length - 1) click(/^Continue to/);
     }
     expect(api.update).toHaveBeenCalledTimes(STEPS.length);
-  });
+  }, 30_000);
 });
 
 describe("SCRUM-124/AC3 an opened draft resumes at the last step edited", () => {

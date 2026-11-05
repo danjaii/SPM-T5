@@ -63,4 +63,16 @@ describe("SCRUM-124/AC1 which draft Save as draft writes", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save as draft" }));
     expect((await screen.findByRole("alert")).textContent).toContain("We couldn't save the draft");
   });
+
+  it("SCRUM-124/AC1 shows the reason, and no confirmation, when creating a new draft fails, and the button works again", async () => {
+    api.save.mockResolvedValue({ ok: false, data: { error: "Could not create the draft." } });
+    render(<EventRequestForm layouts={layouts} />);
+    type(/Event name/, "Tech Summit");
+
+    click("Save as draft");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Could not create the draft.");
+    expect(screen.queryByText(/Draft saved/)).toBeNull();
+    expect((screen.getByRole("button", { name: "Save as draft" }) as HTMLButtonElement).disabled).toBe(false);
+  });
 });
