@@ -38,12 +38,17 @@ export interface VenueBookingListItem {
   date: string;
   startTime: string;
   endTime: string;
-  status: VenueBookingStatus | undefined;
+  /** EXPIRED is derived by venue-service from the hold's expiry (SCRUM-97/AC4). */
+  status: VenueBookingStatus | "EXPIRED" | undefined;
   /** Only for APPROVED and REJECTED. */
   decidedAt: string | null;
   submittedAt: string;
   /** SCRUM-104: the open flags (Buffer conflict) with the other booking's period, never its event name. */
   flags: FlagDto[];
+  /** SCRUM-97/133: when the hold on this request lapses (ISO); null or absent when it has no expiry. */
+  holdExpiresAt?: string | null;
+  /** SCRUM-108/AC1: minutes before the expiry that the coordinator is warned; absent means the 24-hour default. */
+  holdWarningMinutes?: number;
 }
 
 export interface VenueBookingChainItem extends VenueBookingListItem {
@@ -118,7 +123,7 @@ export const cancelVenueBooking = (id: string, reason: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/cancel`, { reason });
 
 /** SCRUM-102: only a PENDING or APPROVED venue booking can be changed or cancelled (the server checks again: NOT_ACTIVE). */
-export const isChangeableVenueBooking = (status: VenueBookingStatus | undefined) => status === "PENDING" || status === "APPROVED";
+export const isChangeableVenueBooking = (status: VenueBookingStatus | "EXPIRED" | undefined) => status === "PENDING" || status === "APPROVED";
 
 /** SCRUM-102/AC7, AC8: the equipment requested for this venue booking that cancelling would release or changing would move. */
 export const equipmentFor = (requests: EquipmentRequestView[], venueBookingId: string) =>
@@ -180,10 +185,6 @@ export interface EventVenueBookingItem extends VenueBookingChainItem {
   exceedsCapacity: boolean;
   /** SCRUM-113/AC1: sent back to Pending for review after an important event change. */
   sentBackForReview?: boolean;
-  /** SCRUM-133/AC2, AC3: when a hold on this venue lapses (ISO). venue-service does not send it yet, so no booking is a hold today. */
-  holdExpiresAt?: string | null;
-  /** SCRUM-108: minutes before the expiry that the coordinator is warned; absent means the 24-hour default. */
-  holdWarningMinutes?: number;
   /** SCRUM-107 (107-S3): "Replaced by Lotus Room" / "Replaces Orchid Hall". */
   replacedBy?: ReplacementRefDto | null;
   replaces?: ReplacementRefDto | null;
