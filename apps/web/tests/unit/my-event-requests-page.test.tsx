@@ -90,12 +90,13 @@ describe("SCRUM-52/AC1 My event requests page", () => {
     expect(screen.queryByText("You have not created any event requests yet.")).toBeNull();
   });
 
-  it("SCRUM-52/AC1 links back to the dashboard", async () => {
+  // SCRUM-186/AC2 replaced SCRUM-52/AC1's back link: this is a sidebar page, so the sidebar's Home is the way back
+  it("SCRUM-52/AC1 SCRUM-186/AC2 has no back link of its own, as a sidebar page", async () => {
     getMyEventRequests.mockResolvedValue({ requests: [] });
 
     await renderPage();
 
-    expect(screen.getByRole("link", { name: "← Back to dashboard" }).getAttribute("href")).toBe("/dashboard");
+    expect(screen.queryByRole("link", { name: /back to/i })).toBeNull();
   });
 });
 

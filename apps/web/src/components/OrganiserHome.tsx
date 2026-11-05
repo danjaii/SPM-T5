@@ -45,10 +45,10 @@ const firstName = (name: string) => name.split(" ")[0];
  * SCRUM-159 (Figma 02): the Event Organiser Home. AC1: a figure and a tab count for each group of statuses, and each row's
  * status badge keeps its icon and label. AC2: an event the coordinator asked about is in the banner, the "Needs your reply"
  * card and its row, and links to the event. AC3: a decided change request's outcome shows on its row. AC4: no events at all
- * shows an empty state that links to a new request. `now` comes from the server so the "Next:" line renders the same twice.
+ * shows an empty state that links to a new request. SCRUM-124/AC2: `initialTab` lets the sidebar's Drafts item open on the Drafts tab. `now` comes from the server so the "Next:" line renders the same twice.
  */
-export function OrganiserHome({ events, now }: { events: OrganiserHomeEvent[]; now: string }) {
-  const [tab, setTab] = useState<OrganiserTab>("all");
+export function OrganiserHome({ events, now, initialTab = "all" }: { events: OrganiserHomeEvent[]; now: string; initialTab?: OrganiserTab }) {
+  const [tab, setTab] = useState<OrganiserTab>(initialTab);
 
   if (events.length === 0) {
     return (

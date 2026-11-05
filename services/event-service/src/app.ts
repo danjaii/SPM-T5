@@ -12,6 +12,7 @@ import { leadRoutes } from "./routes/lead";
 import { myEventRequestRoutes } from "./routes/myEventRequests";
 import { upcomingEventRoutes } from "./routes/upcomingEvents";
 import { registrationRoutes } from "./routes/registrations";
+import { registrationSettingsRoutes } from "./routes/registrationSettings";
 import { safetyDecisionRoutes, safetyCheckRoutes } from "./routes/safetyChecks";
 import { cors } from "./middlewares/cors";
 import { healthCheck } from "./index";
@@ -35,6 +36,8 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/events", upcomingEventRoutes(deps));
   app.use("/events", changeRequestRoutes(deps));
   app.use("/events", registrationRoutes(deps));
+  // SCRUM-185/AC4: the assigned coordinator adjusts an event's registration capacity and window
+  app.use("/events", registrationSettingsRoutes(deps));
   app.use("/events", eventRequestRoutes(deps));
   // SCRUM-111: the assigned coordinator edits an event's details (PATCH /events/:id)
   app.use("/events", eventDetailsRoutes(deps, now));

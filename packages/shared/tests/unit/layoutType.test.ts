@@ -82,3 +82,10 @@ describe("SCRUM-181/AC4 the sentence when a delete is refused (181-S4)", () => {
     );
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-181/AC5 a body that is not an object (181-S5)", () => {
+  it("181-S5: a null body asks for the name, not a crash", () => {
+    expect(parseLayoutTypeInput(null)).toEqual({ ok: false, fieldErrors: { name: "Enter a name for the layout type." } });
+  });
+});

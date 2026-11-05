@@ -1,4 +1,4 @@
-import { sgtToUtc } from "./venueBooking";
+import { isRealDate, sgtToUtc } from "./venueBooking";
 
 // SCRUM-20 (docs/specs/technical-assignment-notifications.md): on-site technical support assignments. The assign form
 // (apps/web) and equipment-service check them with the same rules.
@@ -10,6 +10,7 @@ export const TECHNICAL_ASSIGNMENT_MESSAGES = {
   staffMissing: "Choose a technical support staff member.",
   venueBookingMissing: "Choose one of the event's approved venue bookings.",
   dateMissing: "Enter a date.",
+  dateInvalid: "Enter a valid date.",
   timeMissing: "Enter a time.",
   endBeforeStart: "The end must be after the start.",
   noteTooLong: `Keep the note to ${TECHNICAL_ASSIGNMENT_NOTE_MAX} characters or fewer.`,
@@ -62,8 +63,10 @@ export function parseTechnicalAssignmentInput(body: unknown, { requireStaff }: {
   const endDate = text(input.endDate);
   const endTime = text(input.endTime);
   if (!DATE.test(startDate)) errors.startDate = TECHNICAL_ASSIGNMENT_MESSAGES.dateMissing;
+  else if (!isRealDate(startDate)) errors.startDate = TECHNICAL_ASSIGNMENT_MESSAGES.dateInvalid;
   if (!TIME.test(startTime)) errors.startTime = TECHNICAL_ASSIGNMENT_MESSAGES.timeMissing;
   if (!DATE.test(endDate)) errors.endDate = TECHNICAL_ASSIGNMENT_MESSAGES.dateMissing;
+  else if (!isRealDate(endDate)) errors.endDate = TECHNICAL_ASSIGNMENT_MESSAGES.dateInvalid;
   if (!TIME.test(endTime)) errors.endTime = TECHNICAL_ASSIGNMENT_MESSAGES.timeMissing;
 
   const note = text(input.note);

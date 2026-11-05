@@ -251,3 +251,54 @@ describe("SCRUM-105/AC4 availability reports an unavailability block (105-S4)", 
     expect(availability.message).toBe("Unavailable from 14 Nov 08:00 to 16 Nov 18:00");
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-109/AC5 a venue or event with only part of its times (109-S5, 109-S10)", () => {
+  const hours = (report: ReturnType<typeof checkSuitability>) => byKey(report, "operatingHours");
+
+  it.each([
+    [null, "22:00"],
+    ["08:00", null],
+    [null, null],
+  ])("109-S10: opening %s and closing %s count as no stated hours", (openingTime, closingTime) => {
+    expect(isOpenDuring(openingTime, closingTime, "06:00", "23:00")).toBe(true);
+    const venue = { ...orchid, openingTime, closingTime };
+    expect(hours(checkSuitability(venue, techConf(), free))).toMatchObject({ status: "met", message: "No stated opening hours" });
+  });
+
+  it.each([
+    ["no end", { end: null }],
+    ["no start", { start: null }],
+  ])("109-S6: an event with %s has its hours not checked", (_label, over) => {
+    expect(hours(checkSuitability(orchid, techConf(over), free)).status).toBe("not_checked");
+  });
+});
+
+describe("SCRUM-109/AC4 a clash over several days (109-S4)", () => {
+  it("109-S4: names both dates", () => {
+    const conflict = { start: sgtToUtc("2026-11-14", "22:00"), end: sgtToUtc("2026-11-15", "02:00"), exact: true };
+    expect(byKey(checkSuitability(orchid, techConf(), { conflict }), "availability").message)
+      .toBe("Occupied from 2026-11-14 22:00 to 2026-11-15 02:00");
+  });
+});
+
+describe("SCRUM-109/AC1 what each met requirement says (109-S1)", () => {
+  it("109-S1: words each line for the coordinator", () => {
+    const report = checkSuitability(orchid, techConf(), free);
+    expect(byKey(report, "capacity").message).toBe("Capacity 180 fits 120 attendees");
+    expect(byKey(report, "layout").message).toBe("Theatre supported");
+    expect(byKey(report, "operatingHours").message).toBe("Open 08:00–22:00");
+    expect(byKey(report, "availability").message).toBe("Free for the whole period");
+  });
+
+  it("109-S1: a layout name is matched without spaces around it, and spaces alone are no layout", () => {
+    expect(byKey(checkSuitability(orchid, techConf({ layoutName: " theatre " }), free), "layout").status).toBe("met");
+    expect(byKey(checkSuitability(orchid, techConf({ layoutName: "   " }), free), "layout").status).toBe("not_checked");
+  });
+
+  it("109-S1: an accessibility note says whether the venue is marked accessible", () => {
+    const needs = techConf({ accessibilityNeeds: "Wheelchair" });
+    expect(byKey(checkSuitability(orchid, needs, free), "accessibility").message).toContain("this venue is marked accessible");
+    expect(byKey(checkSuitability(lotus, needs, free), "accessibility").message).toContain("this venue is not marked accessible");
+  });
+});

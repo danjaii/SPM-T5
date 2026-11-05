@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
 import { EventDetailsForm } from "@/components/EventDetailsForm";
 import { InlineMessage } from "@/components/event/InlineMessage";
 import { getEventEditForm } from "@/lib/getEvent";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +16,8 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <AppHeader />
-      <main className="dash__main">
-        <Link className="mb-4 inline-block text-sm font-medium text-fg-primary hover:underline" href={`/events/${id}`}>← Back to event</Link>
+      <main className={PAGE_MAIN}>
+        <BackLink href={`/events/${id}`} to="event" />
         {"form" in result ? (
           <EventDetailsForm eventId={id} form={result.form} />
         ) : (

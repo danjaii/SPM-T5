@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { VenueBookingRequestForm } from "@/components/VenueBookingRequestForm";
 import { getVenueBookingForm } from "@/lib/venueBookingsServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +15,8 @@ export default async function VenueRequestPage({ params }: { params: Promise<{ i
   const result = await getVenueBookingForm(id);
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
-      <Link className="mb-4 inline-block text-sm font-medium text-fg-primary hover:underline" href={`/events/${id}?tab=venues`}>← Back to event</Link>
+    <main className={PAGE_MAIN}>
+      <BackLink href={`/events/${id}?tab=venues`} to="event" />
       {"form" in result ? (
         <VenueBookingRequestForm form={result.form} venues={result.venues} />
       ) : (

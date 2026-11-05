@@ -1,5 +1,7 @@
 # Spec: Addition of Event Coordinator Lead Role
 
+> **Superseded in part by SCRUM-184** ([lead-system-wide-scope.md](lead-system-wide-scope.md), migration 81): wherever this spec limits a Lead to "their coordinators" or "coordinators linked to them", a Lead now works with every active coordinator.
+
 Source of truth: Jira project SCRUM (SCRUM-75, 77, 78, 79, 81). Each acceptance criterion has a stable ID (e.g. `SCRUM-78-AC5`). Use these IDs in test names so every test traces back to a criterion.
 
 ## Context

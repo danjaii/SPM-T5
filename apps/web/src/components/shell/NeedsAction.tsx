@@ -5,15 +5,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { NAV_ITEMS, type QueueKey } from "@/lib/nav";
 import { useShell } from "./ShellContext";
 
-const WORDING: Record<QueueKey, (n: number) => string> = {
-  leadQueue: (n) => `${n} unassigned event ${n === 1 ? "request" : "requests"} waiting for a coordinator`,
+// The queues a home page summarises. SCRUM-188: the Lead's home is their queue itself, so the Lead queue has no entry.
+const WORDING: Partial<Record<QueueKey, (n: number) => string>> = {
   bookingQueue: (n) => `${n} venue booking ${n === 1 ? "request" : "requests"} to decide`,
   equipmentQueue: (n) => `${n} equipment ${n === 1 ? "request" : "requests"} to review`,
   safetyQueue: (n) => `${n} ${n === 1 ? "event" : "events"} waiting for a safety check`,
 };
-
-// SCRUM-162/AC4: a queue can name what is missing instead of the general sentence.
-const EMPTY: Partial<Record<QueueKey, string>> = { leadQueue: "No unassigned event requests." };
 
 /**
  * SCRUM-121: "Needs your action" on a role's home page, from the same queue counts as the sidebar. Roles without a queue
@@ -22,7 +19,7 @@ const EMPTY: Partial<Record<QueueKey, string>> = { leadQueue: "No unassigned eve
 export function NeedsAction() {
   const shell = useShell();
   if (!shell) return null;
-  const queues = NAV_ITEMS[shell.user.role].filter((i) => i.queue);
+  const queues = NAV_ITEMS[shell.user.role].filter((i) => i.queue && WORDING[i.queue]);
   if (queues.length === 0) return null;
 
   // a count that could not be loaded is unknown, not zero: say nothing rather than "nothing needs your action"
@@ -30,7 +27,7 @@ export function NeedsAction() {
 
   const waiting = queues.flatMap((i) => {
     const n = shell.counts[i.queue!];
-    return n ? [{ href: i.href, text: WORDING[i.queue!](n) }] : [];
+    return n ? [{ href: i.href, text: WORDING[i.queue!]!(n) }] : [];
   });
 
   return (
@@ -38,7 +35,7 @@ export function NeedsAction() {
       <h2 id="needs-action" className="mb-3 text-lg font-bold">Needs your action</h2>
       {waiting.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {(queues.length === 1 && EMPTY[queues[0].queue!]) || "Nothing needs your action right now."}
+          Nothing needs your action right now.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

@@ -1,4 +1,4 @@
-import { BedDouble, CalendarCheck, CalendarDays, ClipboardList, FilePlus2, FileText, Home, ListChecks, Package, Search, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BedDouble, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FilePlus2, FileText, Home, ListChecks, Package, Search, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { Role } from "@spm-t5/shared";
 
 /** The queues whose size is shown beside a nav item (SCRUM-121/AC2). */
@@ -36,8 +36,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "New event request", href: "/events/new", icon: FilePlus2 },
     // SCRUM-52/AC1: every request the organiser created, with its status
     { label: "My event requests", href: "/my-event-requests", icon: ListChecks },
-    // SCRUM-124/AC2: the organiser's unfinished requests on their own
-    { label: "Drafts", href: "/my-event-requests/drafts", icon: FileText },
+    // SCRUM-124/AC2: opens Home on its Drafts tab (SCRUM-159), so the organiser's unfinished requests are one click away
+    { label: "Drafts", href: "/dashboard/event_organiser/drafts", icon: FileText },
     { label: "Event registrations", href: "/registrations-overview", icon: ClipboardList },
   ],
   event_coordinator: [
@@ -45,17 +45,23 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "Event requests", href: "/events/review", icon: ClipboardList },
     { label: "My venue bookings", href: "/venue-bookings", icon: CalendarCheck },
     { label: "Venue catalogue", href: "/venues", icon: BedDouble },
+    // SCRUM-84/AC8: the venue availability calendar
+    { label: "Venue calendar", href: "/venue-calendar", icon: CalendarRange },
     { label: "Event registrations", href: "/registrations-overview", icon: Users },
   ],
+  // SCRUM-188/AC3: the Lead's Home is the unassigned queue (/dashboard/event_coordinator_lead forwards to it), with its count
   event_coordinator_lead: [
-    dashboard("event_coordinator_lead"),
-    { label: "Unassigned requests", href: "/lead/queue", icon: ClipboardList, queue: "leadQueue" },
+    { label: "Home", href: "/lead/queue", icon: Home, queue: "leadQueue" },
+    // SCRUM-189/AC6: every active event in one list
+    { label: "Active events", href: "/lead/events", icon: CalendarCheck },
     { label: "Coordinator overview", href: "/lead/coordinators", icon: Users },
   ],
   venue_staff: [
     dashboard("venue_staff"),
     { label: "Booking requests", href: "/booking-queue", icon: CalendarCheck, queue: "bookingQueue" },
     { label: "Venue catalogue", href: "/venues", icon: BedDouble },
+    // SCRUM-84/AC8: the venue availability calendar
+    { label: "Venue calendar", href: "/venue-calendar", icon: CalendarRange },
   ],
   technical_support_staff: [
     dashboard("technical_support_staff"),
@@ -64,6 +70,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "Inventory", href: "/equipment-inventory", icon: Package },
     { label: "Equipment availability", href: "/equipment-availability", icon: CalendarDays },
     { label: "Reserve equipment", href: "/equipment-reservation", icon: ClipboardList },
+    // SCRUM-84/AC8: the venue availability calendar
+    { label: "Venue calendar", href: "/venue-calendar", icon: CalendarRange },
   ],
   safety_officer: [
     dashboard("safety_officer"),

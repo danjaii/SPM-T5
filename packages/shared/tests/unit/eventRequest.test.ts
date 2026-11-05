@@ -180,3 +180,42 @@ describe("SCRUM-49/AC5 all bad fields are reported together", () => {
     expect(fieldErrors.name.length).toBeGreaterThan(0);
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-49/AC5 what a submitted request must not leave unsaid", () => {
+  it("refuses a start of exactly now, because it must be in the future", () => {
+    expect(errorsOf({ ...valid(), preferred_start_datetime: NOW.toISOString() }).preferred_start_datetime)
+      .toBe("The preferred start must be in the future.");
+  });
+
+  it("keeps no capacity or registration window when registration is not required", () => {
+    expect(parseEventRequest({ ...valid(), registration_required: false }, NOW)).toMatchObject({
+      ok: true,
+      data: { registration_capacity: null, registration_opens_at: null, registration_closes_at: null },
+    });
+  });
+
+  it.each([[null], [[]], ["text"]])("refuses a body of %j, keyed by body", (body) => {
+    expect(errorsOf(body)).toEqual({ body: "Send the event request as an object." });
+  });
+
+  it("says what is wrong when the end does not follow the start", () => {
+    expect(errorsOf({ ...valid(), preferred_end_datetime: valid().preferred_start_datetime }).preferred_end_datetime)
+      .toBe("The preferred end must be after the start.");
+  });
+
+  it("says which registration detail is missing", () => {
+    expect(errorsOf({ ...valid(), registration_capacity: null, registration_opens_at: null, registration_closes_at: null })).toEqual({
+      registration_capacity: "Enter the registration capacity.",
+      registration_opens_at: "Enter the registration opening date and time.",
+      registration_closes_at: "Enter the registration closing date and time.",
+    });
+  });
+
+  it("says when registration closes too early or too late", () => {
+    expect(errorsOf({ ...valid(), registration_closes_at: valid().registration_opens_at }).registration_closes_at)
+      .toBe("Registration must close after it opens.");
+    expect(errorsOf({ ...valid(), registration_closes_at: at("2026-12-20T01:00:00.000Z") }).registration_closes_at)
+      .toBe("Registration must close by the event start.");
+  });
+});

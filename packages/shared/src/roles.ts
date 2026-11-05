@@ -39,6 +39,11 @@ export function canViewVenueCalendar(role: Role): boolean {
   return role === "event_coordinator" || role === "venue_staff" || role === "technical_support_staff";
 }
 
+/** SCRUM-32, SCRUM-130: Event Coordinators request venue bookings for the events assigned to them (venue-service and RLS check the assignment) */
+export function canRequestVenueBookings(role: Role): boolean {
+  return role === "event_coordinator";
+}
+
 /** SCRUM-49: only event organisers create event requests */
 export function canCreateEventRequests(role: Role): boolean {
   return role === "event_organiser";

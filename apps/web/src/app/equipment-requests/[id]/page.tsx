@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { EquipmentRequestDetail } from "@/components/EquipmentRequestDetail";
 import { EquipmentRequestReview } from "@/components/EquipmentRequestReview";
 import { RequestAvailability } from "@/components/equipment/RequestAvailability";
 import { Card } from "@/components/ui/card";
 import { getEquipmentRequest } from "@/lib/equipmentRequestsServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +19,8 @@ export default async function EquipmentRequestPage({ params }: { params: Promise
   const result = await getEquipmentRequest(id);
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 md:px-8">
-      <Link className="self-start text-sm font-medium text-fg-primary hover:underline" href="/equipment-requests">← Back to equipment requests</Link>
+    <main className={PAGE_MAIN}>
+      <BackLink href="/equipment-requests" to="equipment requests" />
       {"request" in result ? (
         <>
           <EquipmentRequestDetail request={result.request} />

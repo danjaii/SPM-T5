@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { isClosedEventStatus } from "@spm-t5/shared";
 import { LeadAssignForm } from "@/components/LeadAssignForm";
 import { LeadEventSummary } from "@/components/LeadEventSummary";
 import { PageFrame } from "@/components/PageFrame";
-import { buttonVariants } from "@/components/ui/button";
 import { getLeadAssignment } from "@/lib/leadServer";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +20,7 @@ export default async function LeadAssignPage({ params }: { params: Promise<{ id:
     <PageFrame
       title={"assignment" in result ? `Assign a coordinator to ${result.assignment.event.name}` : "Assign a coordinator"}
       description="Choose who will run this event. Clashes are shown so you can choose with the dates in mind."
-      action={
-        <Link className={buttonVariants({ variant: "outline" })} href="/lead/queue">
-          <ArrowLeft aria-hidden="true" />
-          Back to unassigned event requests
-        </Link>
-      }
+      back={{ href: "/lead/queue", to: "unassigned requests" }}
       error={"error" in result ? result.error : undefined}
     >
       {"assignment" in result && (
