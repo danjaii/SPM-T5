@@ -145,11 +145,8 @@ event tells the organiser and coordinator; a cancelled one tells them and the at
 each flagged booking; a replacement venue tells the organiser and attendees. Nobody is told about their own action, and a withdrawn
 attendee hears nothing (`event_update_attendees()`, kept equal to `receivesEventUpdates()` by a test). An attendee's event
 notification opens `/registrations`, because the event page refuses them.
-SCRUM-97/tentative-hold-expiry
 - Tentative hold expiry (SCRUM-97; spec `docs/specs/SCRUM-97-108-tentative-hold-expiry.md`, migration 87): `venue_bookings.hold_expires_at`; `set_hold_expiry()` (Venue Staff only) is the only way to write it; a lapsed hold is derived as EXPIRED, never holds its slot, and `approve` is refused for it (`HOLD_EXPIRED`); the event's coordinator is notified of each change. A conflict caused by a pending hold reads "tentatively held" (`slotConflictMessage()`).
-<<<<<<< HEAD
 - Hold expiry warnings (SCRUM-108, migration 88): `hold_warning_minutes` (default 24 h, set by the event's coordinator through `set_hold_warning()`), two sent flags, and `notify_hold_expiries(p_now)` (service role only), which `notification-service` calls every minute (`services/holdExpiryCheck.ts`, needs `SUPABASE_SECRET_KEY`); it writes one `hold_expiring` and one `hold_expired` notification per hold for the event's coordinator, and a changed expiry re-arms both.
-=======
 - Delete a draft (SCRUM-56; spec `docs/specs/SCRUM-56-delete-draft-event-request.md`, migration 85): `DELETE /events/drafts/:id` calls the security definer `delete_event_draft()` as the caller, which removes only the caller's own `draft` event; the Delete button on My event requests asks first.
 - Venue calendar page (SCRUM-84 UI, `/venue-calendar`, no migration): reads `GET /venue-calendar` and shows each venue's periods as Tentatively Held, Confirmed, Blocked, Available or Unavailable, and the 422 messages; SCRUM-130 replaced its list with the day timeline below.
 - Venue availability details (SCRUM-85, no migration): choosing a calendar period opens its details (a popover since SCRUM-130) with the venue's name, address and capacity, the period's status with its start and end, the whole free window, a block's reason, and the booking a setup or turnaround belongs to.
@@ -157,5 +154,3 @@ SCRUM-97/tentative-hold-expiry
 - Page layout rules (SCRUM-186, `apps/web` only, no migration): every signed-in page uses `PageFrame`, or `PAGE_MAIN`, `PageTitle` and `BackLink` from `components/PageFrame.tsx`, so all share one width, padding and title style. A page in the sidebar has no back link and is titled as the sidebar names it; a page reached from inside the app has one "Back to <place>" link above the title. `tests/unit/page-standards.test.tsx` checks this over every page. Not yet moved: `/change-requests/[id]` (redesigned on SCRUM-140, not merged), the sign-in pages, `/access-denied` and `/styleguide`.
 - Mutation testing (SCRUM-187, no migration): `pnpm run test:mutation` runs Stryker on `packages/shared`, by hand and not in CI. Results, gaps found and what was left out are in `docs/testing/mutation-testing.md`.
 - Dates that do not exist (SCRUM-190, no migration): `isRealDate()` in `packages/shared/src/venueBooking.ts`. Change requests, event edits, venue bookings and technical assignments now refuse a date such as 31 February instead of letting JavaScript roll it into March. Found by the mutation testing in SCRUM-187.
-main
->>>>>>> origin/SCRUM-97/tentative-hold-expiry

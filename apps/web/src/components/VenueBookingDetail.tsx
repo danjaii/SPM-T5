@@ -6,12 +6,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { BOOKING_STATUS_DISPLAY, type BookingStatusKey } from "@/lib/status";
 import { bookingStatusLabel, type VenueBookingDetailView } from "@/lib/venueBookings";
 import { FlagBadges } from "./FlagBadges";
-<<<<<<< HEAD
 import { HoldNoticeText } from "./HoldNoticeText";
 import { HoldWarningForm } from "./HoldWarningForm";
-=======
 import { PageTitle } from "./PageFrame";
->>>>>>> origin/SCRUM-97/tentative-hold-expiry
 
 const resolvedReasonLabel = (reason: string | null) =>
   reason === "replaced" ? "replaced by another venue" : reason === "booking_closed" ? "booking closed" : "no longer applies";
