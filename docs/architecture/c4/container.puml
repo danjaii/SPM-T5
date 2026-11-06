@@ -2,42 +2,44 @@
 !include <C4/C4_Container>
 
 title ConnectSphere — Container Diagram (C4 Level 2)
+' Notifications are in-app only: email and SMS are not part of this project (docs/scope-decisions.md).
+' Services never call each other: they share one database (ADR 0001), and a notification is a row written by a trigger or
+' security definer function in the same transaction as the change it announces (ADR 0002).
 
-Person(user, "User", "Organiser / Coordinator / Venue Staff / Tech Support / Attendee")
+Person(user, "User", "Event Organiser / Event Coordinator / Event Coordinator Lead / Venue Staff / Technical Support Staff / Safety Officer / Attendee")
 
 System_Boundary(connectsphere, "ConnectSphere") {
-  Container(web, "Web App", "Next.js, React", "Server-rendered UI; role-based views and forms")
+  Container(web, "Web App", "Next.js, React", "Server-rendered UI; one sidebar shell for every role; role-based views and forms")
 
-  Container(authSvc, "Auth Service", "Node.js/TypeScript", "Wraps Supabase Auth; issues role/permission checks; a user's own profile (view and update)")
-  Container(eventSvc, "Event Service", "Node.js/TypeScript", "Event request creation, drafts, review, approval workflow, coordinator assignment, attendee registration")
-  Container(venueSvc, "Venue Service", "Node.js/TypeScript", "Venue availability, booking requests, double-hold prevention, capacity checks")
-  Container(equipmentSvc, "Equipment Service", "Node.js/TypeScript", "Equipment catalogue, availability checks, reservations, equipment requests")
-  Container(notificationSvc, "Notification Service", "Node.js/TypeScript", "In-app notifications (list, mark read); email/SMS later")
+  Container(authSvc, "Auth Service", "Node.js/TypeScript", "Wraps Supabase Auth: login, register, password reset, session; the role dashboard; a user's own profile (view and update)")
+  Container(eventSvc, "Event Service", "Node.js/TypeScript", "Event requests and drafts (with supporting documents), review and approval, status changes and cancellation, change requests, the Lead's queue and coordinator assignment, the Operational Safety Check, attendee registration and registration settings")
+  Container(venueSvc, "Venue Service", "Node.js/TypeScript", "Venue catalogue and layout types, search and suitability checks, the availability calendar, booking requests and their approval, conflict detection with setup and turnaround, unavailability blocks, tentative hold expiry and warnings, replacement venues")
+  Container(equipmentSvc, "Equipment Service", "Node.js/TypeScript", "Equipment catalogue, availability checks and inventory, reservations, equipment requests and their review, on-site technical support assignments")
+  Container(notificationSvc, "Notification Service", "Node.js/TypeScript", "In-app notifications: list, unread count, mark read, acknowledge an on-site assignment; every minute, writes the hold expiry notices that have come due")
 
-  ContainerDb(db, "Supabase Postgres", "Postgres + Row-Level Security", "Events, venues, users, roles, assignments")
-  ContainerDb(storage, "Supabase Storage", "event-attachments bucket (private)", "Files attached to event comments")
+  ContainerDb(db, "Supabase Postgres", "Postgres + Row-Level Security", "Events, venues, equipment, bookings, registrations, users and roles, notifications")
+  ContainerDb(storage, "Supabase Storage", "event-attachments bucket (private)", "Files attached to event comments and to event requests")
 }
 
 System_Ext(supabaseAuth, "Supabase Auth", "Identity provider")
-System_Ext(emailProvider, "Email/SMS Provider")
 
 Rel(user, web, "Uses", "HTTPS")
 
-Rel(web, authSvc, "Verifies session/role", "HTTPS/JSON")
-Rel(web, eventSvc, "Create/read/update event requests; comment; assign/reassign coordinators; list upcoming events for attendees; register attendees and list registrations", "HTTPS/JSON")
-Rel(web, venueSvc, "Check venues; submit, track, withdraw and amend venue booking requests", "HTTPS/JSON")
-Rel(web, equipmentSvc, "Check, reserve and request equipment", "HTTPS/JSON")
-Rel(web, notificationSvc, "List notifications, unread count, mark read (SCRUM-46)", "HTTPS/JSON")
-Rel(web, storage, "Uploads and opens comment attachments through signed URLs from Event Service", "HTTPS")
+Rel(web, authSvc, "Signs in and out, registers, resets passwords; loads the dashboard and profile", "HTTPS/JSON")
+Rel(web, eventSvc, "Creates, drafts and submits event requests; reviews, comments, changes status; Lead assigns coordinators; safety checks; registrations", "HTTPS/JSON")
+Rel(web, venueSvc, "Searches and maintains venues; venue calendar; submits, tracks, changes and decides venue bookings", "HTTPS/JSON")
+Rel(web, equipmentSvc, "Checks, reserves, requests and reviews equipment; maintains the catalogue; assigns technical support", "HTTPS/JSON")
+Rel(web, notificationSvc, "Lists notifications, unread count, marks read, acknowledges assignments", "HTTPS/JSON")
+Rel(web, storage, "Uploads and opens attachments through signed URLs from Event Service", "HTTPS")
 
 Rel(authSvc, supabaseAuth, "Authenticates users", "HTTPS")
+Rel(authSvc, db, "Reads users, profiles and the dashboard's tables as the caller; writes users with the secret key", "SQL/Postgres wire protocol")
 Rel(eventSvc, db, "Reads/writes", "SQL/Postgres wire protocol")
 Rel(venueSvc, db, "Reads/writes", "SQL/Postgres wire protocol")
 Rel(equipmentSvc, db, "Reads/writes", "SQL/Postgres wire protocol")
-Rel(notificationSvc, db, "Own notifications (RLS)", "SQL/Postgres wire protocol")
+Rel(notificationSvc, db, "Own notifications (RLS); calls notify_hold_expiries() every minute with the secret key", "SQL/Postgres wire protocol")
 Rel(eventSvc, storage, "Creates signed upload/download URLs as the caller (bucket policies apply)", "HTTPS")
 
-Rel(eventSvc, notificationSvc, "Status changes reach it as notification rows written in the same transaction (ADR 0002), not HTTP calls", "Shared database")
-Rel(notificationSvc, emailProvider, "Sends notifications", "HTTPS/SMTP")
+Rel(db, notificationSvc, "Triggers on event, venue and equipment changes write notification rows in the same transaction (ADR 0002), not HTTP calls", "Shared database")
 
 @enduml

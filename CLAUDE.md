@@ -69,7 +69,7 @@ below plus `apps/web`. Most are built; Current state says what is and what is no
 17. Equipment reservation for an event slot.
 18. Attendee registration — capacity caps, registration windows, withdrawal.
 19. Event change requests post-approval — cross-service venue/equipment re-validation.
-20. Notifications — in-app/email on status changes, clarifications, approvals, rejections.
+20. Notifications — in-app on status changes, clarifications, approvals, rejections.
 
 Equipment/technical-support (#15-17) is owned by `equipment-service` (renamed from
 `coordinator-service`, which no longer exists — coordinator assignment moved to `event-service`,
@@ -127,8 +127,8 @@ authorization — but it should not re-implement role checks that RLS already en
 **Notifications are written with the change they announce, not polled.** Per ADR 0002, a trigger or
 `security definer` function writes the `notifications` row in the same transaction as the change, and
 `notification-service` serves those rows. Add a new notification the same way, not with an HTTP call
-to `notification-service` or by having services poll each other for state changes. Email and SMS
-are planned (see the container diagram) but not sent yet.
+to `notification-service` or by having services poll each other for state changes. Notifications
+are in-app only: email and SMS are not part of this project (see [docs/scope-decisions.md](docs/scope-decisions.md)).
 
 **Every service is a workspace with its own `package.json`, `tests/`, and `Dockerfile`.** Docker
 builds use the repo root as context (the lockfile and `packages/shared` live there), and each
@@ -256,12 +256,13 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-What each story built, with its spec, migration and diagram, is recorded in [docs/current-state.md](docs/current-state.md);
-read it for the service you are changing, and add a sentence there (not here) when a story changes what exists. In short:
-- `notification-service` is the read side of in-app notifications only (SCRUM-46); no email or SMS is sent yet.
+What each story built is recorded in its spec in [docs/specs/](docs/specs/), the service's C4 diagram in
+`docs/architecture/c4/`, and [docs/traceability.md](docs/traceability.md); read them for the service you are changing.
+When a story changes what exists, update its spec and the diagram rather than adding a history here. In short:
+- `notification-service` serves in-app notifications (SCRUM-46) and, every minute, writes the hold expiry notices that
+  have come due (SCRUM-108); email and SMS are not part of this project.
 - The `healthCheck()` exports in `services/*/src/index.ts` are leftovers from the original scaffold.
-- Not built: the equipment
-  catalogue and request notes (SCRUM-87/AC8) and SCRUM-88/AC9.
+- Not built: equipment request notes (SCRUM-87/AC8) and SCRUM-88/AC9.
 
 Known gaps to fix rather than work around:
 - RLS policies are blanket placeholders (`supabase/migrations/02_rls.sql`): every table allows any
