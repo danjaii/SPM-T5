@@ -198,6 +198,12 @@ jobs:
       - name: Run E2E tests
         run: pnpm --filter @spm-t5/web run test:e2e
 
+      # The totals, flaky tests, coverage and open defects, written from results.json onto the run's summary page.
+      # --silent keeps pnpm's own header lines out of the Markdown.
+      - name: Write the E2E metrics to the job summary
+        if: always()
+        run: pnpm --silent run e2e:metrics >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
