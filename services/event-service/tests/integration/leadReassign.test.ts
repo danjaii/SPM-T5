@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CLOSED_EVENT_STATUSES } from "@spm-t5/shared";
-import { adminClient, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
+import { adminClient, cleanUp, CLEANUP_TIMEOUT_MS, deactivateTestUsers, deleteTestUsers, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-79: a Lead reassigns a non-closed event held by one of their coordinators to another of their coordinators,
@@ -102,10 +102,10 @@ describe.skipIf(!hasDb)("SCRUM-79 Lead reassigns an Event Coordinator (migration
   });
 
   afterAll(async () => {
-    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds); // cascades the logs
-    if (madeUsers.length > 0) await admin.from("users").update({ supervising_lead_id: null }).in("id", madeUsers);
-    for (const id of madeUsers) await admin.auth.admin.deleteUser(id);
-  });
+    await deactivateTestUsers(admin, madeUsers);
+    if (eventIds.length > 0) await cleanUp("events", admin.from("events").delete().in("id", eventIds)); // cascades the logs
+    await deleteTestUsers(admin, madeUsers);
+  }, CLEANUP_TIMEOUT_MS);
 
   // AC3: the new coordinator becomes the only assigned coordinator; the previous one no longer is
   it("SCRUM-79/AC3 reassigns the event to the chosen coordinator, replacing the previous one", async () => {

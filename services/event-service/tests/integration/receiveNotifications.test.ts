@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { adminClient, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
+import { adminClient, cleanUp, CLEANUP_TIMEOUT_MS, deactivateTestUsers, deleteTestUsers, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-47: notifications are written by the database in the same transaction as the change they announce (ADR 0002,
@@ -72,11 +72,11 @@ describe.skipIf(!hasDb)("SCRUM-47 Receive relevant notifications (migration 44)"
   });
 
   afterAll(async () => {
-    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds); // cascades the notifications
-    if (venueIds.length > 0) await admin.from("venues").delete().in("id", venueIds);
-    if (madeUsers.length > 0) await admin.from("users").update({ supervising_lead_id: null }).in("id", madeUsers);
-    for (const id of madeUsers) await admin.auth.admin.deleteUser(id);
-  });
+    await deactivateTestUsers(admin, madeUsers);
+    if (eventIds.length > 0) await cleanUp("events", admin.from("events").delete().in("id", eventIds)); // cascades the notifications
+    if (venueIds.length > 0) await cleanUp("venues", admin.from("venues").delete().in("id", venueIds));
+    await deleteTestUsers(admin, madeUsers);
+  }, CLEANUP_TIMEOUT_MS);
 
   // AC1: the coordinator a Lead assigns is told they are responsible for the event
   it("SCRUM-47/AC1 a coordinator assigned to an event receives a coordinator_assigned notification for it", async () => {

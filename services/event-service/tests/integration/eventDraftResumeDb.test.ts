@@ -2,7 +2,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import { createSupabaseDeps } from "../../src/supabase";
-import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
+import { adminClient, CLEANUP_TIMEOUT_MS, cleanUp, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-54: reopening, re-saving and submitting a draft (migrations 71 and 72: organiser UPDATE policy, column guard,
@@ -58,12 +58,12 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
 
   afterAll(async () => {
     if (eventIds.length) {
-      await admin.from("event_status_history").delete().in("event_id", eventIds);
-      await admin.from("events").delete().in("id", eventIds);
+      await cleanUp("event_status_history", admin.from("event_status_history").delete().in("event_id", eventIds));
+      await cleanUp("events", admin.from("events").delete().in("id", eventIds));
     }
     // after the events, which reference it
-    if (layoutId) await admin.from("room_layouts").delete().eq("id", layoutId);
-  });
+    if (layoutId) await cleanUp("room_layouts", admin.from("room_layouts").delete().eq("id", layoutId));
+  }, CLEANUP_TIMEOUT_MS);
 
   describe("SCRUM-54/AC1 open a saved draft", () => {
     it("returns the stored fields of the owner's draft, ids included", async () => {
@@ -298,7 +298,9 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
     });
 
     it("changes a complete draft from Draft to Submitted with submitted_at set and no coordinator", async () => {
-      const draft = await newDraft(who.organiser, completeArgs("IT-54-AC3-submit"));
+      // SCRUM-195/AC2: a name only this run uses, so an event left by an earlier run cannot make the count below two
+      const name = `IT-54-AC3-submit-${Math.random().toString(36).slice(2, 8)}`;
+      const draft = await newDraft(who.organiser, completeArgs(name));
 
       const res = await submitAs(who.organiser, draft.id);
 
@@ -308,7 +310,7 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
       expect(Math.abs(Date.now() - submittedAt)).toBeLessThan(15_000);
       expect(await stored(draft.id)).toMatchObject({ status: "submitted", is_draft: false, assigned_coordinator_id: null });
       // the same row was submitted: there is still exactly one event with this name, and it has the draft's id
-      const { data: rows } = await admin.from("events").select("id").eq("name", "IT-54-AC3-submit");
+      const { data: rows } = await admin.from("events").select("id").eq("name", name);
       expect(rows).toEqual([{ id: draft.id }]);
     });
 

@@ -1,7 +1,7 @@
 // SCRUM-175 — Traceability matrix from user stories to tests. Run: node --test "scripts/traceability/*.test.mjs"
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildMatrix, lineOf, parseSpec, refsOf, renderMarkdown } from "./lib.mjs";
+import { buildMatrix, collectHookErrors, explainRun, lineOf, parseSpec, refsOf, renderMarkdown } from "./lib.mjs";
 
 describe("SCRUM-175/AC1 which story and AC a test checks, from its name", () => {
   it("reads a story and its AC", () => {
@@ -208,5 +208,97 @@ describe("SCRUM-175/AC1,AC2 reading the specs and test names more fully", () => 
 
     assert.equal(matrix.stories[0].acs[0].dropped, true);
     assert.match(renderMarkdown(matrix, { date: "d", commit: "c", passed: 0 }), /\| AC3 \| .* \| Dropped \(see the spec\) \|/);
+  });
+});
+
+describe("SCRUM-195/AC5 why a test run did not pass, so the matrix is not written", () => {
+  const file = (name, assertionResults) => ({ name: `/repo/${name}`, assertionResults });
+  const test = (title, status, failureMessages = []) => ({ ancestorTitles: ["suite"], title, status, failureMessages });
+  const relative = (path) => path.replace("/repo/", "");
+  const run = (testResults, hookErrors = [], dbConfigured = true) => explainRun({ testResults }, hookErrors, { dbConfigured, relative });
+
+  it("passes a run in which every test passed and no setup or cleanup failed", () => {
+    assert.deepEqual(run([file("a.test.ts", [test("works", "passed")])]), { ok: true, lines: [] });
+  });
+
+  it("names a failed test with the first line of its error, without terminal colours", () => {
+    const failed = test("compares", "failed", ["\u001b[31mAssertionError: expected [ 1, 2 ] to deeply equal [ 1 ]\u001b[39m\n    at a.test.ts:3:5"]);
+    assert.deepEqual(run([file("a.test.ts", [failed])]), {
+      ok: false,
+      lines: ["failed: a.test.ts > suite > compares", "    AssertionError: expected [ 1, 2 ] to deeply equal [ 1 ]"],
+    });
+  });
+
+  it("names a beforeAll that failed with its error, and says that is why its tests were skipped", () => {
+    const hook = { file: "/repo/b.test.ts", where: "SCRUM-91 events row level security", message: "The venue is occupied for part of that period.\nmore" };
+    const result = run([file("b.test.ts", [test("checks", "skipped")])], [hook]);
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.lines, [
+      "setup or cleanup failed: b.test.ts > SCRUM-91 events row level security: The venue is occupied for part of that period.",
+      "skipped: b.test.ts > suite > checks",
+      "Tests were skipped because a beforeAll failed (setup or cleanup failed, above), not because of the database settings.",
+    ]);
+  });
+
+  it("blames the database settings for skipped tests only when they are missing", () => {
+    const result = run([file("c.test.ts", [test("reads", "skipped")])], [], false);
+    assert.equal(result.ok, false);
+    assert.match(result.lines.at(-1), /SUPABASE_URL, SUPABASE_SECRET_KEY or SUPABASE_PUBLISHABLE_KEY is not set/);
+  });
+
+  it("does not blame Supabase for a skipped test when the settings are present and no setup failed", () => {
+    const result = run([file("c.test.ts", [test("todo", "skipped")])], [], true);
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.lines, ["skipped: c.test.ts > suite > todo", "Tests were skipped by skip, skipIf or todo in the test files."]);
+    assert.equal(result.lines.some((l) => /Supabase|SUPABASE/.test(l)), false);
+  });
+
+  it("refuses a run whose tests all passed but whose cleanup failed, so leftover rows are not hidden", () => {
+    const hook = { file: "/repo/d.test.ts", where: "SCRUM-54 resume a draft", message: "events: could not delete the test rows: timeout" };
+    assert.deepEqual(run([file("d.test.ts", [test("works", "passed")])], [hook]), {
+      ok: false,
+      lines: ["setup or cleanup failed: d.test.ts > SCRUM-54 resume a draft: events: could not delete the test rows: timeout"],
+    });
+  });
+
+  it("says a test timed out, where vitest's JSON report only says STACK_TRACE_ERROR", () => {
+    const timedOut = test("cancels", "failed", ["Error: STACK_TRACE_ERROR\n    at chunk-artifact.js:697:28"]);
+    assert.deepEqual(run([file("f.test.ts", [timedOut])]).lines, [
+      "failed: f.test.ts > suite > cancels",
+      "    Timed out: it ran past vitest's time limit (the JSON report calls this STACK_TRACE_ERROR)",
+    ]);
+  });
+
+  it("lists the first 20 tests that did not pass and counts the rest", () => {
+    const many = Array.from({ length: 23 }, (_, i) => test(`t${i}`, "failed", [`Error ${i}`]));
+    const { lines } = run([file("e.test.ts", many)]);
+    assert.equal(lines.filter((l) => l.startsWith("failed: ")).length, 20);
+    assert.equal(lines.at(-1), "…and 3 more tests that did not pass.");
+  });
+});
+
+describe("SCRUM-195/AC5 the beforeAll and afterAll errors that vitest's JSON report leaves out", () => {
+  const suite = (fullName, errors) => ({ fullName, errors: () => errors });
+  const module = (moduleId, errors, suites) => ({ moduleId, errors: () => errors, children: { allSuites: () => suites } });
+
+  it("collects each failed hook with its file, its suite and its message", () => {
+    const modules = [
+      module("/repo/a.test.ts", [], [suite("SCRUM-91 events", [{ message: "The venue is occupied for part of that period." }]), suite("SCRUM-91 events > inner", [])]),
+      module("/repo/b.test.ts", [{ message: "Cannot find module" }], []),
+    ];
+    assert.deepEqual(collectHookErrors(modules, []), [
+      { file: "/repo/b.test.ts", where: "the whole file", message: "Cannot find module" },
+      { file: "/repo/a.test.ts", where: "SCRUM-91 events", message: "The venue is occupied for part of that period." },
+    ]);
+  });
+
+  it("collects errors that belong to no test file", () => {
+    assert.deepEqual(collectHookErrors([], [{ message: "Unhandled rejection: socket hang up" }]), [
+      { file: null, where: "no test file (unhandled)", message: "Unhandled rejection: socket hang up" },
+    ]);
+  });
+
+  it("collects nothing from a run with no failed hook", () => {
+    assert.deepEqual(collectHookErrors([module("/repo/a.test.ts", [], [suite("ok", [])])], []), []);
   });
 });
