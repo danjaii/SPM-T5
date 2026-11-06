@@ -32,8 +32,8 @@ The figures count unit tests only, so they understate what is tested in some pla
   against a local database at the same commit, with all 1022 of them passing, adding them moves the totals only slightly:
   statements 94.49%, branches 90.78%, functions 92.49%, lines 95.37%. The number of files at 100% stays 242. So they
   are not the explanation for most gaps.
-- **Playwright tests are not counted.** They also do most of their work outside CI: 24 of the 25 spec files skip unless
-  `E2E_FULL_STACK` is set, and CI does not set it, so only `smoke.spec.ts` runs there.
+- **Playwright tests are not counted.** They exercise the real web app, services and database together, which this tool cannot
+  measure. They run in CI's `e2e` job (SCRUM-191; catalogue and results in `docs/testing/e2e/`), not in the unit run.
 - **Database code is not counted.** Functions, triggers and row-level security policies in `supabase/migrations/` are
   SQL, which this tool cannot measure. The integration tests are what check them.
 
@@ -56,7 +56,7 @@ Each file below 100% has one main reason, the one that accounts for most of what
 | Reason | Files | Meaning | Is it acceptable? |
 | --- | --: | --- | --- |
 | **A. Startup wiring** | 14 | `server.ts`, which starts listening on a port, and `supabase.ts`, `app.ts` and `supabaseClient.ts`, which connect to the real database, plus the default clock or database a route file uses when no test passes one in. Unit tests pass in a fake database instead, so the real connection is not made. | Yes. There is almost no logic here, and a mistake stops the service starting. Each of the five `server.ts` files is three statements. |
-| **B. Next.js route files** | 44 | Files in `src/app`: pages, layouts and `loading.tsx` skeletons, plus the `AuthLayout` and `AppShell` wrappers and the toast host (`ui/sonner.tsx`), loaded only by a layout. They arrange components and show a load failure. | Mostly. The components they show are tested. The risk is a page wired up wrongly, which only Playwright would catch, and CI skips most of Playwright. |
+| **B. Next.js route files** | 44 | Files in `src/app`: pages, layouts and `loading.tsx` skeletons, plus the `AuthLayout` and `AppShell` wrappers and the toast host (`ui/sonner.tsx`), loaded only by a layout. They arrange components and show a load failure. | Mostly. The components they show are tested. The risk is a page wired up wrongly, which only Playwright would catch; the E2E suite (SCRUM-191) loads the pages its cases use. |
 | **C. Server-side data loaders** | 24 | `*Server.ts`, `getEvent.ts`, `getVenues.ts` and similar, which read the session cookie through Next.js and call a service. Many pages that use them are never loaded in unit tests, and the rest only reach the success path. | Partly. Each one repeats the same shape, but the redirect to sign in and the load-failure messages are behaviour no test checks. |
 | **D. Fallback branches** | 84 | Code runs, but one side of a choice does not: a placeholder for a missing value (`?? "Unknown"`), a default message when a service sends none (`data.error ?? "..."`), `data ?? []`, singular or plural wording, a guard on a malformed request. | Yes for now. These are small and low risk. Some can occur in real use, so this means "not worth a test yet", not "impossible". |
 | **E. Small UI callbacks** | 23 | Closing a dialog, clearing a select, typing in a field, plus the unused parts of the shadcn/ui components in `components/ui`. | Yes. Mostly one-line handlers, and the shadcn/ui code is third-party code copied into the repo. |

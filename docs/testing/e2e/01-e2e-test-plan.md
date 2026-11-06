@@ -1,7 +1,8 @@
 # E2E test plan
 
 Plan for browser-driven end-to-end tests of ConnectSphere with Playwright. Facts about the repo are in
-[00-discovery.md](00-discovery.md). Status: **lean scope agreed; Phase 2 not started. No test code has been written.**
+[00-discovery.md](00-discovery.md). Status: **built under SCRUM-191. All 59 cases have a spec; the latest results are in [metrics.md](metrics.md).** This file records the
+plan and the decisions; where a case changed while it was written, the row below says what it checks now.
 
 ## 1. Scope and approach
 
@@ -66,13 +67,13 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-AUTH-02 | Wrong password, and a role that does not match the account, are refused with a message and no session | SCRUM-122/AC2 | P1 | F | 1 | |
 | E2E-AUTH-03 | A guarded page without a session goes to `/login`; the register page keeps `?next=` and returns there after sign-in | SCRUM-177/AC2 | P1 | A | 1 | |
 | E2E-AUTH-04 | Logout ends the session and Back does not reopen a guarded page | SCRUM-17/AC1-AC4 | P2 | N | 1 | |
-| E2E-AUTH-05 | The shared sidebar shows each role's own items and no others | SCRUM-121/AC1, AC3 | P2 | N | 1 | |
-| E2E-AUTH-06 | Sign-in works at a 375 px wide screen | SCRUM-177/AC8 | P2 | B | 1 | |
+| E2E-AUTH-05 | For each role the home page shows the shared sidebar with its home item highlighted once, and at 375 px the navigation collapses into a menu without sideways scroll | SCRUM-121/AC1, AC3 | P2 | N | 1 | |
+| E2E-AUTH-06 | At 375 px the sign-in page does not scroll sideways and a person can still sign in | SCRUM-122/AC8 (the shared 375 px criterion; the plan said SCRUM-177) | P2 | B | 1 | |
 | E2E-ACL-01 | For each role, opening a URL guarded for another role lands on "You don't have access to this page" | SCRUM-122/AC3, 77-AC7, 78-AC9 | P0 | A | 1 | C5 |
 | E2E-ACL-02 | Calling a service with the wrong role's cookie gets 403 (and no session gets 401), and nothing changes: Lead queue and assign, booking approve and reject, safety decision, venue bookings of an event, equipment reservation | 77-AC7, 78-AC9, 98-S28, 19-S13, 39-S7, SCRUM-99/AC7 | P0 | A | 1 | C5 |
 | E2E-ACL-03 | A coordinator cannot open or act on an event assigned to another coordinator | 156-S1, 156-S8, 102-S21 | P1 | A | 5 | C5 |
 | E2E-ACL-05 | A coordinator the event is not assigned to cannot request a venue for it or list its bookings: 403 and no booking. **Expected to fail**: the real stack answers 404 (defect D-002) | 98-S26, 98-S27 | P1 | A | 12 | C3, C5 |
-| E2E-ACL-04 | A coordinator's page shows other users' names but no contact details | SCRUM-154/AC3-AC5 | P2 | A | 1 | |
+| E2E-ACL-04 | The organiser and the assigned coordinator see every registrant's name, email and phone; another coordinator gets neither the rows nor the details; a person still sees their own | SCRUM-154/AC3-AC5 | P2 | A | 1 | |
 
 ### EVT, ASSIGN: requests and assignment
 
@@ -85,7 +86,7 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-ASSIGN-01 | Lead's queue lists unassigned submitted requests oldest first with the required columns; assigning removes the request from the queue and shows the coordinator on the event | 77-AC1-AC4, 78-AC2, 78-AC3 | P1 | N | 5 | C5 |
 | E2E-ASSIGN-02 | Lead reassigns; the old coordinator loses access, the new one gains it | SCRUM-79, 156-S4 | P1 | N | 5 | C5 |
 | E2E-ASSIGN-03 | A second Lead assigns the event while the first has the page open; the first confirm is refused with "already assigned" and the assignment is unchanged | 78-AC5 | P1 | C | 5 | C5 |
-| E2E-ASSIGN-04 | Empty queue shows the "no requests awaiting" message; a Lead sees events of every coordinator | 77-AC6, 184-S1 | P2 | B | 5 | C5 |
+| E2E-ASSIGN-04 | Both Leads see an unassigned request; the overview lists the coordinators of both Leads; a Lead assigns to the other Lead's coordinator and sees it on that coordinator's page. (The empty-queue message is not here, see section 5.) | 184-S1, 184-S2, 184-S3 | P2 | N | 5 | C5 |
 
 ### VEN, BOOK, CONF: venues, bookings and conflicts
 
@@ -96,7 +97,7 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-VEN-03 | Venue Staff add a venue and edit it; a coordinator cannot | SCRUM-57, 58, 155 | P2 | N | 8 | |
 | E2E-VEN-04 | Venue Staff add, rename and delete a room layout type | SCRUM-181 | P2 | N | 8 | |
 | E2E-VEN-05 | Venue Staff save 30 and 45 minutes; the calendar shows Setup 09:30-10:00, Event 10:00-12:00, Turnaround 12:00-12:45 | 101, 103-S5 | P1 | N | 8, 9 | C1 |
-| E2E-VEN-06 | Venue calendar shows Pending as tentatively held and Approved as booked, to the roles allowed to see it | SCRUM-84, 130 (AC to confirm) | P2 | N | 9 | |
+| E2E-VEN-06 | The venue calendar shows a Pending request as Tentatively Held and an Approved booking as Confirmed to Coordinators, Venue Staff and Technical Support, and refuses the Lead and the Safety Officer. Books tomorrow, not 2031: the calendar only steps a day at a time from today | SCRUM-84/AC2, AC8, SCRUM-130/AC1 | P2 | N | 9 | |
 | E2E-BOOK-01 | Coordinator requests a venue; it is Pending; Venue Staff see it in the queue and approve; the coordinator sees Approved | 32, 37-S1, 38-S1 | P1 | N | 12, 13 | |
 | E2E-BOOK-02 | Venue Staff reject with a reason; the coordinator sees the reason on the booking; the reason is kept and the slot is free again | 39-S1, 39-S4 | P1 | F | 13 | |
 | E2E-BOOK-03 | Venue Staff reject and suggest an alternative; the coordinator accepts it | SCRUM-40 | P1 | N | 13 | |
@@ -118,7 +119,7 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-CHG-04 | Raising attendance past the venue's capacity lists the venue booking in the warning; going back changes nothing; "Save anyway" saves and sends the booking back to Pending | 112-S4, 112-S13, 112-S14, 113-S1 | P1 | N | 7, 19 | |
 | E2E-CHG-05 | Organiser submits a change request; the coordinator approves one and rejects another with a reason; the organiser sees both outcomes | 66-S1, 66-S6, 66-S7, SCRUM-67 | P1 | N | 19 | |
 | E2E-CHG-06 | A second change to the same field while one is pending is refused and says so; a different field is accepted | 176-S1, 176-S4, 176-S8 | P1 | C | 19 | |
-| E2E-CHG-07 | A block over a Confirmed event's venue returns it to Planning; lifting the block releases the flags; the replacement-confirmed notice reaches the organiser | SCRUM-185/AC1, AC2, AC3 | P2 | N | 9, 19 | C2 |
+| E2E-CHG-07 | A block over a Confirmed event's venue returns it to Planning and tells its coordinator; lifting the block clears the flag and tells the coordinator. (The replacement-confirmed notice is E2E-NOTIF-03.) | SCRUM-185/AC1, AC2 | P2 | N | 9, 19 | C2 |
 
 ### EQP, SAFE: equipment and safety check
 
@@ -146,13 +147,17 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-NOTIF-02 | One action sends one notification to the right user and none to others: assignment, approval, booking decision, venue flag | SCRUM-47, 172, 106-S5 | P1 | A | 20 | |
 | E2E-NOTIF-03 | The replacement-confirmed notice reaches the organiser and the affected attendees, not a withdrawn one | SCRUM-185/AC3, SCRUM-172 | P2 | A | 20 | C2 |
 
-**Counts** (counted from the tables above, lean scope): 59 cases. Priority: 8 P0, 39 P1, 12 P2. Type: 31 normal, 5 failure,
-6 boundary, 8 conflict, 9 access-control. (E2E-ACL-05 was added during writing, when the unassigned-coordinator check turned out
+**Counts** (counted from the tables above, lean scope): 59 cases. Priority: 8 P0, 39 P1, 12 P2. Type: 32 normal, 5 failure,
+5 boundary, 8 conflict, 9 access-control. (E2E-ACL-05 was added during writing, when the unassigned-coordinator check turned out
 to contradict spec 98; see defect D-002.) The metrics script will recompute these from the catalogue file, which becomes the source.
 Week 7 changes with at least one case: C1, C2, C3, C5, C6. **C4 has no case (not built).** The number of features covered
 out of 20 is computed by the script from the Feat column; I have not hand-counted it.
 
 ## 4. Existing specs folded in
+
+**Done (SCRUM-191):** every file below was folded into its case and then deleted; only `smoke.spec.ts` is left at the top of `tests/e2e`.
+A fold was a rewrite onto the shared fixtures, not a copy: the old files signed in through the form for every test, repeated
+their own REST helpers and ran only with `E2E_FULL_STACK=1`, and several had gone stale against `main` (the attendee's home item, the Lead's home).
 
 Each file keeps its test logic, moves onto the shared fixtures (the old `label.role-option` sign-in is replaced by the
 storageState or the combobox helper), loses its `E2E_FULL_STACK` gate and gets a catalogue ID.
@@ -190,6 +195,7 @@ NOTIF-02.
 | Email and SMS notifications | Not built (ADR 0002; `notification-service` is read-only). | Uncovered. NOTIF cases check in-app only. |
 | Exact-instant boundaries (registration closes at the second) and registration window closed / not yet open | Needs a frozen clock the whole stack shares; the closed and not-yet-open pages are display variants, not a critical path. | Left to unit and integration tests. |
 | Field-level validation messages: event request form, change request form, equipment reservation form | Lean scope (agreed in plan review): E2E takes rules a user sees as a business outcome, not each message. Covered by unit tests and the service validation tests (`19-S6` to `19-S8`, `66-S2` to `66-S5`, `66-S10`, SCRUM-49). | Unit and integration tests. The failure and boundary types are still represented by the cases in the catalogue. |
+| Empty Lead queue message (SCRUM-77/AC6) | The queue is system-wide (SCRUM-184) and other tests keep unassigned requests in it while this one runs, so it is never empty during a run. | The unit tests of `LeadQueueList`. |
 | Back-to-back bookings with 0/0 setup (`103-S6`) | An edge variant of the touching-periods rule, which `CONF-03` already covers with real buffers. | Unit and integration tests. |
 | Concurrency (`36-S4`, `38-S3`, `107-S5`, `78` with two simultaneous confirms) | Needs exact timing; ASSIGN-03 covers the sequential version. | Integration tests. |
 | "No eligible coordinator" (78-AC7) | Needs every coordinator inactive, which would change data shared with other tests. | Integration tests. |
@@ -209,9 +215,9 @@ NOTIF-02.
   `supabase migration list --local`; an unapplied migration makes tests fail in misleading ways.
 - **Test data left behind** if a run is killed. Names carry the `E2E-` prefix so they can be found and removed.
 
-## 7. What happens next
+## 7. Where it stands
 
-1. You review this plan, the catalogue, and the answers to the open questions at the end of `00-discovery.md`.
-2. Phase 2 (infrastructure), on branch `test/e2e-playwright`, starting with the config, setup project and fixtures, and the
-   `data-testid` hooks in their own commit.
-3. Specs P0, then P1, then the folded-in P2, then CI, then the generated docs and metrics.
+Built on branch `SCRUM-191/e2e-playwright` (Jira SCRUM-191): the config, fixtures and page objects, a spec for every case above, the CI `e2e` job,
+and the generator in `scripts/e2e` that writes `02`, `03`, `04`, `metrics.md` and the new rows of `05` from a run. How to run and regenerate:
+[README-e2e.md](README-e2e.md). What people still have to do: review every test (`05-review-log.md`) and run the manual scripts
+(`02-test-cases.md`, Executed by blank in `04-execution-log.md`).
