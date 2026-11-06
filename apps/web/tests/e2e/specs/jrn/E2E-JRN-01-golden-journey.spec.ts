@@ -6,7 +6,7 @@ import { BookingQueuePage, VenueSearchPage } from "../../pages/VenueJourneyPages
 import { EquipmentQueuePage, EventEquipmentPage } from "../../pages/EquipmentJourneyPages";
 import { SafetyCheckPages } from "../../pages/SafetyCheckPages";
 import { AttendeePages } from "../../pages/AttendeePages";
-import { waitForHydration } from "../../fixtures/hydration";
+import { waitForButton, waitForHydration } from "../../fixtures/hydration";
 import type { Persona } from "../../fixtures/accounts";
 import { DAY } from "../../fixtures/scenarios";
 import { tc } from "../../fixtures/tc";
@@ -68,6 +68,11 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await organiser.goto("/my-event-requests");
     await organiser.getByRole("link", { name }).first().click();
     await expect(organiser).toHaveURL(new RegExp(`/events/new\\?draft=${eventId}`));
+    // a resumed draft opens on the step it was saved on (SCRUM-124): Equipment, with its text back; the first step is restored too
+    await expect(organiser.getByRole("heading", { level: 2, name: "Equipment" })).toBeVisible();
+    await expect(organiser.getByLabel("Equipment requirements", { exact: false })).toHaveValue("Two projectors and four wireless microphones.");
+    await waitForButton(organiser, "Back");
+    for (let i = 0; i < 3; i++) await organiser.getByRole("button", { name: "Back" }).click();
     await expect(organiser.getByLabel("Event name")).toHaveValue(name); // what was saved is back
 
     await form.continueTo("Date & attendance");

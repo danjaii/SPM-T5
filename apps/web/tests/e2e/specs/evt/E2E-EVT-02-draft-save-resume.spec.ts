@@ -1,4 +1,5 @@
 import { EventRequestPage } from "../../pages/EventRequestPage";
+import { waitForButton } from "../../fixtures/hydration";
 import { LeadQueuePage } from "../../pages/ReviewPages";
 import { DAY } from "../../fixtures/scenarios";
 import { tc } from "../../fixtures/tc";
@@ -42,9 +43,13 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     draftId = (await drafts())[0].id;
     await organiser.getByRole("link", { name }).first().click();
     await expect(organiser).toHaveURL(new RegExp(`/events/new\\?draft=${draftId}`));
-    await expect(organiser.getByLabel("Event name")).toHaveValue(name);
-    await form.continueTo("Date & attendance");
+    // a resumed draft opens on the step it was saved on (SCRUM-124), with that step's values back
+    await expect(organiser.getByRole("heading", { level: 2, name: "Date & attendance" })).toBeVisible();
     await expect(organiser.getByLabel("Expected attendance")).toHaveValue("25");
+    await waitForButton(organiser, "Back");
+    await organiser.getByRole("button", { name: "Back" }).click();
+    await expect(organiser.getByLabel("Event name"), "the earlier step is restored too").toHaveValue(name);
+    await form.continueTo("Date & attendance");
 
     await organiser.getByLabel("Expected attendance").fill("35");
     await form.saveDraft();

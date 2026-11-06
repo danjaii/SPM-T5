@@ -22,7 +22,9 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
         await form.fill({ venueName: venue.name, capacity: venue.max_capacity, date: DAY, start, end });
         await form.submit();
 
-        await expect(form.refusal, `${start}-${end}`).toContainText(`${venue.name} is occupied from 10:00 to 12:00`);
+        // a Pending holder is a tentative hold, which the refusal says (SCRUM-97); an Approved one is simply occupied
+        const wording = holderStatus === "requested" ? "tentatively held" : "occupied";
+        await expect(form.refusal, `${start}-${end}`).toContainText(`${venue.name} is ${wording} from 10:00 to 12:00`);
         await expect(form.refusal).not.toContainText("including setup and turnaround");
         await expect(page).toHaveURL(/\/venue-request$/); // stayed on the form
       }
