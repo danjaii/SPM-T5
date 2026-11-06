@@ -1,7 +1,7 @@
 # E2E test plan
 
 Plan for browser-driven end-to-end tests of ConnectSphere with Playwright. Facts about the repo are in
-[00-discovery.md](00-discovery.md). Status: **built under SCRUM-191. All 59 cases have a spec; the latest results are in [metrics.md](metrics.md).** This file records the
+[00-discovery.md](00-discovery.md). Status: **built under SCRUM-191. All 67 cases have a spec; the latest results are in [metrics.md](metrics.md).** This file records the
 plan and the decisions; where a case changed while it was written, the row below says what it checks now.
 
 ## 1. Scope and approach
@@ -83,21 +83,25 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-EVT-02 | Save as draft, leave, resume from the Drafts tab, edit, submit | SCRUM-53, 54, 124 (124 AC to confirm) | P1 | N | 3 | |
 | E2E-EVT-03 | Coordinator starts review, requests clarification, then rejects with a reason; another request is approved; organiser sees each status and reason | SCRUM-24, 44, 45 (AC to confirm) | P1 | N | 4, 6 | |
 | E2E-EVT-04 | Coordinator edits details: a minor edit saves; a critical edit (date) shows the affected arrangements, and "Save anyway" sends them back to Pending | 111, 112-S8, 112-S14, 113-S1, 113-S9 | P1 | N | 7 | |
+| E2E-EVT-05 | Cancelling needs a reason (the browser and the service refuse an empty one); the event's venue booking and equipment are released, its open change request is closed, the organiser and the still-registered attendees are told (not a withdrawn one, nor the coordinator), and it stays cancelled. Added after the brief and the customer's Week 9 answers were checked | 174-S1, S2, S3, S5, S7, S9, S10 | P1 | N | 6, 12, 15, 19, 20 | |
 | E2E-ASSIGN-01 | Lead's queue lists unassigned submitted requests oldest first with the required columns; assigning removes the request from the queue and shows the coordinator on the event | 77-AC1-AC4, 78-AC2, 78-AC3 | P1 | N | 5 | C5 |
-| E2E-ASSIGN-02 | Lead reassigns; the old coordinator loses access, the new one gains it | SCRUM-79, 156-S4 | P1 | N | 5 | C5 |
+| E2E-ASSIGN-02 | Lead reassigns; the old coordinator loses access, the new one gains it and is told; the replaced coordinator and the Lead are not | SCRUM-79, 156-S4, 47-S1 | P1 | N | 5 | C5 |
 | E2E-ASSIGN-03 | A second Lead assigns the event while the first has the page open; the first confirm is refused with "already assigned" and the assignment is unchanged | 78-AC5 | P1 | C | 5 | C5 |
 | E2E-ASSIGN-04 | Both Leads see an unassigned request; the overview lists the coordinators of both Leads; a Lead assigns to the other Lead's coordinator and sees it on that coordinator's page. (The empty-queue message is not here, see section 5.) | 184-S1, 184-S2, 184-S3 | P2 | N | 5 | C5 |
+| E2E-ASSIGN-05 | The Lead's Active events list shows every active assigned event, earliest first, not unassigned or closed ones; filters by coordinator, status and name; says when nothing matches; Leads only | SCRUM-189/AC1-AC6 | P1 | N | 5 | C5 |
 
 ### VEN, BOOK, CONF: venues, bookings and conflicts
 
 | ID | Scenario | Refs | Pri | Type | Feat | Chg |
 | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| E2E-VEN-01 | Venue search by date, time, people, location, layout and facility returns only matching venues; Reset clears | SCRUM-65 (17 scenarios) | P1 | N | 8, 10 | |
+| E2E-VEN-01 | Venue search by date, time, people and location returns only matching venues; Reset clears (layout, accessibility, facility and capacity are E2E-VEN-07) | SCRUM-65 (17 scenarios) | P1 | N | 8, 10 | |
 | E2E-VEN-02 | Suitability report shows Suitable, Not suitable, Not met, Check manually; an unsuitable venue needs a reason to go ahead | 109, 110 | P1 | N | 11 | |
 | E2E-VEN-03 | Venue Staff add a venue and edit it; a coordinator cannot | SCRUM-57, 58, 155 | P2 | N | 8 | |
 | E2E-VEN-04 | Venue Staff add, rename and delete a room layout type | SCRUM-181 | P2 | N | 8 | |
 | E2E-VEN-05 | Venue Staff save 30 and 45 minutes; the calendar shows Setup 09:30-10:00, Event 10:00-12:00, Turnaround 12:00-12:45 | 101, 103-S5 | P1 | N | 8, 9 | C1 |
 | E2E-VEN-06 | The venue calendar shows a Pending request as Tentatively Held and an Approved booking as Confirmed to Coordinators, Venue Staff and Technical Support, and refuses the Lead and the Safety Officer. Books tomorrow, not 2031: the calendar only steps a day at a time from today | SCRUM-84/AC2, AC8, SCRUM-130/AC1 | P2 | N | 9 | |
+| E2E-VEN-07 | The layout, Accessible venue, facility and people filters each narrow the venues, and together keep only the venue that meets all of them | 65-S2, S3, S5 | P1 | N | 8, 10 | |
+| E2E-VEN-08 | A venue without the event's layout is Not suitable (layout line Not met); the facilities line says Not checked, because the event stores no required facilities (see section 5); a venue with the layout is Suitable | 109-S1, S3 | P1 | N | 11 | |
 | E2E-BOOK-01 | Coordinator requests a venue; it is Pending; Venue Staff see it in the queue and approve; the coordinator sees Approved | 32, 37-S1, 38-S1 | P1 | N | 12, 13 | |
 | E2E-BOOK-02 | Venue Staff reject with a reason; the coordinator sees the reason on the booking; the reason is kept and the slot is free again | 39-S1, 39-S4 | P1 | F | 13 | |
 | E2E-BOOK-03 | Venue Staff reject and suggest an alternative; the coordinator accepts it | SCRUM-40 | P1 | N | 13 | |
@@ -120,6 +124,7 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-CHG-05 | Organiser submits a change request; the coordinator approves one and rejects another with a reason; the organiser sees both outcomes | 66-S1, 66-S6, 66-S7, SCRUM-67 | P1 | N | 19 | |
 | E2E-CHG-06 | A second change to the same field while one is pending is refused and says so; a different field is accepted | 176-S1, 176-S4, 176-S8 | P1 | C | 19 | |
 | E2E-CHG-07 | A block over a Confirmed event's venue returns it to Planning and tells its coordinator; lifting the block clears the flag and tells the coordinator. (The replacement-confirmed notice is E2E-NOTIF-03.) | SCRUM-185/AC1, AC2 | P2 | N | 9, 19 | C2 |
+| E2E-CHG-08 | Moving an event's date lists its Arranged equipment request next to its venue booking; Go back changes nothing; Save anyway sends both back for review | 112-S8, 113-S1, 113-S3 | P1 | N | 7, 15, 19 | |
 
 ### EQP, SAFE: equipment and safety check
 
@@ -134,6 +139,7 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-SAFE-03 | Reject without a reason is refused; with a reason the event cannot proceed | 99-AC6 | P1 | F | | C6 |
 | E2E-SAFE-04 | Before an Approve, nobody can confirm the event (the coordinator's confirm is refused with the safety message) | 99-AC7 | P1 | A | 6 | C6 |
 | E2E-SAFE-05 | Approve, then the coordinator confirms; the event shows Confirmed and "Safety Approved" | 99-AC5, 99-AC8 | P1 | N | 6 | C6 |
+| E2E-SAFE-06 | An important change to a Confirmed event revokes its Safety Approval: the event waits for a new check and cannot be confirmed without it (customer Week 9) | SCRUM-100/AC9 | P1 | F | 6, 7 | C6 |
 
 ### REG, NOTIF: attendees and notifications
 
@@ -143,12 +149,14 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-REG-02 | Attendee withdraws from My registrations after confirming; the registration shows Withdrawn and a withdrawn attendee is not on the active list | SCRUM-73 | P1 | N | 18 | |
 | E2E-REG-03 | Event with capacity 1: the first attendee registers, the second is told the event is full (or is put on pending, as SCRUM-169 decides) | SCRUM-169 (AC to confirm) | P1 | B | 18 | |
 | E2E-REG-04 | While an event is back in Planning, registration is closed and the coordinator can adjust capacity and window | SCRUM-185/AC4 | P2 | B | 18 | C2 |
+| E2E-REG-05 | A further attendee at a full event waits for the organiser, who cannot Confirm while it is full, can Decline, and can add a VIP past the cap up to the venue's capacity | SCRUM-169/AC3, AC4, SCRUM-170 | P1 | B | 18 | |
+| E2E-REG-06 | On a full event with an attendee waiting for the organiser, the organiser adds a VIP: the VIP must appear in the list without a reload. **Expected to fail in the production build** (defect D-006) | SCRUM-170 | P1 | B | 18 | |
 | E2E-NOTIF-01 | The bell shows the unread count; the page lists notifications with unread ones marked in words; Mark as read changes one (the bell follows after a reload); opening one goes to what it is about and marks it read. (Acknowledge is not covered: it needs an action-needed notification.) | SCRUM-46 | P1 | N | 20 | |
 | E2E-NOTIF-02 | One action sends one notification to the right user and none to others: assignment, approval, booking decision, venue flag | SCRUM-47, 172, 106-S5 | P1 | A | 20 | |
 | E2E-NOTIF-03 | The replacement-confirmed notice reaches the organiser and the affected attendees, not a withdrawn one | SCRUM-185/AC3, SCRUM-172 | P2 | A | 20 | C2 |
 
-**Counts** (counted from the tables above, lean scope): 59 cases. Priority: 8 P0, 39 P1, 12 P2. Type: 32 normal, 5 failure,
-5 boundary, 8 conflict, 9 access-control. (E2E-ACL-05 was added during writing, when the unassigned-coordinator check turned out
+**Counts** (counted from the tables above, lean scope): 67 cases. Priority: 8 P0, 47 P1, 12 P2. Type: 37 normal, 6 failure,
+7 boundary, 8 conflict, 9 access-control. (E2E-ACL-05 was added during writing, when the unassigned-coordinator check turned out
 to contradict spec 98; see defect D-002.) The metrics script will recompute these from the catalogue file, which becomes the source.
 Week 7 changes with at least one case: C1, C2, C3, C5, C6. **C4 has no case (not built).** The number of features covered
 out of 20 is computed by the script from the Feat column; I have not hand-counted it.
@@ -195,6 +203,8 @@ NOTIF-02.
 | Email and SMS notifications | Not built (ADR 0002; `notification-service` is read-only). | Uncovered. NOTIF cases check in-app only. |
 | Exact-instant boundaries (registration closes at the second) and registration window closed / not yet open | Needs a frozen clock the whole stack shares; the closed and not-yet-open pages are display variants, not a critical path. | Left to unit and integration tests. |
 | Field-level validation messages: event request form, change request form, equipment reservation form | Lean scope (agreed in plan review): E2E takes rules a user sees as a business outcome, not each message. Covered by unit tests and the service validation tests (`19-S6` to `19-S8`, `66-S2` to `66-S5`, `66-S10`, SCRUM-49). | Unit and integration tests. The failure and boundary types are still represented by the cases in the catalogue. |
+| Suitability by a required facility (the brief's example "a required facility is unavailable") | An event stores no required-facilities field, so the check cannot produce "not available" (spec 109, "Only what is stored today is checked", decided 2026-10-14). E2E-VEN-08 asserts what the product does: the facilities line says Not checked. | Defect row D-004 in `defects.md`: the decision is in the spec but not in `docs/scope-decisions.md`. |
+| Request amendments from the Organiser (the brief: "request clarification or amendments") | A "returned" status exists, but no screen in the review actions uses it; the review offers clarification, approve and reject. | Needs the team to say whether it is built; clarification is covered by E2E-EVT-03. |
 | Empty Lead queue message (SCRUM-77/AC6) | The queue is system-wide (SCRUM-184) and other tests keep unassigned requests in it while this one runs, so it is never empty during a run. | The unit tests of `LeadQueueList`. |
 | Back-to-back bookings with 0/0 setup (`103-S6`) | An edge variant of the touching-periods rule, which `CONF-03` already covers with real buffers. | Unit and integration tests. |
 | Concurrency (`36-S4`, `38-S3`, `107-S5`, `78` with two simultaneous confirms) | Needs exact timing; ASSIGN-03 covers the sequential version. | Integration tests. |

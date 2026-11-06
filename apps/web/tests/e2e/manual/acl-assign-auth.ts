@@ -115,10 +115,12 @@ export const MANUAL = {
       "With each coordinator's cookie (API) GET `:4002/events/<event id>`: Rachel Tan, then Marcus Lim.",
       "As Helen Ong open `/lead/events/<event id>/reassign`, choose **Marcus Lim** and press **Confirm reassignment**.",
       "Repeat both GET calls.",
+      "Open **Notifications** as Marcus Lim, as Rachel Tan and as Helen Ong.",
     ],
     expected: [
       "Before: Rachel's read answers 200, Marcus's 404.",
       "After the reassignment: Marcus's answers 200 and Rachel's 404.",
+      "Marcus has one \"You are responsible for an event\" notification for the event; Rachel (replaced) and Helen (who made the change) have none for it.",
     ],
   },
   "E2E-ASSIGN-03": {

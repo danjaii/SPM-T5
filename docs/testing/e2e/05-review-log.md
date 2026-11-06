@@ -62,6 +62,18 @@ How rows get here: the AI adds a row when it writes a test and records the self-
 | E2E-EVT-02 | AI (Claude Code) | | | Passed locally (2026-11-04). Draft saved at step 2; listed as Draft; the Lead's queue does not show it; resuming restores the name and attendance; saving again updates the same row (one draft, new attendance); submitting makes it visible to the Lead. No test-the-test (P1). | | |
 | E2E-EVT-03 | AI (Claude Code) | | | Passed locally (2026-11-04). Start review; a question reaches the organiser (notification and their event page); a rejection with a reason is stored and shown to the organiser and tells them; an approval moves it to Approved and tells them. The refusal of a rejection WITHOUT a reason is not covered here. No test-the-test (P1). | | No written ACs exist for features 4 and 6 in docs/specs; the checks follow the stories as built (ref marked "AC to confirm"). |
 | E2E-EVT-04 | AI (Claude Code) | | | Passed locally (2026-11-04). Minor edit (purpose): saves at once, booking and status untouched. Date moved: the warning lists the approved booking and saves nothing; Save anyway sends the booking to Pending and the Confirmed event back to Planning. No test-the-test (P1). | | |
+| E2E-AUTH-04 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-AUTH-05 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-AUTH-06 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-ACL-04 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-ASSIGN-04 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-VEN-03 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-VEN-04 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-VEN-06 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-CHG-07 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-EQP-04 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-REG-04 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
+| E2E-NOTIF-03 | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |
 
 ## Test-the-test records
 
