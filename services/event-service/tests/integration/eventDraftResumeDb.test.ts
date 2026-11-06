@@ -45,14 +45,24 @@ describe.skipIf(!hasDb)("SCRUM-54 resume a draft against the database", () => {
 
   beforeAll(async () => {
     for (const key of Object.keys(EMAILS) as Array<keyof typeof EMAILS>) who[key] = await signInAs(EMAILS[key]);
-    const { data } = await admin.from("room_layouts").select("id").limit(1).single();
-    layoutId = data!.id;
+    // Our own layout, not any row of room_layouts: other test files create and delete layouts while this one runs
+    // (SCRUM-181's layoutTypes.test.ts), and a draft pointing at a layout deleted mid-test fails its foreign key.
+    const { data, error } = await admin
+      .from("room_layouts")
+      .insert({ name: `IT-54-layout-${Math.random().toString(36).slice(2, 8)}` })
+      .select("id")
+      .single();
+    if (error) throw new Error(`could not create the test's room layout: ${error.message}`);
+    layoutId = data.id;
   });
 
   afterAll(async () => {
-    if (eventIds.length === 0) return;
-    await admin.from("event_status_history").delete().in("event_id", eventIds);
-    await admin.from("events").delete().in("id", eventIds);
+    if (eventIds.length) {
+      await admin.from("event_status_history").delete().in("event_id", eventIds);
+      await admin.from("events").delete().in("id", eventIds);
+    }
+    // after the events, which reference it
+    if (layoutId) await admin.from("room_layouts").delete().eq("id", layoutId);
   });
 
   describe("SCRUM-54/AC1 open a saved draft", () => {
