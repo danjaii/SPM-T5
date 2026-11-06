@@ -7,6 +7,7 @@ import { Field } from "./Field";
 import { UnsuitableConfirm } from "./UnsuitableConfirm";
 import type { EquipmentRequestView } from "@/lib/equipmentRequests";
 import { changeVenueBooking, type VenueBookingChangeBody, type VenueBookingDetailView } from "@/lib/venueBookings";
+import { PageTitle } from "./PageFrame";
 
 // SCRUM-102/AC1: change one venue booking's date, times, expected attendance or requirements. Its venue is shown but cannot
 // change (a different venue is another venue booking). It goes back to venue staff for approval. Validation is the shared
@@ -70,7 +71,7 @@ export function VenueBookingChangeForm({ booking, equipment }: { booking: VenueB
 
   return (
     <section className="event">
-      <h1>Change venue booking</h1>
+      <PageTitle>Change venue booking</PageTitle>
       <p className="event__status">{booking.eventName}</p>
 
       {error && <div className="alert alert--error" role="alert">{error}</div>}

@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import type { EquipmentRequestDetailView } from "@/lib/equipmentRequests";
 import { EQUIPMENT_STATUS_DISPLAY } from "@/lib/status";
 import { SentBackNotice } from "./SentBackNotice";
+import { PageTitle } from "./PageFrame";
 
 // SCRUM-87/AC3: one request in full, whatever its status. AC5: a Cannot Fulfil request shows its reason.
 // SCRUM-88/AC2: a request the coordinator changed is marked Updated; AC8: who last changed it, and when.
@@ -23,7 +24,7 @@ export function EquipmentRequestDetail({ request }: { request: EquipmentRequestD
   return (
     <section aria-labelledby="equipment-request-heading" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 id="equipment-request-heading" className="text-3xl font-bold tracking-tight text-foreground">{request.equipment}</h1>
+        <PageTitle id="equipment-request-heading">{request.equipment}</PageTitle>
         <StatusBadge {...EQUIPMENT_STATUS_DISPLAY[request.status]} label={request.statusLabel} />
         {request.updated && <StatusBadge tone="info" icon="info" label="Updated" />}
       </div>

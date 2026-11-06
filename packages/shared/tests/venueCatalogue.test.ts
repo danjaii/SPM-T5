@@ -210,3 +210,45 @@ describe("SCRUM-58/AC4 a capacity cut and the bookings it leaves over capacity (
     expect(bookingsOverCapacity([later, sooner], 100, 150, now).map((b) => b.bookingId)).toEqual(["sooner", "later"]);
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-57/AC2 values exactly at the limits (57-S2)", () => {
+  it.each([1, 100000])("57-S2: a capacity of %i is accepted", (maxCapacity) => {
+    const parsed = parseVenueInput(complete({ maxCapacity, layouts: [{ layoutId: LAYOUT_A, maxCapacity }] }));
+    expect(parsed).toMatchObject({ ok: true, data: { maxCapacity, layouts: [{ maxCapacity }] } });
+  });
+
+  it("57-S2: a name of exactly 120 characters and a location of exactly 200 are accepted", () => {
+    expect(parseVenueInput(complete({ name: "x".repeat(120), address: "x".repeat(200) })).ok).toBe(true);
+  });
+});
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-57/AC2 values that are spaced, empty or refused (57-S2)", () => {
+  it("57-S2: a capacity typed with spaces is accepted", () => {
+    expect(parseVenueInput(complete({ maxCapacity: " 150 " }))).toMatchObject({ ok: true, data: { maxCapacity: 150 } });
+  });
+
+  it("57-S2: a null accessibility answer and null facilities count as not given", () => {
+    expect(parseVenueInput(complete({ isAccessible: null, facilityIds: null }))).toMatchObject({
+      ok: true,
+      data: { isAccessible: false, facilityIds: [] },
+    });
+  });
+
+  it("57-S2: each refusal says what to fix", () => {
+    expect(fieldErrors(complete({
+      maxCapacity: 0,
+      isAccessible: "maybe",
+      layouts: [{ layoutId: "x", maxCapacity: 10 }],
+      facilityIds: ["x"],
+    }))).toEqual({
+      maxCapacity: "Capacity must be a whole number from 1 to 100000.",
+      isAccessible: "Say whether the venue is accessible: yes or no.",
+      layouts: "Choose each layout from the list.",
+      facilityIds: "Choose each facility from the list.",
+    });
+    expect(fieldErrors(complete({ layouts: [{ layoutId: LAYOUT_A, maxCapacity: 0 }] })).layouts)
+      .toBe("Each layout's capacity must be a whole number of at least 1.");
+  });
+});

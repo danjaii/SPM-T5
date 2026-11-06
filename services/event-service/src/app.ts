@@ -3,6 +3,7 @@ import type { SupabaseDeps } from "./supabase";
 import { changeRequestRoutes } from "./routes/changeRequests";
 import { changeRequestReviewRoutes } from "./routes/changeRequestReview";
 import { eventDetailsRoutes } from "./routes/eventDetails";
+import { eventDraftDeleteRoutes } from "./routes/eventDraftDelete";
 import { eventDraftRoutes } from "./routes/eventDrafts";
 import { eventRoutes } from "./routes/events";
 import { eventRequestRoutes } from "./routes/eventRequests";
@@ -10,6 +11,7 @@ import { leadRoutes } from "./routes/lead";
 import { myEventRequestRoutes } from "./routes/myEventRequests";
 import { upcomingEventRoutes } from "./routes/upcomingEvents";
 import { registrationRoutes } from "./routes/registrations";
+import { registrationSettingsRoutes } from "./routes/registrationSettings";
 import { safetyDecisionRoutes, safetyCheckRoutes } from "./routes/safetyChecks";
 import { cors } from "./middlewares/cors";
 import { healthCheck } from "./index";
@@ -33,6 +35,8 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/events", upcomingEventRoutes(deps));
   app.use("/events", changeRequestRoutes(deps));
   app.use("/events", registrationRoutes(deps));
+  // SCRUM-185/AC4: the assigned coordinator adjusts an event's registration capacity and window
+  app.use("/events", registrationSettingsRoutes(deps));
   app.use("/events", eventRequestRoutes(deps));
   // SCRUM-111: the assigned coordinator edits an event's details (PATCH /events/:id)
   app.use("/events", eventDetailsRoutes(deps, now));
@@ -40,6 +44,8 @@ export function createApp(deps: SupabaseDeps, options: AppOptions = {}) {
   app.use("/events", myEventRequestRoutes(deps));
   // SCRUM-53: before eventRoutes, whose /:id routes would otherwise treat "drafts" as an event id
   app.use("/events", eventDraftRoutes(deps, now));
+  // SCRUM-56: an organiser deletes one of their drafts (DELETE /events/drafts/:id); before eventRoutes like the line above
+  app.use("/events", eventDraftDeleteRoutes(deps));
   app.use("/events", eventRoutes(deps));
   // SCRUM-75: the Event Coordinator Lead's pages and actions
   app.use("/lead", leadRoutes(deps));

@@ -161,10 +161,9 @@ describe("SCRUM-79 — Confirm the reassignment (POST /lead/events/:id/reassign)
 
   it.each([
     ["SCRUM-79/AC5", "CL001", 409, "This event is closed, so its coordinator can't be changed."],
-    ["SCRUM-79/AC6", "CL003", 422, "Choose one of your active coordinators."],
+    ["SCRUM-79/AC6", "CL003", 422, "Choose an active coordinator."],
     ["SCRUM-79/AC2", "CL006", 409, "This coordinator is already assigned to the event."],
     ["SCRUM-79", "CL004", 409, "This event has no coordinator yet. Assign one from the unassigned queue."],
-    ["SCRUM-79/AC9", "CL005", 403, "You can only reassign events held by coordinators you supervise."],
     ["SCRUM-79/AC9", "42501", 403, "Only an Event Coordinator Lead can do this."],
     ["SCRUM-79", "P0002", 404, "Event not found."],
   ])("%s answers the database's %s refusal with %i", async (_ac, code, status, message) => {

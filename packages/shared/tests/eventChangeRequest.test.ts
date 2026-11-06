@@ -148,3 +148,84 @@ describe("SCRUM-66/AC10 end time before start time is not allowed", () => {
     expect(!result.ok && result.fieldErrors).toMatchObject({ startTime: "Enter a start time.", endTime: "Enter an end time." });
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-66/AC8 requirements text exactly at the limit", () => {
+  it("accepts requirements text of exactly 2000 characters", () => {
+    expect(parse({ venueRequirements: "x".repeat(2000) }).ok).toBe(true);
+  });
+});
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-66/AC9 the start compared with now", () => {
+  it("allows a start of exactly now", () => {
+    expect(parse({ date: "2026-10-06", startTime: "10:00", endTime: "17:00" }).ok).toBe(true);
+  });
+
+  it("does not re-check a start that is not changing, so an event under way can still change its end", () => {
+    expect(parseEventChangeRequestInput({ endTime: "18:00" }, current, new Date("2026-12-01T00:00:00.000Z")).ok).toBe(true);
+  });
+});
+
+describe("SCRUM-66/AC8 fields that are empty, malformed or not text", () => {
+  const noDates = { ...current, preferred_start_datetime: null, preferred_end_datetime: null };
+
+  it("treats a null attendance as not given", () => {
+    expect(parse({ expectedAttendance: null, equipmentRequirements: "Three projectors" }).ok).toBe(true);
+  });
+
+  it("accepts an attendance with spaces around the digits", () => {
+    const result = parse({ expectedAttendance: " 150 " });
+    expect(result.ok && result.data.proposed_changes.expected_attendance).toEqual({ from: 100, to: 150 });
+  });
+
+  it("does not ask for a date when an event with no dates changes only its attendance", () => {
+    expect(parseEventChangeRequestInput({ expectedAttendance: 150 }, noDates, NOW).ok).toBe(true);
+  });
+
+  it("asks for the other date and times when an event with no dates is given only a start time", () => {
+    expect(parseEventChangeRequestInput({ startTime: "10:00" }, noDates, NOW)).toMatchObject({
+      ok: false,
+      fieldErrors: { date: "Enter a date.", endDate: "Enter an end date.", endTime: "Enter an end time." },
+    });
+  });
+
+  it("asks for a date that is empty, and does not call it malformed or invalid", () => {
+    expect(errorsOf({ date: "", endDate: "2026-11-15" }).date).toBe("Enter a date.");
+  });
+
+  it("names each malformed field", () => {
+    expect(errorsOf({ endDate: "15/11/2026", startTime: "9am", endTime: "25:00" })).toEqual({
+      endDate: "Enter the end date as YYYY-MM-DD.",
+      startTime: "Enter the start time as HH:MM.",
+      endTime: "Enter the end time as HH:MM.",
+    });
+  });
+
+  it("refuses requirements that are not text", () => {
+    expect(errorsOf({ venueRequirements: 123 })).toEqual({ venueRequirements: "Enter the venue requirements as text." });
+  });
+
+  it("names the field when the requirements or the reason are too long", () => {
+    const long = "x".repeat(2001);
+    expect(errorsOf({ venueRequirements: long, equipmentRequirements: long, reason: long })).toEqual({
+      venueRequirements: "The venue requirements must be 2000 characters or fewer.",
+      equipmentRequirements: "The equipment requirements must be 2000 characters or fewer.",
+      reason: "The reason must be 2000 characters or fewer.",
+    });
+  });
+
+  it("does not count spaces around the stored requirements as a change", () => {
+    const spaced = { ...current, venue_requirements: "  Stage ", equipment_requirements_notes: " Two projectors  " };
+    expect(parseEventChangeRequestInput({ venueRequirements: "Stage", equipmentRequirements: "Two projectors" }, spaced, NOW))
+      .toMatchObject({ ok: false, noChanges: true });
+  });
+});
+
+// The last cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-66/AC4 empty requirements on an event with none stored", () => {
+  it("empty equipment requirements are no change when none are stored", () => {
+    const none = { ...current, equipment_requirements_notes: null };
+    expect(parseEventChangeRequestInput({ equipmentRequirements: "" }, none, NOW)).toMatchObject({ ok: false, noChanges: true });
+  });
+});

@@ -34,12 +34,23 @@ describe("SCRUM-121/AC1 role navigation", () => {
     }
   });
 
-  // SCRUM-161: every role, the attendee included, has Home as its home item
-it.each(ROLES)("highlights the home item for the %s on its home page and nothing else", (role) => {
+  // SCRUM-161: every role, the attendee included, has Home as its home item; SCRUM-188: the Lead's Home is the queue, tested below
+it.each(ROLES.filter((r) => r !== "event_coordinator_lead"))("highlights the home item for the %s on its home page and nothing else", (role) => {
     nav.pathname = `/dashboard/${role}`;
     renderShell(role);
     const links = within(screen.getByRole("navigation", { name: "Main" })).getAllByRole("link");
     expect(links.filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.textContent)).toEqual(["Home"]);
+  });
+
+  it("SCRUM-188/AC3 the Lead's first item is Home, opening the unassigned queue with its count, and highlighted there", () => {
+    expect(NAV_ITEMS.event_coordinator_lead[0]).toMatchObject({ label: "Home", href: "/lead/queue", queue: "leadQueue" });
+    expect(NAV_ITEMS.event_coordinator_lead.filter((i) => i.label === "Home" || i.href === "/lead/queue")).toHaveLength(1);
+    nav.pathname = "/lead/queue";
+    renderShell("event_coordinator_lead");
+    const links = within(screen.getByRole("navigation", { name: "Main" })).getAllByRole("link");
+    const current = links.filter((a) => a.getAttribute("aria-current") === "page");
+    expect(current.map((a) => a.getAttribute("href"))).toEqual(["/lead/queue"]);
+    expect(current[0]!.textContent).toMatch(/^Home/);
   });
 
   it("SCRUM-131: has no separate Search venues item; the old search address highlights the catalogue", () => {
@@ -88,7 +99,7 @@ it.each(ROLES)("highlights the home item for the %s on its home page and nothing
 
 describe("SCRUM-121/AC2 queue counts", () => {
   it.each([
-    ["event_coordinator_lead", { leadQueue: 4 }, "Unassigned requests"],
+    ["event_coordinator_lead", { leadQueue: 4 }, "Home"], // SCRUM-188: the Lead's Home is the queue
     ["venue_staff", { bookingQueue: 7 }, "Booking requests"],
     ["technical_support_staff", { equipmentQueue: 2 }, "Equipment requests"],
     ["safety_officer", { safetyQueue: 3 }, "Safety checks"],

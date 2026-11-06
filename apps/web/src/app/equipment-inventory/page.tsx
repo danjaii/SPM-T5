@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Settings2 } from "lucide-react";
+import { Settings2 } from "lucide-react";
 import { utcToSgt } from "@spm-t5/shared";
 import { buttonVariants } from "@/components/ui/button";
 import { AuthAlert } from "@/components/auth/AuthParts";
+import { PageFrame } from "@/components/PageFrame";
 import { InventoryPeriodForm } from "@/components/equipment/InventoryPeriodForm";
 import { InventoryTable } from "@/components/equipment/InventoryTable";
 import type { InventoryPeriodQuery } from "@/lib/equipmentInventory";
@@ -27,38 +28,28 @@ function periodFrom(query: SearchParams): InventoryPeriodQuery {
 }
 
 // SCRUM-137/AC2: Technical Support Staff see every item's free, working units for a period, and why the rest are not.
+// SCRUM-186/AC2: a sidebar page, so no back link.
 export default async function EquipmentInventoryPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const period = periodFrom(await searchParams);
   const result = await getEquipmentInventory(period);
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:px-8">
-      <div className="flex flex-col gap-1.5">
-        <Link
-          href="/dashboard"
-          className="mb-2 inline-flex items-center gap-1 self-start text-sm font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <ArrowLeft aria-hidden="true" className="size-4" /> Back to dashboard
+    <PageFrame
+      title="Inventory"
+      description="Only working units that no other event holds at that time count as free."
+      action={
+        // SCRUM-182: this page is Technical Support Staff's own (route guard), so the catalogue is offered to them only.
+        <Link href="/equipment-catalogue" className={cn(buttonVariants({ variant: "outline" }))}>
+          <Settings2 aria-hidden="true" />
+          Manage catalogue
         </Link>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1.5">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Inventory</h1>
-            <p className="text-sm text-muted-foreground">
-              Only working units that no other event holds at that time count as free.
-            </p>
-          </div>
-          {/* SCRUM-182: this page is Technical Support Staff's own (route guard), so the catalogue is offered to them only. */}
-          <Link href="/equipment-catalogue" className={cn(buttonVariants({ variant: "outline" }))}>
-            <Settings2 aria-hidden="true" />
-            Manage catalogue
-          </Link>
-        </div>
-      </div>
+      }
+    >
 
       <InventoryPeriodForm period={period} fieldErrors={"fieldErrors" in result ? result.fieldErrors : undefined} />
 
       {"items" in result && <InventoryTable items={result.items} />}
       {"error" in result && <AuthAlert tone="error">{result.error}</AuthAlert>}
-    </main>
+    </PageFrame>
   );
 }

@@ -1,5 +1,5 @@
 import { isEventStatus } from "./eventStatus";
-import { sgtToUtc, utcToSgt } from "./venueBooking";
+import { isRealDate, sgtToUtc, utcToSgt } from "./venueBooking";
 
 // Event change request rules shared by event-service and apps/web (docs/specs/event-change-request.md, SCRUM-66).
 // Event statuses must match the event_status enum in supabase/migrations/01_schema.sql.
@@ -157,8 +157,8 @@ export function parseEventChangeRequestInput(
     if (d1 && d2 && t1 && t2) {
       const start = sgtToUtc(d1, t1);
       const end = sgtToUtc(d2, t2);
-      if (Number.isNaN(start.getTime())) fieldErrors.date = "Enter a valid date.";
-      else if (Number.isNaN(end.getTime())) fieldErrors.endDate = "Enter a valid end date.";
+      if (!isRealDate(d1)) fieldErrors.date = "Enter a valid date.";
+      else if (!isRealDate(d2)) fieldErrors.endDate = "Enter a valid end date.";
       else {
         // AC10: the end (date and time) must be after the start. An end date before the date is named on the End date.
         if (end.getTime() <= start.getTime()) {
