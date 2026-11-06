@@ -1,6 +1,7 @@
 import { VenueRequestPage } from "../../pages/VenueRequestPage";
 import { DAY, heldVenue } from "../../fixtures/scenarios";
 import { tc } from "../../fixtures/tc";
+import { shot } from "../../fixtures/shots";
 import { expect, test } from "../../fixtures/test";
 
 // SCRUM-103 (the customer's worked example, Week 7 change 1): a booking occupies [start - setup, end + turnaround).
@@ -21,6 +22,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
       await form.submit();
 
       await expect(form.refusal).toContainText(`${venue.name} is occupied from 09:30 to 12:45, including setup and turnaround`);
+      if (start === "12:30") await shot(page, "E2E-CONF-02", "01-booking-refused");
       await expect(page).toHaveURL(/\/venue-request$/);
     });
   }

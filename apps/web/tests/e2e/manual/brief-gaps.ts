@@ -154,7 +154,7 @@ export const MANUAL = {
   },
   "E2E-REG-06": {
     setups: ["S0", "S9"],
-    preconditions: "As E2E-REG-05: a Confirmed event with registration for 1 place and an Approved booking at a venue that holds 5 (S9). Alicia Fernandez is Confirmed and Bryan Ho is waiting (Pending). KNOWN DEFECT D-006: in the production build step 3 fails, so this case is expected to FAIL there.",
+    preconditions: "As E2E-REG-05: a Confirmed event with registration for 1 place and an Approved booking at a venue that holds 5 (S9). Alicia Fernandez is Confirmed and Bryan Ho is waiting (Pending). KNOWN DEFECT D-006: in the production build the list intermittently stays stale at step 3 (the automated case is skipped there). Under next dev it works.",
     data: "VIP: `chen.wei.jie@example.com`.",
     steps: [
       "As Jason Chua open **Event registrations** and choose the event. Bryan's row is Pending with **Confirm** and **Decline**.",
@@ -164,7 +164,7 @@ export const MANUAL = {
     expected: [
       "Bryan is waiting (Pending).",
       "\"chen.wei.jie@example.com is now Confirmed as a VIP.\" appears.",
-      "The list shows a new row for the VIP with a VIP badge, and the summary counts two Confirmed, without a reload. Today (production build) the old rows stay until you reload, and only then does the VIP appear: record this against D-006 in `defects.md`.",
+      "The list shows a new row for the VIP with a VIP badge, and the summary counts two Confirmed, without a reload. In the production build the old rows sometimes stay until you reload, and only then does the VIP appear: record this against D-006 in `defects.md`.",
     ],
   },
 };

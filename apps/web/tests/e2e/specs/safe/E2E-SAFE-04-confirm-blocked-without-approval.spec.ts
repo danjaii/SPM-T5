@@ -1,6 +1,7 @@
 import { EventReviewPage } from "../../pages/ReviewPages";
 import { DAY } from "../../fixtures/scenarios";
 import { tc } from "../../fixtures/tc";
+import { shot } from "../../fixtures/shots";
 import { expect, test } from "../../fixtures/test";
 
 // SCRUM-99/AC7 (access control): nobody can move an event to Confirmed ("preparation") until the latest safety decision is
@@ -19,6 +20,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
   await new EventReviewPage(coordinator).setStatus("Confirmed");
 
   await expect(coordinator.getByText("This event can't move to preparation until it is Safety Approved."), "the coordinator is told why").toBeVisible();
+  await shot(coordinator, "E2E-SAFE-04", "01-confirm-refused");
   expect(await status(), "the event is not Confirmed").toBe("awaiting_arrangements");
   expect(await data.rest(`safety_checks?select=id&event_id=eq.${event.id}`), "and no decision was made").toEqual([]);
 });

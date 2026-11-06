@@ -7,6 +7,7 @@ import { EquipmentQueuePage, EventEquipmentPage } from "../../pages/EquipmentJou
 import { SafetyCheckPages } from "../../pages/SafetyCheckPages";
 import { AttendeePages } from "../../pages/AttendeePages";
 import { waitForButton, waitForHydration } from "../../fixtures/hydration";
+import { shot } from "../../fixtures/shots";
 import type { Persona } from "../../fixtures/accounts";
 import { DAY } from "../../fixtures/scenarios";
 import { tc } from "../../fixtures/tc";
@@ -86,6 +87,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await expect.poll(async () => (await data.rest<{ status: string; is_draft: boolean }[]>(`events?select=status,is_draft&id=eq.${eventId}`))[0]).toEqual({ status: "submitted", is_draft: false });
     // 172-AC1: every active Lead is told a request needs a coordinator
     await expect.poll(() => told("event_submitted")).toEqual(await ids("lead", "lead2"));
+    await shot(organiser, "E2E-JRN-01", "01-organiser-submitted");
   });
 
   await test.step("2 the Lead assigns it to a coordinator (SCRUM-77, 78)", async () => {
@@ -99,6 +101,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     expect(row.assigned_coordinator_id).toBe(await data.idOf("coordinator"));
     // 47-AC1: the assigned coordinator, and nobody else, is told they are responsible
     await expect.poll(() => told("coordinator_assigned")).toEqual(await ids("coordinator"));
+    await shot(lead, "E2E-JRN-01", "02-lead-assigned");
   });
 
   await test.step("3 the coordinator reviews and approves it (SCRUM-24, 44)", async () => {
@@ -109,6 +112,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await expect.poll(statusOf).toBe("approved");
     // 47-AC4: the organiser is told
     await expect.poll(() => told("event_approved")).toEqual(await ids("organiser"));
+    await shot(coordinator, "E2E-JRN-01", "03-coordinator-approved");
   });
 
   await test.step("3b the coordinator moves it into Planning", async () => {
@@ -129,10 +133,12 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await request.fill({ venueName: venue.name, capacity: venue.max_capacity, date: DAY, start: "09:00", end: "17:00" });
     await coordinator.getByRole("button", { name: "Check suitability" }).click();
     await expect(coordinator.getByRole("region", { name: "Venue suitability" })).toContainText("Suitable");
+    await shot(coordinator, "E2E-JRN-01", "04-venue-suitable");
     await request.submit();
 
     await expect(coordinator).toHaveURL(/\/venue-bookings\/[0-9a-f-]+$/);
     expect((await data.bookingsOf({ id: eventId, name }))).toEqual([expect.objectContaining({ status: "requested" })]);
+    await shot(coordinator, "E2E-JRN-01", "05-booking-pending");
   });
 
   await test.step("5 venue staff approve the request (SCRUM-37, 38)", async () => {
@@ -145,6 +151,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await expect.poll(statusOf).toBe("awaiting_arrangements");
     // 172-AC2: the event's assigned coordinator is told of the decision
     await expect.poll(() => told("venue_booking_approved")).toEqual(await ids("coordinator"));
+    await shot(venueStaff, "E2E-JRN-01", "06-venue-staff-approved");
   });
 
   await test.step("6 the coordinator asks for equipment and Technical Support arrange it (SCRUM-86, 87, 88)", async () => {
@@ -164,6 +171,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await check.openFromQueue(name);
     await check.decide("Approve", "Exits, capacity and accessibility are in order.");
     await expect(check.recorded).toContainText("Safety Approved");
+    await shot(safety, "E2E-JRN-01", "07-safety-approved");
     // 47-AC12: the coordinator and the organiser are told
     await expect.poll(() => told("safety_approved")).toEqual(await ids("coordinator", "organiser"));
   });
@@ -174,6 +182,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await expect.poll(statusOf).toBe("confirmed");
     // 172-AC5: the organiser is told. The coordinator made the change, so is not (the team applies "never the person who did it" to every criterion)
     await expect.poll(() => told("event_confirmed")).toEqual(await ids("organiser"));
+    await shot(coordinator, "E2E-JRN-01", "08-event-confirmed");
   });
 
   await test.step("9 an attendee finds the event, registers and then withdraws (SCRUM-83, 73)", async () => {
@@ -183,12 +192,14 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await register.click();
     await attendees.register({ name: "Alicia Fernandez", email: "alicia.fernandez@example.com", phone: "91234567" });
     await expect(attendees.registered).toContainText("Status:");
+    await shot(attendee, "E2E-JRN-01", "09-attendee-registered");
 
     const mine = await attendees.row(name);
     await expect(mine).toBeVisible();
 
     await attendees.withdraw(name);
     await expect((await attendees.row(name))).toContainText("Withdrawn");
+    await shot(attendee, "E2E-JRN-01", "10-attendee-withdrawn");
 
     // the database agrees, and the registration is kept as history, not deleted
     const rows = await data.rest<{ status: string }[]>(`event_registrations?select=status&event_id=eq.${eventId}`);
