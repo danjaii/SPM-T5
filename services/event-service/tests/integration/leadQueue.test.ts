@@ -153,9 +153,10 @@ describe.skipIf(!hasDb)("SCRUM-77 unassigned event queue (migration 21)", () => 
     },
   );
 
-  it("SCRUM-77/AC7 a Lead reads unassigned submitted requests directly, but not drafts or events assigned to a coordinator who isn't theirs", async () => {
+  // SCRUM-184 (migration 81): a Lead also reads events held by any coordinator, so only a draft stays out of sight
+  it("SCRUM-77/AC7 a Lead reads unassigned submitted requests and assigned events directly, but not drafts", async () => {
     const { data } = await who.leadA.client.from("events").select("id").in("id", [ids.first, ids.draft, ids.assigned]);
-    expect((data ?? []).map((r) => r.id)).toEqual([ids.first]);
+    expect((data ?? []).map((r) => r.id).sort()).toEqual([ids.first, ids.assigned].sort());
   });
   // end of AC7
 });

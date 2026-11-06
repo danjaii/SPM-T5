@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { LeadCoordinatorEvents } from "@/components/LeadCoordinatorEvents";
 import { PageFrame } from "@/components/PageFrame";
-import { buttonVariants } from "@/components/ui/button";
 import { getCoordinatorEvents, getLeadCoordinators } from "@/lib/leadServer";
 
 // SCRUM-81/AC5: loaded per request, so opening or refreshing shows the current assignments
@@ -22,12 +19,7 @@ export default async function CoordinatorEventsPage({ params }: { params: Promis
     <PageFrame
       title={coordinator ? `${coordinator.full_name}'s active events` : "Coordinator's active events"}
       description="Events still in progress. Open one to reassign it to another coordinator."
-      action={
-        <Link className={buttonVariants({ variant: "outline" })} href="/lead/coordinators">
-          <ArrowLeft aria-hidden="true" />
-          Back to coordinator overview
-        </Link>
-      }
+      back={{ href: "/lead/coordinators", to: "coordinator overview" }}
       error={"error" in result ? result.error : undefined}
     >
       {"events" in result && <LeadCoordinatorEvents events={result.events} />}

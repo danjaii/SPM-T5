@@ -53,3 +53,13 @@ describe("SCRUM-103/AC1 slotConflictMessage (103-S1)", () => {
     );
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-103/AC1 slotConflictMessage with only a setup time (103-S1)", () => {
+  it("103-S1: the suffix stays when only the setup time is set", () => {
+    const occupied = { start: at("09:30"), end: at("12:00") };
+    expect(slotConflictMessage("Orchid Hall", occupied, { setupMinutes: 15, turnaroundMinutes: 0 })).toBe(
+      "Orchid Hall is occupied from 09:30 to 12:00, including setup and turnaround",
+    );
+  });
+});

@@ -103,6 +103,7 @@ pnpm run lint:all                            # apps/web uses ESLint flat config 
 pnpm --filter @spm-t5/web run test:e2e        # Playwright
 pnpm run traceability                        # regenerate docs/traceability.md (runs every test; local Supabase up)
 pnpm run test:scripts                        # tests for scripts/traceability
+pnpm run test:mutation                       # mutation testing on packages/shared, by hand and not in CI (up to an hour); see docs/testing/mutation-testing.md
 ```
 
 Local full stack: create a root `.env` (variables listed in README → Getting started), then `supabase start` (the Supabase CLI stack runs
@@ -272,6 +273,5 @@ Known gaps to fix rather than work around:
   migration 59; and adds coordinator history only to them, SCRUM-183, migration 77), `users` (SCRUM-154), `venue_bookings`, `event_registrations`, `notifications`, `equipment_reservations` and
   `technical_support_requests` (SCRUM-153) and the catalogues (SCRUM-155, migration 53: Venue Staff write venues, layouts and
   facilities, Technical Support Staff write equipment, nobody writes `organisations` or `event_categories` through the API)
-  already have per-role policies; what is deliberately left open (reads of the reference data, `activity_log`), and that a
-  Lead reads only unassigned events and their own coordinators' rather than every event, are in
+  already have per-role policies; what is deliberately left open (reads of the reference data, `activity_log`), are in
   [ADR 0003](docs/architecture/adr/0003-row-level-security-as-authorisation.md).

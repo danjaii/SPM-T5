@@ -21,14 +21,14 @@ type Errors = Partial<Record<"startDate" | "startTime" | "endDate" | "endTime" |
 const LABEL = "text-sm font-semibold text-foreground";
 const ERROR = "text-sm font-medium text-destructive";
 // The reason list is a native select so a screen reader and the keyboard get it for free; it is styled like the Input.
-const SELECT =
+export const SELECT =
   "h-10 w-full rounded-lg border border-input bg-card px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive";
 
 // SCRUM-105: Venue Staff mark a venue unavailable for a period with a reason. Shown only to them (the server says so with
 // can_mark_unavailable, and checks again, and so does the database). It validates with the same parser as venue-service, so a
 // missing reason (105-S2) or an end that is not after the start (105-S3) never leaves the browser and nothing is saved.
 // SCRUM-129/AC2: opened from the venue's Mark unavailable button; a save is confirmed in the form and with a toast.
-export function VenueUnavailabilityForm({ venueId }: { venueId: string }) {
+export function VenueUnavailabilityForm({ venueId, onSaved }: { venueId: string; onSaved?: () => void }) {
   const router = useRouter();
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -75,6 +75,8 @@ export function VenueUnavailabilityForm({ venueId }: { venueId: string }) {
       setReason("");
       setNotes("");
       router.refresh();
+      // SCRUM-130/AC3: the venue calendar reloads itself so the new block shows straight away
+      onSaved?.();
     } else if (data.fieldErrors && !data.fieldErrors.form) {
       setErrors(data.fieldErrors);
     } else {

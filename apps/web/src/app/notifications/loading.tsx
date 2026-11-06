@@ -1,10 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_MAIN, PageTitle } from "@/components/PageFrame";
 
 // SCRUM-141/AC10: shown while the Notifications page loads.
 export default function Loading() {
   return (
-    <main role="status" aria-label="Loading notifications" className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
-      <h1 className="mb-6 text-3xl font-bold tracking-tight text-foreground">Notifications</h1>
+    <main role="status" aria-label="Loading notifications" className={PAGE_MAIN}>
+      <PageTitle>Notifications</PageTitle>
       <div className="divide-y divide-border rounded-xl border border-border bg-card">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="flex gap-3 p-4">

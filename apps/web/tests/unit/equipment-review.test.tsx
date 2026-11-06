@@ -312,7 +312,7 @@ describe("SCRUM-87 the queue and request pages", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:4004/equipment-requests/req-1");
     expect(screen.getByRole("heading", { name: "AV: Projector Unit" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Update status" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "← Back to equipment requests" }).getAttribute("href")).toBe("/equipment-requests");
+    expect(screen.getByRole("link", { name: "Back to equipment requests" }).getAttribute("href")).toBe("/equipment-requests");
   });
 
   it("/equipment-requests/[id] shows the refusal for a request that does not exist", async () => {
