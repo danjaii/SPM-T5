@@ -1,0 +1,455 @@
+// SCRUM-191: the rules behind the generated E2E documents, kept free of file and process access so lib.test.mjs can check
+// them. generate.mjs feeds them the catalogue (apps/web/tests/e2e/catalogue.ts), Playwright's results.json, the specs in
+// docs/specs and the hand-kept defects.md, and writes docs/testing/e2e/*.
+
+export const FEATURES = [
+  "Authorisation and authentication", "Event request creation", "Draft event requests", "Event review and approval",
+  "Coordinator assignment and reassignment", "Event status state machine", "Event information management",
+  "Venue catalogue", "Venue availability calendar", "Venue search and filtering", "Venue suitability checks",
+  "Venue booking requests", "Venue booking approval and rejection", "Booking conflict detection",
+  "Equipment request management", "Equipment availability checks", "Equipment reservation",
+  "Attendee registration", "Event change requests after approval", "Notifications",
+];
+
+export const CHANGES = {
+  C1: "Setup and turnaround times", C2: "Venue unavailable", C3: "Several bookings per event",
+  C4: "Tentative hold expiry", C5: "Event Coordinator Lead", C6: "Safety Officer",
+};
+
+/** Requirements the customer asked for that are not built, so no E2E case can exist. Reported, never hidden. */
+export const NOT_BUILT = [
+  { change: "C4", stories: ["SCRUM-97", "SCRUM-108"], what: "Tentative hold expiry: an expired hold releases the venue, the coordinator is told before and at expiry, an expired hold is not a booking", defect: "D-001" },
+];
+
+const csvCell = (v) => {
+  const s = String(v ?? "");
+  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+};
+export const toCsv = (header, rows) => [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+
+/** A Markdown table cell: pipes escaped, line breaks as <br> so a numbered list stays in one cell. */
+export const cell = (v) => String(v ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>").trim();
+const table = (header, rows) => [
+  `| ${header.join(" | ")} |`,
+  `| ${header.map(() => "-----").join(" | ")} |`,
+  ...rows.map((r) => `| ${r.map(cell).join(" | ")} |`),
+].join("\n");
+
+// ---------- references ----------
+
+/**
+ * One reference as the catalogue writes it: `103-S1` (a spec scenario), `SCRUM-99/AC7` or `SCRUM-77-AC7` (an AC) or
+ * `SCRUM-65` (a whole story). A trailing "?" means the AC still has to be confirmed against Jira.
+ */
+export function parseRef(ref) {
+  const confirm = ref.endsWith("?");
+  const clean = ref.replace(/\?$/, "");
+  let m = /^(\d+)-S(\d+)$/.exec(clean);
+  if (m) return { story: Number(m[1]), ac: null, scenario: clean, confirm };
+  m = /^SCRUM-(\d+)(?:[/-]AC(\d+))?$/.exec(clean);
+  if (m) return { story: Number(m[1]), ac: m[2] ? Number(m[2]) : null, scenario: null, confirm };
+  throw new Error(`cannot read the reference "${ref}"`);
+}
+
+/** The (story, AC) pairs a reference gives credit to. A story-level reference has ac null: it names the story only. */
+export function acsOfRef(ref, scenarios) {
+  const r = parseRef(ref);
+  if (r.scenario) {
+    const acs = scenarios[r.scenario] ?? [];
+    return acs.length ? acs.map((ac) => ({ story: r.story, ac })) : [{ story: r.story, ac: null }];
+  }
+  return [{ story: r.story, ac: r.ac }];
+}
+
+// ---------- results ----------
+
+const SEVERITY = ["failed", "flaky", "skipped", "not-run", "expected-fail", "passed"]; // worst first
+
+/** One Playwright test's outcome: passed, failed, flaky, skipped or expected-fail (a test.fail() that did fail, as it should). */
+export function outcomeOf(test) {
+  if (test.status === "skipped") return "skipped";
+  if (test.status === "flaky") return "flaky";
+  if (test.status === "unexpected") return "failed";
+  return test.expectedStatus === "failed" ? "expected-fail" : "passed";
+}
+
+const worst = (outcomes) => SEVERITY.find((s) => outcomes.includes(s)) ?? "not-run";
+
+/**
+ * Every test in a Playwright JSON report, with the catalogue ID its title starts with (null for smoke and the like).
+ * The `setup` project (sign-in) is left out: it is plumbing, not a case.
+ */
+export function readReport(report) {
+  const tests = [];
+  const walk = (suite) => {
+    for (const spec of suite.specs ?? []) {
+      for (const t of spec.tests ?? []) {
+        if (t.projectName === "setup") continue;
+        const last = t.results?.at(-1);
+        tests.push({
+          id: /^(E2E-[A-Z]+-\d+)\b/.exec(spec.title)?.[1] ?? null,
+          title: spec.title,
+          file: spec.file ?? suite.file ?? null,
+          outcome: outcomeOf(t),
+          duration: last?.duration ?? 0,
+          retries: Math.max(0, (t.results?.length ?? 1) - 1),
+        });
+      }
+    }
+    for (const s of suite.suites ?? []) walk(s);
+  };
+  for (const s of report.suites ?? []) walk(s);
+  const totals = Object.fromEntries(SEVERITY.map((o) => [o, tests.filter((t) => t.outcome === o).length]));
+  return {
+    tests,
+    totals: { tests: tests.length, ...totals },
+    startTime: report.stats?.startTime ?? null,
+    durationMs: report.stats?.duration ?? null,
+    /** catalogue ID -> worst outcome of its tests */
+    byId: new Map([...Map.groupBy(tests.filter((t) => t.id), (t) => t.id)].map(([id, ts]) => [id, worst(ts.map((t) => t.outcome))])),
+  };
+}
+
+/** What a case's state is: its test's outcome, or not-run when its spec exists but the report has no row, or no-spec. */
+export function caseState(id, specFiles, byId) {
+  if (!specFiles.has(id)) return "no-spec";
+  return byId?.get(id) ?? "not-run";
+}
+
+/** One AC's state from the states of the cases that cite it. */
+export function acState(states) {
+  if (states.length === 0) return "not-covered";
+  if (states.includes("failed")) return "failed";
+  if (states.includes("flaky")) return "flaky";
+  if (states.includes("passed")) return "passed";
+  const real = states.filter((s) => s !== "no-spec");
+  return real.length ? worst(real) : "no-spec";
+}
+
+export const STATE_LABEL = {
+  passed: "Passed", failed: "Failed", flaky: "Flaky", skipped: "Skipped", "expected-fail": "Expected fail",
+  "not-run": "Not run", "no-spec": "No E2E spec yet", "not-covered": "Not covered",
+};
+
+// ---------- defects ----------
+
+/** The rows of the hand-kept defects.md: { id, testId, story, description, severity, status, open }. */
+export function parseDefects(text) {
+  const out = [];
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^\|\s*(D-\d+)\s*\|(.*)\|\s*$/.exec(line);
+    if (!m) continue;
+    const cols = m[2].split(/(?<!\\)\|/).map((c) => c.trim());
+    const [testId = "", story = "", description = "", severity = "", status = ""] = cols;
+    out.push({ id: m[1], testId, story, description, severity, status, open: /^open\b/i.test(status) });
+  }
+  return out;
+}
+
+const defectsOf = (testId, defects) => defects.filter((d) => d.testId === testId).map((d) => d.id).join(", ");
+
+// ---------- spec files and steps ----------
+
+/** The titles of a spec's test.step(...) calls, in order. A title built at run time is shown as <expression>. */
+export function stepsOf(source) {
+  const steps = [];
+  for (const m of source.matchAll(/test\.step\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|`((?:\\.|[^`\\])*)`|([A-Za-z_][\w.]*))/g)) {
+    if (m[1] ?? m[2]) steps.push((m[1] ?? m[2]).replace(/\\(.)/g, "$1"));
+    else if (m[3] !== undefined) steps.push(m[3].replace(/\$\{([^}]*)\}/g, "<$1>"));
+    else steps.push(`<${m[4]}>`);
+  }
+  return steps;
+}
+
+// ---------- 02 test cases ----------
+
+const COLUMNS_02 = ["Test ID", "Story / AC refs", "Scenario", "Preconditions", "Steps", "Test data", "Expected results", "Priority", "Type", "Features", "Week 7 changes", "Automated spec"];
+
+/** One row per catalogue case in the fallback template columns (no course template was found). */
+export function testCaseRows(catalogue, specFiles, stepsById) {
+  return catalogue.map((c) => {
+    const steps = stepsById.get(c.id) ?? [];
+    return [
+      c.id,
+      c.refs.join(", "),
+      c.scenario,
+      c.preconditions ?? "Local Supabase with the seeded accounts; the case creates its own events, venues and bookings and removes them afterwards.",
+      // a step title may already start with its own number ("3b the coordinator ..."), which the list numbering replaces
+      steps.length ? steps.map((s, i) => `${i + 1}. ${s.replace(/^\d+[a-z]?\s+/, "")}`).join("\n") : "One flow, as in the scenario.",
+      c.data ?? "Seeded accounts (password in docs/testing/e2e/00-discovery.md); other data is created by the case with an E2E- prefix.",
+      c.expected ?? `As the scenario states; the assertions are in the spec.`,
+      c.priority, c.type, c.features.join(", "), c.changes.join(", ") || "-",
+      specFiles.get(c.id) ?? "not written yet",
+    ];
+  });
+}
+
+export function renderTestCases(catalogue, specFiles, stepsById, meta) {
+  const rows = testCaseRows(catalogue, specFiles, stepsById);
+  return [
+    "# E2E test cases",
+    "",
+    `Generated by \`pnpm run e2e:docs\` from \`apps/web/tests/e2e/catalogue.ts\` and the spec files (commit ${meta.commit}, ${meta.date}). Do not edit by hand.`,
+    "",
+    "Every row is both an automated case (the **Automated spec** column) and a manual script: the steps are the spec's step names, the",
+    "expected result is the scenario's outcome. No course template was found, so the columns are the plan's fallback set.",
+    `${catalogue.length} cases; ${rows.filter((r) => r.at(-1) !== "not written yet").length} have a spec.`,
+    "",
+    table(COLUMNS_02, rows),
+    "",
+  ].join("\n");
+}
+
+// ---------- 03 traceability ----------
+
+/**
+ * Story -> AC -> E2E cases -> last result. `specs` is docs/specs merged ({ stories, scenarios }, as scripts/traceability parses
+ * it). Only stories an E2E case names are listed AC by AC; every other spec's ACs are counted, not listed (unit and integration
+ * tests cover them, see docs/traceability.md).
+ */
+export function buildTraceability({ catalogue, specs, specFiles, byId }) {
+  const stateOf = (id) => caseState(id, specFiles, byId);
+  const acCases = new Map(); // "story:ac" -> ids
+  const storyLevel = new Map(); // story -> { ids, confirm }
+  const cited = new Set();
+  for (const c of catalogue) {
+    for (const ref of c.refs) {
+      const confirm = ref.endsWith("?");
+      for (const { story, ac } of acsOfRef(ref, specs.scenarios)) {
+        cited.add(story);
+        if (ac === null) {
+          const e = storyLevel.get(story) ?? { ids: [], confirm: false };
+          if (!e.ids.includes(c.id)) e.ids.push(c.id);
+          e.confirm ||= confirm;
+          storyLevel.set(story, e);
+        } else {
+          const key = `${story}:${ac}`;
+          const ids = acCases.get(key) ?? [];
+          if (!ids.includes(c.id)) ids.push(c.id);
+          acCases.set(key, ids);
+        }
+      }
+    }
+  }
+
+  const stories = [];
+  for (const story of [...cited].sort((a, b) => a - b)) {
+    const spec = specs.stories[story];
+    const acNumbers = new Set(Object.keys(spec?.acs ?? {}).map(Number));
+    for (const key of acCases.keys()) if (key.startsWith(`${story}:`)) acNumbers.add(Number(key.split(":")[1]));
+    const acs = [...acNumbers].sort((a, b) => a - b).map((ac) => {
+      const ids = acCases.get(`${story}:${ac}`) ?? [];
+      const text = spec?.acs[ac] ?? null;
+      const dropped = /^[*(\s]*Dropped\b/i.test(text ?? "");
+      return { ac, text, ids, dropped, state: dropped && !ids.length ? "dropped" : acState(ids.map(stateOf)) };
+    });
+    stories.push({ story, title: spec?.title ?? null, specFile: spec?.file ?? null, acs, storyLevel: storyLevel.get(story) ?? null });
+  }
+
+  const totalSpecAcs = Object.values(specs.stories).reduce((n, s) => n + Object.keys(s.acs).length, 0);
+  const citedSpecAcs = stories.reduce((n, s) => n + (specs.stories[s.story] ? Object.keys(specs.stories[s.story].acs).length : 0), 0);
+  const countAcs = (pred) => stories.reduce((n, s) => n + s.acs.filter((a) => a.text !== null && !a.dropped && pred(a)).length, 0);
+  return {
+    stories,
+    stateOf,
+    totalSpecAcs,
+    citedSpecAcs,
+    citedStories: stories.length,
+    storiesWithSpec: stories.filter((s) => s.specFile).length,
+    acsReferenced: countAcs((a) => a.ids.length > 0),
+    acsPassed: countAcs((a) => a.state === "passed"),
+    acsInCitedStories: countAcs(() => true),
+  };
+}
+
+const short = (t, n = 140) => (t && t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t ?? "");
+
+export function renderTraceability(tr, { specFiles, meta }) {
+  const lines = [
+    "# E2E traceability matrix",
+    "",
+    `Generated by \`pnpm run e2e:docs\` (commit ${meta.commit}, ${meta.date}). Do not edit by hand. It maps each story an E2E case checks`,
+    "to its acceptance criteria, the cases that check them, the spec file and the result of the last run.",
+    "",
+    `- ${tr.citedStories} stories are named by an E2E case; ${tr.storiesWithSpec} of them have a written spec, so their ACs are listed below one by one.`,
+    `- ${tr.acsReferenced} of the ${tr.acsInCitedStories} ACs in those specs are named by an E2E case and ${tr.acsPassed} have a passing one in the last run.`,
+    `- The other ${tr.totalSpecAcs - tr.citedSpecAcs} ACs in \`docs/specs\` are checked by unit and integration tests only (see [docs/traceability.md](../../traceability.md)).`,
+    "- A story with no written spec is cited at story level, with the AC to confirm against Jira; it has no AC rows.",
+    "",
+    "## Not built, so not covered",
+    "",
+    table(["Change", "Stories", "What is missing", "Defect", "E2E result"],
+      NOT_BUILT.map((n) => [n.change, n.stories.join(", "), n.what, n.defect, "Not covered"])),
+    "",
+    "## Stories and acceptance criteria",
+    "",
+  ];
+  for (const s of tr.stories) {
+    lines.push(`### SCRUM-${s.story}${s.title ? ` ${s.title}` : ""}`, "");
+    if (s.acs.length === 0) {
+      lines.push(`No written spec. ${s.storyLevel.confirm ? "AC to confirm. " : ""}Cases at story level: ${s.storyLevel.ids.join(", ")}.`, "");
+      continue;
+    }
+    const rows = s.acs.map((a) => [
+      `AC${a.ac}`, short(a.text) || "(AC not in a spec)",
+      a.ids.length ? a.ids.map((id) => `${id} (${specFiles.get(id) ? `\`${specFiles.get(id)}\`` : "no spec yet"})`).join("; ") : "-",
+      a.state === "dropped" ? "Dropped in the spec" : STATE_LABEL[a.state] ?? a.state,
+    ]);
+    lines.push(table(["AC", "Criterion", "E2E cases (spec)", "Last result"], rows), "");
+    if (s.storyLevel) lines.push(`Also cited at story level by ${s.storyLevel.ids.join(", ")}.`, "");
+  }
+  const noAc = tr.stories.filter((s) => s.acs.length === 0);
+  if (noAc.length) {
+    lines.push("## Stories cited without a written spec", "",
+      table(["Story", "E2E cases", "AC"], noAc.map((s) => [`SCRUM-${s.story}`, s.storyLevel.ids.join(", "), s.storyLevel.confirm ? "To confirm against Jira" : "Story only"])), "");
+  }
+  return lines.join("\n");
+}
+
+export function traceabilityCsv(tr, specFiles) {
+  const rows = [];
+  for (const s of tr.stories) {
+    if (s.acs.length === 0) rows.push([`SCRUM-${s.story}`, "", "", s.storyLevel.ids.join("; "), s.storyLevel.ids.map((i) => specFiles.get(i) ?? "").join("; "), "Story level"]);
+    for (const a of s.acs) rows.push([`SCRUM-${s.story}`, `AC${a.ac}`, a.text ?? "", a.ids.join("; "), a.ids.map((i) => specFiles.get(i) ?? "").join("; "), a.state === "dropped" ? "Dropped in the spec" : STATE_LABEL[a.state] ?? a.state]);
+  }
+  for (const n of NOT_BUILT) rows.push([n.stories.join("; "), n.change, n.what, "", "", "Not covered (not built)"]);
+  return toCsv(["Story", "AC", "Criterion", "E2E cases", "Spec files", "Last result"], rows);
+}
+
+// ---------- 04 execution log ----------
+
+export const EXEC_HEADER = ["Run ID", "Date", "Executed by", "Commit", "Environment", "Test ID", "Result", "Evidence", "Defect ID"];
+
+const tableRows = (text, firstHeaderCell) => {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => l.startsWith(`| ${firstHeaderCell} |`));
+  if (start < 0) return { start: -1, end: -1, rows: [], lines };
+  let end = start + 2;
+  while (end < lines.length && lines[end].startsWith("|")) end++;
+  return { start, end, rows: lines.slice(start + 2, end), lines };
+};
+
+/**
+ * Adds one run to the execution log: an automated row per test in the report, plus (once per case) a manual row whose
+ * "Executed by" and result stay blank for a person. A run ID already in the log is not added again.
+ */
+export function updateExecutionLog(existing, { runId, date, commit, environment, evidence, report, catalogue, defects }) {
+  const head = existing ?? [
+    "# E2E execution log", "",
+    "One row per case per run. Automated rows are written from `results.json` by `pnpm run e2e:docs` and never edited. Manual rows are",
+    "added once per case with **Executed by** and **Result** blank: only a person who ran the case fills them in, with the date,",
+    "the commit and where the evidence is.", "",
+    `| ${EXEC_HEADER.join(" | ")} |`, `| ${EXEC_HEADER.map(() => "-----").join(" | ")} |`, "",
+  ].join("\n");
+  const parsed = tableRows(head, "Run ID");
+  const rows = [...parsed.rows];
+  const haveRun = rows.some((r) => r.startsWith(`| ${runId} |`));
+  const haveManual = new Set(rows.filter((r) => r.startsWith("| manual |")).map((r) => r.split("|")[6]?.trim()));
+  const row = (cols) => `| ${cols.map(cell).join(" | ")} |`;
+
+  if (report && !haveRun) {
+    for (const t of report.tests.filter((x) => x.id)) {
+      rows.push(row([runId, date, "Playwright (automated)", commit, environment, t.id, STATE_LABEL[t.outcome], evidence, defectsOf(t.id, defects)]));
+    }
+  }
+  for (const c of catalogue) {
+    if (!haveManual.has(c.id)) rows.push(row(["manual", "", "", "", "", c.id, "", "", ""]));
+  }
+  const lines = parsed.lines;
+  return [...lines.slice(0, parsed.start + 2), ...rows, ...lines.slice(parsed.end)].join("\n").replace(/\n*$/, "\n");
+}
+
+// ---------- 05 review log ----------
+
+export const REVIEW_HEADER = ["Test ID", "Drafted by", "Reviewer", "Date", "AI self-checks", "Human checks (H1-H4)", "Changes made in review"];
+
+/**
+ * Adds a row for each catalogue ID the review log lacks. Existing rows are kept exactly as they are, so whatever a person or
+ * the drafting AI wrote stays. A new row's Reviewer and Date are blank, and no check is recorded on anyone's behalf.
+ */
+export function mergeReviewLog(existing, catalogue) {
+  const parsed = tableRows(existing, "Test ID");
+  if (parsed.start < 0) throw new Error("05-review-log.md has no table that starts with | Test ID |");
+  const have = new Set(parsed.rows.map((r) => r.split("|")[1]?.trim()));
+  const added = catalogue.filter((c) => !have.has(c.id)).map((c) =>
+    `| ${c.id} | AI (Claude Code) | | | Row generated for a new case: no self-check recorded yet. | | |`);
+  const lines = parsed.lines;
+  return { text: [...lines.slice(0, parsed.end), ...added, ...lines.slice(parsed.end)].join("\n"), added: added.length };
+}
+
+// ---------- metrics ----------
+
+const countBy = (catalogue, key) => {
+  const m = new Map();
+  for (const c of catalogue) for (const k of [].concat(key(c))) m.set(k, [...(m.get(k) ?? []), c.id]);
+  return m;
+};
+
+export function buildMetrics({ catalogue, specFiles, report, tr, defects, meta }) {
+  const byId = report?.byId ?? null;
+  const state = (id) => caseState(id, specFiles, byId);
+  const passedIds = new Set(catalogue.filter((c) => state(c.id) === "passed").map((c) => c.id));
+  const group = (key) => [...countBy(catalogue, key)].sort((a, b) => String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true })).map(([k, ids]) => ({
+    key: k, catalogue: ids.length, automated: ids.filter((i) => specFiles.has(i)).length, passed: ids.filter((i) => passedIds.has(i)).length,
+  }));
+  const featureIds = countBy(catalogue, (c) => c.features);
+  const changeIds = countBy(catalogue, (c) => c.changes);
+  const cover = (ids) => ({ inCatalogue: ids.length > 0, passed: ids.some((i) => passedIds.has(i)) });
+  return {
+    meta,
+    totals: report?.totals ?? null,
+    durationMs: report?.durationMs ?? null,
+    cases: catalogue.length,
+    automatedCases: catalogue.filter((c) => specFiles.has(c.id)).length,
+    byPriority: group((c) => c.priority),
+    byType: group((c) => c.type),
+    byArea: group((c) => c.id.split("-")[1]),
+    features: FEATURES.map((name, i) => ({ n: i + 1, name, ...cover(featureIds.get(i + 1) ?? []) })),
+    changes: Object.entries(CHANGES).map(([k, name]) => ({ key: k, name, ...cover(changeIds.get(k) ?? []) })),
+    acs: tr ? { referenced: tr.acsReferenced, passed: tr.acsPassed, inCited: tr.acsInCitedStories, citedStories: tr.citedStories, otherSpec: tr.totalSpecAcs - tr.citedSpecAcs } : null,
+    defectsOpen: defects.filter((d) => d.open),
+    defectsAll: defects.length,
+  };
+}
+
+const dur = (ms) => (ms == null ? "n/a" : `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1000)} s`);
+
+export function renderMetrics(m) {
+  const t = m.totals;
+  const out = [
+    "# E2E metrics",
+    "",
+    `Generated by \`pnpm run e2e:metrics\` from Playwright's \`results.json\`, the catalogue and \`defects.md\`. Commit \`${m.meta.commit}\`, ${m.meta.timestamp}${m.meta.environment ? `, ${m.meta.environment}` : ""}.`,
+    "",
+    "## Run",
+    "",
+    t ? table(["Tests", "Passed", "Failed", "Flaky", "Skipped", "Expected fail", "Duration"],
+      [[t.tests, t.passed, t.failed, t.flaky, t.skipped, t["expected-fail"], dur(m.durationMs)]])
+      : "No results.json was found, so there is no run to report. The catalogue counts below still hold.",
+    "",
+    "An *expected fail* is a test marked `test.fail()` for an open defect: it failed, as the defect says it should. It turns into a failure the day the defect is fixed.",
+    "",
+    `## Cases (${m.cases} in the catalogue, ${m.automatedCases} with a spec)`,
+    "",
+  ];
+  for (const [title, rows] of [["Priority", m.byPriority], ["Type", m.byType], ["Area", m.byArea]]) {
+    out.push(table([title, "In catalogue", "With a spec", "Passed in this run"], rows.map((r) => [r.key, r.catalogue, r.automated, t ? r.passed : "n/a"])), "");
+  }
+  const cov = (rows, label) => rows.filter((r) => r.passed).length + ` of ${rows.length} ${label} have a passing case`;
+  out.push(
+    "## Coverage", "",
+    `- Core features: ${cov(m.features, "features")}; ${m.features.filter((f) => f.inCatalogue).length} have a case in the catalogue.`,
+    `- Week 7 changes: ${cov(m.changes, "changes")}; ${m.changes.filter((c) => c.inCatalogue).length} have a case in the catalogue.`,
+    m.acs ? `- Acceptance criteria: ${m.acs.referenced} of the ${m.acs.inCited} ACs in the ${m.acs.citedStories} stories E2E cites are named by a case, and ${m.acs.passed} have a passing one. The other ${m.acs.otherSpec} ACs in \`docs/specs\` belong to stories no E2E case cites; unit and integration tests cover them.` : "",
+    "",
+    "Not covered:", "",
+    ...m.features.filter((f) => !f.passed).map((f) => `- Feature ${f.n} ${f.name}: ${f.inCatalogue ? "has a case, none passing in this run" : "no case"}`),
+    ...m.changes.filter((c) => !c.passed).map((c) => `- Change ${c.key} ${c.name}: ${c.inCatalogue ? "has a case, none passing in this run" : "no case" + (NOT_BUILT.find((n) => n.change === c.key) ? ` (not built, defect ${NOT_BUILT.find((n) => n.change === c.key).defect})` : "")}`),
+    "",
+    `## Defects (${m.defectsOpen.length} open of ${m.defectsAll})`,
+    "",
+    m.defectsOpen.length ? table(["ID", "Test", "Story", "Severity (proposed)"], m.defectsOpen.map((d) => [d.id, d.testId, d.story, d.severity])) : "None open.",
+    "",
+  );
+  return out.join("\n");
+}

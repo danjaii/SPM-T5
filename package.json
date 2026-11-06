@@ -12,7 +12,11 @@
     "build:all": "pnpm -r --if-present run build",
     "test:mutation": "stryker run",
     "traceability": "node scripts/traceability/generate.mjs",
-    "test:scripts": "node --test \"scripts/traceability/*.test.mjs\""
+    "test:scripts": "node --test \"scripts/traceability/*.test.mjs\" \"scripts/e2e/*.test.mjs\"",
+    "test:e2e": "pnpm --filter @spm-t5/web run test:e2e",
+    "test:e2e:ui": "pnpm --filter @spm-t5/web exec playwright test --ui",
+    "e2e:metrics": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/generate.mjs metrics",
+    "e2e:docs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/generate.mjs docs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
