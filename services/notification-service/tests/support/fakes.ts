@@ -8,6 +8,7 @@ import {
 } from "../../src/repositories/notificationRepository";
 import type { SupabaseDeps } from "../../src/supabase";
 import { createApp } from "../../src/app";
+import { serverBaseUrl } from "../../../../scripts/vitest/ipv6Loopback"; // SCRUM-195/AC8
 
 export function row(over: Partial<NotificationRow> = {}): NotificationRow {
   return {
@@ -110,6 +111,6 @@ export const COOKIE = "cs_session=good-token";
 export async function serve(repo: NotificationRepository, access: AccessReader) {
   const server = createApp(deps, { repoFor: () => repo, accessFor: () => access }).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
-  const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const baseUrl = serverBaseUrl(server.address() as AddressInfo);
   return { baseUrl, stop: () => new Promise((resolve) => server.close(resolve)) };
 }
