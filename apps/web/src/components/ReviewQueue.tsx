@@ -9,15 +9,8 @@ import { ForbiddenError, UnauthorizedError } from "@/lib/http";
 import { fetchCurrentUser } from "@/lib/session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { statusLabel } from "./EventStatusBadge";
 import { ReviewQueueSkeleton, ReviewQueueTable } from "./ReviewQueueTable";
-
-const ALL = "all";
-const STATUS_ITEMS = [
-  { value: ALL, label: "All statuses" },
-  ...EVENT_STATUSES.map((status) => ({ value: status, label: statusLabel(status) })),
-];
+import { StatusMultiSelect } from "./StatusMultiSelect";
 
 type Access = "checking" | "allowed" | "denied";
 type Load =
@@ -30,7 +23,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 export function ReviewQueue() {
   const router = useRouter();
   const [access, setAccess] = useState<Access>("checking");
-  const [status, setStatus] = useState<string>("submitted");
+  // SCRUM-198: none selected means All statuses, so a coordinator opens on every request assigned to them
+  const [statuses, setStatuses] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [from, setFrom] = useState("");
@@ -63,7 +57,7 @@ export function ReviewQueue() {
     const controller = new AbortController();
     setLoad({ state: "loading" });
     fetchReviewQueue(
-      { statuses: status === ALL ? [...EVENT_STATUSES] : [status], search: debouncedSearch, from, to },
+      { statuses: statuses.length === 0 ? [...EVENT_STATUSES] : statuses, search: debouncedSearch, from, to },
       controller.signal,
     )
       .then((events) => setLoad({ state: "ready", events }))
@@ -74,7 +68,7 @@ export function ReviewQueue() {
         else setLoad({ state: "error", message: error instanceof Error ? error.message : "Something went wrong." });
       });
     return () => controller.abort();
-  }, [access, status, debouncedSearch, from, to, invalidRange, retry, router]);
+  }, [access, statuses, debouncedSearch, from, to, invalidRange, retry, router]);
 
   if (access === "checking") return <ReviewQueueSkeleton />;
 
@@ -98,25 +92,14 @@ export function ReviewQueue() {
     <Card>
       <CardHeader>
         <CardTitle>Event requests</CardTitle>
-        <CardDescription>Requests assigned to you or not yet assigned to anyone.</CardDescription>
+        <CardDescription>Requests assigned to you.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="grid gap-1 text-sm">
-            Status
-            <Select items={STATUS_ITEMS} value={status} onValueChange={(value) => value && setStatus(value)}>
-              <SelectTrigger className="w-full" aria-label="Status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_ITEMS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
+          <div className="grid gap-1 text-sm">
+            <span aria-hidden="true">Status</span>
+            <StatusMultiSelect statuses={EVENT_STATUSES} selected={statuses} onChange={setStatuses} />
+          </div>
           <label className="grid gap-1 text-sm">
             Search
             <Input
