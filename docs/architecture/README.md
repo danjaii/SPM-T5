@@ -8,7 +8,7 @@ Source diagrams are [PlantUML](https://plantuml.com/) using the
 
 | File | C4 level | Shows |
 |---|---|---|
-| `context.puml` | 1 — System Context | ConnectSphere as a box, its user roles, and external systems (Supabase, email provider) |
+| `context.puml` | 1 — System Context | ConnectSphere as a box, its seven user roles, and its one external system (Supabase) |
 | `container.puml` | 2 — Container | The web app, each microservice, and the database |
 | `component-auth-service.puml` | 3 — Component | Auth service: routes, session middleware, and which Supabase client (anon, caller, secret key) each call uses |
 | `component-event-service.puml` | 3 — Component | Event service (use as a template for the others) |

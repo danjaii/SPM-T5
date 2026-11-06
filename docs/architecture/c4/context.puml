@@ -2,25 +2,30 @@
 !include <C4/C4_Context>
 
 title ConnectSphere — System Context (C4 Level 1)
+' The seven roles are ROLES in packages/shared/src/roles.ts. The Event Coordinator Lead and the Safety Officer came with
+' the week 7 customer changes. Notifications are in-app only: email and SMS are not part of this project
+' (docs/scope-decisions.md), so there is no email or SMS provider.
 
-Person(organiser, "Event Organiser", "Creates and submits event requests")
-Person(coordinator, "Event Coordinator", "Reviews, approves, and coordinates events")
-Person(venueStaff, "Venue Staff", "Manages venue availability and setup")
-Person(techSupport, "Technical Support Staff", "Handles equipment/technical requirements")
+Person(organiser, "Event Organiser", "Creates, drafts and submits event requests; registers attendees")
+Person(coordinator, "Event Coordinator", "Reviews and approves the events assigned to them; books venues and requests equipment")
+Person(lead, "Event Coordinator Lead", "Oversees incoming requests; assigns and reassigns Event Coordinators")
+Person(venueStaff, "Venue Staff", "Maintains the venue catalogue; approves venue bookings; blocks venues for maintenance")
+Person(techSupport, "Technical Support Staff", "Maintains the equipment catalogue; arranges equipment and on-site support")
+Person(safetyOfficer, "Safety Officer", "Runs the Operational Safety Check before an event is confirmed")
 Person(attendee, "Attendee", "Registers for and attends events")
 
 System(connectsphere, "ConnectSphere", "Allows organisations to request, review, approve, and coordinate events across venues, staff, and attendees")
 
-System_Ext(supabase, "Supabase", "Managed Postgres, Auth, Storage, and Realtime")
-System_Ext(email, "Email/Notification Provider", "Delivers email/SMS notifications")
+System_Ext(supabase, "Supabase", "Managed Postgres, Auth and Storage")
 
-Rel(organiser, connectsphere, "Creates/edits event requests, tracks status")
-Rel(coordinator, connectsphere, "Reviews/approves requests, assigns coordinators")
-Rel(venueStaff, connectsphere, "Confirms venue availability, manages bookings")
-Rel(techSupport, connectsphere, "Fulfils equipment/technical requirements")
-Rel(attendee, connectsphere, "Registers for events, views event details")
+Rel(organiser, connectsphere, "Creates/edits event requests and drafts, requests changes, tracks status")
+Rel(coordinator, connectsphere, "Reviews/approves requests, books venues, requests equipment, manages registrations")
+Rel(lead, connectsphere, "Assigns/reassigns coordinators, views every active event")
+Rel(venueStaff, connectsphere, "Maintains venues, decides venue bookings, manages availability")
+Rel(techSupport, connectsphere, "Maintains equipment, fulfils equipment requests and on-site assignments")
+Rel(safetyOfficer, connectsphere, "Approves, rejects or requests changes in the safety check")
+Rel(attendee, connectsphere, "Browses events, registers and withdraws")
 
-Rel(connectsphere, supabase, "Reads/writes data, authenticates users", "HTTPS")
-Rel(connectsphere, email, "Sends notifications", "HTTPS/SMTP")
+Rel(connectsphere, supabase, "Reads/writes data, authenticates users, stores attachments", "HTTPS")
 
 @enduml

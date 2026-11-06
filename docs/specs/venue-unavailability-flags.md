@@ -60,7 +60,7 @@ These override the text below where they conflict.
   A booking that spans a single day shows its end time only ("14 Nov 09:00 to 17:00"). **[DECIDED]**
 - **The write is part of the transaction.** SCRUM-46 revokes INSERT on `notifications` from signed-in users and its header
   names this trigger as a producer. If the notification cannot be written, the block is rolled back, so no coordinator is ever
-  left un-told (an outbox written in the same transaction as the change; email and SMS dispatch from it come later). **[DECIDED]**
+  left un-told (an outbox written in the same transaction as the change). **[DECIDED]**
 - **Approving a flagged request is refused (106-S3).** SCRUM-104's service check (`409 BOOKING_FLAGGED`) and its database
   trigger (`CS104`) already cover **both kinds**, and reject stays available. This story adds only tests that use the new kind.
   A Pending request that was already inside the block is therefore protected from the moment the block is saved, which closes
@@ -152,7 +152,7 @@ with the organiser offline. It also matches the G1 Week 2 answer (Claris): statu
 ### Out of scope
 
 - Replacing the booking (SCRUM-107).
-- Email or SMS (SCRUM-47's dispatch), and notifying the organiser or Venue Staff.
+- Email or SMS (not part of this project), and notifying the organiser or Venue Staff.
 - Un-flagging when a block ends or is removed; blocks cannot be edited or deleted (SCRUM-105).
 - Backfilling flags for blocks created before this migration (the four seeded blocks).
 - Cancelling or moving the booking for the Coordinator.
