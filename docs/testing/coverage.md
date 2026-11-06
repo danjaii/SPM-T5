@@ -142,7 +142,6 @@ numbers of statements and branches that did not run.
 | `app/lead/queue/loading.tsx` | 0 | 100 | 0 | 0 | B | whole file |
 | `app/lead/queue/page.tsx` | 100 | 80 | 100 | 100 | B | 20, 35 |
 | `app/notifications/loading.tsx` | 0 | 100 | 0 | 0 | B | whole file |
-| `app/registrations-overview/loading.tsx` | 0 | 100 | 0 | 0 | B | whole file |
 | `app/registrations-overview/page.tsx` | 100 | 95 | 100 | 100 | B | 48 |
 | `app/registrations/loading.tsx` | 0 | 100 | 0 | 0 | B | whole file |
 | `app/safety-checks/[id]/loading.tsx` | 0 | 100 | 0 | 0 | B | whole file |
