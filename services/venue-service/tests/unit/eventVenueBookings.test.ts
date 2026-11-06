@@ -127,8 +127,10 @@ describe("SCRUM-98/AC5 GET /events/:eventId/venue-bookings (98-S21 to 98-S23)", 
 // SCRUM-98/AC6 only the event's assigned coordinator sees its bookings
 // ----------------------------------------------------------------------------
 
-describe("SCRUM-98/AC6 who may list an event's bookings (98-S27, 98-S28)", () => {
-  it("98-S27 a coordinator the event is not assigned to gets 403", async () => {
+describe("SCRUM-98/AC6 who may list an event's bookings (98-S28)", () => {
+  // 98-S27 itself (404: Row-Level Security hides the event) is checked against Postgres in
+  // tests/integration/unassignedCoordinator.test.ts. Here the fake shows the event to everyone, so this is the service's own check.
+  it("a coordinator who can see the event but is not assigned to it gets 403 from the service's own check", async () => {
     const { bookings, list } = setup();
     bookings.seed({ eventId: "event-1", venueId: "venue-1", ...on14Nov(1, 3) });
 

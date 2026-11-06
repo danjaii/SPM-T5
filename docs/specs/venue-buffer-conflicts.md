@@ -169,7 +169,7 @@ open questions).
 | 104-S2 | Both bookings are still `approved`, with no `cancelled_*` or `withdrawn_*` set, and their event's status and row are unchanged (AC2). |
 | 104-S3 | The assigned coordinator's list and detail carry the flag and the other booking's period and no event name; another coordinator and an organiser see nothing; RLS test on the table (AC3). |
 | 104-S4 | A flagged Pending request: the approve call is `409 BOOKING_FLAGGED` and the row is unchanged; reject works; a direct database update to `approved` raises `CS104`; the UI hides Approve and shows Reject (AC4). Two staff approving and saving times at once leaves no approved-and-unflagged pair. |
-| 104-S5 | Saving 15 and 15 resolves both flags (`padding_changed`) and `affected` is empty; the booking then approves normally (AC5). |
+| 104-S5 | Saving 15 and 15 resolves both flags (`no_longer_conflicts`) and `affected` is empty; the booking then approves normally (AC5). |
 | 104-S6 | Saving times that clash with nothing flags nothing and returns "No existing bookings are affected." (AC6). |
 | 104-S7 | A booking that already ended is not flagged; touching padded periods (12:15 and 12:15) are not flagged; a rejected, withdrawn or cancelled booking is not flagged and not a partner (AC1, AC5). |
 | 104-S8 | Cancelling or moving a flagged booking (SCRUM-102) resolves its flag and the partner's (AC5). |
