@@ -12,8 +12,8 @@ import { basename, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseSpec } from "../traceability/lib.mjs";
 import {
-  buildMetrics, buildTraceability, mergeReviewLog, parseDefects, readReport, renderMetrics, renderTestCases,
-  renderTraceability, stepsOf, testCaseRows, toCsv, traceabilityCsv, updateExecutionLog,
+  COLUMNS_02, buildMetrics, buildTraceability, manualProblems, mergeReviewLog, parseDefects, readReport, renderMetrics,
+  renderTestCases, renderTraceability, testCaseRows, toCsv, traceabilityCsv, updateExecutionLog,
 } from "./lib.mjs";
 
 const root = join(import.meta.dirname, "..", "..");
@@ -32,17 +32,30 @@ const { CATALOGUE: catalogue } = await import(pathToFileURL(join(e2eDir, "catalo
 
 // the spec file of each case: specs/<area>/E2E-<AREA>-nn-<slug>.spec.ts
 const specFiles = new Map();
-const stepsById = new Map();
 const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]);
 for (const file of walk(join(e2eDir, "specs")).filter((f) => f.endsWith(".spec.ts"))) {
   const id = /^(E2E-[A-Z]+-\d+)-/.exec(basename(file))?.[1];
   if (!id) continue;
   specFiles.set(id, relative(root, file).replaceAll("\\", "/"));
-  stepsById.set(id, stepsOf(readFileSync(file, "utf8")));
 }
 const unknown = [...specFiles.keys()].filter((id) => !catalogue.some((c) => c.id === id));
 if (unknown.length) {
   console.error(`Spec files for IDs that are not in the catalogue: ${unknown.join(", ")}`);
+  process.exit(1);
+}
+
+// the manual scripts: one file per group of areas in apps/web/tests/e2e/manual, plus setups.ts (accounts and set-ups)
+const manualDir = join(e2eDir, "manual");
+const manual = {};
+let content = null;
+for (const name of readdirSync(manualDir).filter((f) => f.endsWith(".ts")).sort()) {
+  const mod = await import(pathToFileURL(join(manualDir, name)).href);
+  if (name === "setups.ts") content = { setups: mod.SETUPS, accounts: mod.ACCOUNTS_TABLE, password: mod.PASSWORD, baseUrl: mod.BASE_URL };
+  else Object.assign(manual, mod.MANUAL);
+}
+const problems = content ? manualProblems(catalogue, manual, content.setups) : ["apps/web/tests/e2e/manual/setups.ts is missing"];
+if (problems.length) {
+  console.error(["The manual scripts are incomplete, so nothing was written:", ...problems.map((p) => `- ${p}`)].join("\n"));
   process.exit(1);
 }
 
@@ -81,10 +94,8 @@ if (mode === "metrics") {
   process.exit(0);
 }
 
-write("02-test-cases.md", renderTestCases(catalogue, specFiles, stepsById, meta));
-write("02-test-cases.csv", toCsv(
-  ["Test ID", "Story / AC refs", "Scenario", "Preconditions", "Steps", "Test data", "Expected results", "Priority", "Type", "Features", "Week 7 changes", "Automated spec"],
-  testCaseRows(catalogue, specFiles, stepsById)));
+write("02-test-cases.md", renderTestCases(catalogue, specFiles, manual, content, meta));
+write("02-test-cases.csv", toCsv(COLUMNS_02, testCaseRows(catalogue, specFiles, manual)));
 write("03-traceability-matrix.md", renderTraceability(tr, { specFiles, meta }));
 write("03-traceability-matrix.csv", traceabilityCsv(tr, specFiles));
 

@@ -8,7 +8,8 @@ roles. The plan and the reasons are in [01-e2e-test-plan.md](01-e2e-test-plan.md
 | ----- | ----- | ----- |
 | `apps/web/tests/e2e/catalogue.ts` | The one list of cases: ID, priority, type, the stories and ACs each checks | By hand |
 | `apps/web/tests/e2e/specs/<area>/E2E-<AREA>-nn-<slug>.spec.ts` | One spec per case | By hand |
-| `02-test-cases.md` / `.csv` | Every case as a manual script (steps come from the spec's `test.step` names) | `pnpm run e2e:docs` |
+| `apps/web/tests/e2e/manual/` | The manual script of every case (preconditions, steps, test data, expected results) and the shared set-ups | By hand |
+| `02-test-cases.md` / `.csv` | Every case as a script a person can follow in the browser, with the accounts and set-ups | `pnpm run e2e:docs` |
 | `03-traceability-matrix.md` / `.csv` | Story, AC, E2E cases, spec file, last result; ACs with no case are listed | `pnpm run e2e:docs` |
 | `04-execution-log.md` | One row per case per run; manual rows are left blank for the person who ran them | `pnpm run e2e:docs` appends |
 | `05-review-log.md` | Who reviewed each test and what they checked | By hand; the generator only adds rows for new cases |
@@ -99,12 +100,18 @@ The generator never fills a reviewer, a date or a human check, and never marks a
 per test per run (a run ID already in the file is not added twice) and one blank manual row per case. The numbers in `metrics.md`
 come from the run and the catalogue, not from typing. Defects are counted from the **Open** rows of `defects.md`.
 
-Limits worth knowing: no course template for manual test cases was found, so `02` uses a fallback set of columns; the expected
-result of a manual script is the catalogue's scenario sentence, and the assertions are in the spec.
+The generator stops, and writes nothing, if a catalogue case has no script in `apps/web/tests/e2e/manual`, a script has no
+preconditions, data, steps or expected results, or one names a set-up that does not exist. No course template for manual test cases
+was found, so `02` uses the plan's fallback fields.
+
+A manual script is what a person does and sees; the automated test also reads the database. Where the test arranges a state with
+the service-role key, the script names a **set-up** (S0 to S9, printed at the top of `02`) that reaches the same state through the
+screens, and says so when a state cannot be made by hand (E2E-ACL-04's registrant with no form details).
 
 ## Add or change a case
 
-1. Add a row to `catalogue.ts`. Refs are written as the specs write them: `103-S1` (a spec scenario), `SCRUM-99/AC7` (an AC) or
+1. Add a row to `catalogue.ts` and, with the same ID, its manual script to a file in `apps/web/tests/e2e/manual/` (the set-ups it
+   needs, preconditions, test data, steps and expected results). Refs in the catalogue are written as the specs write them: `103-S1` (a spec scenario), `SCRUM-99/AC7` (an AC) or
    `SCRUM-65` (a whole story, only where there is no spec); a trailing `?` means the AC is still to be confirmed against Jira.
 2. Add `specs/<area>/E2E-<AREA>-nn-<slug>.spec.ts` that starts with `const t = tc("E2E-...")` and uses `t.title` and `t.annotation`.
    The title carries the ID, the story tags and the priority, so `--grep` works.

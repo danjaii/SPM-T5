@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   acState, acsOfRef, buildMetrics, buildTraceability, caseState, mergeReviewLog, outcomeOf, parseDefects, parseRef,
-  readReport, renderMetrics, renderTraceability, stepsOf, testCaseRows, toCsv, updateExecutionLog,
+  manualProblems, readReport, renderMetrics, renderTestCases, renderTraceability, testCaseRows, toCsv, updateExecutionLog,
 } from "./lib.mjs";
 
 const spec = (title, tests) => ({ title, file: "x.spec.ts", tests });
@@ -163,34 +163,48 @@ describe("SCRUM-191/AC5 metrics", () => {
 });
 
 describe("SCRUM-191/AC3 test cases", () => {
-  it("takes the steps from the spec's test.step names, whatever way each title is written", () => {
-    const source = `
-      await test.step("1 first", async () => {});
-      await test.step('2 second \\'quoted\\'', async () => {});
-      await test.step(\`\${role}: refused\`, async () => {});
-      await test.step(attempt.name, async () => {});`;
-    assert.deepEqual(stepsOf(source), ["1 first", "2 second 'quoted'", "<role>: refused", "<attempt.name>"]);
+  const catalogue = [
+    { id: "E2E-A-01", title: "first", refs: ["SCRUM-1", "2-S1"], scenario: "s one", priority: "P0", type: "normal", features: [1], changes: ["C1"] },
+    { id: "E2E-A-02", title: "second", refs: [], scenario: "s two", priority: "P2", type: "boundary", features: [], changes: [] },
+  ];
+  const script = { setups: ["S1"], preconditions: "pre", data: "data", steps: ["one", "two"], expected: ["ok"] };
+  const setups = [{ id: "S1", title: "Do the first thing", steps: ["a", "b"] }];
+  const content = { setups, accounts: [["Jason", "j@x", "Event Organiser"]], password: "pw", baseUrl: "http://localhost:3000" };
+
+  it("finds every way a script can be missing or wrong, and nothing when they are all complete", () => {
+    assert.deepEqual(manualProblems(catalogue, { "E2E-A-01": script, "E2E-A-02": script }, setups), []);
+    const problems = manualProblems(
+      catalogue,
+      { "E2E-A-01": { ...script, steps: [], expected: [], data: "", preconditions: "", setups: ["S9"] }, "E2E-Z-01": script },
+      setups,
+    );
+    assert.deepEqual(problems, [
+      "E2E-A-01 has no preconditions", "E2E-A-01 has no test data", "E2E-A-01 has no steps", "E2E-A-01 has no expected results",
+      "E2E-A-01 names an unknown set-up S9", "E2E-A-02 has no manual script", "a manual script exists for E2E-Z-01, which is not in the catalogue",
+    ]);
   });
 
-  it("writes one row per case with its spec path, or says the spec is not written yet", () => {
-    const rows = testCaseRows(
-      [{ id: "E2E-A-01", refs: ["SCRUM-1", "2-S1"], scenario: "s", priority: "P0", type: "normal", features: [1], changes: ["C1"] },
-        { id: "E2E-A-02", refs: [], scenario: "s", priority: "P2", type: "boundary", features: [], changes: [] }],
-      new Map([["E2E-A-01", "a.spec.ts"]]),
-      new Map([["E2E-A-01", ["one", "two"]]]));
+  it("writes one row per case: the script's numbered steps and results, its set-ups, and the spec path or 'not written yet'", () => {
+    const rows = testCaseRows(catalogue, new Map([["E2E-A-01", "a.spec.ts"]]), { "E2E-A-01": script, "E2E-A-02": { ...script, setups: [] } });
     assert.equal(rows[0][1], "SCRUM-1, 2-S1");
+    assert.equal(rows[0][3], "Set-ups: S1. pre");
     assert.equal(rows[0][4], "1. one\n2. two");
+    assert.equal(rows[0][6], "1. ok");
     assert.equal(rows[0].at(-1), "a.spec.ts");
+    assert.equal(rows[1][3], "pre", "no set-ups, no prefix");
     assert.equal(rows[1].at(-1), "not written yet");
-    assert.equal(rows[1][4], "One flow, as in the scenario.");
   });
 
-  it("numbers the steps itself, so a step title that starts with a number is not numbered twice", () => {
-    const rows = testCaseRows(
-      [{ id: "E2E-A-01", refs: [], scenario: "s", priority: "P0", type: "normal", features: [], changes: [] }],
-      new Map([["E2E-A-01", "a.spec.ts"]]),
-      new Map([["E2E-A-01", ["1 organiser drafts", "3b coordinator moves it", "no number here"]]]));
-    assert.equal(rows[0][4], "1. organiser drafts\n2. coordinator moves it\n3. no number here");
+  it("prints the accounts, each set-up once, an index, and every case as its own section", () => {
+    const md = renderTestCases(catalogue, new Map([["E2E-A-01", "a.spec.ts"]]), { "E2E-A-01": script, "E2E-A-02": { ...script, setups: [] } }, content, { commit: "abc1234", date: "2026-11-06" });
+    assert.match(md, /## Accounts \(password for all: `pw`\)/);
+    assert.match(md, /\| Jason \| j@x \| Event Organiser \|/);
+    assert.match(md, /### S1: Do the first thing\n\n1\. a\n2\. b/);
+    assert.match(md, /\| \[E2E-A-01\]\(#e2e-a-01\) \| s one \| P0 \| normal \| a\.spec\.ts \|/);
+    assert.match(md, /### E2E-A-01\n\n\*\*first\*\*[\s\S]*\*\*Steps\*\*\n\n1\. one\n2\. two\n\n\*\*Expected results\*\*\n\n1\. ok/);
+    assert.match(md, /- \*\*Set-ups:\*\* S1/);
+    assert.match(md, /### E2E-A-02[\s\S]*- \*\*Set-ups:\*\* none/);
+    assert.match(md, /- \*\*Priority \/ type:\*\* P0, normal; Week 7 C1; features 1/);
   });
 
   it("quotes CSV cells that hold commas, quotes or line breaks", () => {
