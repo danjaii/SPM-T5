@@ -25,7 +25,7 @@ You need Docker Desktop, the Supabase CLI and a root `.env` (see the README, Get
    confusing ways.
 3. Free port 3000 (the web app must be there: it is the one origin the services allow). Your own dev servers on 4001 to 4005 can
    keep running: the tests start their own services on **4101 to 4105**.
-4. `pnpm run test:e2e`. Playwright starts the services and `next dev` itself. A full run takes about 15 minutes.
+4. `pnpm run test:e2e`. Playwright starts the services and `next dev` itself. A full run takes about 15 minutes under `next dev` and about 4 in built mode.
 
 Useful variations (all from the repo root):
 
@@ -45,7 +45,7 @@ Useful variations (all from the repo root):
 can stall for a minute or more, and a test then fails on a timeout (a full dev-mode run failed 6 tests this way that had passed in the
 run before). `pnpm run e2e:build` builds the services and the web app with the E2E service ports baked in (it replaces `apps/web/.next`,
 so stop your own `next dev` first); `E2E_BUILT=1` then runs them the way CI does: the bundled services, `next start`, tighter timeouts
-and one retry, so a test that needed a retry is reported as flaky. A full run takes about 7 minutes.
+and one retry, so a test that needed a retry is reported as flaky. A full run takes about 4 minutes (measured: 3.4 to 4.0), against 15 or more under `next dev`.
 
 Every test creates the rows it needs (named `E2E-<ID> ...`) and removes them afterwards, and asserts only on those rows, so the
 database does not have to be fresh. For an official run start from `supabase db reset`, which wipes your local data, so do it on
