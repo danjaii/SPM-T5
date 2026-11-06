@@ -207,6 +207,8 @@ export function renderTestCases(catalogue, specFiles, manual, content, meta) {
     "",
     "Dates are 14 November 2031 unless a case says otherwise, so nothing depends on today. Use a separate private window for each person.",
     "",
+    "**Status of these scripts.** They were written from the automated specs and the screens' labels, and no person has walked through them yet. The first manual run of a case should correct any wording that has drifted, and the person who ran it records that in [05-review-log.md](05-review-log.md) (\"Changes made in review\").",
+    "",
     `## Accounts (password for all: \`${password}\`)`,
     "",
     table(["Name", "Email", "Role in the sign-in list"], accounts),
