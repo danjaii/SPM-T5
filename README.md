@@ -255,8 +255,11 @@ pnpm --filter @spm-t5/web run test:e2e             # Playwright (tests/e2e)
 
 The root `vitest.config.mts` lists the workspaces as Vitest projects, so `pnpm vitest run` finds all their tests.
 `apps/web/vitest.config.ts` only picks up `tests/unit/**` (jsdom + Testing Library), so Vitest
-doesn't try to run the Playwright specs. `apps/web/playwright.config.ts` starts `next dev` itself,
-so `test:e2e` needs no separately running server; run `npx playwright install` once to fetch browsers.
+doesn't try to run the Playwright specs. `apps/web/playwright.config.ts` starts the five services (ports 4101-4105
+locally, so your own dev servers on 4001-4005 are left alone) and `next dev` on port 3000 itself, so `test:e2e` needs
+no separately running server. It does need the local Supabase running (`supabase start`) and the root `.env`; run
+`npx playwright install chromium` once to fetch the browser. Port 3000 must be free, or set `E2E_REUSE_WEB=1` to reuse
+a web server you started with the E2E service ports.
 
 ### Database integration tests (local Supabase)
 
@@ -316,7 +319,7 @@ covering every workspace:
 | ----- | ----- | ----- |
 | `test` | 20 | Lint, type check, unit/integration tests with coverage, build |
 | `integration` | 22 | Starts local Supabase and runs the database integration tests |
-| `e2e` | 20 | Playwright end-to-end tests (runs after `test`) |
+| `e2e` | 22 | Starts local Supabase, builds the services and the web app, and runs the Playwright end-to-end tests through the whole stack (runs after `test`) |
 | `migrate` | — | Push to `main` only, after `test` and `integration`: applies new migrations to the hosted Supabase project (needs the `SUPABASE_DB_URL` secret) |
 
 Every PR must pass the `CI / test` and `CI / e2e` checks before merge (see branch protection notes in
@@ -368,7 +371,7 @@ what is deliberately left open is explained in ADR 0003.
 - **`postcss` is pinned via `overrides` in `pnpm-workspace.yaml`.** Next 15 pins a PostCSS version with known
   advisories; the override forces a patched release without a breaking upgrade to Next 16. Drop
   it once Next ships a fixed PostCSS.
-- **Vitest is on 4.x, not 5.x.** Vitest 5 requires Node 22+, and the `test` and `e2e` CI jobs run Node 20.
+- **Vitest is on 4.x, not 5.x.** Vitest 5 requires Node 22+, and the `test` CI job runs Node 20 (`e2e` runs Node 22 because the services it starts need a native WebSocket).
   Bump both together. The same applies to `jsdom` (kept on 29.x; 30+ needs Node 22+).
 - **`next-env.d.ts` and `*.tsbuildinfo` are git-ignored.** Next generates them; `pnpm --filter @spm-t5/web
   run typecheck` runs `next typegen` first so it works on a fresh checkout.

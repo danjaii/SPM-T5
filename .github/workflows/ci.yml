@@ -140,12 +140,15 @@ jobs:
       - name: Apply new migrations to the hosted database
         run: supabase db push --include-all --yes --db-url "$SUPABASE_DB_URL"
 
+  # Browser tests of the whole stack (SCRUM-191): the real web app (a production build), the five services (bundled by
+  # `build:all`) and a local Supabase with every migration and the seed. The catalogue is docs/testing/e2e/01-e2e-test-plan.md.
+  # `needs: test` stays so the unit tests fail first and cheaply. This is the required check named `e2e`.
   e2e:
     needs: test
     runs-on: ubuntu-latest
-    # A normal run takes about 2 minutes. The browser install once hung on a slow apt mirror for up to an hour; fail
+    # The suite takes roughly 15 to 25 minutes. The browser install once hung on a slow apt mirror for up to an hour; fail
     # instead so the run can be re-run.
-    timeout-minutes: 15
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -153,11 +156,36 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+          # the services create a supabase-js client, which needs Node 22's native WebSocket (as in `integration`)
           cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0 # same pin as the integration job
+
+      - name: Start local Supabase (applies supabase/migrations, then seed.sql)
+        run: supabase start
+
+      # The services read ../../.env (`node --env-file`), and playwright.config.ts loads the same file for the test workers.
+      # WEB_ORIGIN is the one origin the services allow: the web app on port 3000.
+      - name: Write the root .env and export the connection details
+        run: |
+          supabase status -o env \
+            | grep -E '^(API_URL|SECRET_KEY|PUBLISHABLE_KEY)=' \
+            | sed -E 's/^API_URL=/SUPABASE_URL=/; s/^SECRET_KEY=/SUPABASE_SECRET_KEY=/; s/^PUBLISHABLE_KEY=/SUPABASE_PUBLISHABLE_KEY=/' \
+            | tr -d '"' > .env
+          echo "WEB_ORIGIN=http://localhost:3000" >> .env
+          test -n "$(grep '^SUPABASE_URL=' .env)" && test -n "$(grep '^SUPABASE_SECRET_KEY=' .env)" && test -n "$(grep '^SUPABASE_PUBLISHABLE_KEY=' .env)"
+          cat .env >> "$GITHUB_ENV"
+
+      # `dist/` of every service, and the production build of apps/web. NEXT_PUBLIC_* defaults to ports 4001-4005, which is
+      # where the config starts the services when CI is set.
+      - name: Build the services and the web app
+        run: pnpm run build:all
 
       # Chromium only, the one project in apps/web/playwright.config.ts. No --with-deps: ubuntu-latest already has Chromium's
       # system libraries, and --with-deps runs apt, which hung when the runner's mirror was slow. If an image update drops a
@@ -165,12 +193,22 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --filter @spm-t5/web exec playwright install chromium
 
+      # CI=1 (set by GitHub) makes the config start services from dist/, serve the production build and retry once, so a
+      # flaky test is reported as flaky in results.json rather than passing silently.
       - name: Run E2E tests
         run: pnpm --filter @spm-t5/web run test:e2e
+
+      # The totals, flaky tests, coverage and open defects, written from results.json onto the run's summary page.
+      # --silent keeps pnpm's own header lines out of the Markdown.
+      - name: Write the E2E metrics to the job summary
+        if: always()
+        run: pnpm --silent run e2e:metrics >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
-          path: apps/web/playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
           retention-days: 14
