@@ -25,3 +25,14 @@ export function createSupabaseDeps(env: NodeJS.ProcessEnv = process.env): Supaba
       }),
   };
 }
+
+/**
+ * SCRUM-108: the connection the periodic hold check uses. notify_hold_expiries() writes notifications for other people, so it is
+ * callable by the service role only; the key never leaves this service. Without a key the check is simply not started.
+ */
+export function createHoldExpiryDb(env: NodeJS.ProcessEnv = process.env): SupabaseClient | undefined {
+  const url = env.SUPABASE_URL;
+  const secretKey = env.SUPABASE_SECRET_KEY;
+  if (!url || !secretKey) return undefined;
+  return createClient(url, secretKey, { auth: stateless });
+}

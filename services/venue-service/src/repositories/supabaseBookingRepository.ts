@@ -11,7 +11,7 @@ export const BOOKING_COLUMNS =
   "cancelled_by, cancelled_at, cancellation_reason, " +
   "suggested_venue_id, suggested_start_datetime, suggested_end_datetime, " +
   "snapshot_event_name, snapshot_expected_attendance, snapshot_venue_requirements, snapshot_accessibility_needs, " +
-  "suitability, suitability_unmet, suitability_override_reason, sent_back_changes, sent_back_at, replaced_by_booking_id, replaced_at, hold_expires_at";
+  "suitability, suitability_unmet, suitability_override_reason, sent_back_changes, sent_back_at, replaced_by_booking_id, replaced_at, hold_expires_at, hold_warning_minutes";
 
 type Row = Record<string, unknown>;
 
@@ -51,6 +51,7 @@ export function toBookingRecord(row: Row): BookingRecord {
     replacedByBookingId: (row.replaced_by_booking_id as string | null) ?? null,
     replacedAt: date(row.replaced_at),
     holdExpiresAt: date(row.hold_expires_at),
+    holdWarningMinutes: (row.hold_warning_minutes as number | null | undefined) ?? undefined,
     suggestion: row.suggested_venue_id
       ? {
           venueId: row.suggested_venue_id as string,

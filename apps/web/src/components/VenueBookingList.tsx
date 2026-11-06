@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BOOKING_STATUS_DISPLAY, type BookingStatusKey } from "@/lib/status";
 import { bookingStatusLabel, type VenueBookingListItem } from "@/lib/venueBookings";
 import { FlagBadges } from "./FlagBadges";
+import { HoldNoticeText } from "./HoldNoticeText";
 
 const formatDecided = (iso: string) =>
   new Date(iso).toLocaleDateString("en-SG", { dateStyle: "medium", timeZone: "Asia/Singapore" });
@@ -12,7 +13,7 @@ const formatDecided = (iso: string) =>
 // SCRUM-33/AC1: the coordinator's requests, with status and (for decided ones only) the decision date.
 // SCRUM-135: in the new style. The status is a StatusBadge (icon and label); below the md breakpoint each row stacks into a
 // card so nothing scrolls sideways; an empty list is a designed empty state.
-export function VenueBookingList({ bookings }: { bookings: VenueBookingListItem[] }) {
+export function VenueBookingList({ bookings, now = new Date() }: { bookings: VenueBookingListItem[]; now?: Date }) {
   if (bookings.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border-strong px-6 py-12 text-center">
@@ -33,6 +34,7 @@ export function VenueBookingList({ bookings }: { bookings: VenueBookingListItem[
           <TableHead>Time</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Decided</TableHead>
+          <TableHead>Hold</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -58,6 +60,10 @@ export function VenueBookingList({ bookings }: { bookings: VenueBookingListItem[
             </TableCell>
             <TableCell className="max-md:p-0">
               {(b.status === "APPROVED" || b.status === "REJECTED") && b.decidedAt ? formatDecided(b.decidedAt) : ""}
+            </TableCell>
+            <TableCell className="whitespace-normal max-md:p-0">
+              {/* SCRUM-108/AC2, AC3, AC5: only inside the hold's own window, or once it lapsed */}
+              <HoldNoticeText booking={b} now={now} />
             </TableCell>
           </TableRow>
         ))}

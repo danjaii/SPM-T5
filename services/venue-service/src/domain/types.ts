@@ -57,6 +57,8 @@ export interface BookingRecord {
   replacedAt: Date | null;
   /** SCRUM-97: when a pending request (a hold) stops holding its slot; null when Venue Staff set no expiry. */
   holdExpiresAt?: Date | null;
+  /** SCRUM-108: minutes before the expiry that the event's coordinator is warned (migration 88; 24 hours unless they chose otherwise). */
+  holdWarningMinutes?: number | null;
 }
 
 /** SCRUM-102/AC1: a venue booking's new period and its own numbers. Its venue never changes. */
