@@ -9,6 +9,7 @@ import { EventComments } from "@/components/EventComments";
 import { EventEquipmentRequests } from "@/components/EventEquipmentRequests";
 import { EventTechnicalAssignments } from "@/components/EventTechnicalAssignments";
 import { EventRequestDetails } from "@/components/EventRequestDetails";
+import { EventSupportingDocuments } from "@/components/event-request/EventSupportingDocuments";
 import { EventReviewOutcome } from "@/components/EventReviewOutcome";
 import { EventStatusPanel } from "@/components/EventStatusPanel";
 import { EventVenueBookings } from "@/components/EventVenueBookings";
@@ -114,6 +115,8 @@ export default async function EventPage({
               {/* SCRUM-111/AC5: back from the edit form */}
               {saved && <InlineMessage kind="ok">Event details saved.</InlineMessage>}
               <EventRequestDetails event={view} />
+              {/* SCRUM-51/AC1, AC4: the request's supporting documents; removable only while the organiser's request is a draft */}
+              <EventSupportingDocuments event={view} />
               <EventComments eventId={view.id} />
             </>
           )}

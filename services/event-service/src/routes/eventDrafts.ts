@@ -81,7 +81,7 @@ const NOT_A_DRAFT: Refusal = {
  * SCRUM-54: the caller's own event, or why the draft flow refuses it. Read as the caller, so RLS (migration 14) only shows them
  * their own events: someone else's is "not found", not a hint that it exists. One that is no longer a draft is AC4's 409.
  */
-async function findOwnDraft(deps: SupabaseDeps, token: string, id: string): Promise<{ draft: DraftRow } | { refusal: Refusal }> {
+export async function findOwnDraft(deps: SupabaseDeps, token: string, id: string): Promise<{ draft: DraftRow } | { refusal: Refusal }> {
   if (!UUID.test(id)) return { refusal: NOT_FOUND };
   const { data } = await deps.forUser(token).from("events").select(DRAFT_COLUMNS).eq("id", id).maybeSingle();
   if (!data) return { refusal: NOT_FOUND };
