@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import type { Role } from "@spm-t5/shared";
 import { PASSWORD } from "../fixtures/env";
-import { ROLE_LABEL } from "../fixtures/accounts";
+import { ROLE_LABEL, homePath } from "../fixtures/accounts";
 import { waitForHydration } from "../fixtures/hydration";
 
 /** The sign-in form (apps/web/src/components/LoginForm.tsx). */
@@ -32,6 +32,6 @@ export class LoginPage {
   async signIn(email: string, role: Role) {
     await this.open();
     await this.submit(email, role);
-    await expect(this.page).toHaveURL(new RegExp(`/dashboard/${role}$`));
+    await expect(this.page).toHaveURL(new RegExp(`${homePath(role)}$`));
   }
 }

@@ -39,6 +39,12 @@ export const PRIMARY_BY_ROLE: Record<Role, Persona> = {
   attendee: "attendee",
 };
 
+/**
+ * Where signing in lands a role. Written out here, not read from the app. Every role has a dashboard, except that the Lead's
+ * home is the unassigned queue (SCRUM-188); `/dashboard/event_coordinator_lead` only redirects there.
+ */
+export const homePath = (role: Role) => (role === "event_coordinator_lead" ? "/lead/queue" : `/dashboard/${role}`);
+
 /** The label of each role in the sign-in form's "Continue as" list (apps/web/src/lib/roles.ts). */
 export const ROLE_LABEL: Record<Role, string> = {
   event_organiser: "Event Organiser",

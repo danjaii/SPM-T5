@@ -1,5 +1,5 @@
 import type { Role } from "@spm-t5/shared";
-import { PRIMARY_BY_ROLE } from "../../fixtures/accounts";
+import { PRIMARY_BY_ROLE, homePath } from "../../fixtures/accounts";
 import { WEB_URL } from "../../fixtures/env";
 import { expect, test } from "../../fixtures/test";
 import { tc } from "../../fixtures/tc";
@@ -50,7 +50,7 @@ test(t.title, { annotation: t.annotation }, async ({ as }) => {
 
       // positive controls: a guard that refused everyone would also pass the loop above
       await page.goto(`/dashboard/${role}`);
-      await expect(page, `${role} opening its own dashboard`).toHaveURL(new RegExp(`/dashboard/${role}$`));
+      await expect(page, `${role} opening its own dashboard`).toHaveURL(new RegExp(`${homePath(role)}$`));
       const own = Object.entries(OWNERS).find(([, owners]) => owners.includes(role))?.[0];
       if (own) {
         await page.goto(own);
