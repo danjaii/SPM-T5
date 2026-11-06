@@ -71,7 +71,9 @@ export interface BookingDto {
   id: string;
   eventId: string;
   venueId: string;
-  status: VenueBookingStatus | undefined;
+  status: VenueBookingStatus | "EXPIRED" | undefined;
+  /** SCRUM-97: when the hold expires or expired; null when it has no expiry. */
+  holdExpiresAt: string | null;
   date: string;
   startTime: string;
   endTime: string;
@@ -85,13 +87,20 @@ export interface BookingDto {
   suitability: "suitable" | "not_suitable" | null;
 }
 
-export function toBookingDto(b: BookingRecord): BookingDto {
+/** SCRUM-97/AC4: a pending request whose expiry has passed is shown as EXPIRED (derived from the time; the stored status stays requested). */
+export function apiStatusAt(b: BookingRecord, now: Date): VenueBookingStatus | "EXPIRED" | undefined {
+  const expired = b.status === "requested" && b.holdExpiresAt != null && b.holdExpiresAt.getTime() <= now.getTime();
+  return expired ? "EXPIRED" : dbStatusToApi(b.status);
+}
+
+export function toBookingDto(b: BookingRecord, now: Date = new Date()): BookingDto {
   const start = utcToSgt(b.start);
   return {
     id: b.id,
     eventId: b.eventId,
     venueId: b.venueId,
-    status: dbStatusToApi(b.status),
+    status: apiStatusAt(b, now),
+    holdExpiresAt: b.holdExpiresAt ? b.holdExpiresAt.toISOString() : null,
     date: start.date,
     startTime: start.time,
     endTime: utcToSgt(b.end).time,
@@ -156,7 +165,9 @@ export interface BookingListItem {
   date: string;
   startTime: string;
   endTime: string;
-  status: VenueBookingStatus | undefined;
+  status: VenueBookingStatus | "EXPIRED" | undefined;
+  /** SCRUM-97: when the hold expires or expired; null when it has no expiry. */
+  holdExpiresAt: string | null;
   /** Only for APPROVED and REJECTED (33-S1). */
   decidedAt: string | null;
   submittedAt: string;
@@ -164,9 +175,9 @@ export interface BookingListItem {
   flags: FlagDto[];
 }
 
-export function toBookingListItem(b: BookingRecord, venueName: string, flags: FlagDto[] = []): BookingListItem {
+export function toBookingListItem(b: BookingRecord, venueName: string, flags: FlagDto[] = [], now: Date = new Date()): BookingListItem {
   const start = utcToSgt(b.start);
-  const status = dbStatusToApi(b.status);
+  const status = apiStatusAt(b, now);
   const decided = (status === "APPROVED" || status === "REJECTED") && b.reviewedAt;
   return {
     id: b.id,
@@ -178,6 +189,7 @@ export function toBookingListItem(b: BookingRecord, venueName: string, flags: Fl
     startTime: start.time,
     endTime: utcToSgt(b.end).time,
     status,
+    holdExpiresAt: b.holdExpiresAt ? b.holdExpiresAt.toISOString() : null,
     decidedAt: decided ? b.reviewedAt!.toISOString() : null,
     submittedAt: b.createdAt.toISOString(),
     flags,

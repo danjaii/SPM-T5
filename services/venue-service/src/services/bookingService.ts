@@ -241,7 +241,7 @@ export class BookingService {
     if (sameVenue.some((b) => b.status === "rejected" && b.start.getTime() === input.start.getTime() && b.end.getTime() === input.end.getTime())) {
       throw bookingError("REPEAT_OF_REJECTED");
     }
-    if (sameVenue.some((b) => isHoldingDbStatus(b.status) && clashes(b, input, timing))) throw bookingError("DUPLICATE_VENUE");
+    if (sameVenue.some((b) => isHoldingDbStatus(b.status, b.holdExpiresAt, now()) && clashes(b, input, timing))) throw bookingError("DUPLICATE_VENUE");
 
     // SCRUM-103: another event holding the venue, setup and turnaround included, naming the occupied period. The row being
     // changed does not count against itself.
@@ -354,7 +354,7 @@ export class BookingService {
     const replacementExists = history.some(
       (b) => {
         const parent = options.amendsBookingId ?? options.replacesBookingId;
-        return parent !== undefined && b.amendsBookingId === parent && isHoldingDbStatus(b.status);
+        return parent !== undefined && b.amendsBookingId === parent && isHoldingDbStatus(b.status, b.holdExpiresAt, now());
       },
     );
     if (replacementExists) throw bookingError("ACTIVE_REQUEST_EXISTS");
@@ -372,7 +372,7 @@ export class BookingService {
     // 98-S13, 98-S14: this event already holds the same venue for an overlapping period. Checked before the
     // slot check, which would refuse it too but with a message that points at someone else.
     const ownOverlap = history.some(
-      (b) => b.venueId === input.venueId && isHoldingDbStatus(b.status) && clashes(b, input, venue),
+      (b) => b.venueId === input.venueId && isHoldingDbStatus(b.status, b.holdExpiresAt, now()) && clashes(b, input, venue),
     );
     if (ownOverlap) throw bookingError("DUPLICATE_VENUE");
 

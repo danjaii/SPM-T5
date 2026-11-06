@@ -31,8 +31,14 @@ export function dbStatusToApi(dbStatus: string): VenueBookingStatus | undefined 
 /** DR5: a request holds its venue and period only in these DB statuses. */
 export const HOLDING_DB_STATUSES = ["requested", "tentative", "approved", "confirmed"] as const;
 
-export function isHoldingDbStatus(dbStatus: string): boolean {
-  return (HOLDING_DB_STATUSES as readonly string[]).includes(dbStatus);
+/**
+ * SCRUM-97: a pending request (the hold) stops holding its slot the moment its expiry passes; no expiry means it holds until it is
+ * decided or withdrawn. Approved and confirmed bookings never expire. The database does the same in venue_booking_holds_slot().
+ */
+export function isHoldingDbStatus(dbStatus: string, holdExpiresAt?: Date | null, now: Date = new Date()): boolean {
+  if (!(HOLDING_DB_STATUSES as readonly string[]).includes(dbStatus)) return false;
+  if (dbStatus === "requested" && holdExpiresAt != null) return holdExpiresAt.getTime() > now.getTime();
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +65,7 @@ export const VENUE_BOOKING_ERROR_CODES = [
   "NOT_FLAGGED",
   "REPLACEMENT_PENDING",
   "REPLACEMENT_REJECTED",
+  "HOLD_EXPIRED",
 ] as const;
 export type VenueBookingErrorCode = (typeof VENUE_BOOKING_ERROR_CODES)[number];
 
@@ -88,6 +95,8 @@ export const VENUE_BOOKING_MESSAGES = {
   NOT_FLAGGED: "Only a booking flagged as unavailable can be replaced.",
   REPLACEMENT_PENDING: "This booking already has a replacement request waiting for a decision.",
   REPLACEMENT_REJECTED: "A rejected replacement cannot be amended. Choose Find replacement on the original booking.",
+  // SCRUM-97/AC5, AC7: an expired hold is not confirmed or extended; the coordinator submits a new request (Week 9 Q26)
+  HOLD_EXPIRED: "This hold has expired and the venue is no longer reserved. A new venue request is needed.",
 } as const;
 
 // ---------------------------------------------------------------------------

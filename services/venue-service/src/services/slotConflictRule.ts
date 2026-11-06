@@ -3,9 +3,9 @@ import { BookingError } from "../domain/errors";
 import type { SlotConflict } from "../domain/types";
 import type { BookingRepository } from "../repositories/bookingRepository";
 
-/** The 409 refusal for a held slot, saying which period is occupied (103-S1). */
+/** The 409 refusal for a held slot, saying which period is occupied (103-S1), or tentatively held when the holder is a pending request (SCRUM-97). */
 export function slotConflictError(conflict: SlotConflict): BookingError {
-  const message = slotConflictMessage(conflict.venueName, { start: conflict.occupiedStart, end: conflict.occupiedEnd }, conflict.timing);
+  const message = slotConflictMessage(conflict.venueName, { start: conflict.occupiedStart, end: conflict.occupiedEnd }, conflict.timing, conflict.status === "PENDING");
   return new BookingError("SLOT_CONFLICT", 409, message);
 }
 

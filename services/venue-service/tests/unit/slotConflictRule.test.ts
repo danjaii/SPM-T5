@@ -54,7 +54,8 @@ describe("SCRUM-36/AC1 overlapping requests are refused (36-S1)", () => {
         code: "SLOT_CONFLICT",
         httpStatus: 409,
         // SCRUM-103: the refusal now says which period is occupied (a venue with no times has no suffix).
-        message: "venue-orchid-hall is occupied from 09:00 to 17:00",
+        // SCRUM-97 (Scenario 2): a Pending (requested) holder is a tentative hold
+        message: `venue-orchid-hall is ${holderStatus === "requested" ? "tentatively held" : "occupied"} from 09:00 to 17:00`,
       });
 
       // The data-layer guard refuses it too, and nothing is created.
@@ -132,7 +133,7 @@ describe("SCRUM-36/AC5 the refusal does not expose other events (36-S5)", () => 
     const body = (error as BookingError).toBody();
     expect(body).toEqual({
       code: "SLOT_CONFLICT",
-      error: "venue-orchid-hall is occupied from 09:00 to 17:00",
+      error: "venue-orchid-hall is tentatively held from 09:00 to 17:00", // SCRUM-97: the holder is Pending
     });
 
     const serialised = JSON.stringify(body);
