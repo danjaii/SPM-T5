@@ -21,6 +21,8 @@ export interface TrackingDeps {
   bookings: BookingRepository;
   events: EventReader;
   venues: VenueReader;
+  /** SCRUM-97: the clock a hold's expiry is read against (defaults to the real one). */
+  now?: () => Date;
 }
 
 /** The request and every request linked to it by amendment, root first (33-S5). */
@@ -108,7 +110,7 @@ export class TrackingService {
     const bookings = await this.deps.bookings.listByEvents(eventIds);
     const names = await this.venueNames(bookings);
     const flags = await this.flagDtos(bookings);
-    return bookings.map((b) => toBookingListItem(b, names.get(b.venueId) ?? "Unknown venue", flags.get(b.id)));
+    return bookings.map((b) => toBookingListItem(b, names.get(b.venueId) ?? "Unknown venue", flags.get(b.id), this.deps.now?.()));
   }
 
   /**
@@ -129,7 +131,7 @@ export class TrackingService {
     return bookings.map((b) => {
       const venue = venues.get(b.venueId);
       return {
-        ...toBookingListItem(b, venue?.name ?? "Unknown venue", flags.get(b.id)),
+        ...toBookingListItem(b, venue?.name ?? "Unknown venue", flags.get(b.id), this.deps.now?.()),
         expectedAttendance: b.snapshot.expectedAttendance,
         venueRequirements: b.snapshot.venueRequirements,
         rejectionReason: rejectionReasonOf(b),
@@ -155,7 +157,7 @@ export class TrackingService {
     const names = await this.venueNames([booking, ...chain, ...links]);
     const nameOf = (venueId: string) => names.get(venueId) ?? "Unknown venue";
     const flags = await this.flagDtos([booking, ...chain]);
-    const item = (b: BookingRecord) => toBookingListItem(b, nameOf(b.venueId), flags.get(b.id));
+    const item = (b: BookingRecord) => toBookingListItem(b, nameOf(b.venueId), flags.get(b.id), this.deps.now?.());
     const chainItems: ChainItem[] = chain.map((b) => ({ ...item(b), rejectionReason: rejectionReasonOf(b) }));
 
     const s = booking.suggestion;

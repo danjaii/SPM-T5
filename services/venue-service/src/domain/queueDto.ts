@@ -46,6 +46,8 @@ export interface QueueItem {
 
 /** One request opened from the queue or by its address: a queue item plus its status and outcome (37-S6). */
 export interface QueueDetail extends QueueItem {
+  /** SCRUM-97: when the hold expires or expired; null when Venue Staff set none. */
+  holdExpiresAt: string | null;
   status: VenueBookingStatus | undefined;
   decidedByName: string | null;
   decidedAt: string | null;
@@ -100,6 +102,7 @@ export function toQueueDetail(
   return {
     ...toQueueItem(b, venueName, (b.requestedBy && names.get(b.requestedBy)) || null, flags, layoutNames, timing),
     status,
+    holdExpiresAt: b.holdExpiresAt ? b.holdExpiresAt.toISOString() : null,
     decidedByName: decided && b.reviewedBy ? (names.get(b.reviewedBy) ?? null) : null,
     decidedAt: decided && b.reviewedAt ? b.reviewedAt.toISOString() : null,
     rejectionReason: rejectionReasonOf(b),

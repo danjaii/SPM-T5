@@ -110,7 +110,8 @@ describe("SCRUM-103/AC4 pending requests are checked the same way (103-S4)", () 
     const res = await submit(ORCHID, "12:30", "14:00");
 
     expect(res.status).toBe(409);
-    expect(res.body.error).toBe(MESSAGE_ORCHID);
+    // SCRUM-97 (Scenario 2): a Pending holder is a tentative hold, so the refusal says "tentatively held"
+    expect(res.body.error).toBe(MESSAGE_ORCHID.replace("is occupied", "is tentatively held"));
   });
 
   it.each(["rejected", "withdrawn"])("103-S4: a %s holder does not block", async (status) => {

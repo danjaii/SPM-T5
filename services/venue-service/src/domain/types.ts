@@ -55,6 +55,8 @@ export interface BookingRecord {
   /** SCRUM-107: the approved replacement that took over a `replaced` booking, and when (migration 48); null otherwise. */
   replacedByBookingId: string | null;
   replacedAt: Date | null;
+  /** SCRUM-97: when a pending request (a hold) stops holding its slot; null when Venue Staff set no expiry. */
+  holdExpiresAt?: Date | null;
 }
 
 /** SCRUM-102/AC1: a venue booking's new period and its own numbers. Its venue never changes. */

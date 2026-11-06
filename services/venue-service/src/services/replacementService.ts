@@ -38,7 +38,7 @@ export class ReplacementService {
     if (!isHoldingDbStatus(original.status) || !flags.some((f) => f.kind === "venue_unavailable")) throw bookingError("NOT_FLAGGED");
 
     const history = await bookings.listByEvent(original.eventId);
-    if (history.some((b) => b.amendsBookingId === original.id && isHoldingDbStatus(b.status))) throw bookingError("REPLACEMENT_PENDING");
+    if (history.some((b) => b.amendsBookingId === original.id && isHoldingDbStatus(b.status, b.holdExpiresAt))) throw bookingError("REPLACEMENT_PENDING");
     return { original, history };
   }
 
@@ -62,7 +62,7 @@ export class ReplacementService {
       .filter((v) => {
         const timing = timings.get(v.id) ?? { setupMinutes: 0, turnaroundMinutes: 0 };
         const padded = paddedPeriod(original, timing);
-        const held = history.some((b) => b.venueId === v.id && isHoldingDbStatus(b.status) && periodsOverlap(paddedPeriod(b, timing), padded));
+        const held = history.some((b) => b.venueId === v.id && isHoldingDbStatus(b.status, b.holdExpiresAt) && periodsOverlap(paddedPeriod(b, timing), padded));
         const rejected = history.some(
           (b) => b.venueId === v.id && b.status === "rejected" && b.start.getTime() === original.start.getTime() && b.end.getTime() === original.end.getTime(),
         );

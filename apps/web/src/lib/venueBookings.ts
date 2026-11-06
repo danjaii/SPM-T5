@@ -81,7 +81,7 @@ export interface VenueBookingInputBody {
 export type VenueBookingResult = ApiResult<{ id: string; code?: string; unmet?: UnmetRequirement[] }>;
 
 /** Sends JSON to venue-service from the browser (POST, or PATCH for SCRUM-102's change), with the session cookie. */
-async function postToVenueService(path: string, body?: unknown, method: "POST" | "PATCH" = "POST"): Promise<VenueBookingResult> {
+async function postToVenueService(path: string, body?: unknown, method: "POST" | "PATCH" | "PUT" = "POST"): Promise<VenueBookingResult> {
   try {
     const res = await fetch(`${VENUE_URL}${path}`, {
       method,
@@ -139,6 +139,10 @@ export const requestReplacementVenue = (id: string, venueId: string, overrideRea
 
 export const acceptVenueSuggestion = (id: string, overrideReason?: string) =>
   postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/accept-suggestion`, overrideReason ? { overrideReason } : undefined);
+
+/** SCRUM-97/AC1, AC7: Venue Staff set, extend or shorten a pending request's hold expiry (an instant). */
+export const setHoldExpiry = (id: string, expiresAt: string) =>
+  postToVenueService(`/venue-bookings/${encodeURIComponent(id)}/hold-expiry`, { expiresAt }, "PUT");
 
 /** SCRUM-38: Venue Staff approve a pending request. */
 export const approveVenueBooking = (id: string) =>
