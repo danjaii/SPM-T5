@@ -6,6 +6,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { BOOKING_STATUS_DISPLAY, type BookingStatusKey } from "@/lib/status";
 import { bookingStatusLabel, type VenueBookingDetailView } from "@/lib/venueBookings";
 import { FlagBadges } from "./FlagBadges";
+import { HoldNoticeText } from "./HoldNoticeText";
+import { HoldWarningForm } from "./HoldWarningForm";
 import { PageTitle } from "./PageFrame";
 
 const resolvedReasonLabel = (reason: string | null) =>
@@ -40,13 +42,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 // SCRUM-33/AC4: read-only view of one request: outcome, rejection reason, suggested alternative, amendment chain.
 // SCRUM-135: the coordinator's copy of the request in the new style: cards, a StatusBadge, and the shared flag badges.
-export function VenueBookingDetail({ booking }: { booking: VenueBookingDetailView }) {
+export function VenueBookingDetail({ booking, now = new Date() }: { booking: VenueBookingDetailView; now?: Date }) {
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageTitle>{booking.eventName}</PageTitle>
         {statusBadge(booking.status)}
       </div>
+
+      {/* SCRUM-108/AC2, AC3, AC5: the warning text; AC1: the hours to be warned before expiry, for a live hold only */}
+      <HoldNoticeText booking={booking} now={now} block />
+      {booking.status === "PENDING" && booking.holdExpiresAt && <HoldWarningForm bookingId={booking.id} minutes={booking.holdWarningMinutes} />}
 
       {/* SCRUM-104/AC3: raised when the venue's setup or turnaround time was raised; change or cancel one booking to clear it */}
       {booking.flags.length > 0 && (

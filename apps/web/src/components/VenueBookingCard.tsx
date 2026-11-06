@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, History } from "lucide-react";
+import { AlertTriangle, Building2, History } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -9,6 +9,7 @@ import { BOOKING_STATUS_DISPLAY, type BookingStatusKey } from "@/lib/status";
 import type { EquipmentRequestView } from "@/lib/equipmentRequests";
 import { bookingStatusLabel, equipmentFor, isChangeableVenueBooking, type EventVenueBookingItem } from "@/lib/venueBookings";
 import { FlagBadges } from "./FlagBadges";
+import { HoldWarningForm } from "./HoldWarningForm";
 import { VenueBookingCancel } from "./VenueBookingCancel";
 
 const longDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -29,6 +30,8 @@ export function ExpiredHold({ booking }: { booking: EventVenueBookingItem }) {
           <p className="text-xs text-muted-foreground line-through">
             Expired {booking.holdExpiresAt ? expiryText(booking.holdExpiresAt) : ""} · not a booking
           </p>
+          {/* SCRUM-108/AC4 */}
+          <p className="text-xs text-muted-foreground">Hold expired, venue no longer reserved.</p>
         </div>
       </div>
       <StatusBadge {...BOOKING_STATUS_DISPLAY.EXPIRED} />
@@ -50,7 +53,10 @@ export function VenueBookingCard({
   canChange: boolean;
   equipment: EquipmentRequestView[];
 }) {
-  const hold = b.holdExpiresAt && b.status === "PENDING" ? holdCountdown(b.holdExpiresAt, now) : undefined;
+  // SCRUM-108/AC4: each hold warns inside its own window (the coordinator's choice); without one, SCRUM-133's 24 hours
+  const hold = b.holdExpiresAt && b.status === "PENDING"
+    ? holdCountdown(b.holdExpiresAt, now, b.holdWarningMinutes ? b.holdWarningMinutes * 60_000 : undefined)
+    : undefined;
   const badge =
     hold?.state === "expiring"
       ? { tone: "warning" as const, label: "Hold expiring" }
@@ -95,6 +101,15 @@ export function VenueBookingCard({
           Tentative hold expires {expiryText(b.holdExpiresAt)} ({hold.remaining}). If not confirmed, the room is released.
         </p>
       )}
+      {/* SCRUM-108/AC4: only inside the hold's own warning window */}
+      {hold?.state === "expiring" && (
+        <p data-testid="hold-warning" className="flex items-center gap-2 text-sm font-semibold text-status-warning-fg">
+          <AlertTriangle aria-hidden="true" className="size-4 shrink-0" />
+          Hold expires {hold.remaining}
+        </p>
+      )}
+      {/* SCRUM-108/AC1: the coordinator chooses how long before expiry to be warned */}
+      {canChange && hold && <HoldWarningForm bookingId={b.id} minutes={b.holdWarningMinutes} />}
 
       {(flagged || b.replacedBy || b.replaces || b.rejectionReason || b.cancellationReason || b.sentBackForReview) && (
         <div className="flex flex-col gap-1">
