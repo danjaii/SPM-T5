@@ -7,7 +7,7 @@ import { execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
-import { buildMatrix, lineOf, parseSpec, renderMarkdown } from "./lib.mjs";
+import { buildMatrix, explainRun, lineOf, parseSpec, renderMarkdown } from "./lib.mjs";
 
 const root = join(import.meta.dirname, "..", "..");
 const specsDir = join(root, "docs", "specs");
@@ -15,12 +15,23 @@ const out = join(root, "docs", "traceability.md");
 
 // the database tests read SUPABASE_URL and its keys; without them they skip
 if (existsSync(join(root, ".env"))) process.loadEnvFile(join(root, ".env"));
+const dbConfigured = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY && process.env.SUPABASE_PUBLISHABLE_KEY);
 
 // 1. Every test, with its result
 const report = join(tmpdir(), `traceability-${process.pid}.json`);
+// SCRUM-195/AC5: the JSON report drops beforeAll/afterAll errors, so a second reporter saves them
+const hookReport = join(tmpdir(), `traceability-${process.pid}-hooks.json`);
+const hookReporter = join(import.meta.dirname, "hookErrorsReporter.mjs");
 console.log("Running every test (a few minutes)…");
 try {
-  execSync(`pnpm vitest run --coverage.enabled=false --reporter=json --outputFile="${report}"`, { cwd: root, stdio: ["ignore", "ignore", "inherit"] });
+  // SCRUM-195/AC6: this run is far heavier than CI's (every workspace and every database test at once), and vitest's
+  // default limits (5 s a test, 10 s a hook) ran out for fast tests that pass on their own, so it gets longer ones
+  const limits = "--testTimeout=30000 --hookTimeout=60000";
+  execSync(`pnpm vitest run --coverage.enabled=false ${limits} --reporter=json --outputFile="${report}" --reporter="${hookReporter}"`, {
+    cwd: root,
+    stdio: ["ignore", "ignore", "inherit"],
+    env: { ...process.env, TRACEABILITY_HOOK_ERRORS: hookReport },
+  });
 } catch {
   // vitest exits non-zero when a test fails; the report says which, below
 }
@@ -29,22 +40,22 @@ if (!existsSync(report)) {
   process.exit(1);
 }
 const results = JSON.parse(readFileSync(report, "utf8"));
-rmSync(report);
+const hookErrors = existsSync(hookReport) ? JSON.parse(readFileSync(hookReport, "utf8")) : [];
 
-const tests = [];
-const notPassed = [];
-for (const file of results.testResults) {
-  const path = relative(root, file.name).replaceAll("\\", "/");
-  for (const t of file.assertionResults) {
-    const name = [...t.ancestorTitles, t.title].join(" > ");
-    if (t.status !== "passed") notPassed.push(`${t.status}: ${path} > ${name}`);
-    tests.push({ name, file: path });
-  }
-}
-if (notPassed.length > 0) {
-  console.error(`${notPassed.length} tests did not pass, so the matrix was not written:\n${notPassed.slice(0, 20).join("\n")}`);
-  console.error("Skipped database tests mean local Supabase is not running or .env does not point at it.");
+// SCRUM-195/AC5: say exactly why a run cannot produce the matrix (failed tests, failed setup or cleanup, missing settings)
+const toRepo = (path) => relative(root, path).replaceAll("\\", "/");
+const verdict = explainRun(results, hookErrors, { dbConfigured, relative: toRepo });
+if (!verdict.ok) {
+  console.error(`The test run did not pass cleanly, so the matrix was not written:\n${verdict.lines.join("\n")}`);
+  // SCRUM-195/AC5: the lines above show each error's first line; the reports keep the full errors and stack traces
+  console.error(`Full test report kept at ${report}${existsSync(hookReport) ? ` (setup and cleanup errors: ${hookReport})` : ""}`);
   process.exit(1);
+}
+rmSync(report);
+rmSync(hookReport, { force: true });
+const tests = [];
+for (const file of results.testResults) {
+  for (const t of file.assertionResults) tests.push({ name: [...t.ancestorTitles, t.title].join(" > "), file: toRepo(file.name) });
 }
 
 // 2. Each test's line, read once per file
