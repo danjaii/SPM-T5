@@ -42,6 +42,7 @@ export class Fixtures {
   private venueIds: string[] = [];
   private eventIds: string[] = [];
   private facilityIds: string[] = [];
+  private layoutIds: string[] = [];
   private organiserId?: string;
 
   constructor(readonly db: SupabaseClient) {}
@@ -105,10 +106,18 @@ export class Fixtures {
     return data.id as string;
   }
 
-  /** Links an existing seeded room layout to the venue with its own capacity (SCRUM-65); returns the layout id. */
+  /**
+   * A throwaway room layout, linked to the venue with its own capacity (SCRUM-65); returns the layout id. It is our own row,
+   * not any row of room_layouts, because other test files create and delete layouts while this one runs (SCRUM-181).
+   */
   async layout(venueId: string, maxCapacityForLayout: number): Promise<string> {
-    const { data, error } = await this.db.from("room_layouts").select("id").limit(1).single();
-    if (error) throw new Error(`Need a seeded room layout (run supabase db reset): ${error.message}`);
+    const { data, error } = await this.db
+      .from("room_layouts")
+      .insert({ name: `IT-layout-${Math.random().toString(36).slice(2, 8)}` })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    this.layoutIds.push(data.id as string);
     const link = await this.db
       .from("venue_supported_layouts")
       .insert({ venue_id: venueId, room_layout_id: data.id, max_capacity_for_layout: maxCapacityForLayout });
@@ -146,5 +155,7 @@ export class Fixtures {
       await this.db.from("venues").delete().in("id", this.venueIds);
     }
     if (this.facilityIds.length) await this.db.from("facilities").delete().in("id", this.facilityIds);
+    // after the venues, whose layout links go with them (on delete cascade)
+    if (this.layoutIds.length) await this.db.from("room_layouts").delete().in("id", this.layoutIds);
   }
 }
