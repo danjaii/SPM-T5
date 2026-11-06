@@ -100,9 +100,10 @@ pnpm --filter @spm-t5/auth-service run test:unit -t "reports ok status"        #
 
 pnpm --filter @spm-t5/auth-service run typecheck   # tsc --noEmit (apps/web runs `next typegen` first)
 pnpm run lint:all                            # apps/web uses ESLint flat config (eslint.config.mjs)
-pnpm --filter @spm-t5/web run test:e2e        # Playwright
+pnpm run test:e2e                            # Playwright E2E through the whole stack (local Supabase up); a case by ID: pnpm run test:e2e E2E-CONF-02. See docs/testing/e2e/README-e2e.md
+pnpm run e2e:docs                            # regenerate docs/testing/e2e (test cases, traceability, execution log, metrics) from the last E2E run
 pnpm run traceability                        # regenerate docs/traceability.md (runs every test; local Supabase up)
-pnpm run test:scripts                        # tests for scripts/traceability
+pnpm run test:scripts                        # tests for scripts/traceability and scripts/e2e
 pnpm run test:mutation                       # mutation testing on packages/shared, by hand and not in CI (up to an hour); see docs/testing/mutation-testing.md
 ```
 
