@@ -72,7 +72,7 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-ACL-01 | For each role, opening a URL guarded for another role lands on "You don't have access to this page" | SCRUM-122/AC3, 77-AC7, 78-AC9 | P0 | A | 1 | C5 |
 | E2E-ACL-02 | Calling a service with the wrong role's cookie gets 403 (and no session gets 401), and nothing changes: Lead queue and assign, booking approve and reject, safety decision, venue bookings of an event, equipment reservation | 77-AC7, 78-AC9, 98-S28, 19-S13, 39-S7, SCRUM-99/AC7 | P0 | A | 1 | C5 |
 | E2E-ACL-03 | A coordinator cannot open or act on an event assigned to another coordinator | 156-S1, 156-S8, 102-S21 | P1 | A | 5 | C5 |
-| E2E-ACL-05 | A coordinator the event is not assigned to cannot request a venue for it or list its bookings: 403 and no booking. **Expected to fail**: the real stack answers 404 (defect D-002) | 98-S26, 98-S27 | P1 | A | 12 | C3, C5 |
+| E2E-ACL-05 | A coordinator the event is not assigned to cannot request a venue for it or list its bookings: 404 and no booking (spec 98 was changed from 403 when defect D-002 was decided) | 98-S26, 98-S27 | P1 | A | 12 | C3, C5 |
 | E2E-ACL-04 | The organiser and the assigned coordinator see every registrant's name, email and phone; another coordinator gets neither the rows nor the details; a person still sees their own | SCRUM-154/AC3-AC5 | P2 | A | 1 | |
 
 ### EVT, ASSIGN: requests and assignment
@@ -158,7 +158,7 @@ A case that folds in an existing spec file names the file in section 4.
 
 **Counts** (counted from the tables above, lean scope): 68 cases. Priority: 8 P0, 48 P1, 12 P2. Type: 37 normal, 6 failure,
 7 boundary, 9 conflict, 9 access-control. (E2E-ACL-05 was added during writing, when the unassigned-coordinator check turned out
-to contradict spec 98; see defect D-002.) The metrics script will recompute these from the catalogue file, which becomes the source.
+to contradict spec 98; see defect D-002, since closed by changing the spec to 404.) The metrics script will recompute these from the catalogue file, which becomes the source.
 Week 7 changes with at least one case: all six, C1 to C6 (C4, tentative hold expiry, was built by SCRUM-97 and SCRUM-108 on 2026-11-06 and is E2E-HOLD-01). The number of features covered
 out of 20 is computed by the script from the Feat column; I have not hand-counted it.
 
@@ -204,7 +204,7 @@ NOTIF-02.
 | Email and SMS notifications | Not built (ADR 0002; `notification-service` is read-only). | Uncovered. NOTIF cases check in-app only. |
 | Exact-instant boundaries (registration closes at the second) and registration window closed / not yet open | Needs a frozen clock the whole stack shares; the closed and not-yet-open pages are display variants, not a critical path. | Left to unit and integration tests. |
 | Field-level validation messages: event request form, change request form, equipment reservation form | Lean scope (agreed in plan review): E2E takes rules a user sees as a business outcome, not each message. Covered by unit tests and the service validation tests (`19-S6` to `19-S8`, `66-S2` to `66-S5`, `66-S10`, SCRUM-49). | Unit and integration tests. The failure and boundary types are still represented by the cases in the catalogue. |
-| Suitability by a required facility (the brief's example "a required facility is unavailable") | An event stores no required-facilities field, so the check cannot produce "not available" (spec 109, "Only what is stored today is checked", decided 2026-10-14). E2E-VEN-08 asserts what the product does: the facilities line says Not checked. | Defect row D-004 in `defects.md`: the decision is in the spec but not in `docs/scope-decisions.md`. |
+| Suitability by a required facility (the brief's example "a required facility is unavailable") | An event stores no required-facilities field, so the check cannot produce "not available" (spec 109, "Only what is stored today is checked", decided 2026-10-14). E2E-VEN-08 asserts what the product does: the facilities line says Not checked. | Recorded in `docs/scope-decisions.md` ("Required facilities on an event"); defect D-004, closed. |
 | Request amendments from the Organiser (the brief: "request clarification or amendments") | A "returned" status exists, but no screen in the review actions uses it; the review offers clarification, approve and reject. | Needs the team to say whether it is built; clarification is covered by E2E-EVT-03. |
 | Empty Lead queue message (SCRUM-77/AC6) | The queue is system-wide (SCRUM-184) and other tests keep unassigned requests in it while this one runs, so it is never empty during a run. | The unit tests of `LeadQueueList`. |
 | Back-to-back bookings with 0/0 setup (`103-S6`) | An edge variant of the touching-periods rule, which `CONF-03` already covers with real buffers. | Unit and integration tests. |

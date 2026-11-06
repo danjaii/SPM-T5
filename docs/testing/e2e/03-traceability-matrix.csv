@@ -155,8 +155,8 @@ SCRUM-112,AC5,,E2E-EVT-04; E2E-CHG-04,apps/web/tests/e2e/specs/evt/E2E-EVT-04-ed
 SCRUM-113,AC1,,E2E-EVT-04; E2E-CHG-04; E2E-CHG-08,apps/web/tests/e2e/specs/evt/E2E-EVT-04-edit-minor-and-critical.spec.ts; apps/web/tests/e2e/specs/chg/E2E-CHG-04-attendance-increase-flags-venue.spec.ts; apps/web/tests/e2e/specs/chg/E2E-CHG-08-important-change-affects-equipment.spec.ts,Passed
 SCRUM-113,AC2,,E2E-CHG-08,apps/web/tests/e2e/specs/chg/E2E-CHG-08-important-change-affects-equipment.spec.ts,Passed
 SCRUM-113,AC4,,E2E-EVT-04,apps/web/tests/e2e/specs/evt/E2E-EVT-04-edit-minor-and-critical.spec.ts,Passed
-SCRUM-121,AC1,,E2E-AUTH-05,apps/web/tests/e2e/specs/auth/E2E-AUTH-05-sidebar-per-role.spec.ts,Passed
-SCRUM-121,AC3,,E2E-AUTH-05,apps/web/tests/e2e/specs/auth/E2E-AUTH-05-sidebar-per-role.spec.ts,Passed
+SCRUM-121,AC1,,E2E-AUTH-05,apps/web/tests/e2e/specs/auth/E2E-AUTH-05-sidebar-per-role.spec.ts,Failed
+SCRUM-121,AC3,,E2E-AUTH-05,apps/web/tests/e2e/specs/auth/E2E-AUTH-05-sidebar-per-role.spec.ts,Failed
 SCRUM-122,AC1,,E2E-AUTH-01,apps/web/tests/e2e/specs/auth/E2E-AUTH-01-sign-in-each-role.spec.ts,Passed
 SCRUM-122,AC2,,E2E-AUTH-02,apps/web/tests/e2e/specs/auth/E2E-AUTH-02-sign-in-refused.spec.ts,Passed
 SCRUM-122,AC3,,E2E-ACL-01,apps/web/tests/e2e/specs/acl/E2E-ACL-01-guarded-urls.spec.ts,Passed

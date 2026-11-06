@@ -51,7 +51,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await admin.setTimes(15, 15);
     expect(await openFlags(), "no open flags").toEqual([]);
     const resolved = await data.rest<{ resolved_reason: string }[]>(`venue_booking_flags?select=resolved_reason&booking_id=in.(${a.id},${b.id})`);
-    // spec 104 decision: one reason, no_longer_conflicts (its 104-S5 table row still shows the superseded name padding_changed)
+    // spec 104 decision (104-S5): one reason, no_longer_conflicts, whatever made the pair stop overlapping
     expect(resolved.map((r) => r.resolved_reason)).toEqual(["no_longer_conflicts", "no_longer_conflicts"]);
 
     await decision.open(b.id);
