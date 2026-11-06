@@ -39,6 +39,13 @@ Useful variations (all from the repo root):
 | Playwright's UI mode | `pnpm run test:e2e:ui` |
 | Fewer parallel workers | `E2E_WORKERS=1 pnpm run test:e2e` |
 | Reuse a web server you started on port 3000 | `E2E_REUSE_WEB=1` (start it with the E2E service ports 4101 to 4105) |
+| Run as CI does (steadier and about three times faster) | `pnpm run e2e:build` once, then `E2E_BUILT=1 pnpm run test:e2e` |
+
+**Built mode.** By default the web app is `next dev`, which compiles each page when it is first opened. With several parallel workers it
+can stall for a minute or more, and a test then fails on a timeout (a full dev-mode run failed 6 tests this way that had passed in the
+run before). `pnpm run e2e:build` builds the services and the web app with the E2E service ports baked in (it replaces `apps/web/.next`,
+so stop your own `next dev` first); `E2E_BUILT=1` then runs them the way CI does: the bundled services, `next start`, tighter timeouts
+and one retry, so a test that needed a retry is reported as flaky. A full run takes about 7 minutes.
 
 Every test creates the rows it needs (named `E2E-<ID> ...`) and removes them afterwards, and asserts only on those rows, so the
 database does not have to be fresh. For an official run start from `supabase db reset`, which wipes your local data, so do it on
@@ -70,9 +77,9 @@ apps/web/tests/e2e/
   `data.rest(...)` reads the database to prove what a screen cannot, such as "nothing was created".
 - **Ports and origin.** The web app must be on port 3000: it is the only origin the services allow. The services get 4101-4105
   locally so your own dev servers are left alone; CI uses 4001-4005, where the production build already points.
-- **Local versus CI.** Locally the services run from source (`tsx`) and the web app is `next dev`, with 3 workers and long timeouts
-  because `next dev` compiles a page on its first visit. In CI they are the bundles from `pnpm run build:all` and `next start`, with
-  2 workers and one retry, so a flaky test is reported as flaky.
+- **Local versus CI.** By default the services run from source (`tsx`) and the web app is `next dev`, with 3 workers and long timeouts
+  because `next dev` compiles a page on its first visit. In CI, and locally with `E2E_BUILT=1`, they are the bundles from
+  `pnpm run build:all` and `next start`, with one retry, so a flaky test is reported as flaky (CI uses 2 workers).
 - **Dates.** Cases book far-future days (2031) so nothing depends on today's date, with two exceptions that need the real clock:
   registration windows (set relative to now) and E2E-VEN-06 (the calendar only opens on today and steps a day at a time).
 - **Defects.** A test whose assertion the product breaks stays as the AC states it, is marked `test.fail()`, and has a row in
