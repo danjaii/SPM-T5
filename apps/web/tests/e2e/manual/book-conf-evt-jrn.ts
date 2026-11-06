@@ -9,7 +9,7 @@ export const MANUAL = {
     preconditions: "Two venues exist that are open 07:00 to 23:00 with the Theatre layout: one holding 100 people and one holding only 10 (S4 twice). One item of equipment with 5 units (S8). The seeded accounts. One private window per person.",
     data: "Event `E2E journey`, 14 Nov 2031 09:00 to 17:00, 40 people, Theatre layout, registration for 30 people open now and closing before the event.",
     steps: [
-      "1. Organiser (Jason Chua): fill the New event request form up to the Equipment step and press **Save as draft** (\"Draft saved.\"). Leave; open **My event requests**, open the draft; check what you typed is back. Continue to Registration, choose **Yes, registration needed** (capacity 30, opens yesterday, closes before the event), **Continue to Review & submit**, **Submit request**.",
+      "1. Organiser (Jason Chua): fill the New event request form up to the Equipment step and press **Save as draft** (\"Draft saved.\"). Leave; open **My event requests**, open the draft: it opens on the Equipment step with its text back; press **Back** three times and check the **Event name** is back. Continue to Registration, choose **Yes, registration needed** (capacity 30, opens yesterday, closes before the event), **Continue to Review & submit**, **Submit request**.",
       "2. Lead (Helen Ong): the request is in the unassigned queue. Assign it to Rachel Tan.",
       "3. Coordinator (Rachel Tan): **Event requests**, open it, **Start review**, **Approve request** and confirm. Then **Change status** to **Planning**.",
       "4. Rachel: on the event press **Find a venue**: the 100-person venue is offered and the 10-person venue is not. Open the venue request form, pick the 100-person venue, 14 Nov 2031 09:00 to 17:00, press **Check suitability** (the report says Suitable), then **Submit request**.",
@@ -118,7 +118,7 @@ export const MANUAL = {
       "Repeat for the second time range, then with the holder in the other state.",
     ],
     expected: [
-      "Each request is refused with `<venue> is occupied from 10:00 to 12:00` (no mention of setup or turnaround, this venue has none), you stay on the form, and Rachel's event has no booking.",
+      "Each request is refused, you stay on the form, and Rachel's event has no booking. With an Approved holder the message is `<venue> is occupied from 10:00 to 12:00`; with a Pending holder (a tentative hold) it is `<venue> is tentatively held from 10:00 to 12:00`. Neither mentions setup or turnaround (this venue has none).",
     ],
   },
   "E2E-CONF-02": {
@@ -169,13 +169,13 @@ export const MANUAL = {
     steps: [
       "As Jason: New event request, fill Basics, **Continue to Date & attendance**, fill Starts, Ends and 25 people, press **Save as draft** (\"Draft saved.\").",
       "Open **My event requests**: find the draft. As Helen Ong check the unassigned queue.",
-      "As Jason open the draft from the list. Check **Event name**; **Continue to Date & attendance**: check 25; change it to 35; **Save as draft**.",
+      "As Jason open the draft from the list: it opens on the Date & attendance step. Check **Expected attendance** is 25, press **Back** and check **Event name**, then **Continue to Date & attendance** again; change the attendance to 35; **Save as draft**.",
       "Continue through Venue needs (Classroom), Equipment, Registration (**No registration**), **Review & submit**, press **Submit request**.",
       "As Helen Ong look at the unassigned queue.",
     ],
     expected: [
       "The draft is saved. **My event requests** shows it as a Draft; Helen does not see it in her queue.",
-      "Resuming restores the typed values; saving again updates the same draft (the list still has one entry).",
+      "Resuming opens the form on the step where it was saved (Date & attendance, with 25), and **Back** shows the Event name restored; saving again updates the same draft (the list still has one entry).",
       "After submitting, the request is in Helen's queue.",
     ],
   },

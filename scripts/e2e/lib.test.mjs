@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   acState, acsOfRef, buildMetrics, buildTraceability, caseState, mergeReviewLog, outcomeOf, parseDefects, parseRef,
-  manualProblems, readReport, renderMetrics, renderTestCases, renderTraceability, testCaseRows, toCsv, updateExecutionLog,
+  NOT_BUILT, manualProblems, readReport, renderMetrics, renderTestCases, renderTraceability, testCaseRows, toCsv, updateExecutionLog,
 } from "./lib.mjs";
 
 const spec = (title, tests) => ({ title, file: "x.spec.ts", tests });
@@ -117,10 +117,20 @@ describe("SCRUM-191/AC5 the traceability matrix lists what has no E2E case", () 
     assert.equal(tr.totalSpecAcs - tr.citedSpecAcs, 2);
   });
 
-  it("writes the not-built change into the matrix as not covered", () => {
-    const md = renderTraceability(tr, { specFiles: files, meta: { commit: "abc1234", date: "2026-11-06" } });
-    assert.match(md, /\| C4 \| SCRUM-97, SCRUM-108 \|.*\| D-001 \| Not covered \|/);
+  const meta = { commit: "abc1234", date: "2026-11-06" };
+  const gap = [{ change: "C9", stories: ["SCRUM-900"], what: "A thing not built", defect: "D-009" }];
+
+  it("writes a requirement that is not built into the matrix as not covered", () => {
+    const md = renderTraceability(tr, { specFiles: files, meta, notBuilt: gap });
+    assert.match(md, /\| C9 \| SCRUM-900 \| A thing not built \| D-009 \| Not covered \|/);
     assert.match(md, /\| AC2 \| two \| - \| Not covered \|/);
+  });
+
+  it("says nothing is left out when nothing is unbuilt, which is the case today (hold expiry is built)", () => {
+    assert.deepEqual(NOT_BUILT, []);
+    const md = renderTraceability(tr, { specFiles: files, meta });
+    assert.match(md, /Nothing the customer asked for is left out: every Week 7 change is built and has an E2E case\./);
+    assert.doesNotMatch(md, /\| C4 \|/);
   });
 });
 
@@ -152,7 +162,9 @@ describe("SCRUM-191/AC5 metrics", () => {
   it("writes the run totals, the duration and the not-built change", () => {
     const md = renderMetrics(m);
     assert.match(md, /\| 2 \| 1 \| 1 \| 0 \| 0 \| 0 \| 1 min 1 s \|/);
-    assert.match(md, /Change C4 Tentative hold expiry: no case \(not built, defect D-001\)/);
+    assert.match(md, /Change C4 Tentative hold expiry: no case(\r?\n|$)/);
+    const withGap = renderMetrics(buildMetrics({ catalogue, specFiles: files, report, tr: null, defects, meta: { commit: "abc", timestamp: "t" }, notBuilt: [{ change: "C4", stories: [], what: "x", defect: "D-077" }] }));
+    assert.match(withGap, /Change C4 Tentative hold expiry: no case \(not built, defect D-077\)/);
     assert.match(md, /## Defects \(1 open of 2\)/);
   });
 

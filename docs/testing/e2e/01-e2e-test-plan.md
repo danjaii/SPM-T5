@@ -1,7 +1,7 @@
 # E2E test plan
 
 Plan for browser-driven end-to-end tests of ConnectSphere with Playwright. Facts about the repo are in
-[00-discovery.md](00-discovery.md). Status: **built under SCRUM-191. All 67 cases have a spec; the latest results are in [metrics.md](metrics.md).** This file records the
+[00-discovery.md](00-discovery.md). Status: **built under SCRUM-191. All 68 cases have a spec; the latest results are in [metrics.md](metrics.md).** This file records the
 plan and the decisions; where a case changed while it was written, the row below says what it checks now.
 
 ## 1. Scope and approach
@@ -112,6 +112,7 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-CONF-03 | A request at 13:15-15:00 is accepted: the padded periods only touch | 103-S2 | P0 | B | 14 | C1 |
 | E2E-CONF-04 | The same event asking for the same venue overlapping its own booking is refused as a duplicate; a different venue is fine | 98-S13, 98-S4, 103-S9 | P1 | C | 12, 14 | C3 |
 | E2E-CONF-05 | A request into a venue's unavailable period is refused with the exact period; a request that only touches the padded block is accepted | 105-S4, 105-S5 | P1 | C | 14 | C2 |
+| E2E-HOLD-01 | Venue Staff set a hold expiry and the coordinator is warned; while it is live nobody else can have the slot; once it lapses the slot is free for another event, the lapsed hold cannot be approved, and the coordinator is told it expired once. The lapse is made by moving the stored expiry into the past with the service key (expiry is derived from the time, and the screen refuses a past expiry) | SCRUM-97, SCRUM-108/AC2, AC5, AC7 | P1 | C | 9, 12, 14, 20 | C4 |
 
 ### CHG: change handling
 
@@ -155,10 +156,10 @@ A case that folds in an existing spec file names the file in section 4.
 | E2E-NOTIF-02 | One action sends one notification to the right user and none to others: assignment, approval, booking decision, venue flag | SCRUM-47, 172, 106-S5 | P1 | A | 20 | |
 | E2E-NOTIF-03 | The replacement-confirmed notice reaches the organiser and the affected attendees, not a withdrawn one | SCRUM-185/AC3, SCRUM-172 | P2 | A | 20 | C2 |
 
-**Counts** (counted from the tables above, lean scope): 67 cases. Priority: 8 P0, 47 P1, 12 P2. Type: 37 normal, 6 failure,
-7 boundary, 8 conflict, 9 access-control. (E2E-ACL-05 was added during writing, when the unassigned-coordinator check turned out
+**Counts** (counted from the tables above, lean scope): 68 cases. Priority: 8 P0, 48 P1, 12 P2. Type: 37 normal, 6 failure,
+7 boundary, 9 conflict, 9 access-control. (E2E-ACL-05 was added during writing, when the unassigned-coordinator check turned out
 to contradict spec 98; see defect D-002.) The metrics script will recompute these from the catalogue file, which becomes the source.
-Week 7 changes with at least one case: C1, C2, C3, C5, C6. **C4 has no case (not built).** The number of features covered
+Week 7 changes with at least one case: all six, C1 to C6 (C4, tentative hold expiry, was built by SCRUM-97 and SCRUM-108 on 2026-11-06 and is E2E-HOLD-01). The number of features covered
 out of 20 is computed by the script from the Feat column; I have not hand-counted it.
 
 ## 4. Existing specs folded in
@@ -199,7 +200,7 @@ NOTIF-02.
 
 | Item | Reason | Where it is reported |
 | ----- | ----- | ----- |
-| **C4: hold expiry**, expired hold releases the venue, coordinator notified at expiry, an expired hold is not a booking | Not built: no expiry column, sweeper or job; no UI creates a hold. | Defect D-001 in `defects.md`; shown as uncovered in the traceability matrix and metrics. Not in `scope-decisions.md` (no customer quote found). |
+| ~~C4: hold expiry~~ (superseded) | It was not built when this plan was written; SCRUM-97 and SCRUM-108 built it on 2026-11-06 and E2E-HOLD-01 covers it. | Defect D-001 in `defects.md`, now closed. |
 | Email and SMS notifications | Not built (ADR 0002; `notification-service` is read-only). | Uncovered. NOTIF cases check in-app only. |
 | Exact-instant boundaries (registration closes at the second) and registration window closed / not yet open | Needs a frozen clock the whole stack shares; the closed and not-yet-open pages are display variants, not a critical path. | Left to unit and integration tests. |
 | Field-level validation messages: event request form, change request form, equipment reservation form | Lean scope (agreed in plan review): E2E takes rules a user sees as a business outcome, not each message. Covered by unit tests and the service validation tests (`19-S6` to `19-S8`, `66-S2` to `66-S5`, `66-S10`, SCRUM-49). | Unit and integration tests. The failure and boundary types are still represented by the cases in the catalogue. |

@@ -16,10 +16,12 @@ export const CHANGES = {
   C4: "Tentative hold expiry", C5: "Event Coordinator Lead", C6: "Safety Officer",
 };
 
-/** Requirements the customer asked for that are not built, so no E2E case can exist. Reported, never hidden. */
-export const NOT_BUILT = [
-  { change: "C4", stories: ["SCRUM-97", "SCRUM-108"], what: "Tentative hold expiry: an expired hold releases the venue, the coordinator is told before and at expiry, an expired hold is not a booking", defect: "D-001" },
-];
+/**
+ * Requirements the customer asked for that are not built, so no E2E case can exist. Reported, never hidden. Each entry is
+ * { change, stories, what, defect }. Empty today: tentative hold expiry (C4), the only one, was built by SCRUM-97 and SCRUM-108 and
+ * has E2E-HOLD-01. The reporting below stays, so a gap found later is listed here and shows as Not covered.
+ */
+export const NOT_BUILT = [];
 
 const csvCell = (v) => {
   const s = String(v ?? "");
@@ -301,7 +303,7 @@ export function buildTraceability({ catalogue, specs, specFiles, byId }) {
 
 const short = (t, n = 140) => (t && t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t ?? "");
 
-export function renderTraceability(tr, { specFiles, meta }) {
+export function renderTraceability(tr, { specFiles, meta, notBuilt = NOT_BUILT }) {
   const lines = [
     "# E2E traceability matrix",
     "",
@@ -315,8 +317,9 @@ export function renderTraceability(tr, { specFiles, meta }) {
     "",
     "## Not built, so not covered",
     "",
-    table(["Change", "Stories", "What is missing", "Defect", "E2E result"],
-      NOT_BUILT.map((n) => [n.change, n.stories.join(", "), n.what, n.defect, "Not covered"])),
+    ...(notBuilt.length
+      ? [table(["Change", "Stories", "What is missing", "Defect", "E2E result"], notBuilt.map((n) => [n.change, n.stories.join(", "), n.what, n.defect, "Not covered"]))]
+      : ["Nothing the customer asked for is left out: every Week 7 change is built and has an E2E case."]),
     "",
     "## Stories and acceptance criteria",
     "",
@@ -343,13 +346,13 @@ export function renderTraceability(tr, { specFiles, meta }) {
   return lines.join("\n");
 }
 
-export function traceabilityCsv(tr, specFiles) {
+export function traceabilityCsv(tr, specFiles, notBuilt = NOT_BUILT) {
   const rows = [];
   for (const s of tr.stories) {
     if (s.acs.length === 0) rows.push([`SCRUM-${s.story}`, "", "", s.storyLevel.ids.join("; "), s.storyLevel.ids.map((i) => specFiles.get(i) ?? "").join("; "), "Story level"]);
     for (const a of s.acs) rows.push([`SCRUM-${s.story}`, `AC${a.ac}`, a.text ?? "", a.ids.join("; "), a.ids.map((i) => specFiles.get(i) ?? "").join("; "), a.state === "dropped" ? "Dropped in the spec" : STATE_LABEL[a.state] ?? a.state]);
   }
-  for (const n of NOT_BUILT) rows.push([n.stories.join("; "), n.change, n.what, "", "", "Not covered (not built)"]);
+  for (const n of notBuilt) rows.push([n.stories.join("; "), n.change, n.what, "", "", "Not covered (not built)"]);
   return toCsv(["Story", "AC", "Criterion", "E2E cases", "Spec files", "Last result"], rows);
 }
 
@@ -422,7 +425,7 @@ const countBy = (catalogue, key) => {
   return m;
 };
 
-export function buildMetrics({ catalogue, specFiles, report, tr, defects, meta }) {
+export function buildMetrics({ catalogue, specFiles, report, tr, defects, meta, notBuilt = NOT_BUILT }) {
   const byId = report?.byId ?? null;
   const state = (id) => caseState(id, specFiles, byId);
   const passedIds = new Set(catalogue.filter((c) => state(c.id) === "passed").map((c) => c.id));
@@ -446,6 +449,7 @@ export function buildMetrics({ catalogue, specFiles, report, tr, defects, meta }
     acs: tr ? { referenced: tr.acsReferenced, passed: tr.acsPassed, inCited: tr.acsInCitedStories, citedStories: tr.citedStories, otherSpec: tr.totalSpecAcs - tr.citedSpecAcs } : null,
     defectsOpen: defects.filter((d) => d.open),
     defectsAll: defects.length,
+    notBuilt,
   };
 }
 
@@ -481,7 +485,7 @@ export function renderMetrics(m) {
     "",
     "Not covered:", "",
     ...m.features.filter((f) => !f.passed).map((f) => `- Feature ${f.n} ${f.name}: ${f.inCatalogue ? "has a case, none passing in this run" : "no case"}`),
-    ...m.changes.filter((c) => !c.passed).map((c) => `- Change ${c.key} ${c.name}: ${c.inCatalogue ? "has a case, none passing in this run" : "no case" + (NOT_BUILT.find((n) => n.change === c.key) ? ` (not built, defect ${NOT_BUILT.find((n) => n.change === c.key).defect})` : "")}`),
+    ...m.changes.filter((c) => !c.passed).map((c) => `- Change ${c.key} ${c.name}: ${c.inCatalogue ? "has a case, none passing in this run" : "no case" + (m.notBuilt.find((n) => n.change === c.key) ? ` (not built, defect ${m.notBuilt.find((n) => n.change === c.key).defect})` : "")}`),
     "",
     `## Defects (${m.defectsOpen.length} open of ${m.defectsAll})`,
     "",

@@ -83,7 +83,7 @@ apps/web/tests/e2e/
 - **Dates.** Cases book far-future days (2031) so nothing depends on today's date, with two exceptions that need the real clock:
   registration windows (set relative to now) and E2E-VEN-06 (the calendar only opens on today and steps a day at a time).
 - **Defects.** A test whose assertion the product breaks stays as the AC states it, is marked `test.fail()`, and has a row in
-  `defects.md`. Today that is E2E-ACL-05 (D-002). The tentative hold expiry change (C4, D-001) has no test because nothing is built.
+  `defects.md`. Today that is E2E-ACL-05 (D-002). The tentative hold expiry change (C4) is covered by E2E-HOLD-01 (it was built on 2026-11-06; defect D-001, "not built", is closed).
 
 ## See why a test failed
 

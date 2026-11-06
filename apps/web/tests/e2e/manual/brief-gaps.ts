@@ -74,6 +74,27 @@ export const MANUAL = {
       "Bryan's row reads Rejected and no longer has Confirm or Decline.",
     ],
   },
+  "E2E-HOLD-01": {
+    setups: ["S0", "S4", "S7"],
+    preconditions: "A venue (S4). Two approved events on 14 Nov 2031, one assigned to Rachel Tan (the holder) and one to Marcus Lim (S7 with each). A Pending venue request from Rachel's event for 10:00 to 12:00 (a Pending request is the tentative hold). Venue Staff and both coordinators in separate windows. A way to move the expiry into the past: the screen refuses a past expiry, so ask a developer to set `hold_expires_at` to a minute ago on that booking, or wait for a real expiry set a few minutes ahead.",
+    data: "Expiry: two hours from now (Singapore time). Warning time: the 24-hour default.",
+    steps: [
+      "As Kenneth Wong open the Pending request in **Booking requests**. Under **Hold expiry** fill **Hold expires** with a time two hours from now and press **Save expiry**.",
+      "As Rachel Tan open the booking's page. As Marcus Lim open **My venue bookings**.",
+      "As Marcus Lim request the same venue for his event, 14 Nov 2031 10:00 to 12:00.",
+      "Let the hold expire (see preconditions). As Rachel Tan open the booking's page and **Notifications**.",
+      "As Kenneth Wong open the lapsed request, press **Approve request**, then **Yes, approve**.",
+      "As Marcus Lim request the same venue and time again.",
+    ],
+    expected: [
+      "\"Expiry saved. The event's coordinator has been told.\" appears.",
+      "Rachel's page shows a warning \"Hold expires in …\" (the expiry is inside the 24-hour warning window). Marcus sees no warning about this hold.",
+      "Marcus's request is refused: `<venue> is tentatively held from 10:00 to 12:00` (the slot is held while the hold is live) and no booking is created.",
+      "Rachel's page shows \"Hold expired, venue no longer reserved\"; her notifications list has one \"Hold expired\" notice for the event; Marcus has none.",
+      "The approval is refused: \"This hold has expired and the venue is no longer reserved. A new venue request is needed.\" The request stays Pending, never Approved.",
+      "Marcus's request is now accepted (Pending): an expired hold no longer reserves the venue.",
+    ],
+  },
   "E2E-VEN-07": {
     setups: ["S0", "S4"],
     preconditions: "Five venues open 07:00 to 23:00 (S4, with these settings): Alpha (100 people, Theatre, accessible, Projector & Screen), Gamma (100, Theatre, not accessible, no projector), Epsilon (100, Theatre, accessible, no projector), Beta (100, Classroom only, accessible, projector), Delta (20 people, Theatre, accessible, projector). Signed in as Rachel Tan.",
