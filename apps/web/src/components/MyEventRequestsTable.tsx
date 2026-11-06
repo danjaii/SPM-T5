@@ -59,7 +59,14 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
               {/* SCRUM-56/AC2: only a draft can be deleted, so any other status has no Delete control at all.
                   The click stops here: the dialog is portalled but its clicks still bubble to the row, which would open the draft. */}
               <TableCell onClick={(e) => e.stopPropagation()}>
-                {isDraft(request) && <DeleteDraftButton id={request.id} name={isUntitledDraft(request) ? UNTITLED_DRAFT : request.name} />}
+                {isDraft(request) && (
+                  <div className="flex items-center justify-end gap-3">
+                    {/* SCRUM-124/AC2 (Figma 02): the row's action for a draft. A cue, not a second link: the whole row opens the draft
+                        (SCRUM-159) and the name stays the one link for keyboard users, so the list of links is unchanged. */}
+                    <span data-testid="continue-editing" className="text-sm font-semibold text-fg-primary">Continue editing →</span>
+                    <DeleteDraftButton id={request.id} name={isUntitledDraft(request) ? UNTITLED_DRAFT : request.name} />
+                  </div>
+                )}
               </TableCell>
             </TableRow>
           );

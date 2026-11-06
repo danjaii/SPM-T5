@@ -24,6 +24,21 @@ const STEP_FIELDS: readonly (readonly string[])[] = [
   [],
 ];
 
+/**
+ * SCRUM-124/AC3: the step a reopened draft resumes at, the last step with anything filled in (never Review). The draft stores
+ * the answers, not which step the organiser was on, so "the last step I edited" is read from what is there.
+ */
+export function lastEditedStep(values: EventRequestFormValues): number {
+  const filled: boolean[] = [
+    Boolean(values.name || values.purpose || values.description),
+    Boolean(values.start || values.end || values.attendance),
+    Boolean(values.venueRequirements || values.layoutId || values.accessibility.length > 0 || values.accessibilityNotes),
+    Boolean(values.equipment),
+    Boolean(values.registrationRequired || values.registrationCapacity || values.registrationOpens || values.registrationCloses),
+  ];
+  return filled.lastIndexOf(true) === -1 ? 0 : filled.lastIndexOf(true);
+}
+
 export const ACCESSIBILITY_OPTIONS = [
   "Wheelchair access",
   "Hearing loop",

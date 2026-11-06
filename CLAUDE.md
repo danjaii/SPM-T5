@@ -256,8 +256,9 @@ acceptance criterion — part of what the Scrum project is graded on.
 
 ## Current state
 
-What each story built, with its spec, migration and diagram, is recorded in [docs/current-state.md](docs/current-state.md);
-read it for the service you are changing, and add a sentence there (not here) when a story changes what exists. In short:
+What each story built is recorded in its spec in [docs/specs/](docs/specs/), the service's C4 diagram in
+`docs/architecture/c4/`, and [docs/traceability.md](docs/traceability.md); read them for the service you are changing.
+When a story changes what exists, update its spec and the diagram rather than adding a history here. In short:
 - `notification-service` serves in-app notifications (SCRUM-46) and, every minute, writes the hold expiry notices that
   have come due (SCRUM-108); email and SMS are not part of this project.
 - The `healthCheck()` exports in `services/*/src/index.ts` are leftovers from the original scaffold.

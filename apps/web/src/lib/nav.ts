@@ -1,4 +1,4 @@
-import { BedDouble, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FilePlus2, Home, ListChecks, Package, Search, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
+import { BedDouble, CalendarCheck, CalendarDays, CalendarRange, ClipboardList, FilePlus2, FileText, Home, ListChecks, Package, Search, ShieldCheck, Users, Wrench, type LucideIcon } from "lucide-react";
 import type { Role } from "@spm-t5/shared";
 
 /** The queues whose size is shown beside a nav item (SCRUM-121/AC2). */
@@ -36,6 +36,8 @@ export const NAV_ITEMS: Record<Role, NavEntry[]> = {
     { label: "New event request", href: "/events/new", icon: FilePlus2 },
     // SCRUM-52/AC1: every request the organiser created, with its status
     { label: "My event requests", href: "/my-event-requests", icon: ListChecks },
+    // SCRUM-124/AC2: opens Home on its Drafts tab (SCRUM-159), so the organiser's unfinished requests are one click away
+    { label: "Drafts", href: "/dashboard/event_organiser/drafts", icon: FileText },
     { label: "Event registrations", href: "/registrations-overview", icon: ClipboardList },
   ],
   event_coordinator: [
