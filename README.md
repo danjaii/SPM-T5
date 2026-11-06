@@ -48,7 +48,7 @@ Where the project work is tracked: Jira project `SCRUM` (every commit and PR cit
 | `event-service` | 4002 | Event requests, drafts, review/approval, status state machine, coordinator assignment, change requests |
 | `venue-service` | 4003 | Venue catalogue, availability calendar, search, suitability checks, bookings and conflict detection |
 | `equipment-service` | 4004 | Equipment catalogue, availability checks, reservations, technical support (formerly `coordinator-service`) |
-| `notification-service` | 4005 | In-app notifications (list, mark read); email/SMS later |
+| `notification-service` | 4005 | In-app notifications (list, mark read, acknowledge) and the hold expiry notices; in-app only, no email or SMS |
 
 Attendee registration (SCRUM-83) is owned by `event-service`.
 
@@ -353,11 +353,13 @@ it belongs to, what it changes and why. Where to look:
 ## Current status
 
 This is the release-1 build. All five services and `apps/web` are built out for the 20 release-1 features; what
-each story built is recorded in [`docs/current-state.md`](docs/current-state.md). Requirements that were left out on purpose are in
+each story built is recorded in its spec in [`docs/specs/`](docs/specs/), the C4 diagrams in
+[`docs/architecture/c4/`](docs/architecture/c4/) and [`docs/traceability.md`](docs/traceability.md). Requirements that were left out on purpose are in
 [`docs/scope-decisions.md`](docs/scope-decisions.md).
 
 In short: `notification-service` serves a user's own in-app notifications (list, unread count, mark read) on
-port 4005 and sends no email or SMS yet.
+port 4005, and writes the hold expiry notices every minute (SCRUM-108). Notifications are in-app only: email and SMS
+are not part of this project.
 Authorisation is Row-Level Security with per-role, own-row policies on the tables that hold people's data;
 what is deliberately left open is explained in ADR 0003.
 

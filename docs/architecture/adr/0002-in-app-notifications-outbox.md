@@ -3,6 +3,8 @@
 **Status**: Accepted
 **Date**: 2026-10-15
 **Sprint**: 3 (SCRUM-46; producers in SCRUM-47 and SCRUM-106)
+**Update 2026-11-06**: email and SMS will not be built (`docs/scope-decisions.md`). Notifications stay in-app only, so
+the webhook dispatch this ADR mentions is not planned. The rest of the decision stands.
 
 ## Context
 
@@ -31,7 +33,7 @@ or rewrite anyone's notifications.
 - **A notification links to a typed target** (`event_id`, `venue_booking_id`), not a URL. At read time the service checks,
   under the reader's own RLS, whether they can still see the target; if not, the link is withheld.
 - **Email and SMS come later, by webhook, not polling.** A database webhook (Supabase) on `notifications` inserts will
-  call the dispatch component, which sends the message. Nothing polls the table.
+  call the dispatch component, which sends the message. Nothing polls the table. Update 2026-11-06: email and SMS will not be built (`docs/scope-decisions.md`), so this dispatch is not planned.
 
 ## Alternatives considered
 
@@ -52,4 +54,4 @@ or rewrite anyone's notifications.
 - Producers choose the recipient in SQL (for example the event's assigned coordinator at that moment); the service shows
   only what it is given.
 - Rows are never deleted by users; retention (archiving old rows) is not decided.
-- Email/SMS dispatch needs a database webhook and a provider, which is a separate story.
+- Email/SMS dispatch needs a database webhook and a provider, which is a separate story. Update 2026-11-06: email and SMS will not be built (`docs/scope-decisions.md`), so this dispatch is not planned.
