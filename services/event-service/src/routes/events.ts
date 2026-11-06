@@ -166,7 +166,10 @@ export function eventRoutes(deps: SupabaseDeps) {
     // SCRUM-126: a Lead opens an event from their queue to read it. Row level security limits it to the unassigned
     // requests and their own team's events; the Lead is not the assigned coordinator, so nothing here lets them change it.
     const isLead = role === "event_coordinator_lead";
-    if (!isCoordinator && !isOrganiser && !isLead) {
+    // SCRUM-196: Technical Support Staff open the event of an assignment to read it. Row level security limits it to
+    // events with technical work (migration 59), and nothing here lets them change it.
+    const isTechnicalSupport = role === "technical_support_staff";
+    if (!isCoordinator && !isOrganiser && !isLead && !isTechnicalSupport) {
       return res.status(403).json({ error: "You are not allowed to view this event's status." });
     }
 
