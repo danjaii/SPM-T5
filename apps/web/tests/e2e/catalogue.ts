@@ -51,13 +51,13 @@ export const CATALOGUE: CaseDef[] = [
   c("E2E-AUTH-02", "refuses a wrong password and a role that does not match", "Wrong password, and a role that does not match the account, are refused with a message and no session.", ["SCRUM-122/AC2"], "P1", F, [1]),
   c("E2E-AUTH-03", "sends a guarded page without a session to login and keeps next", "A guarded page without a session goes to /login; the register page keeps ?next= and returns there after sign-in.", ["SCRUM-177/AC2"], "P1", A, [1]),
   c("E2E-AUTH-04", "logout ends the session", "Logout ends the session and Back does not reopen a guarded page.", ["SCRUM-17/AC1", "SCRUM-17/AC2", "SCRUM-17/AC3", "SCRUM-17/AC4"], "P2", N, [1]),
-  c("E2E-AUTH-05", "sidebar shows each role its own items", "The shared sidebar shows each role's own items and no others.", ["SCRUM-121/AC1", "SCRUM-121/AC3"], "P2", N, [1]),
-  c("E2E-AUTH-06", "sign-in works at 375 px", "Sign-in works at a 375 px wide screen.", ["SCRUM-177/AC8"], "P2", B, [1]),
+  c("E2E-AUTH-05", "sidebar highlights home and collapses on a phone", "For each role the home page shows the shared sidebar with its home item highlighted once, and at 375 px the navigation collapses into a menu and the page does not scroll sideways.", ["SCRUM-121/AC1", "SCRUM-121/AC3"], "P2", N, [1]),
+  c("E2E-AUTH-06", "sign-in works at 375 px", "At a 375 px wide screen the sign-in page does not scroll sideways and a person can still sign in and reach their home.", ["SCRUM-122/AC8"], "P2", B, [1]),
   c("E2E-ACL-01", "each role is refused another role's guarded URL", "For each role, opening a URL guarded for another role lands on the access-denied page.", ["SCRUM-122/AC3", "SCRUM-77-AC7", "SCRUM-78-AC9"], "P0", A, [1], ["C5"]),
   c("E2E-ACL-02", "wrong-role API calls are refused or see no rows", "Calling a service with the wrong role's cookie gets 403, or rows that row-level security hides.", ["SCRUM-77-AC7", "SCRUM-78-AC9", "98-S28", "19-S13", "39-S7", "SCRUM-99/AC7"], "P0", A, [1], ["C5"]),
   c("E2E-ACL-03", "a coordinator cannot reach another coordinator's event", "A coordinator cannot open or act on an event assigned to another coordinator.", ["156-S1", "156-S8", "102-S21"], "P1", A, [5], ["C5"]),
   c("E2E-ACL-05", "an unassigned coordinator is refused with 403 for another coordinator's event bookings", "A coordinator the event is not assigned to cannot request a venue for it or list its bookings: 403 and no booking (spec 98). Expected to fail while defect D-002 is open: the real stack answers 404 since SCRUM-156 hides the event.", ["98-S26", "98-S27"], "P1", A, [12], ["C3", "C5"]),
-  c("E2E-ACL-04", "other users' contact details stay private", "A coordinator's page shows other users' names but no contact details.", ["SCRUM-154/AC3", "SCRUM-154/AC4", "SCRUM-154/AC5"], "P2", A, [1]),
+  c("E2E-ACL-04", "attendees' contact details reach only the people who need them", "The organiser and the assigned coordinator see every registrant's name, email and phone; another coordinator gets neither the rows nor the details; a person still sees their own details.", ["SCRUM-154/AC3", "SCRUM-154/AC4", "SCRUM-154/AC5"], "P2", A, [1]),
 
   // EVT, ASSIGN
   c("E2E-EVT-01", "organiser creates and submits an event request", "Organiser fills the 6-step form and submits; the request shows as Submitted in My event requests.", ["SCRUM-49/AC1", "SCRUM-52"], "P1", N, [2]),
@@ -67,7 +67,7 @@ export const CATALOGUE: CaseDef[] = [
   c("E2E-ASSIGN-01", "lead assigns from the unassigned queue", "The Lead's queue lists unassigned submitted requests oldest first; assigning removes the request from the queue and shows the coordinator on the event.", ["SCRUM-77-AC1", "SCRUM-77-AC2", "SCRUM-77-AC3", "SCRUM-77-AC4", "SCRUM-78-AC2", "SCRUM-78-AC3"], "P1", N, [5], ["C5"]),
   c("E2E-ASSIGN-02", "lead reassigns and access follows the new coordinator", "Lead reassigns; the old coordinator loses access, the new one gains it.", ["SCRUM-79", "156-S4"], "P1", N, [5], ["C5"]),
   c("E2E-ASSIGN-03", "second assignment of the same event is refused", "A second Lead assigns while the first has the page open; the first confirm is refused with 'already assigned' and the assignment is unchanged.", ["SCRUM-78-AC5"], "P1", C, [5], ["C5"]),
-  c("E2E-ASSIGN-04", "lead sees every coordinator's events and an empty queue message", "Empty queue shows the 'no requests awaiting' message; a Lead sees events of every coordinator.", ["SCRUM-77-AC6", "184-S1"], "P2", B, [5], ["C5"]),
+  c("E2E-ASSIGN-04", "either Lead sees every request and every coordinator and can assign across them", "Both Leads see an unassigned request; the overview lists the coordinators of both Leads; a Lead assigns the request to the other Lead's coordinator and sees it on that coordinator's page.", ["184-S1", "184-S2", "184-S3"], "P2", N, [5], ["C5"]),
 
   // VEN
   c("E2E-VEN-01", "venue search returns only matching venues", "Search by date, time, people, location, layout and facility returns only matching venues; Reset clears.", ["SCRUM-65"], "P1", N, [8, 10]),
@@ -75,7 +75,7 @@ export const CATALOGUE: CaseDef[] = [
   c("E2E-VEN-03", "venue staff add and edit a venue, a coordinator cannot", "Venue Staff add a venue and edit it; a coordinator cannot.", ["SCRUM-57", "SCRUM-58", "SCRUM-155"], "P2", N, [8]),
   c("E2E-VEN-04", "venue staff manage room layout types", "Venue Staff add, rename and delete a room layout type.", ["SCRUM-181"], "P2", N, [8]),
   c("E2E-VEN-05", "setup and turnaround show on the calendar", "Venue Staff save 30 and 45 minutes; the calendar shows Setup 09:30-10:00, Event 10:00-12:00, Turnaround 12:00-12:45.", ["SCRUM-101", "103-S5"], "P1", N, [8, 9], ["C1"]),
-  c("E2E-VEN-06", "calendar shows pending as held and approved as booked", "The venue calendar shows Pending as tentatively held and Approved as booked, to the roles allowed to see it.", ["SCRUM-84", "SCRUM-130?"], "P2", N, [9]),
+  c("E2E-VEN-06", "calendar shows pending as tentatively held and approved as confirmed", "The venue calendar shows a Pending request as Tentatively Held and an Approved booking as Confirmed to Event Coordinators, Venue Staff and Technical Support Staff, and refuses the Lead and the Safety Officer.", ["SCRUM-84/AC2", "SCRUM-84/AC8", "SCRUM-130/AC1"], "P2", N, [9]),
 
   // BOOK
   c("E2E-BOOK-01", "coordinator requests a venue and venue staff approve", "Coordinator requests a venue; it is Pending; Venue Staff see it in the queue and approve; the coordinator sees Approved.", ["SCRUM-32", "37-S1", "38-S1"], "P1", N, [12, 13]),
@@ -98,7 +98,7 @@ export const CATALOGUE: CaseDef[] = [
   c("E2E-CHG-04", "attendance increase lists the venue booking and sends it back", "Raising attendance past capacity lists the venue booking in the warning; going back changes nothing; Save anyway saves and sends the booking back to Pending.", ["112-S4", "112-S13", "112-S14", "113-S1"], "P1", N, [7, 19]),
   c("E2E-CHG-05", "organiser change request is approved or rejected by the coordinator", "Organiser submits a change request; the coordinator approves one and rejects another with a reason; the organiser sees both outcomes.", ["66-S1", "66-S6", "66-S7", "SCRUM-67"], "P1", N, [19]),
   c("E2E-CHG-06", "second change to the same field is held", "A second change to the same field while one is pending is refused and says so; a different field is accepted.", ["176-S1", "176-S4", "176-S8"], "P1", C, [19]),
-  c("E2E-CHG-07", "venue block returns a confirmed event to planning and lifting releases flags", "A block over a Confirmed event's venue returns it to Planning; lifting the block releases the flags; the replacement-confirmed notice reaches the organiser.", ["SCRUM-185/AC1", "SCRUM-185/AC2", "SCRUM-185/AC3"], "P2", N, [9, 19], ["C2"]),
+  c("E2E-CHG-07", "venue block returns a confirmed event to planning and lifting releases flags", "A block over a Confirmed event's venue returns it to Planning and tells its coordinator; lifting the block clears the flag on the booking and tells the coordinator it is no longer affected. (The replacement-confirmed notice is E2E-NOTIF-03.)", ["SCRUM-185/AC1", "SCRUM-185/AC2"], "P2", N, [9, 19], ["C2"]),
 
   // EQP
   c("E2E-EQP-01", "overlapping reservations reduce availability", "10 units, 4 reserved for an overlapping period: availability shows 6 and a reservation for 6 succeeds; 4 in the morning and 4 in the afternoon leave 6 for the whole day.", ["18-S1", "19-S1", "19-S3", "19-S11"], "P0", C, [16, 17]),
