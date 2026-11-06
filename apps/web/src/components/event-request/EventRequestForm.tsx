@@ -18,9 +18,10 @@ import { SupportingDocuments } from "./SupportingDocuments";
 
 // SCRUM-123: the step-by-step new event request. AC2: Continue is blocked by the current step's errors only. AC3: the
 // Review step lists everything with Edit links. AC4: Submit sends it to event-service (SCRUM-49) and lands on the event page.
-export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption[]; draft?: { id: string; values: EventRequestFormValues } }) {
+export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption[]; draft?: { id: string; values: EventRequestFormValues; step?: number } }) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  // SCRUM-124/AC3: a reopened draft starts at the step the page gives it (the last one with something filled in)
+  const [step, setStep] = useState(draft?.step ?? 0);
   const [values, setValues] = useState<EventRequestFormValues>(draft?.values ?? EMPTY_VALUES);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string>();
@@ -114,7 +115,11 @@ export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption
       <div className="flex min-w-0 flex-col gap-6">
         <form noValidate onSubmit={(e) => { e.preventDefault(); if (last) void onSubmit(); else onContinue(); }}
           className="flex flex-col gap-6 rounded-xl bg-card p-5 ring-1 ring-foreground/10 sm:p-6">
-          <h2 className="text-xl font-bold text-foreground">{STEPS[step].label}</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-xl font-bold text-foreground">{STEPS[step].label}</h2>
+            {/* SCRUM-124/AC1 (Figma 03): once the request is stored as a draft, the form says so */}
+            {draftId && <span data-testid="draft-badge" className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">Draft</span>}
+          </div>
 
           {message ? (
             <p role="alert" className="flex items-center gap-2 rounded-lg bg-status-danger p-3 text-sm font-medium text-status-danger-fg">
