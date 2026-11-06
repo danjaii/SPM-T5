@@ -15,6 +15,9 @@ const empty = "rounded-xl border border-dashed border-border-strong p-8 text-cen
 
 // SCRUM-74: organisers and coordinators pick one of the events they manage and see its registrations.
 // SCRUM-139/AC4, AC5, AC11: inside the shared shell, with the count against capacity (Figma 15) and an error state.
+// SCRUM-197: deliberately no loading.tsx. With one, a production build (Next 15.5) left router.refresh() and the Event
+// picker's navigation undrawn until the next update, so an added VIP or a confirmed registration did not show
+// (a React bug, React pull request 36134, fixed in Next 16.3). Add it back only after upgrading to Next 16.3 or later.
 export default async function RegistrationsOverviewPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
   const { event: selectedId } = await searchParams;
   const result = await getManagedEvents();
