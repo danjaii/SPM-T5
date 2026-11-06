@@ -1,0 +1,231 @@
+Story,AC,Criterion,E2E cases,Spec files,Last result
+SCRUM-17,AC1,,E2E-AUTH-04,apps/web/tests/e2e/specs/auth/E2E-AUTH-04-logout.spec.ts,Passed
+SCRUM-17,AC2,,E2E-AUTH-04,apps/web/tests/e2e/specs/auth/E2E-AUTH-04-logout.spec.ts,Passed
+SCRUM-17,AC3,,E2E-AUTH-04,apps/web/tests/e2e/specs/auth/E2E-AUTH-04-logout.spec.ts,Passed
+SCRUM-17,AC4,,E2E-AUTH-04,apps/web/tests/e2e/specs/auth/E2E-AUTH-04-logout.spec.ts,Passed
+SCRUM-18,AC1,"Given that I have specified an equipment name, requested quantity, date and time, when I check availability, the system should compare the requested quantity against the quantity available at that date and time and show me the available quantity.",E2E-EQP-01,apps/web/tests/e2e/specs/eqp/E2E-EQP-01-overlapping-reservations.spec.ts,Passed
+SCRUM-18,AC2,"Given that the available quantity meets or exceeds the requested quantity, when I check availability, the system should indicate that the equipment is available.",,,Not covered
+SCRUM-18,AC3,"Given that the available quantity is less than the requested quantity, when I check availability, the system should indicate that the equipment is insufficient and show me the shortfall.",E2E-EQP-02,apps/web/tests/e2e/specs/eqp/E2E-EQP-02-reservation-above-availability.spec.ts,Passed
+SCRUM-18,AC4,"Given that I have not specified the equipment name, when I attempt to check availability, the system should prompt me to provide the equipment name.",,,Not covered
+SCRUM-18,AC5,"Given that I have specified an equipment name that does not match any known equipment, when I attempt to check availability, the system should inform me that the equipment name is invalid.",,,Not covered
+SCRUM-18,AC6,"Given that I have not specified the date and time, when I attempt to check availability, the system should prompt me to provide the date and time.",,,Not covered
+SCRUM-18,AC7,"Given that I have specified a date and time that is invalid, such as a past date or a malformed time, when I attempt to check availability, the system should inform me that the date and time entered is invalid.",,,Not covered
+SCRUM-19,AC1,"Given that I have selected an equipment item from the equipment catalogue for a specific event, and specified a quantity and a date and time period, when I make the reservation, the system should reserve that quantity of the equipment for that event and period.",E2E-EQP-01,apps/web/tests/e2e/specs/eqp/E2E-EQP-01-overlapping-reservations.spec.ts,Passed
+SCRUM-19,AC2,"Given that the reservation has been successfully made, when the system confirms it, the system should show me a confirmation of the reservation.",,,Not covered
+SCRUM-19,AC3,"Given that the reservation has been successfully made, when I check the equipment's availability for the reserved date and time period, the system should show the available quantity reduced by the amount reserved.",E2E-EQP-01,apps/web/tests/e2e/specs/eqp/E2E-EQP-01-overlapping-reservations.spec.ts,Passed
+SCRUM-19,AC4,"Given that the requested quantity exceeds the quantity available for the specified date and time period, when I attempt to make the reservation, the system should reject the reservation and inform me that it was rejected.",E2E-EQP-02,apps/web/tests/e2e/specs/eqp/E2E-EQP-02-reservation-above-availability.spec.ts,Passed
+SCRUM-19,AC5,"Given that a reservation has been rejected, when I check the equipment's availability for that date and time period, the system should show the available quantity unchanged.",E2E-EQP-02,apps/web/tests/e2e/specs/eqp/E2E-EQP-02-reservation-above-availability.spec.ts,Passed
+SCRUM-19,AC6,"Given that I have not selected an equipment item, when I attempt to make the reservation, the system should prompt me to select the equipment.",,,Not covered
+SCRUM-19,AC7,"Given that I have not specified a quantity, when I attempt to make the reservation, the system should prompt me to specify the quantity.",,,Not covered
+SCRUM-19,AC8,"Given that I have not specified a date and time period, when I attempt to make the reservation, the system should prompt me to specify the date and time period.",,,Not covered
+SCRUM-24,,,E2E-JRN-01; E2E-EVT-03,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/evt/E2E-EVT-03-coordinator-review.spec.ts,Story level
+SCRUM-32,,,E2E-JRN-01; E2E-BOOK-01,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/book/E2E-BOOK-01-request-and-approve.spec.ts,Story level
+SCRUM-36,,,E2E-CONF-01,apps/web/tests/e2e/specs/conf/E2E-CONF-01-overlap-refused.spec.ts,Story level
+SCRUM-37,,,E2E-BOOK-01,apps/web/tests/e2e/specs/book/E2E-BOOK-01-request-and-approve.spec.ts,Story level
+SCRUM-38,,,E2E-JRN-01; E2E-BOOK-01,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/book/E2E-BOOK-01-request-and-approve.spec.ts,Story level
+SCRUM-39,,,E2E-ACL-02; E2E-BOOK-02,apps/web/tests/e2e/specs/acl/E2E-ACL-02-wrong-role-api.spec.ts; apps/web/tests/e2e/specs/book/E2E-BOOK-02-rejected-keeps-reason.spec.ts,Story level
+SCRUM-40,AC1,"Given I am rejecting request R for ""Orchid Hall"" on 2026-11-14, when I select ""Lotus Room"" on 2026-11-15, 09:00 to 17:00 as a suggested alternative, then the suggestion is stored with the rejection, and the requesting Coordinator can see the suggested venue, date and time.",,,Not covered
+SCRUM-40,AC2,"Given I am rejecting request R, when I submit the rejection with a reason but no suggested alternative, then the request is rejected successfully.",,,Not covered
+SCRUM-40,AC3,"Given I rejected request R suggesting ""Lotus Room"" on 2026-11-15, 09:00 to 17:00, when a different Coordinator requests ""Lotus Room"" for that period, then their request is created with status ""Pending"".",,,Not covered
+SCRUM-44,,,E2E-EVT-03,apps/web/tests/e2e/specs/evt/E2E-EVT-03-coordinator-review.spec.ts,Story level
+SCRUM-45,,,E2E-EVT-03,apps/web/tests/e2e/specs/evt/E2E-EVT-03-coordinator-review.spec.ts,Story level
+SCRUM-46,,,E2E-NOTIF-01,apps/web/tests/e2e/specs/notif/E2E-NOTIF-01-bell-and-list.spec.ts,Story level
+SCRUM-47,AC1,,E2E-ASSIGN-02,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-02-reassign.spec.ts,Passed
+SCRUM-49,AC1,same,E2E-EVT-01,apps/web/tests/e2e/specs/evt/E2E-EVT-01-create-and-submit.spec.ts,Passed
+SCRUM-49,AC2,—,,,Not covered
+SCRUM-49,AC3,—,,,Not covered
+SCRUM-49,AC4,`services/event-service/tests/integration/eventRequestSubmitDb.test.ts`,,,Not covered
+SCRUM-49,AC5,—,,,Not covered
+SCRUM-49,AC6,—,,,Not covered
+SCRUM-49,AC7,same,,,Not covered
+SCRUM-52,AC1,`apps/web/tests/unit/my-event-requests-server.test.ts`,,,Not covered
+SCRUM-52,AC2,`apps/web/tests/unit/middleware.test.ts`,,,Not covered
+SCRUM-52,AC3,`apps/web/tests/unit/my-event-requests-details.test.tsx`,,,Not covered
+SCRUM-53,AC1,`services/event-service/tests/integration/eventDraftCreateRls.test.ts`,,,Not covered
+SCRUM-53,AC2,`services/event-service/tests/integration/eventDraftCreateRls.test.ts`,,,Not covered
+SCRUM-53,AC3,`services/event-service/tests/integration/eventDraftCreateRls.test.ts`,,,Not covered
+SCRUM-53,AC4,`services/event-service/tests/integration/eventDraftCreateRls.test.ts`,,,Not covered
+SCRUM-54,AC1,`services/event-service/tests/integration/eventDraftResumeDb.test.ts`,,,Not covered
+SCRUM-54,AC2,`services/event-service/tests/integration/eventDraftResumeDb.test.ts`,,,Not covered
+SCRUM-54,AC3,`services/event-service/tests/integration/eventDraftResumeDb.test.ts`,,,Not covered
+SCRUM-54,AC4,`services/event-service/tests/integration/eventDraftResumeDb.test.ts`,,,Not covered
+SCRUM-57,,,E2E-VEN-03,apps/web/tests/e2e/specs/ven/E2E-VEN-03-venue-staff-add-and-edit.spec.ts,Story level
+SCRUM-58,,,E2E-VEN-03,apps/web/tests/e2e/specs/ven/E2E-VEN-03-venue-staff-add-and-edit.spec.ts,Story level
+SCRUM-65,AC1,"Given I have entered a date, start time and end time, when I search, the system shows only venues available for that period.",,,Not covered
+SCRUM-65,AC2,"Given I have also entered expected attendance, location, room layout, an accessibility requirement or required facilities, when I search, the system shows only venues that meet every criterion I specified.",E2E-VEN-07,apps/web/tests/e2e/specs/ven/E2E-VEN-07-search-by-layout-access-facility-capacity.spec.ts,Passed
+SCRUM-65,AC3,"Given I have entered an expected attendance, when I search, the system shows only venues whose capacity is at least that attendance.",E2E-VEN-07,apps/web/tests/e2e/specs/ven/E2E-VEN-07-search-by-layout-access-facility-capacity.spec.ts,Passed
+SCRUM-65,AC4,"Given the date, start time or end time is missing, when I search, the system prompts me for the missing information.",,,Not covered
+SCRUM-65,AC5,"Given I try to enter a date in the past, the system does not allow it.",,,Not covered
+SCRUM-65,AC6,"Given the end time is before the start time, the system does not allow it.",,,Not covered
+SCRUM-65,AC7,"Each result displays the venue name, location, capacity, accessibility, supported layouts and facilities.",,,Not covered
+SCRUM-65,AC8,"Given no venues match, the system tells me no suitable venues were found.",,,Not covered
+SCRUM-66,AC1,"Given that my event has been submitted, when I open it, I can create a change request.",E2E-CHG-05,apps/web/tests/e2e/specs/chg/E2E-CHG-05-change-request-decided.spec.ts,Passed
+SCRUM-66,AC2,"Given that my event is cancelled, rejected or completed, I cannot create a change request.",,,Not covered
+SCRUM-66,AC3,"Given that my event is a draft, I cannot create a change request.",,,Not covered
+SCRUM-66,AC4,"Given that I have not changed any detail, the system does not submit the request and tells me no changes were made.",,,Not covered
+SCRUM-66,AC5,"Given that the expected attendance is not a positive whole number, it is not allowed.",,,Not covered
+SCRUM-66,AC6,"Given a valid request, the system tells me the submission succeeded, and the event's current details stay unchanged until the request is approved.",E2E-JRN-01; E2E-CHG-05,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/chg/E2E-CHG-05-change-request-decided.spec.ts,Passed
+SCRUM-66,AC7,"Given that I have submitted a request, when I view my event, I see whether the request is pending, approved or rejected.",E2E-CHG-05,apps/web/tests/e2e/specs/chg/E2E-CHG-05-change-request-decided.spec.ts,Passed
+SCRUM-66,AC8,"I can edit the expected attendance, date, start time, end time, venue requirements and equipment requirements.",,,Not covered
+SCRUM-66,AC9,Editing the date to a past date is not allowed.,,,Not covered
+SCRUM-66,AC10,"An end time before the start time is not allowed. The end is the End date plus End time, so a multi-day event may end earlier in the day than it starts (e.g. 17 Feb 09:00 to 18 Feb 08:00); the End date is shown so this is visible. An End date before the date is refused on the End date field.",,,Not covered
+SCRUM-67,,,E2E-CHG-05,apps/web/tests/e2e/specs/chg/E2E-CHG-05-change-request-decided.spec.ts,Story level
+SCRUM-72,,,E2E-REG-01,apps/web/tests/e2e/specs/reg/E2E-REG-01-attendee-registers.spec.ts,Story level
+SCRUM-73,,,E2E-JRN-01; E2E-REG-02,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/reg/E2E-REG-02-attendee-withdraws.spec.ts,Story level
+SCRUM-77,AC1,,E2E-ASSIGN-01,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-01-assign-from-queue.spec.ts,Passed
+SCRUM-77,AC2,,E2E-ASSIGN-01,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-01-assign-from-queue.spec.ts,Passed
+SCRUM-77,AC3,,E2E-ASSIGN-01,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-01-assign-from-queue.spec.ts,Passed
+SCRUM-77,AC4,,E2E-ASSIGN-01,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-01-assign-from-queue.spec.ts,Passed
+SCRUM-77,AC7,,E2E-ACL-01; E2E-ACL-02,apps/web/tests/e2e/specs/acl/E2E-ACL-01-guarded-urls.spec.ts; apps/web/tests/e2e/specs/acl/E2E-ACL-02-wrong-role-api.spec.ts,Passed
+SCRUM-78,AC2,,E2E-ASSIGN-01,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-01-assign-from-queue.spec.ts,Passed
+SCRUM-78,AC3,,E2E-ASSIGN-01,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-01-assign-from-queue.spec.ts,Passed
+SCRUM-78,AC5,,E2E-ASSIGN-03,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-03-assigned-by-someone-else.spec.ts,Passed
+SCRUM-78,AC9,,E2E-ACL-01; E2E-ACL-02,apps/web/tests/e2e/specs/acl/E2E-ACL-01-guarded-urls.spec.ts; apps/web/tests/e2e/specs/acl/E2E-ACL-02-wrong-role-api.spec.ts,Passed
+SCRUM-79,,,E2E-ASSIGN-02,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-02-reassign.spec.ts,Story level
+SCRUM-83,,,E2E-JRN-01; E2E-REG-01,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/reg/E2E-REG-01-attendee-registers.spec.ts,Story level
+SCRUM-84,AC1,`packages/shared/tests/unit/venueCalendarRange.test.ts`,,,Not covered
+SCRUM-84,AC2,`services/venue-service/tests/unit/supabaseVenueCalendarReader.test.ts`,E2E-VEN-06,apps/web/tests/e2e/specs/ven/E2E-VEN-06-calendar-status-per-role.spec.ts,Passed
+SCRUM-84,AC5,`services/venue-service/tests/unit/venueCalendarRange.test.ts`; `packages/shared/tests/unit/venueCalendarRange.test.ts`,,,Not covered
+SCRUM-84,AC6,the same two files,,,Not covered
+SCRUM-84,AC7,`services/venue-service/tests/unit/venueCalendarFresh.test.ts`,,,Not covered
+SCRUM-84,AC8,`services/venue-service/tests/unit/venueCalendarAccess.test.ts`; `packages/shared/tests/unit/canViewVenueCalendar.test.ts`,E2E-VEN-06,apps/web/tests/e2e/specs/ven/E2E-VEN-06-calendar-status-per-role.spec.ts,Passed
+SCRUM-86,,,E2E-JRN-01; E2E-EQP-03,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/eqp/E2E-EQP-03-equipment-request-reviewed.spec.ts,Story level
+SCRUM-87,,,E2E-JRN-01; E2E-EQP-03,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/eqp/E2E-EQP-03-equipment-request-reviewed.spec.ts,Story level
+SCRUM-88,,,E2E-JRN-01; E2E-EQP-03,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/eqp/E2E-EQP-03-equipment-request-reviewed.spec.ts,Story level
+SCRUM-97,,,E2E-HOLD-01,apps/web/tests/e2e/specs/hold/E2E-HOLD-01-tentative-hold-expiry.spec.ts,Story level
+SCRUM-98,AC1,Requesting another venue for an event creates a separate booking on the same event.,E2E-BOOK-04; E2E-CONF-04,apps/web/tests/e2e/specs/book/E2E-BOOK-04-cancel-one-of-three.spec.ts; apps/web/tests/e2e/specs/conf/E2E-CONF-04-same-event-same-venue.spec.ts,Passed
+SCRUM-98,AC2,"Entering date, start, end, expected attendance and venue requirements checks that venue's suitability, availability and conflicts using that booking's details only.",,,Not covered
+SCRUM-98,AC3,The same venue for an overlapping period is not allowed.,E2E-CONF-04,apps/web/tests/e2e/specs/conf/E2E-CONF-04-same-event-same-venue.spec.ts,Passed
+SCRUM-98,AC4,"If one booking fails a check or is rejected, the other bookings stay unchanged.",E2E-BOOK-04,apps/web/tests/e2e/specs/book/E2E-BOOK-04-cancel-one-of-three.spec.ts,Passed
+SCRUM-98,AC5,"An event with several bookings lists each with venue, date, start, end and status.",E2E-BOOK-04,apps/web/tests/e2e/specs/book/E2E-BOOK-04-cancel-one-of-three.spec.ts,Passed
+SCRUM-98,AC6,An event not assigned to the coordinator cannot request a venue.,E2E-ACL-02; E2E-ACL-05,apps/web/tests/e2e/specs/acl/E2E-ACL-02-wrong-role-api.spec.ts; apps/web/tests/e2e/specs/acl/E2E-ACL-05-unassigned-coordinator.spec.ts,Passed
+SCRUM-99,AC1,An event whose venue and technical arrangements are complete must complete a safety check before preparation,E2E-SAFE-01,apps/web/tests/e2e/specs/safe/E2E-SAFE-01-queue-and-details.spec.ts,Passed
+SCRUM-99,AC2,A Safety Officer sees every event ready for review,E2E-SAFE-01,apps/web/tests/e2e/specs/safe/E2E-SAFE-01-queue-and-details.spec.ts,Passed
+SCRUM-99,AC3,"Opening an event shows expected attendance, venue capacity and layout, emergency access, accessibility requirements, equipment placement, known venue restrictions",E2E-SAFE-01,apps/web/tests/e2e/specs/safe/E2E-SAFE-01-queue-and-details.spec.ts,Passed
+SCRUM-99,AC4,"The Safety Officer can choose Approve, Reject or Request Changes",E2E-SAFE-02,apps/web/tests/e2e/specs/safe/E2E-SAFE-02-request-changes.spec.ts,Passed
+SCRUM-99,AC5,"Approve marks the event Safety Approved, and it can proceed to preparation",E2E-JRN-01; E2E-SAFE-05,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/safe/E2E-SAFE-05-approve-then-confirm.spec.ts,Passed
+SCRUM-99,AC6,"Reject needs a reason, and the event cannot proceed",E2E-SAFE-03,apps/web/tests/e2e/specs/safe/E2E-SAFE-03-reject-needs-reason.spec.ts,Passed
+SCRUM-99,AC7,An event that is not Safety Approved cannot be moved to preparation by anyone,E2E-ACL-02; E2E-SAFE-04,apps/web/tests/e2e/specs/acl/E2E-ACL-02-wrong-role-api.spec.ts; apps/web/tests/e2e/specs/safe/E2E-SAFE-04-confirm-blocked-without-approval.spec.ts,Passed
+SCRUM-99,AC8,"The decision records the Safety Officer, decision, date and time, and reason or comments",E2E-SAFE-02; E2E-SAFE-05,apps/web/tests/e2e/specs/safe/E2E-SAFE-02-request-changes.spec.ts; apps/web/tests/e2e/specs/safe/E2E-SAFE-05-approve-then-confirm.spec.ts,Passed
+SCRUM-100,AC9,,E2E-SAFE-06,apps/web/tests/e2e/specs/safe/E2E-SAFE-06-later-change-needs-new-approval.spec.ts,Passed
+SCRUM-101,,,E2E-VEN-05,apps/web/tests/e2e/specs/ven/E2E-VEN-05-setup-turnaround-on-calendar.spec.ts,Story level
+SCRUM-102,AC1,"Given that an event has more than one venue booking, when I change the date, time or requirements of one booking, the system should check only that booking again and leave the others unchanged.",E2E-BOOK-05,apps/web/tests/e2e/specs/book/E2E-BOOK-05-change-a-booking.spec.ts,Passed
+SCRUM-102,AC2,"Given that an event has more than one venue booking, when I cancel one of them, the system should cancel only that booking and leave the others unchanged.",E2E-BOOK-04,apps/web/tests/e2e/specs/book/E2E-BOOK-04-cancel-one-of-three.spec.ts,Passed
+SCRUM-102,AC3,"*(Dropped 2026-10-15: no ""cancel all"". See Implementation decisions.)*",,,Dropped in the spec
+SCRUM-102,AC4,"Given that I choose to cancel a venue booking, when I make the choice, the system should ask me to confirm before cancelling, and if I cancel the confirmation, all bookings should remain unchanged.",,,Not covered
+SCRUM-102,AC5,"Given that I cancel the event's only remaining venue booking, when the cancellation is confirmed, the event itself should not be cancelled.",E2E-BOOK-04,apps/web/tests/e2e/specs/book/E2E-BOOK-04-cancel-one-of-three.spec.ts,Passed
+SCRUM-102,AC6,"Given that an event is not assigned to me, when I attempt to change or cancel its venue bookings, the system should not allow it.",E2E-ACL-03,apps/web/tests/e2e/specs/acl/E2E-ACL-03-coordinator-own-events.spec.ts,Passed
+SCRUM-102,AC7,"Given that a venue booking has equipment requests, when I cancel it, the system should show me the equipment that will be released, and on confirming, release that equipment together with the venue booking, so it is free for other events.",,,Not covered
+SCRUM-102,AC8,"Given that a venue booking has equipment requests, when I change its date or time, the system should move that equipment to the new date and time and send it back to Technical Support Staff for review.",,,Not covered
+SCRUM-103,AC1,,E2E-CONF-02; E2E-CONF-04,apps/web/tests/e2e/specs/conf/E2E-CONF-02-buffer-conflict.spec.ts; apps/web/tests/e2e/specs/conf/E2E-CONF-04-same-event-same-venue.spec.ts,Passed
+SCRUM-103,AC2,,E2E-CONF-03; E2E-CONF-04,apps/web/tests/e2e/specs/conf/E2E-CONF-03-buffers-touching.spec.ts; apps/web/tests/e2e/specs/conf/E2E-CONF-04-same-event-same-venue.spec.ts,Passed
+SCRUM-103,AC3,,E2E-CONF-02,apps/web/tests/e2e/specs/conf/E2E-CONF-02-buffer-conflict.spec.ts,Passed
+SCRUM-103,AC5,,E2E-VEN-05,apps/web/tests/e2e/specs/ven/E2E-VEN-05-setup-turnaround-on-calendar.spec.ts,Passed
+SCRUM-103,AC6,,E2E-CONF-01,apps/web/tests/e2e/specs/conf/E2E-CONF-01-overlap-refused.spec.ts,Passed
+SCRUM-104,AC1,,E2E-CHG-01,apps/web/tests/e2e/specs/chg/E2E-CHG-01-raising-buffers-flags-bookings.spec.ts,Passed
+SCRUM-104,AC2,,E2E-CHG-01,apps/web/tests/e2e/specs/chg/E2E-CHG-01-raising-buffers-flags-bookings.spec.ts,Passed
+SCRUM-104,AC4,,E2E-CHG-01,apps/web/tests/e2e/specs/chg/E2E-CHG-01-raising-buffers-flags-bookings.spec.ts,Passed
+SCRUM-104,AC5,,E2E-CHG-01,apps/web/tests/e2e/specs/chg/E2E-CHG-01-raising-buffers-flags-bookings.spec.ts,Passed
+SCRUM-105,AC1,,E2E-CHG-02,apps/web/tests/e2e/specs/chg/E2E-CHG-02-unavailable-flags-booking.spec.ts,Passed
+SCRUM-105,AC4,,E2E-CONF-05,apps/web/tests/e2e/specs/conf/E2E-CONF-05-unavailable-period.spec.ts,Passed
+SCRUM-105,AC5,,E2E-CONF-05,apps/web/tests/e2e/specs/conf/E2E-CONF-05-unavailable-period.spec.ts,Passed
+SCRUM-106,AC1,,E2E-CHG-02,apps/web/tests/e2e/specs/chg/E2E-CHG-02-unavailable-flags-booking.spec.ts,Passed
+SCRUM-106,AC2,,E2E-CHG-02,apps/web/tests/e2e/specs/chg/E2E-CHG-02-unavailable-flags-booking.spec.ts,Passed
+SCRUM-106,AC5,,E2E-CHG-02; E2E-NOTIF-02,apps/web/tests/e2e/specs/chg/E2E-CHG-02-unavailable-flags-booking.spec.ts; apps/web/tests/e2e/specs/notif/E2E-NOTIF-02-right-person-only.spec.ts,Passed
+SCRUM-107,AC1,,E2E-CHG-03,apps/web/tests/e2e/specs/chg/E2E-CHG-03-replacement-venue.spec.ts,Passed
+SCRUM-107,AC2,,E2E-CHG-03,apps/web/tests/e2e/specs/chg/E2E-CHG-03-replacement-venue.spec.ts,Passed
+SCRUM-107,AC3,,E2E-CHG-03,apps/web/tests/e2e/specs/chg/E2E-CHG-03-replacement-venue.spec.ts,Passed
+SCRUM-107,AC4,,E2E-CHG-03,apps/web/tests/e2e/specs/chg/E2E-CHG-03-replacement-venue.spec.ts,Passed
+SCRUM-108,AC1,"Set the warning time per hold (default 24 h). Given a tentative hold on a venue for an event I coordinate, when I set a warning time for that hold (for example 24 hours before it expires), then it is saved against that hold; a new hold starts at 24 hours until I change it.",,,Not covered
+SCRUM-108,AC2,"Warning shown when expiry is near. Given ""Orchid Hall"" is held for ""Summit A"", which I coordinate, expiring 2026-11-01 17:00, and the time is 2026-11-01 09:00 (inside the hold's warning window), when I open my venue booking requests, then the hold shows ""Hold expires in 8 hours"".",E2E-HOLD-01,apps/web/tests/e2e/specs/hold/E2E-HOLD-01-tentative-hold-expiry.spec.ts,Passed
+SCRUM-108,AC3,"No warning while expiry is still far off. Given the same hold and the time is 2026-10-30 09:00 (outside its warning window), when I open my venue booking requests, then no expiry warning is shown (and none is written).",,,Not covered
+SCRUM-108,AC4,"Notified once when the warning time is reached. Given the warning time has been reached and the hold is still unconfirmed, then I receive one in-app notification saying the hold on ""Orchid Hall"" for ""Summit A"" expires in N hours; later checks do not write it again.",,,Not covered
+SCRUM-108,AC5,"Expired hold is flagged in the list and notified once. Given the hold expired at 2026-11-01 17:00 unconfirmed, when I open my venue booking requests, then ""Orchid Hall"" shows ""Hold expired, venue no longer reserved"", and I received one notification that it expired, the venue is no longer reserved and I must submit a new request.",E2E-HOLD-01,apps/web/tests/e2e/specs/hold/E2E-HOLD-01-tentative-hold-expiry.spec.ts,Passed
+SCRUM-108,AC6,"Confirmation clears the warning and stops notifications. Given a hold that showed a warning, when it is confirmed before expiry, then no warning is shown and no further notification is sent.",,,Not covered
+SCRUM-108,AC7,"Only the event's coordinator is warned or notified. Given ""Summit A"" is coordinated by someone else, when I open my venue booking requests, then I see no warning about its hold and receive no notification about it.",E2E-HOLD-01,apps/web/tests/e2e/specs/hold/E2E-HOLD-01-tentative-hold-expiry.spec.ts,Passed
+SCRUM-108,AC8,"Expiry changed by Venue Staff. Given Venue Staff change the hold's expiry, then I am notified of the new expiry and the warning is recalculated from it (shared with SCRUM-97's extension scenario).",,,Not covered
+SCRUM-109,AC1,,E2E-VEN-08,apps/web/tests/e2e/specs/ven/E2E-VEN-08-suitability-layout-and-facilities.spec.ts,Passed
+SCRUM-109,AC3,,E2E-VEN-08,apps/web/tests/e2e/specs/ven/E2E-VEN-08-suitability-layout-and-facilities.spec.ts,Passed
+SCRUM-110,,,E2E-VEN-02,apps/web/tests/e2e/specs/ven/E2E-VEN-02-suitability.spec.ts,Story level
+SCRUM-111,,,E2E-EVT-04,apps/web/tests/e2e/specs/evt/E2E-EVT-04-edit-minor-and-critical.spec.ts,Story level
+SCRUM-112,AC2,,E2E-CHG-04,apps/web/tests/e2e/specs/chg/E2E-CHG-04-attendance-increase-flags-venue.spec.ts,Passed
+SCRUM-112,AC3,,E2E-EVT-04; E2E-CHG-08,apps/web/tests/e2e/specs/evt/E2E-EVT-04-edit-minor-and-critical.spec.ts; apps/web/tests/e2e/specs/chg/E2E-CHG-08-important-change-affects-equipment.spec.ts,Passed
+SCRUM-112,AC4,,E2E-CHG-04,apps/web/tests/e2e/specs/chg/E2E-CHG-04-attendance-increase-flags-venue.spec.ts,Passed
+SCRUM-112,AC5,,E2E-EVT-04; E2E-CHG-04,apps/web/tests/e2e/specs/evt/E2E-EVT-04-edit-minor-and-critical.spec.ts; apps/web/tests/e2e/specs/chg/E2E-CHG-04-attendance-increase-flags-venue.spec.ts,Passed
+SCRUM-113,AC1,,E2E-EVT-04; E2E-CHG-04; E2E-CHG-08,apps/web/tests/e2e/specs/evt/E2E-EVT-04-edit-minor-and-critical.spec.ts; apps/web/tests/e2e/specs/chg/E2E-CHG-04-attendance-increase-flags-venue.spec.ts; apps/web/tests/e2e/specs/chg/E2E-CHG-08-important-change-affects-equipment.spec.ts,Passed
+SCRUM-113,AC2,,E2E-CHG-08,apps/web/tests/e2e/specs/chg/E2E-CHG-08-important-change-affects-equipment.spec.ts,Passed
+SCRUM-113,AC4,,E2E-EVT-04,apps/web/tests/e2e/specs/evt/E2E-EVT-04-edit-minor-and-critical.spec.ts,Passed
+SCRUM-121,AC1,,E2E-AUTH-05,apps/web/tests/e2e/specs/auth/E2E-AUTH-05-sidebar-per-role.spec.ts,Passed
+SCRUM-121,AC3,,E2E-AUTH-05,apps/web/tests/e2e/specs/auth/E2E-AUTH-05-sidebar-per-role.spec.ts,Passed
+SCRUM-122,AC1,,E2E-AUTH-01,apps/web/tests/e2e/specs/auth/E2E-AUTH-01-sign-in-each-role.spec.ts,Passed
+SCRUM-122,AC2,,E2E-AUTH-02,apps/web/tests/e2e/specs/auth/E2E-AUTH-02-sign-in-refused.spec.ts,Passed
+SCRUM-122,AC3,,E2E-ACL-01,apps/web/tests/e2e/specs/acl/E2E-ACL-01-guarded-urls.spec.ts,Passed
+SCRUM-122,AC8,,E2E-AUTH-06,apps/web/tests/e2e/specs/auth/E2E-AUTH-06-sign-in-at-375px.spec.ts,Passed
+SCRUM-124,,,E2E-EVT-02,apps/web/tests/e2e/specs/evt/E2E-EVT-02-draft-save-resume.spec.ts,Story level
+SCRUM-130,AC1,,E2E-VEN-06,apps/web/tests/e2e/specs/ven/E2E-VEN-06-calendar-status-per-role.spec.ts,Passed
+SCRUM-154,AC1,"Given I am signed in as any role, when I query `users` directly for another person's email or phone, then it is refused.",,,Not covered
+SCRUM-154,AC2,"Given I am an organiser, coordinator, Lead, venue staff or technical support staff, when a page shows another person's name (assignee, requester, technician, coordinator), then it still shows the name and no email or phone.",,,Not covered
+SCRUM-154,AC3,"Given I am an organiser or coordinator and I open the registrations of an event I manage, when the list loads, then each attendee's name, email and phone are shown, and only for that event's attendees.",E2E-ACL-04,apps/web/tests/e2e/specs/acl/E2E-ACL-04-contact-details-private.spec.ts,Passed
+SCRUM-154,AC4,"Given I am an attendee (or any role that does not manage the event), when I ask for an event's attendee contact details, then nothing is returned.",E2E-ACL-04,apps/web/tests/e2e/specs/acl/E2E-ACL-04-contact-details-private.spec.ts,Passed
+SCRUM-154,AC5,"Given any role, when I update my own profile (name, phone, communication preferences), then it still works and `role` stays unwritable (migration 03 unchanged).",E2E-ACL-04,apps/web/tests/e2e/specs/acl/E2E-ACL-04-contact-details-private.spec.ts,Passed
+SCRUM-154,AC6,"Given I am signed in, when I try to change, add or delete another person's `users` row through the API, then it is refused.",,,Not covered
+SCRUM-155,AC1,"Given I am signed in as any role, when I read venues, their supported layouts and facilities, equipment, organisations and the lookup tables, then I can, as today.",,,Not covered
+SCRUM-155,AC2,"Given I am not Venue Staff, when I insert, update or delete a venue, a venue's supported layouts or facilities, a room layout type or a facility, then it is refused.",,,Not covered
+SCRUM-155,AC3,"Given I am Venue Staff, when I add, edit or delete a room layout type or a facility, then it works.",,,Not covered
+SCRUM-155,AC4,"Given I am not Technical Support Staff, when I insert, update or delete an `equipment` row, then it is refused.",,,Not covered
+SCRUM-155,AC5,"Given any signed-in user, when I write to `organisations` or `event_categories` through the API, then it is refused.",,,Not covered
+SCRUM-155,AC6,"Given Venue Staff, when I set a venue's setup and turnaround times or mark it unavailable, then those still work through their existing functions (migrations 26, 39, 46).",,,Not covered
+SCRUM-156,AC1,"Given I am a coordinator, when I query `events` directly, then I only get the events assigned to me.",,,Not covered
+SCRUM-156,AC2,"Given I am a coordinator and an event is not assigned to me, when I open it (`GET /events/:id` or its page), then I get a not-found response, not its details.",,,Not covered
+SCRUM-156,AC3,"Given I am a coordinator, when an event is unassigned, then I cannot see it; only Leads see the unassigned queue.",,,Not covered
+SCRUM-156,AC4,"Given an event is reassigned, when the new coordinator opens it, then they can, and the previous coordinator can no longer.",,,Not covered
+SCRUM-156,AC5,"Given I am the assigned coordinator, when I review, comment, change status, edit details or handle a change request, then it all works as before.",,,Not covered
+SCRUM-156,AC6,"Given I am a Lead, Venue Staff, Technical Support Staff, an organiser or an attendee, when I read events, then what I can see is unchanged.",,,Not covered
+SCRUM-169,AC3,,E2E-REG-05,apps/web/tests/e2e/specs/reg/E2E-REG-05-organiser-decides-and-adds-vip.spec.ts,Passed
+SCRUM-169,AC4,,E2E-REG-05,apps/web/tests/e2e/specs/reg/E2E-REG-05-organiser-decides-and-adds-vip.spec.ts,Passed
+SCRUM-170,,,E2E-REG-05; E2E-REG-06,apps/web/tests/e2e/specs/reg/E2E-REG-05-organiser-decides-and-adds-vip.spec.ts; apps/web/tests/e2e/specs/reg/E2E-REG-06-vip-with-waiting-attendee.spec.ts,Story level
+SCRUM-171,,,E2E-JRN-01; E2E-SAFE-02,apps/web/tests/e2e/specs/jrn/E2E-JRN-01-golden-journey.spec.ts; apps/web/tests/e2e/specs/safe/E2E-SAFE-02-request-changes.spec.ts,Story level
+SCRUM-172,AC1,"Given an organiser submits an event request, when it is saved, then every active Event Coordinator Lead is notified.",,,Not covered
+SCRUM-172,AC2,"Given Venue Staff approve or reject a venue booking, when the decision is saved, then the event's assigned coordinator is notified, with the reason on a rejection.",,,Not covered
+SCRUM-172,AC3,"Given an important event change is saved, when it commits, then the organiser and the assigned coordinator are notified, except whoever made the change.",,,Not covered
+SCRUM-172,AC4,"Given a registration's status changes, when it commits, then that attendee is notified.",,,Not covered
+SCRUM-172,AC5,"Given an event becomes Confirmed, when it commits, then the organiser and the assigned coordinator are notified.",,,Not covered
+SCRUM-172,AC6,"Given an event becomes Cancelled, when it commits, then the organiser, the assigned coordinator and attendees who pass `receivesEventUpdates()` are notified, with the reason when one was given (W9 r19).",,,Not covered
+SCRUM-172,AC7,"Given a venue's buffer change creates a conflict, when it commits, then the assigned coordinator of each flagged booking is notified (W9 r47).",,,Not covered
+SCRUM-172,AC8,"Given a replacement venue is approved, when it commits, then the organiser and attendees who pass `receivesEventUpdates()` are notified (W9 r52).",,,Not covered
+SCRUM-172,AC9,"Given an attendee has withdrawn, when any of the above happens to the event, then that attendee gets no notification.",,,Not covered
+SCRUM-174,AC1,"Given I am the event's assigned Event Coordinator and the event is not completed, cancelled or rejected, when I cancel it without a reason, then it is refused and nothing changes.",E2E-EVT-05,apps/web/tests/e2e/specs/evt/E2E-EVT-05-cancel-event-releases-arrangements.spec.ts,Passed
+SCRUM-174,AC2,"Given I cancel an event with a reason, when the cancellation is saved, then the event is Cancelled and the reason is recorded in its status history.",E2E-EVT-05,apps/web/tests/e2e/specs/evt/E2E-EVT-05-cancel-event-releases-arrangements.spec.ts,Passed
+SCRUM-174,AC3,"Given the event has active venue bookings (pending, held or approved), when I cancel it, then every one of them is cancelled, so the venues are free for other requests.",E2E-EVT-05,apps/web/tests/e2e/specs/evt/E2E-EVT-05-cancel-event-releases-arrangements.spec.ts,Passed
+SCRUM-174,AC4,"Given the event has equipment requests or reservations, when I cancel it, then they are released, so the units are free for other events.",E2E-EVT-05,apps/web/tests/e2e/specs/evt/E2E-EVT-05-cancel-event-releases-arrangements.spec.ts,Passed
+SCRUM-174,AC5,"Given the event has a pending change request, when the event is cancelled or marked completed, then the change request is closed automatically.",E2E-EVT-05,apps/web/tests/e2e/specs/evt/E2E-EVT-05-cancel-event-releases-arrangements.spec.ts,Passed
+SCRUM-174,AC6,"Given I cancel an event, when the cancellation is saved, then the Event Organiser and every attendee with an active registration receive a notification with the reason.",E2E-EVT-05,apps/web/tests/e2e/specs/evt/E2E-EVT-05-cancel-event-releases-arrangements.spec.ts,Passed
+SCRUM-174,AC7,"Given an event is Cancelled, when anyone tries to change its status or details, then it is refused.",E2E-EVT-05,apps/web/tests/e2e/specs/evt/E2E-EVT-05-cancel-event-releases-arrangements.spec.ts,Passed
+SCRUM-174,AC8,"Given I am not the event's assigned Event Coordinator, when I try to cancel it, then it is refused and nothing changes.",,,Not covered
+SCRUM-176,AC1,"Given my event has a pending change request that changes a field (e.g. the date), when I submit another change request that changes any of the same fields, then it is refused with a message saying which field already has a request waiting and that I can ask my coordinator about it, and nothing is saved.",E2E-CHG-06,apps/web/tests/e2e/specs/chg/E2E-CHG-06-conflicting-change-request.spec.ts,Passed
+SCRUM-176,AC2,"Given my event has a pending change request, when I submit a change request that changes only other fields, then it is accepted as usual.",E2E-CHG-06,apps/web/tests/e2e/specs/chg/E2E-CHG-06-conflicting-change-request.spec.ts,Passed
+SCRUM-176,AC3,"Given my earlier change request was approved or rejected, when I submit a new request for the same field, then it is accepted.",,,Not covered
+SCRUM-176,AC4,"Given I open the change request form while a request is pending, when the form loads, then it tells me which fields already have a request waiting.",E2E-CHG-06,apps/web/tests/e2e/specs/chg/E2E-CHG-06-conflicting-change-request.spec.ts,Passed
+SCRUM-177,AC2,,E2E-AUTH-03,apps/web/tests/e2e/specs/auth/E2E-AUTH-03-guard-sends-to-login.spec.ts,Passed
+SCRUM-181,AC1,"Given I am Venue Staff, when I add a layout type with a name, then it appears in the layout choices when adding or editing a venue.",,,Not covered
+SCRUM-181,AC2,"Given a layout type that venues use, when I rename it, then the new name is shown on the venues that use it.",,,Not covered
+SCRUM-181,AC3,"Given a layout type that no venue uses, when I delete it, then it is removed and disappears from the choices.",,,Not covered
+SCRUM-181,AC4,"Given a layout type that a venue uses, when I try to delete it, then the delete is refused and I am told which venues use it.",,,Not covered
+SCRUM-181,AC5,"Given I enter an empty name, or a name another layout type already has, when I add or rename a layout type, then it is rejected and I am shown the reason.",,,Not covered
+SCRUM-181,AC6,"Given I am not Venue Staff, when I try to add, rename or delete a layout type, then the action is not available to me in the interface and the database refuses it.",,,Not covered
+SCRUM-182,AC1,"Given I am Technical Support Staff, when I add an item with its required details and save, then it appears in the equipment inventory and availability checks.",,,Not covered
+SCRUM-182,AC2,"Given an item exists, when I change its details and save, then the new values show in the inventory.",,,Not covered
+SCRUM-182,AC3,"Given an item is available, when I mark it under maintenance, then it reports no free units in availability checks.",,,Not covered
+SCRUM-182,AC4,"Given I clear a required field, when I save, then it is rejected and I see which field is invalid.",,,Not covered
+SCRUM-182,AC5,"Given I am not Technical Support Staff, when I try to add or edit equipment, then the action is not available and the database refuses it.",,,Not covered
+SCRUM-184,,,E2E-ASSIGN-04,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-04-lead-across-coordinators.spec.ts,Story level
+SCRUM-185,AC1,,E2E-CHG-07,apps/web/tests/e2e/specs/chg/E2E-CHG-07-block-reverts-and-lifts.spec.ts,Passed
+SCRUM-185,AC2,,E2E-CHG-07,apps/web/tests/e2e/specs/chg/E2E-CHG-07-block-reverts-and-lifts.spec.ts,Passed
+SCRUM-185,AC3,,E2E-NOTIF-03,apps/web/tests/e2e/specs/notif/E2E-NOTIF-03-replacement-confirmed-notice.spec.ts,Passed
+SCRUM-185,AC4,,E2E-REG-04,apps/web/tests/e2e/specs/reg/E2E-REG-04-settings-while-replanning.spec.ts,Passed
+SCRUM-189,AC1,,E2E-ASSIGN-05,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-05-lead-active-events-list.spec.ts,Passed
+SCRUM-189,AC2,,E2E-ASSIGN-05,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-05-lead-active-events-list.spec.ts,Passed
+SCRUM-189,AC3,,E2E-ASSIGN-05,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-05-lead-active-events-list.spec.ts,Passed
+SCRUM-189,AC4,,E2E-ASSIGN-05,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-05-lead-active-events-list.spec.ts,Passed
+SCRUM-189,AC5,,E2E-ASSIGN-05,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-05-lead-active-events-list.spec.ts,Passed
+SCRUM-189,AC6,,E2E-ASSIGN-05,apps/web/tests/e2e/specs/assign/E2E-ASSIGN-05-lead-active-events-list.spec.ts,Passed

@@ -2,7 +2,7 @@
 
 | Workflow | Triggers | What it runs |
 |---|---|---|
-| `ci.yml` | push to `main`, PRs into `main` | job `test`: migration numbers are unique (`scripts/check-migration-numbers.sh`) → install → Vitest version check (4.1.11) → lint → typecheck → **`pnpm vitest run`** (every workspace's tests, plus a coverage report uploaded as the `coverage` artefact) → build; then job `e2e`: Playwright tests for `apps/web`. In parallel, job `integration`: every service's `tests/integration` against a local Supabase (`supabase start`). On push to `main` only, job `migrate` (after `test` and `integration`) runs `supabase db push` against the hosted Supabase project |
+| `ci.yml` | push to `main`, PRs into `main` | job `test`: migration numbers are unique (`scripts/check-migration-numbers.sh`) → install → Vitest version check (4.1.11) → lint → typecheck → **`pnpm vitest run`** (every workspace's tests, plus a coverage report uploaded as the `coverage` artefact) → build; then job `e2e` (SCRUM-191): starts a local Supabase, builds the five services and the web app, and runs the Playwright suite in `apps/web/tests/e2e` through the real stack; uploads `playwright-report` and `test-results` (about 15 to 25 minutes). In parallel, job `integration`: every service's `tests/integration` against a local Supabase (`supabase start`). On push to `main` only, job `migrate` (after `test` and `integration`) runs `supabase db push` against the hosted Supabase project |
 | `c4-diagrams.yml` | `docs/architecture/c4/**` on push to `main` / PRs into `main` | renders `.puml` → SVG, commits rendered output on push, uploads as artifact on PR |
 
 ## Why one workflow
