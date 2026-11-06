@@ -19,6 +19,7 @@ import { InputField } from "@/components/ui/input-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { saveEventDetails, type EventEditForm } from "@/lib/events";
+import { PageTitle } from "./PageFrame";
 
 type Key = keyof EventDetailsFormValues;
 
@@ -147,7 +148,7 @@ export function EventDetailsForm({ eventId, form }: { eventId: string; form: Eve
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold">Edit event details</h1>
+        <PageTitle>Edit event details</PageTitle>
         <p className="text-sm text-muted-foreground">{form.values.name}</p>
       </div>
       {error && <InlineMessage kind="error">{error}</InlineMessage>}

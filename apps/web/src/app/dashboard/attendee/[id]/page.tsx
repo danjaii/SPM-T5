@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { EventDetails } from "@/components/EventDetails";
-import { PageFrame } from "@/components/PageFrame";
+import { BackLink, PageFrame } from "@/components/PageFrame";
 import { getRegistrationForm } from "@/lib/eventRegistrationServer";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +20,7 @@ export default async function AttendeeEventPage({ params }: { params: Promise<{ 
       description="Everything you need to know before you register."
       error={"error" in result ? result.error : undefined}
     >
-      <Link className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/dashboard/attendee/browse">← Back to events</Link>
+      <BackLink href="/dashboard/attendee/browse" to="events" />
       {"data" in result && <EventDetails event={result.data.event} />}
     </PageFrame>
   );

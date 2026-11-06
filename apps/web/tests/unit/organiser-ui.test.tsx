@@ -41,14 +41,14 @@ beforeEach(() => {
 
 
 describe("SCRUM-159/AC2 My event requests in the new design", () => {
-  it("SCRUM-159/AC2 sits in the shared app shell, keeps its title and back link, and lists the requests in a card table", async () => {
+  it("SCRUM-159/AC2 SCRUM-186/AC2 sits in the shared app shell, keeps its title, has no back link, and lists the requests in a card table", async () => {
     getMyEventRequests.mockResolvedValue({ requests: [REQUEST] });
 
     render(await MyEventRequestsPage());
 
     expect(screen.queryByRole("button", { name: "Log out" })).toBeNull(); // the old top bar's, not the shell's
     expect(screen.getByRole("heading", { level: 1, name: "My event requests" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "← Back to dashboard" }).getAttribute("href")).toBe("/dashboard");
+    expect(screen.queryByRole("link", { name: /back to/i })).toBeNull();
     expect(screen.getByRole("table").closest("[data-slot='card']")).toBeTruthy();
   });
 
@@ -107,6 +107,6 @@ describe("SCRUM-159/AC3 the event page has the sidebar only", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Tech Summit" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Log out" })).toBeNull(); // the old top bar's, not the shell's
-    expect(screen.getByRole("link", { name: "← Back to dashboard" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Back to Home" })).toBeTruthy();
   });
 });

@@ -132,16 +132,16 @@ describe("SCRUM-81 — One coordinator's active events", () => {
     expect(screen.getByText("Tech Summit")).toBeTruthy();
   });
 
-  // AC7: a coordinator the Lead doesn't supervise is refused by event-service; the page shows why
-  it("SCRUM-81/AC7 shows the refusal for a coordinator the Lead does not supervise", async () => {
+  // AC7: a coordinator who is not active is refused by event-service; the page shows why
+  it("SCRUM-81/AC7 shows the refusal for a coordinator who is not active", async () => {
     mockServer({
       "/lead/coordinators": [200, [rachel]],
-      "/lead/coordinators/c-9/events": [403, { error: "You can only view coordinators you supervise." }],
+      "/lead/coordinators/c-9/events": [403, { error: "You can only view an active coordinator's events." }],
     });
 
     render(await CoordinatorEventsPage({ params: Promise.resolve({ id: "c-9" }) }));
 
-    expect(screen.getByRole("alert").textContent).toBe("You can only view coordinators you supervise.");
+    expect(screen.getByRole("alert").textContent).toBe("You can only view an active coordinator's events.");
     expect(screen.queryByRole("table")).toBeNull();
   });
   // end of AC7

@@ -1,10 +1,9 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { VenueForm } from "@/components/VenueForm";
 import { canEditVenue, getVenueForEdit } from "@/lib/venueCatalogueServer";
 import { getVenueSearchOptions } from "@/lib/venueSearchServer";
+import { BackLink, PAGE_MAIN, PageTitle } from "@/components/PageFrame";
 
 // Rendered per request: who may edit a venue depends on who is signed in.
 export const dynamic = "force-dynamic";
@@ -20,22 +19,16 @@ export default async function EditVenuePage({ params }: { params: Promise<{ id: 
   const [options, loaded] = allowed ? await Promise.all([getVenueSearchOptions(), getVenueForEdit(id)]) : [undefined, undefined];
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-8 md:px-8">
-      <Link
-        href={`/venues/${encodeURIComponent(id)}`}
-        className="flex w-fit items-center gap-1.5 text-sm font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ArrowLeft aria-hidden="true" className="size-4" />
-        Back to venue
-      </Link>
+    <main className={PAGE_MAIN}>
+      <BackLink href={`/venues/${encodeURIComponent(id)}`} to="venue" />
       {!allowed ? (
         <>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Edit venue</h1>
+          <PageTitle>Edit venue</PageTitle>
           <AuthAlert tone="error">Only venue staff can edit a venue.</AuthAlert>
         </>
       ) : loaded && "venue" in loaded && options && "options" in options ? (
         <>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Edit {loaded.venue.name}</h1>
+          <PageTitle>Edit {loaded.venue.name}</PageTitle>
           <p className="text-sm text-muted-foreground">
             Changes appear in the catalogue as soon as they are saved. Setup and turnaround times are edited on the venue&rsquo;s page.
           </p>
@@ -43,7 +36,7 @@ export default async function EditVenuePage({ params }: { params: Promise<{ id: 
         </>
       ) : (
         <>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Edit venue</h1>
+          <PageTitle>Edit venue</PageTitle>
           <AuthAlert tone="error">
             {loaded && "error" in loaded ? loaded.error : options && "error" in options ? options.error : "Something went wrong. Please try again."}
           </AuthAlert>

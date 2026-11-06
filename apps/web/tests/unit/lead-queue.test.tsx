@@ -98,7 +98,7 @@ describe("SCRUM-77 — Unassigned event queue page", () => {
       "http://localhost:4002/lead/queue",
       expect.objectContaining({ headers: { cookie: "cs_session=token-lead" }, cache: "no-store" }),
     );
-    expect(screen.getByRole("heading", { name: "Unassigned queue" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Unassigned requests" })).toBeTruthy();
     expect(screen.getByText("Tech Summit")).toBeTruthy();
   });
 

@@ -120,6 +120,12 @@ export function sgtToUtc(date: string, time: string): Date {
   return new Date(Date.parse(`${date}T${time}:00.000Z`) - SGT_OFFSET_MS);
 }
 
+/** SCRUM-190: whether a "YYYY-MM-DD" is a day that exists. Date.parse rolls 2031-02-31 over to March, so a real date survives the round trip. */
+export function isRealDate(date: string): boolean {
+  const noon = sgtToUtc(date, "12:00");
+  return !Number.isNaN(noon.getTime()) && utcToSgt(noon).date === date;
+}
+
 /** A UTC instant -> Singapore { date: "YYYY-MM-DD", time: "HH:MM" }. */
 export function utcToSgt(instant: Date): { date: string; time: string } {
   const iso = new Date(instant.getTime() + SGT_OFFSET_MS).toISOString();
@@ -227,7 +233,7 @@ export function parseVenueBookingInput(body: unknown, now: Date): ParsedVenueBoo
 
   const start = sgtToUtc(date, startTime);
   const end = sgtToUtc(date, endTime);
-  if (Number.isNaN(start.getTime())) fieldErrors.date = "Enter a valid date.";
+  if (!isRealDate(date)) fieldErrors.date = "Enter a valid date.";
   else if (start.getTime() < now.getTime()) fieldErrors.startTime = "The start time must not be in the past.";
 
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
@@ -330,10 +336,7 @@ export function parseRejectionInput(body: unknown, now: Date = new Date()): Pars
       Object.fromEntries(SUGGESTION_FIELDS.map((k) => [k, isBlank(given[k]) ? undefined : typeof given[k] === "string" ? (given[k] as string).trim() : given[k]])),
       now,
     );
-    if (checked.ok && utcToSgt(checked.data.start).date !== checked.data.date) {
-      // The booking parser lets a date that does not exist roll over to the next month (2030-02-30 becomes 2030-03-02); a suggestion is stricter.
-      fieldErrors["suggestion.date"] = "Enter a valid date.";
-    } else if (checked.ok) {
+    if (checked.ok) {
       const { venueId, date, startTime, endTime, start, end } = checked.data;
       suggestion = { venueId, date, startTime, endTime, start, end };
     } else {

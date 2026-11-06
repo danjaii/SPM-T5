@@ -1,10 +1,11 @@
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_MAIN } from "@/components/PageFrame";
 
 // SCRUM-129/AC10: the shape of the venue detail card while it loads.
 export default function Loading() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8" aria-busy="true" aria-label="Loading the venue">
+    <main className={PAGE_MAIN} aria-busy="true" aria-label="Loading the venue">
       <Card className="gap-4 p-6">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-4 w-48" />
