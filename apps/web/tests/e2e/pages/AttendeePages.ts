@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { waitForHydration } from "../fixtures/hydration";
+import { waitForButton, waitForHydration } from "../fixtures/hydration";
 
 /** The attendee's way in: browse events, register, see and withdraw registrations. */
 export class AttendeePages {
@@ -36,10 +36,13 @@ export class AttendeePages {
 
   async withdraw(eventName: string) {
     const row = await this.row(eventName);
-    await waitForHydration(this.page, "button");
+    await waitForButton(this.page, "Withdraw"); // the row's own button: a click before React has attached to it is lost
     await row.getByRole("button", { name: "Withdraw" }).click();
     const dialog = this.page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: `Withdraw from ${eventName}?` })).toBeVisible();
+    // wait for the request to be accepted: the next step opens another page, and leaving now could cancel the request in flight
+    const accepted = this.page.waitForResponse((r) => r.url().includes("/withdraw") && r.request().method() === "POST");
     await dialog.getByRole("button", { name: "Yes, withdraw" }).click();
+    expect((await accepted).ok(), "the withdrawal was accepted").toBe(true);
   }
 }

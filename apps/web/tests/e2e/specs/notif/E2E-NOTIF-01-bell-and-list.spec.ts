@@ -55,7 +55,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
   await test.step("Open goes to My registrations and marks that notification read", async () => {
     await row("An event was changed").getByRole("button", { name: /^An event was changed/ }).click(); // the whole row is the Open control
     // an attendee cannot read the event itself, so an event notification opens their registrations (spec 172)
-    await expect(page).toHaveURL(/\/registrations/);
+    await expect(page).toHaveURL(/\/registrations/, { timeout: 90_000 }); // `next dev` compiles /registrations on this first visit
     await expect.poll(async () => (await isRead(decision.id)).is_read).toBe(true);
   });
 });
