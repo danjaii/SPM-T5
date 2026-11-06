@@ -1,0 +1,129 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { AlertCircle, Download, FileText, Trash2 } from "lucide-react";
+
+import { ATTACHMENT_ACCEPTED_TEXT, ATTACHMENT_MAX_BYTES, ATTACHMENT_TYPES, attachmentRefusal } from "@spm-t5/shared";
+import { Button } from "@/components/ui/button";
+import { fetchAttachmentUrl, uploadFile } from "@/lib/events";
+import {
+  listRequestAttachments, registerRequestAttachment, removeRequestAttachment, requestAttachmentUpload, type RequestAttachment,
+} from "@/lib/requestAttachments";
+
+const ATTACHMENT_MAX_MB = ATTACHMENT_MAX_BYTES / (1024 * 1024);
+const LOAD_FAILED = "We couldn't load the documents. Please try again.";
+
+/** A readable size, such as "1.5 MB". */
+const sizeText = (bytes: number) =>
+  bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+// SCRUM-51: supporting documents on an event request that is still a draft. AC1: choose files, they are uploaded and listed
+// with the request. AC2: a file type that is not accepted is turned away, with the accepted types.
+// AC3: so is a file over the size limit, with the maximum size. AC4: a document can be removed while the request is a draft.
+/** `readOnly` is for a request that has been submitted: the documents are listed, but none can be added or removed. */
+export function SupportingDocuments({ eventId, readOnly = false }: { eventId: string; readOnly?: boolean }) {
+  const [files, setFiles] = useState<RequestAttachment[]>();
+  const [messages, setMessages] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const { ok, data } = await listRequestAttachments(eventId);
+    if (ok) setFiles(data.attachments);
+    else setMessages([LOAD_FAILED]);
+  }, [eventId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function attach(file: File): Promise<string | undefined> {
+    const prepared = await requestAttachmentUpload(eventId, file);
+    if (!prepared.ok) return `${file.name}: ${prepared.data.error ?? "We couldn't attach it."}`;
+    if (!(await uploadFile(prepared.data.upload_url, file))) return `We couldn't upload ${file.name}. Please try again.`;
+    const registered = await registerRequestAttachment(eventId, file, prepared.data.storage_path);
+    if (!registered.ok) return `${file.name}: ${registered.data.error ?? "We couldn't attach it."}`;
+    return undefined;
+  }
+
+  async function choose(e: React.ChangeEvent<HTMLInputElement>) {
+    const chosen = [...(e.target.files ?? [])];
+    e.target.value = ""; // so choosing the same file again still fires
+    setMessages([]);
+    setBusy(true);
+    const problems: string[] = [];
+    for (const file of chosen) {
+      // AC2: a file that can't be attached is turned away here, with the accepted types, before anything is sent
+      const refusal = attachmentRefusal(file);
+      const problem = refusal ? `${file.name}: ${refusal.error}` : await attach(file);
+      if (problem) problems.push(problem);
+    }
+    await load();
+    setMessages((shown) => [...shown, ...problems]);
+    setBusy(false);
+  }
+
+  // AC1: a listed document opens through a short-lived signed link, made as the signed-in user (the bucket's read policy decides)
+  async function download(file: RequestAttachment) {
+    setMessages([]);
+    const { ok, data } = await fetchAttachmentUrl(eventId, file.storage_path);
+    if (ok && "signed_url" in data) window.open(data.signed_url, "_blank", "noopener");
+    else setMessages([`We couldn't open ${file.file_name}. Please try again.`]);
+  }
+
+  async function remove(file: RequestAttachment) {
+    setMessages([]);
+    const { ok, data } = await removeRequestAttachment(eventId, file.id);
+    if (!ok) {
+      setMessages([`${file.file_name}: ${data.error ?? "We couldn't remove it. Please try again."}`]);
+      return;
+    }
+    await load();
+  }
+
+  return (
+    <section aria-labelledby="supporting-documents-title" className="flex flex-col gap-3">
+      <h3 id="supporting-documents-title" className="text-base font-bold text-foreground">Supporting documents</h3>
+
+      {messages.map((m) => (
+        <p key={m} role="alert" className="flex items-center gap-2 rounded-lg bg-status-danger p-3 text-sm font-medium text-status-danger-fg">
+          <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
+          {m}
+        </p>
+      ))}
+
+      {files === undefined ? null : files.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No documents attached yet.</p>
+      ) : (
+        <ul aria-label="Supporting documents" className="flex flex-col divide-y divide-border rounded-lg ring-1 ring-foreground/10">
+          {files.map((f) => (
+            <li key={f.id} className="flex items-center gap-3 p-3 text-sm">
+              <FileText aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate font-medium text-foreground">{f.file_name}</span>
+              <span className="text-muted-foreground">{sizeText(f.size_bytes)}</span>
+              <Button type="button" variant="ghost" size="sm" aria-label={`Download ${f.file_name}`} onClick={() => void download(f)}>
+                <Download aria-hidden="true" />
+                Download
+              </Button>
+              {readOnly ? null : (
+                <Button type="button" variant="ghost" size="sm" aria-label={`Remove ${f.file_name}`} onClick={() => void remove(f)}>
+                  <Trash2 aria-hidden="true" />
+                  Remove
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {readOnly ? null : (
+        <>
+          <label htmlFor="supporting-documents-input" className="text-sm font-semibold text-foreground">Add documents</label>
+          <p id="supporting-documents-hint" className="text-sm text-muted-foreground">Accepted: {ATTACHMENT_ACCEPTED_TEXT}. Each file can be up to {ATTACHMENT_MAX_MB} MB.</p>
+          <input id="supporting-documents-input" type="file" multiple disabled={busy} onChange={choose}
+            accept={ATTACHMENT_TYPES.join(",")} aria-describedby="supporting-documents-hint"
+            className="text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-border-strong file:bg-card file:px-3 file:py-2 file:text-sm file:font-semibold" />
+        </>
+      )}
+    </section>
+  );
+}

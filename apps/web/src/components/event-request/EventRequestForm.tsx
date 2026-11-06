@@ -14,6 +14,7 @@ import { formatLastSaved } from "@/lib/formatLastSaved";
 import { RequestStepper } from "./RequestStepper";
 import { ReviewStep } from "./ReviewStep";
 import { StepFields } from "./StepFields";
+import { SupportingDocuments } from "./SupportingDocuments";
 
 // SCRUM-123: the step-by-step new event request. AC2: Continue is blocked by the current step's errors only. AC3: the
 // Review step lists everything with Edit links. AC4: Submit sends it to event-service (SCRUM-49) and lands on the event page.
@@ -110,34 +111,40 @@ export function EventRequestForm({ layouts, draft }: { layouts: RoomLayoutOption
     <div className="grid gap-6 md:grid-cols-[17.5rem_1fr]">
       <RequestStepper current={step} onGoTo={goTo} />
 
-      <form noValidate onSubmit={(e) => { e.preventDefault(); if (last) void onSubmit(); else onContinue(); }}
-        className="flex flex-col gap-6 rounded-xl bg-card p-5 ring-1 ring-foreground/10 sm:p-6">
-        <h2 className="text-xl font-bold text-foreground">{STEPS[step].label}</h2>
+      <div className="flex min-w-0 flex-col gap-6">
+        <form noValidate onSubmit={(e) => { e.preventDefault(); if (last) void onSubmit(); else onContinue(); }}
+          className="flex flex-col gap-6 rounded-xl bg-card p-5 ring-1 ring-foreground/10 sm:p-6">
+          <h2 className="text-xl font-bold text-foreground">{STEPS[step].label}</h2>
 
-        {message ? (
-          <p role="alert" className="flex items-center gap-2 rounded-lg bg-status-danger p-3 text-sm font-medium text-status-danger-fg">
-            <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
-            {message}
-          </p>
-        ) : null}
+          {message ? (
+            <p role="alert" className="flex items-center gap-2 rounded-lg bg-status-danger p-3 text-sm font-medium text-status-danger-fg">
+              <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
+              {message}
+            </p>
+          ) : null}
 
-        {saved ? (
-          <p role="status" className="rounded-lg bg-muted p-3 text-sm font-medium text-foreground">{saved}</p>
-        ) : null}
+          {saved ? (
+            <p role="status" className="rounded-lg bg-muted p-3 text-sm font-medium text-foreground">{saved}</p>
+          ) : null}
 
-        {last ? <ReviewStep values={values} layouts={layouts} onEdit={goTo} />
-          : <StepFields step={step} values={values} errors={errors} layouts={layouts} onChange={change} onBlurField={onBlurField} />}
+          {last ? <ReviewStep values={values} layouts={layouts} onEdit={goTo} />
+            : <StepFields step={step} values={values} errors={errors} layouts={layouts} onChange={change} onBlurField={onBlurField} />}
 
-        <div className="flex flex-wrap justify-between gap-3 border-t border-border pt-5">
-          <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => goTo(step - 1)}>Back</Button>
-          <Button type="button" variant="outline" disabled={savingDraft || submitting} onClick={() => void onSaveDraft()}>
-            {savingDraft ? "Saving…" : "Save as draft"}
-          </Button>
-          <Button type="submit" disabled={submitting || savingDraft}>
-            {last ? (submitting ? "Submitting…" : "Submit request") : `Continue to ${STEPS[step + 1].label}`}
-          </Button>
-        </div>
-      </form>
+          <div className="flex flex-wrap justify-between gap-3 border-t border-border pt-5">
+            <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => goTo(step - 1)}>Back</Button>
+            <Button type="button" variant="outline" disabled={savingDraft || submitting} onClick={() => void onSaveDraft()}>
+              {savingDraft ? "Saving…" : "Save as draft"}
+            </Button>
+            <Button type="submit" disabled={submitting || savingDraft}>
+              {last ? (submitting ? "Submitting…" : "Submit request") : `Continue to ${STEPS[step + 1].label}`}
+            </Button>
+          </div>
+        </form>
+
+        {/* SCRUM-51/AC1: documents attach to a saved draft, so a form that has not been saved yet says so instead */}
+        {draftId ? <SupportingDocuments eventId={draftId} />
+          : <p className="text-sm text-muted-foreground">Save as draft to attach files.</p>}
+      </div>
     </div>
   );
 }

@@ -59,7 +59,7 @@ describe("SCRUM-52/AC1 My event requests page", () => {
     expect(names[59]).toBe("Event 59");
   });
 
-  it("SCRUM-52/AC1 shows a dash for a draft with no start, attendance or submitted date", async () => {
+  it("SCRUM-52/AC1 shows a dash for a draft with no start or attendance, and says it is not submitted (SCRUM-55/AC2)", async () => {
     getMyEventRequests.mockResolvedValue({
       requests: [{ id: "evt-9", name: "Half done", status: "draft", preferred_start_datetime: null, expected_attendance: null, submitted_at: null }],
     });
@@ -68,7 +68,8 @@ describe("SCRUM-52/AC1 My event requests page", () => {
 
     const row = screen.getByRole("row", { name: /Half done/ });
     expect(within(row).getByText("Draft")).toBeTruthy();
-    expect(within(row).getAllByText("—")).toHaveLength(3);
+    expect(within(row).getAllByText("—")).toHaveLength(2);
+    expect(within(row).getByText("Not submitted")).toBeTruthy();
   });
 
   it("SCRUM-52/AC1 tells an organiser with no requests so", async () => {
