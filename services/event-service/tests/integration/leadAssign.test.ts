@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CLOSED_EVENT_STATUSES } from "@spm-t5/shared";
-import { adminClient, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
+import { adminClient, cleanUp, CLEANUP_TIMEOUT_MS, deactivateTestUsers, deleteTestUsers, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-78: a Lead assigns an unassigned event request to one of their coordinators, through lead_assign_coordinator()
@@ -107,10 +107,10 @@ describe.skipIf(!hasDb)("SCRUM-78 Lead assigns an Event Coordinator (migration 2
   });
 
   afterAll(async () => {
-    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds); // cascades the logs
-    if (madeUsers.length > 0) await admin.from("users").update({ supervising_lead_id: null }).in("id", madeUsers);
-    for (const id of madeUsers) await admin.auth.admin.deleteUser(id);
-  });
+    await deactivateTestUsers(admin, madeUsers);
+    if (eventIds.length > 0) await cleanUp("events", admin.from("events").delete().in("id", eventIds)); // cascades the logs
+    await deleteTestUsers(admin, madeUsers);
+  }, CLEANUP_TIMEOUT_MS);
 
   // AC1: the eligible coordinators (every active coordinator, whoever supervises them, since SCRUM-184), each with a workload count
   it("SCRUM-78/AC1 the eligible coordinators are every active coordinator, each with a workload count", async () => {

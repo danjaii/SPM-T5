@@ -2,6 +2,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import { deps } from "../support/fakes";
+import { serverBaseUrl } from "../../../../scripts/vitest/ipv6Loopback"; // SCRUM-195/AC8
 
 // chore (SCRUM-90): notification-service now binds a port, so its container stays up under docker compose.
 describe("chore SCRUM-90 notification-service app", () => {
@@ -11,7 +12,7 @@ describe("chore SCRUM-90 notification-service app", () => {
   beforeAll(async () => {
     server = createApp(deps).listen(0);
     await new Promise((resolve) => server.once("listening", resolve));
-    baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    baseUrl = serverBaseUrl(server.address() as AddressInfo);
   });
 
   afterAll(() => new Promise((resolve) => server.close(resolve)));

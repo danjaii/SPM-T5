@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EVENT_FIELD_LABELS, EVENT_IMPORTANT_FIELDS, receivesEventUpdates, registrationStatus, type RegistrationStatus } from "@spm-t5/shared";
-import { adminClient, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
+import { adminClient, cleanUp, CLEANUP_TIMEOUT_MS, deactivateTestUsers, deleteTestUsers, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-172: the remaining notifications are written by the database in the same transaction as the change they announce
@@ -134,9 +134,10 @@ describe.skipIf(!hasDb)("SCRUM-172 Notify on the remaining changes (migration 65
   });
 
   afterAll(async () => {
-    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds); // cascades the notifications
-    for (const id of madeUsers) await admin.auth.admin.deleteUser(id);
-  });
+    await deactivateTestUsers(admin, madeUsers);
+    if (eventIds.length > 0) await cleanUp("events", admin.from("events").delete().in("id", eventIds)); // cascades the notifications
+    await deleteTestUsers(admin, madeUsers);
+  }, CLEANUP_TIMEOUT_MS);
 
   // AC1: every active Lead hears of a new request, because Leads share the one unassigned queue
   it("SCRUM-172/AC1 an organiser submitting a request notifies an active Lead once, and not an inactive one", async () => {

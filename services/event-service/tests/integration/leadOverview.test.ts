@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CLOSED_EVENT_STATUSES } from "@spm-t5/shared";
-import { adminClient, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
+import { adminClient, cleanUp, CLEANUP_TIMEOUT_MS, deactivateTestUsers, deleteTestUsers, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-81: a Lead's coordinator overview (lead_coordinator_overview()) and one coordinator's non-closed events
@@ -105,9 +105,10 @@ describe.skipIf(!hasDb)("SCRUM-81 coordinator workload and active events (migrat
   });
 
   afterAll(async () => {
-    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds);
-    for (const id of madeUsers) await admin.auth.admin.deleteUser(id); // cascades to users
-  });
+    await deactivateTestUsers(admin, madeUsers);
+    if (eventIds.length > 0) await cleanUp("events", admin.from("events").delete().in("id", eventIds));
+    await deleteTestUsers(admin, madeUsers);
+  }, CLEANUP_TIMEOUT_MS);
 
   // AC1: every active coordinator, each with their workload count. Since SCRUM-184 (migration 81) that is whoever supervises
   // them: the Lead's own, another Lead's, and ones linked to nobody

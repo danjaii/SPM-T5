@@ -27,6 +27,13 @@ function mockServer(...replies: (ReturnType<typeof jsonReply> | null)[]) {
   return fetchMock;
 }
 const lastUrl = (fetchMock: ReturnType<typeof mockServer>) => fetchMock.mock.calls.at(-1)?.[0];
+// The stepper and Today are disabled while a range loads, so wait for the last answer before pressing one. Otherwise a
+// slow machine presses a disabled button and the click is lost.
+async function pressWhenReady(name: string) {
+  const button = screen.getByRole("button", { name }) as HTMLButtonElement;
+  await waitFor(() => expect(button.disabled).toBe(false));
+  fireEvent.click(button);
+}
 
 beforeEach(() => replace.mockClear());
 afterEach(() => vi.unstubAllGlobals());
@@ -135,17 +142,17 @@ describe("SCRUM-84/AC5 change the date range (Figma 09: Day, Week, Month and the
     render(<VenueCalendar now={NOW} />);
     await screen.findByText("Orchid Hall");
 
-    fireEvent.click(screen.getByRole("button", { name: "Next day" }));
+    await pressWhenReady("Next day");
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-11-15&to=2026-11-15`));
     fireEvent.click(screen.getByRole("tab", { name: "Week" }));
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-11-09&to=2026-11-15`));
-    fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+    await pressWhenReady("Next week");
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-11-16&to=2026-11-22`));
     fireEvent.click(screen.getByRole("tab", { name: "Month" }));
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-11-01&to=2026-11-30`));
-    fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
+    await pressWhenReady("Previous month");
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-10-01&to=2026-10-31`));
-    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    await pressWhenReady("Today");
     await waitFor(() => expect(lastUrl(fetchMock)).toBe(`${URL}?from=2026-11-01&to=2026-11-30`));
   });
 
@@ -221,7 +228,7 @@ describe("SCRUM-84/AC7 the latest recorded status", () => {
     await screen.findByText("Orchid Hall");
     fireEvent.click(screen.getByRole("button", { name: "Next day" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByRole("button", { name: "Previous day" }));
+    await pressWhenReady("Previous day");
     expect(await screen.findByText("Blocked: Maintenance")).toBeTruthy();
     expect(fetchMock.mock.calls[2][0]).toBe(fetchMock.mock.calls[0][0]);
   });

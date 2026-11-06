@@ -213,3 +213,59 @@ export function renderMarkdown(matrix, meta) {
   }
   return `${out.join("\n")}\n`;
 }
+
+const ANSI = /\u001b\[[0-9;]*m/g;
+const firstLine = (text) => {
+  const line = String(text ?? "").replace(ANSI, "").split("\n")[0].trim();
+  // vitest builds a timeout's error from a placeholder stack, so the JSON report shows only this line for a timeout
+  return line === "Error: STACK_TRACE_ERROR" ? "Timed out: it ran past vitest's time limit (the JSON report calls this STACK_TRACE_ERROR)" : line;
+};
+const SHOWN = 20;
+
+/**
+ * SCRUM-195/AC5: whether a test run may produce the matrix, and if not, why. `results` is vitest's JSON report;
+ * `hookErrors` are the beforeAll/afterAll errors that report leaves out (hookErrorsReporter.mjs collects them). A failed
+ * cleanup blocks the matrix too, because it leaves rows behind that break the next run. Supabase is blamed for skipped
+ * tests only when its settings are missing (`dbConfigured` false); otherwise the reason is a failed setup or a skip in a file.
+ */
+export function explainRun(results, hookErrors, { dbConfigured, relative }) {
+  const lines = hookErrors.map((h) => `setup or cleanup failed: ${relative(h.file ?? "")} > ${h.where}: ${firstLine(h.message)}`);
+  const notPassed = [];
+  for (const file of results.testResults) {
+    for (const t of file.assertionResults) {
+      if (t.status === "passed") continue;
+      const entry = [`${t.status}: ${relative(file.name)} > ${[...t.ancestorTitles, t.title].join(" > ")}`];
+      if (t.status === "failed" && t.failureMessages?.length) entry.push(`    ${firstLine(t.failureMessages[0])}`);
+      notPassed.push({ status: t.status, entry });
+    }
+  }
+  for (const { entry } of notPassed.slice(0, SHOWN)) lines.push(...entry);
+
+  if (notPassed.some((t) => t.status !== "failed")) {
+    if (!dbConfigured) {
+      lines.push("Database tests were skipped because SUPABASE_URL, SUPABASE_SECRET_KEY or SUPABASE_PUBLISHABLE_KEY is not set: start local Supabase and point .env at it.");
+    } else if (hookErrors.length > 0) {
+      lines.push("Tests were skipped because a beforeAll failed (setup or cleanup failed, above), not because of the database settings.");
+    } else {
+      lines.push("Tests were skipped by skip, skipIf or todo in the test files.");
+    }
+  }
+  if (notPassed.length > SHOWN) lines.push(`…and ${notPassed.length - SHOWN} more tests that did not pass.`);
+  return { ok: hookErrors.length === 0 && notPassed.length === 0, lines };
+}
+
+/**
+ * SCRUM-195/AC5: the errors thrown by beforeAll/afterAll hooks, a whole file, or outside any test, from vitest's reporter
+ * API (TestModule, TestSuite). The JSON report marks such a file failed and its tests skipped but drops the error itself.
+ * File-level errors come first, then each suite's, in the order vitest gives them.
+ */
+export function collectHookErrors(testModules, unhandledErrors) {
+  const fileErrors = [];
+  const suiteErrors = [];
+  for (const m of testModules) {
+    for (const e of m.errors()) fileErrors.push({ file: m.moduleId, where: "the whole file", message: e.message });
+    for (const s of m.children.allSuites()) for (const e of s.errors()) suiteErrors.push({ file: m.moduleId, where: s.fullName, message: e.message });
+  }
+  const unhandled = unhandledErrors.map((e) => ({ file: null, where: "no test file (unhandled)", message: e.message }));
+  return [...fileErrors, ...suiteErrors, ...unhandled];
+}

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { adminClient, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
+import { adminClient, cleanUp, CLEANUP_TIMEOUT_MS, deactivateTestUsers, deleteTestUsers, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-183 (docs/specs/coordinator-history-own-events.md): a coordinator may add an event_coordinator_history row only for an
@@ -83,10 +83,10 @@ describe.skipIf(!hasDb)("SCRUM-183 coordinator history rows only for the coordin
   });
 
   afterAll(async () => {
-    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds); // cascades the history and the logs
-    if (madeUsers.length > 0) await admin.from("users").update({ supervising_lead_id: null }).in("id", madeUsers);
-    for (const id of madeUsers) await admin.auth.admin.deleteUser(id);
-  });
+    await deactivateTestUsers(admin, madeUsers);
+    if (eventIds.length > 0) await cleanUp("events", admin.from("events").delete().in("id", eventIds)); // cascades the history and the logs
+    await deleteTestUsers(admin, madeUsers);
+  }, CLEANUP_TIMEOUT_MS);
 
   describe("SCRUM-183/AC1 the assigned coordinator adds a row (183-S1)", () => {
     it("183-S1: the row is saved and the coordinator and the organiser can read it", async () => {

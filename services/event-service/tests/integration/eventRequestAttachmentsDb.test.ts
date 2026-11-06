@@ -3,7 +3,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import { createSupabaseDeps } from "../../src/supabase";
-import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
+import { adminClient, CLEANUP_TIMEOUT_MS, cleanUp, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-51: supporting documents on a draft event request (migration 86: event_request_attachments, add_event_attachment(),
@@ -56,12 +56,13 @@ describe.skipIf(!hasDb)("SCRUM-51 attach supporting documents against the databa
 
   afterAll(async () => {
     if (eventIds.length === 0) return;
-    const { data } = await admin.from("event_request_attachments").select("storage_path").in("event_id", eventIds);
-    if (data?.length) await admin.storage.from(BUCKET).remove(data.map((r) => r.storage_path));
-    await admin.from("event_request_attachments").delete().in("event_id", eventIds);
-    await admin.from("event_status_history").delete().in("event_id", eventIds);
-    await admin.from("events").delete().in("id", eventIds);
-  });
+    const { data, error } = await admin.from("event_request_attachments").select("storage_path").in("event_id", eventIds);
+    if (error) throw new Error(`event_request_attachments: could not read the test files to remove: ${error.message}`);
+    if (data?.length) await cleanUp(`${BUCKET} bucket`, admin.storage.from(BUCKET).remove(data.map((r) => r.storage_path)));
+    await cleanUp("event_request_attachments", admin.from("event_request_attachments").delete().in("event_id", eventIds));
+    await cleanUp("event_status_history", admin.from("event_status_history").delete().in("event_id", eventIds));
+    await cleanUp("events", admin.from("events").delete().in("id", eventIds));
+  }, CLEANUP_TIMEOUT_MS);
 
   describe("SCRUM-51/AC1 upload an attachment", () => {
     it("stores the file, lists it for the organiser and, once submitted and assigned, the coordinator, and hides it from another organiser", async () => {
