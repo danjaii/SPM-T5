@@ -481,10 +481,12 @@ describe("SCRUM-98/AC4 bookings of one event are independent (98-S16 to 98-S19)"
 // SCRUM-98/AC6 the access rules stay the same for a second booking
 // ----------------------------------------------------------------------------
 
-describe("SCRUM-98/AC6 only the assigned coordinator of an eligible event may add another venue (98-S26, 98-S29)", () => {
+describe("SCRUM-98/AC6 only the assigned coordinator of an eligible event may add another venue (98-S29)", () => {
   const existing = { eventId: "event-1", venueId: "venue-2", start: new Date("2030-11-14T01:00:00Z"), end: new Date("2030-11-14T09:00:00Z") };
 
-  it("98-S26 a coordinator the event is not assigned to cannot add a second venue: 403 and no row", async () => {
+  // 98-S26 itself (404: Row-Level Security hides the event) is checked against Postgres in
+  // tests/integration/unassignedCoordinator.test.ts. Here the fake shows the event to everyone, so this is the service's own check.
+  it("a coordinator who can see the event but is not assigned to it cannot add a second venue: 403 and no row", async () => {
     const { as, bookings } = setup();
     bookings.seed(existing);
 

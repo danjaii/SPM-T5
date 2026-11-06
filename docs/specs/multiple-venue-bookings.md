@@ -54,6 +54,14 @@ These override `docs/specs/venue-booking-request.md` where they conflict (DR6 an
   names joined by ", " (each venue once, in the order of its first booking) and the address of the earliest one. Attendees
   are not shown each booking's time: a venue booking's period can include setup, so it is not the attendee's schedule.
   **[DECIDED]**
+- **An unassigned coordinator gets 404, not 403 (98-S26, 98-S27; corrected 2026-11-06, E2E defect D-002).** The first draft
+  said 403. Since SCRUM-156 (migration 59) a coordinator reads only the events assigned to them, so venue-service, which reads
+  the event with the caller's own token, does not find another coordinator's event and answers 404, as if it does not exist.
+  This is the answer SCRUM-156 chose for the same case ([coordinator-event-reads.md](coordinator-event-reads.md), AC2
+  "not-found or forbidden"), and it says nothing about whether the event exists. Venue-service's own assignment check still
+  answers 403 when it can see the event but the caller is not its coordinator; it stays as a second line of defence and is
+  what the unit tests (in-memory fakes, no Row-Level Security) cover. Answering 403 would mean looking the event up with the
+  secret key, which bypasses Row-Level Security. **[DECIDED]**
 - **Not in this story:** changing or cancelling one booking (SCRUM-102), and the event becoming Confirmed only once all its
   bookings are approved. **[DECIDED]**
 - **Migration 28** (SCRUM-87's migrations came later, as 31 and 32): drops `venue_bookings_one_active_per_event` and redefines
@@ -110,17 +118,19 @@ conflicts using that booking's details only.
 | 98-S23 | AC5 | The list includes rejected and withdrawn bookings | yes; status says which |
 | 98-S24 | AC5 | The event page | shows each booking with venue, date, start, end and status, and a warning on one that exceeds capacity |
 | 98-S25 | AC5 | Two venues approved for one event | the attendee's List of events shows the event once, with both venue names |
-| 98-S26 | AC6 | A coordinator the event is not assigned to requests a venue | 403; no booking |
-| 98-S27 | AC6 | The same coordinator reads the event's bookings list | 403 |
+| 98-S26 | AC6 | A coordinator the event is not assigned to requests a venue | 404; no booking |
+| 98-S27 | AC6 | The same coordinator reads the event's bookings list | 404 |
 | 98-S28 | AC6 | Any other role (organiser, venue staff, attendee, technical support) requests or lists | 403; no session gets 401 |
 | 98-S29 | AC6 | An event that is not eligible (for example Draft) | 409 `EVENT_NOT_ELIGIBLE` for a second request as for a first |
 
 ### Test map
 
-- Service rules (unit, fakes): 98-S1 to S8, S10 to S13, S15 to S20, S26, S28, S29. In `services/venue-service/tests/unit/`.
-- Database (integration, CI only): 98-S2, S9, S14, S25. The dropped unique index, the unchanged overlap constraint, and
-  `list_public_events()`.
-- Routes (unit with supertest): 98-S21 to S23, S27.
+- Service rules (unit, fakes): 98-S1 to S8, S10 to S13, S15 to S20, S28, S29, and the service's own assignment check (403
+  when it can see the event). In `services/venue-service/tests/unit/`.
+- Database (integration, CI only): 98-S2, S9, S14, S25, S26, S27. The dropped unique index, the unchanged overlap constraint,
+  `list_public_events()`, and the 404 an unassigned coordinator gets because Row-Level Security hides the event
+  (`unassignedCoordinator.test.ts`). End to end: E2E-ACL-05.
+- Routes (unit with supertest): 98-S21 to S23.
 - Web (React Testing Library): 98-S24, plus the form's fields and warning (98-S6, S7, S10 to S12) and the page's loader
   (98-S21, S27).
 - Where: `services/venue-service/tests/unit/submitBooking.test.ts` and `eventVenueBookings.test.ts`,

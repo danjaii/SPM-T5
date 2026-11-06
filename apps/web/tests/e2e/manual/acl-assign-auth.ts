@@ -80,7 +80,7 @@ export const MANUAL = {
   },
   "E2E-ACL-05": {
     setups: ["API", "S7", "S4"],
-    preconditions: "An approved event assigned to Rachel Tan (S7) and a venue (S4). Marcus Lim is not assigned to it. KNOWN DEFECT D-002: today the service answers 404, the spec says 403, so this case is expected to FAIL on the status code.",
+    preconditions: "An approved event assigned to Rachel Tan (S7) and a venue (S4). Marcus Lim is not assigned to it.",
     data: "Event id, venue id. POST `:4003/venue-bookings` body `{\"eventId\":\"<event id>\",\"venueId\":\"<venue id>\",\"date\":\"2031-11-14\",\"startTime\":\"10:00\",\"endTime\":\"12:00\"}`.",
     steps: [
       "With Marcus Lim's cookie (API) POST the body above.",
@@ -88,7 +88,7 @@ export const MANUAL = {
       "As Rachel Tan check the event has no booking.",
     ],
     expected: [
-      "Per spec 98-S26 and 98-S27 both calls answer 403 and no booking exists. Today they answer 404 (record this against D-002 in `defects.md`; do not mark the case passed).",
+      "Both calls answer 404 (spec 98-S26 and 98-S27: Marcus cannot see an event assigned to someone else, so it looks as if it does not exist) and no booking exists.",
     ],
   },
   "E2E-ASSIGN-01": {
