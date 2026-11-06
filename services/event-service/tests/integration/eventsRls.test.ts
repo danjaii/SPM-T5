@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
+import { adminClient, CLEANUP_TIMEOUT_MS, cleanUp, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
  * Per-role RLS on events and its child tables (migration 11, SCRUM-91). Every check signs in as a
@@ -25,6 +25,7 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
   const admin = hasDb ? adminClient() : (undefined as never);
   const who = {} as Record<keyof typeof EMAILS, Actor>;
   const eventIds: string[] = [];
+  let venueId: string | undefined;
 
   // Organiser A / coordinator A own eventA; organiser B / coordinator B own eventB.
   let eventA: string;
@@ -73,10 +74,18 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
     assignEvent = await newEvent(who.organiserA.userId, who.coordinatorA.userId);
 
     bookedEvent = await newEvent(who.organiserB.userId, who.coordinatorB.userId);
-    const { data: venue } = await admin.from("venues").select("id").limit(1).single();
+    // SCRUM-195/AC1: a venue of our own, not whichever venue comes first: a booking another run or file left on that venue
+    // in this slot used to block this insert ("The venue is occupied for part of that period."), skipping every test here
+    const venue = await admin
+      .from("venues")
+      .insert({ name: `IT-91-venue-${Math.random().toString(36).slice(2, 8)}`, address: "1 Test Road", max_capacity: 100 })
+      .select("id")
+      .single();
+    if (venue.error) throw new Error(venue.error.message);
+    venueId = venue.data.id as string;
     const booking = await admin.from("venue_bookings").insert({
       event_id: bookedEvent,
-      venue_id: venue!.id,
+      venue_id: venueId,
       requested_by: who.coordinatorB.userId,
       status: "requested",
       event_start_datetime: "2031-06-15T01:00:00Z",
@@ -107,10 +116,12 @@ describe.skipIf(!hasDb)("SCRUM-91 events row level security (migration 11)", () 
   });
 
   afterAll(async () => {
-    if (eventIds.length === 0) return;
-    await admin.from("venue_bookings").delete().in("event_id", eventIds);
-    await admin.from("events").delete().in("id", eventIds); // cascades history, sessions, documents, requests
-  });
+    if (eventIds.length) {
+      await cleanUp("venue_bookings", admin.from("venue_bookings").delete().in("event_id", eventIds));
+      await cleanUp("events", admin.from("events").delete().in("id", eventIds)); // cascades history, sessions, documents, requests
+    }
+    if (venueId) await cleanUp("venues", admin.from("venues").delete().eq("id", venueId)); // after its bookings
+  }, CLEANUP_TIMEOUT_MS);
 
   describe("events: who can read an event", () => {
     it("SCRUM-91/AC1 an organiser reads their own events and nobody else's", async () => {

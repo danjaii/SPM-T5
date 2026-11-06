@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
 import { createSupabaseDeps } from "../../src/supabase";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { adminClient, DB_ENV, hasDb, signInAs, type Actor } from "./support/db";
+import { adminClient, CLEANUP_TIMEOUT_MS, cleanUp, DB_ENV, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-53: saving a draft (migration 70: create_event_draft(), with no organiser INSERT policy) against the real
@@ -39,9 +39,9 @@ describe.skipIf(!hasDb)("SCRUM-53 save a draft against the database", () => {
 
   afterAll(async () => {
     if (eventIds.length === 0) return;
-    await admin.from("event_status_history").delete().in("event_id", eventIds);
-    await admin.from("events").delete().in("id", eventIds);
-  });
+    await cleanUp("event_status_history", admin.from("event_status_history").delete().in("event_id", eventIds));
+    await cleanUp("events", admin.from("events").delete().in("id", eventIds));
+  }, CLEANUP_TIMEOUT_MS);
 
   describe("SCRUM-53/AC1 create_event_draft stores a draft", () => {
     it("stores an incomplete request as a draft owned by the caller, with no history row", async () => {

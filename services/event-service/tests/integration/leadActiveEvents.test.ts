@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CLOSED_EVENT_STATUSES } from "@spm-t5/shared";
 import { createApp } from "../../src/app";
 import { createSupabaseDeps } from "../../src/supabase";
-import { adminClient, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
+import { adminClient, cleanUp, CLEANUP_TIMEOUT_MS, deactivateTestUsers, deleteTestUsers, hasDb, SEED_PASSWORD, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-189: GET /lead/events against the real database, so RLS (events_select_lead_team, migration 81) decides what a Lead
@@ -73,10 +73,11 @@ describe.skipIf(!hasDb)("SCRUM-189 all active events (GET /lead/events)", () => 
   });
 
   afterAll(async () => {
+    await deactivateTestUsers(admin, madeUsers);
     const ids = Object.values(ev);
-    if (ids.length > 0) await admin.from("events").delete().in("id", ids);
-    for (const id of madeUsers) await admin.auth.admin.deleteUser(id); // cascades to users
-  });
+    if (ids.length > 0) await cleanUp("events", admin.from("events").delete().in("id", ids));
+    await deleteTestUsers(admin, madeUsers);
+  }, CLEANUP_TIMEOUT_MS);
 
   it("SCRUM-189/AC1 lists every active event with its coordinator, earliest first, whoever holds it", async () => {
     const res = await listAs(who.lead);

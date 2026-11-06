@@ -38,3 +38,32 @@ export async function signInAs(email: string): Promise<Actor> {
   });
   return { client, userId: data.user.id, token: data.session.access_token };
 }
+
+/**
+ * SCRUM-195/AC3: one cleanup step that says when it fails. supabase-js returns `{ error }` instead of throwing, so a failed
+ * delete used to leave test rows behind silently, and those rows then broke the next run. Throwing in afterAll makes vitest
+ * report the file as failed, naming the table and the reason.
+ */
+export async function cleanUp(what: string, step: PromiseLike<{ error: { message: string } | null }>): Promise<void> {
+  const { error } = await step;
+  if (error) throw new Error(`${what}: could not remove the test rows: ${error.message}`);
+}
+
+/** SCRUM-195/AC4: how long an afterAll cleanup may take. Vitest's default of 10 s ran out under the whole suite's load. */
+export const CLEANUP_TIMEOUT_MS = 60_000;
+
+/**
+ * SCRUM-195/AC7: the first step of removing a test's own accounts, run at the start of its cleanup. Submitting a request
+ * notifies every active Event Coordinator Lead (migration 65), so a temporary Lead deleted while another file submits made
+ * that submit fail (23503: its notification pointed at a user that no longer existed). Deactivating first takes the account
+ * out of every "active" list well before deleteTestUsers removes it; it also unlinks coordinators from it.
+ */
+export async function deactivateTestUsers(admin: SupabaseClient, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await cleanUp("users", admin.from("users").update({ is_active: false, supervising_lead_id: null }).in("id", ids));
+}
+
+/** SCRUM-195/AC7: the last step: delete the test's own accounts (the users row goes with the auth user), checked. */
+export async function deleteTestUsers(admin: SupabaseClient, ids: string[]): Promise<void> {
+  for (const id of ids) await cleanUp(`auth user ${id}`, admin.auth.admin.deleteUser(id));
+}

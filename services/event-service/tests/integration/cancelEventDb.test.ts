@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { adminClient, hasDb, signInAs, type Actor } from "./support/db";
+import { adminClient, CLEANUP_TIMEOUT_MS, cleanUp, hasDb, signInAs, type Actor } from "./support/db";
 
 /**
  * SCRUM-174 against Postgres (docs/specs/cancel-event.md): cancelling an event needs a reason and is recorded, and its
@@ -35,10 +35,10 @@ describe.skipIf(!hasDb)("SCRUM-174 cancel an event (migrations 60 to 63; the not
 
   afterAll(async () => {
     // events first: their venue bookings, equipment requests and assignments go with them
-    if (eventIds.length > 0) await admin.from("events").delete().in("id", eventIds);
-    if (venueIds.length > 0) await admin.from("venues").delete().in("id", venueIds);
-    if (equipmentIds.length > 0) await admin.from("equipment").delete().in("id", equipmentIds);
-  });
+    if (eventIds.length > 0) await cleanUp("events", admin.from("events").delete().in("id", eventIds));
+    if (venueIds.length > 0) await cleanUp("venues", admin.from("venues").delete().in("id", venueIds));
+    if (equipmentIds.length > 0) await cleanUp("equipment", admin.from("equipment").delete().in("id", equipmentIds));
+  }, CLEANUP_TIMEOUT_MS);
 
   async function insert(table: string, row: Row): Promise<string> {
     const { data, error } = await admin.from(table).insert(row).select("id").single();
