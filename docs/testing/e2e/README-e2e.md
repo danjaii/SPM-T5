@@ -43,6 +43,40 @@ Every test creates the rows it needs (named `E2E-<ID> ...`) and removes them aft
 database does not have to be fresh. For an official run start from `supabase db reset`, which wipes your local data, so do it on
 purpose. Sign-in is rate limited (300 per 5 minutes locally): do not start two full runs inside five minutes.
 
+## How the suite is built
+
+```
+apps/web/playwright.config.ts   starts the 5 services and the web app; projects: setup, then chromium
+apps/web/tests/e2e/
+  catalogue.ts                  every case (the source for the generated docs)
+  setup/auth.setup.ts           signs each persona in once through auth-service and saves the session (.auth/, git-ignored)
+  fixtures/
+    accounts.ts                 personas: a named seeded account per role, plus homePath(role)
+    env.ts                      ports (4101-4105 locally, 4001-4005 in CI), seeded password, Supabase URL
+    test.ts                     the `as(persona)` and `data` fixtures every spec imports instead of Playwright's test
+    data.ts                     TestData: creates venues, events, bookings, equipment with the service-role key, deletes them after
+    scenarios.ts                shared set-ups, such as a venue held by another event
+    tc.ts                       title and annotations of a case, read from the catalogue
+    api.ts, hydration.ts        a service call as the signed-in person; waits so a click is not lost before React attaches
+  pages/                        page objects: one class per screen or flow, hold locators and the steps to drive them
+  specs/<area>/                 one file per case
+```
+
+- **Sign-in.** `setup` logs the 14 personas in once; `as("coordinator")` opens a page in a new browser context carrying that
+  session. A case that spans people calls `as` once per person. Only AUTH-01 to AUTH-04 and AUTH-06 use the real sign-in form.
+- **Data.** The `data` fixture creates rows with the service-role key (which bypasses row-level security, so it can arrange an event
+  already Confirmed) and removes them after the test, newest first. The action under test always goes through the screen.
+  `data.rest(...)` reads the database to prove what a screen cannot, such as "nothing was created".
+- **Ports and origin.** The web app must be on port 3000: it is the only origin the services allow. The services get 4101-4105
+  locally so your own dev servers are left alone; CI uses 4001-4005, where the production build already points.
+- **Local versus CI.** Locally the services run from source (`tsx`) and the web app is `next dev`, with 3 workers and long timeouts
+  because `next dev` compiles a page on its first visit. In CI they are the bundles from `pnpm run build:all` and `next start`, with
+  2 workers and one retry, so a flaky test is reported as flaky.
+- **Dates.** Cases book far-future days (2031) so nothing depends on today's date, with two exceptions that need the real clock:
+  registration windows (set relative to now) and E2E-VEN-06 (the calendar only opens on today and steps a day at a time).
+- **Defects.** A test whose assertion the product breaks stays as the AC states it, is marked `test.fail()`, and has a row in
+  `defects.md`. Today that is E2E-ACL-05 (D-002). The tentative hold expiry change (C4, D-001) has no test because nothing is built.
+
 ## See why a test failed
 
 - `pnpm --filter @spm-t5/web exec playwright show-report` opens the HTML report (`apps/web/playwright-report`).

@@ -3,6 +3,11 @@
 Read-only findings that the E2E plan ([01-e2e-test-plan.md](01-e2e-test-plan.md)) is built on. Written on 2026-11-04
 against `main` at `05b5875`. Nothing here was run; it comes from reading the repo.
 
+> **Historical.** This describes the repository *before* the suite was built (for example, "24 of 25 specs skip unless
+> `E2E_FULL_STACK` is set" and "the CI job has no database"). Those old specs are folded in and removed and the CI job now starts
+> the full stack (SCRUM-191). For how things are now, read [README-e2e.md](README-e2e.md); this file stays as the record of the facts the
+> plan was based on and of how its open questions were settled (section 12).
+
 ## 1. How the stack runs
 
 | Part | Fact | Where |
