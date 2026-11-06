@@ -7,7 +7,11 @@ const { replace, router } = vi.hoisted(() => {
 });
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
+import { EVENT_STATUSES } from "@spm-t5/shared";
 import { ReviewQueue } from "@/components/ReviewQueue";
+
+/** SCRUM-198: what the page asks for while the Status filter shows All statuses. */
+const EVERY_STATUS = EVENT_STATUSES.map((status) => `status=${status}`).join("&");
 
 const ROWS = [
   { id: "1", name: "Annual Gala", status: "submitted", submitted_at: "2026-03-05T10:00:00Z", organiser_name: "Sam Tan" },
@@ -46,14 +50,21 @@ describe("SCRUM-22/AC1 — coordinator sees submitted event requests", () => {
     screen.getByText("5 Mar 2026");
   });
 
-  it("asks for the submitted status by default (SCRUM-22/AC4)", async () => {
+  it("SCRUM-198/AC1 opens on All statuses, and asks for every status", async () => {
     const fetchMock = mockServices({ me: coordinator, events: { status: 200, body: ROWS } });
     render(<ReviewQueue />);
     await screen.findByText("Annual Gala");
-    expect(eventCalls(fetchMock)).toEqual(["http://localhost:4002/events?status=submitted"]);
+    expect(screen.getByRole("button", { name: "Status" }).textContent).toContain("All statuses");
+    expect(eventCalls(fetchMock)).toEqual([`http://localhost:4002/events?${EVERY_STATUS}`]);
   });
 
-  it("shows an empty state when nothing matches", async () => {
+  it("SCRUM-198/AC1 says the list is the requests assigned to you", async () => {
+    mockServices({ me: coordinator, events: { status: 200, body: ROWS } });
+    render(<ReviewQueue />);
+    await screen.findByText("Requests assigned to you.");
+  });
+
+  it("SCRUM-198/AC4 shows an empty state when nothing matches", async () => {
     mockServices({ me: coordinator, events: { status: 200, body: [] } });
     render(<ReviewQueue />);
     await screen.findByText(/no event requests match/i);
@@ -85,8 +96,67 @@ describe("SCRUM-22/AC3 — search", () => {
 
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "gala" } });
     await waitFor(() =>
-      expect(eventCalls(fetchMock).at(-1)).toBe("http://localhost:4002/events?status=submitted&search=gala"),
+      expect(eventCalls(fetchMock).at(-1)).toBe(`http://localhost:4002/events?${EVERY_STATUS}&search=gala`),
     );
+  });
+});
+
+describe("SCRUM-198 the Status filter", () => {
+  const openFilter = async () => {
+    const fetchMock = mockServices({ me: coordinator, events: { status: 200, body: ROWS } });
+    render(<ReviewQueue />);
+    await screen.findByText("Annual Gala");
+    fireEvent.click(screen.getByRole("button", { name: "Status" }));
+    await screen.findByRole("checkbox", { name: "Planning" });
+    return fetchMock;
+  };
+  const toggle = (name: string) => fireEvent.click(screen.getByRole("checkbox", { name }));
+  const isChecked = (name: string) => screen.getByRole("checkbox", { name }).getAttribute("aria-checked") === "true";
+  const lastCall = (fetchMock: ReturnType<typeof mockServices>) => eventCalls(fetchMock).at(-1);
+
+  it("SCRUM-198/AC2 selecting one status asks for only that status", async () => {
+    const fetchMock = await openFilter();
+    toggle("Planning");
+    await waitFor(() => expect(lastCall(fetchMock)).toBe("http://localhost:4002/events?status=planning"));
+    expect(screen.getByRole("button", { name: "Status" }).textContent).toContain("Planning");
+    expect(isChecked("All statuses")).toBe(false);
+  });
+
+  it("SCRUM-198/AC2 selecting several statuses asks for all of them, in the order the statuses run", async () => {
+    const fetchMock = await openFilter();
+    toggle("Planning");
+    toggle("Approved");
+    await waitFor(() => expect(lastCall(fetchMock)).toBe("http://localhost:4002/events?status=approved&status=planning"));
+    expect(isChecked("Planning")).toBe(true);
+    expect(isChecked("Approved")).toBe(true);
+    expect(screen.getByRole("button", { name: "Status" }).textContent).toContain("2 statuses");
+  });
+
+  it("SCRUM-198/AC3 clearing the only selected status goes back to every status", async () => {
+    const fetchMock = await openFilter();
+    toggle("Planning");
+    await waitFor(() => expect(lastCall(fetchMock)).toBe("http://localhost:4002/events?status=planning"));
+    toggle("Planning");
+    await waitFor(() => expect(lastCall(fetchMock)).toBe(`http://localhost:4002/events?${EVERY_STATUS}`));
+    expect(isChecked("All statuses")).toBe(true);
+  });
+
+  it("SCRUM-198/AC3 choosing All statuses clears the selected statuses", async () => {
+    const fetchMock = await openFilter();
+    toggle("Planning");
+    toggle("Approved");
+    await waitFor(() => expect(lastCall(fetchMock)).toBe("http://localhost:4002/events?status=approved&status=planning"));
+    toggle("All statuses");
+    await waitFor(() => expect(lastCall(fetchMock)).toBe(`http://localhost:4002/events?${EVERY_STATUS}`));
+    expect(isChecked("Planning")).toBe(false);
+    expect(isChecked("All statuses")).toBe(true);
+  });
+
+  it("SCRUM-198/AC2 the selected statuses are kept alongside the search", async () => {
+    const fetchMock = await openFilter();
+    toggle("Planning");
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "gala" } });
+    await waitFor(() => expect(lastCall(fetchMock)).toBe("http://localhost:4002/events?status=planning&search=gala"));
   });
 });
 
@@ -100,7 +170,7 @@ describe("SCRUM-22/AC5 — submission date range", () => {
     fireEvent.change(screen.getByLabelText("Submitted to"), { target: { value: "2026-03-31" } });
     await waitFor(() =>
       expect(eventCalls(fetchMock).at(-1)).toBe(
-        "http://localhost:4002/events?status=submitted&from=2026-03-01&to=2026-03-31",
+        `http://localhost:4002/events?${EVERY_STATUS}&from=2026-03-01&to=2026-03-31`,
       ),
     );
   });
