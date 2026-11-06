@@ -57,6 +57,10 @@ describe("SCRUM-46/AC2 the known notification types (46-S2)", () => {
       "venue_replaced",
       // SCRUM-185: written by migration 80
       "venue_block_lifted",
+      // SCRUM-185/AC1: written by migration 82
+      "event_returned_to_planning",
+      // SCRUM-185/AC3: written by migration 83
+      "arrangements_reconfirmed",
     ]);
   });
 });
@@ -88,6 +92,8 @@ describe("SCRUM-47/AC11 whether a notification needs the reader to act (47-S11)"
     ["event_confirmed", false],
     ["event_cancelled", false],
     ["venue_replaced", false],
+    ["event_returned_to_planning", true], // SCRUM-185/AC1: the coordinator arranges a replacement venue
+    ["arrangements_reconfirmed", false], // SCRUM-185/AC3: information only
   ])("47-S11: %s → %s", (type, expected) => {
     expect(notificationRequiresAction(type)).toBe(expected);
   });
@@ -116,5 +122,12 @@ describe("SCRUM-174/AC6 the cancellation notification type", () => {
 
   it("174-S9: does not ask the reader to act: the event is over, and the reason is in the message", () => {
     expect(notificationRequiresAction("event_cancelled")).toBe(false);
+  });
+});
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-46/AC1 parseNotificationLimit at the edge (46-S1)", () => {
+  it("46-S1: a limit of 1, the smallest allowed, stays 1", () => {
+    expect(parseNotificationLimit("1")).toBe(1);
   });
 });

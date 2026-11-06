@@ -7,6 +7,7 @@ import { SentBackNotice } from "./SentBackNotice";
 import { formatSgt, occupiedWindow, suitabilityLabel, timingNote, type QueueDetailView } from "@/lib/bookingQueue";
 import { BOOKING_STATUS_DISPLAY, type BookingStatusKey } from "@/lib/status";
 import { bookingStatusLabel } from "@/lib/venueBookings";
+import { PageTitle } from "./PageFrame";
 
 const linkClass =
   "font-semibold text-fg-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring";
@@ -27,7 +28,7 @@ export function BookingQueueDetail({ booking }: { booking: QueueDetailView }) {
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">{booking.eventName}</h1>
+        <PageTitle>{booking.eventName}</PageTitle>
         <StatusBadge {...(booking.status ? BOOKING_STATUS_DISPLAY[booking.status as BookingStatusKey] : undefined)} label={bookingStatusLabel(booking.status)} />
       </div>
       <SentBackNotice note={booking.sentBack} />

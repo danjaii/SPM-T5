@@ -338,7 +338,7 @@ describe("SCRUM-102 the change page and helpers", () => {
 
     expect(getEventEquipmentRequests).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Change venue booking" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "← Back to event" }).getAttribute("href")).toBe("/events/evt-1");
+    expect(screen.getByRole("link", { name: "Back to event" }).getAttribute("href")).toBe("/events/evt-1");
     expect(within(screen.getByRole("note")).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["2 × AV: Projector Unit (Arranged)"]);
   });
 

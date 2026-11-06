@@ -17,6 +17,7 @@ import {
   type RegistrationFormData,
   type RegistrationStatus,
 } from "@/lib/eventRegistration";
+import { PageTitle } from "./PageFrame";
 
 // SCRUM-83/AC3, AC4: why registration isn't open, shown instead of the form when it can't be registered for
 const UNAVAILABLE: Record<RegistrationFormData["event"]["availability"], string | null> = {
@@ -62,7 +63,7 @@ export function EventRegistrationForm({ data }: { data: RegistrationFormData }) 
       {/* SCRUM-83/AC7: the event's name, date and time, and location, as its List of events card shows them */}
       <Card>
         <CardContent className="space-y-2">
-        <h1 className="font-heading text-2xl font-bold text-foreground">{event.name}</h1>
+        <PageTitle>{event.name}</PageTitle>
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <CalendarDays aria-hidden="true" className="size-4 shrink-0" />
           <time dateTime={event.start_at}>{formatEventDateTime(event.start_at, event.end_at)}</time>

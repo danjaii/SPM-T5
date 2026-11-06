@@ -179,7 +179,7 @@ describe("SCRUM-111 the edit page (/events/[id]/edit)", () => {
 
     expect(getEventEditForm).toHaveBeenCalledWith("evt-1");
     expect(screen.getByRole("heading", { name: "Edit event details" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "← Back to event" }).getAttribute("href")).toBe("/events/evt-1");
+    expect(screen.getByRole("link", { name: "Back to event" }).getAttribute("href")).toBe("/events/evt-1");
   });
 
   // event-service refuses anyone but the assigned coordinator, and a finished event (111-S16, S17)

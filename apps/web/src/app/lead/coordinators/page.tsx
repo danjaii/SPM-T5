@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Coordinator overview · ConnectSphere" };
 
-// SCRUM-81: the coordinators the Lead supervises, with their workload. SCRUM-126: also the Lead's view of all active events
+// SCRUM-81: every active coordinator, with their workload (SCRUM-184: not only the ones linked to the Lead). SCRUM-126: also the Lead's view of all active events
 // (each coordinator opens to their events).
 export default async function CoordinatorOverviewPage() {
   const result = await getLeadCoordinators();

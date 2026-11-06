@@ -146,3 +146,42 @@ describe("SCRUM-53/AC2 parseEventRequestDraft still refuses what the database re
     expect(Object.keys(errorsOf({ preferred_start_datetime: "bad", preferred_end_datetime: "2031-05-01T08:00:00.000Z" }))).toEqual(["preferred_start_datetime"]);
   });
 });
+
+// More cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-53/AC2 what each refusal in a draft says", () => {
+  it("a null registration answer means not required", () => {
+    expect(dataOf({ registration_required: null }).registration_required).toBe(false);
+  });
+
+  it("refuses a body that is an array", () => {
+    expect(errorsOf([])).toEqual({ body: "Send the event request as an object." });
+  });
+
+  it("gives each bad field its own message", () => {
+    expect(errorsOf({
+      name: 123,
+      preferred_start_datetime: "soon",
+      expected_attendance: -1,
+      preferred_room_layout_id: "x",
+      registration_required: "yes",
+    })).toEqual({
+      name: "Enter this as text.",
+      preferred_start_datetime: "Enter a valid date and time.",
+      expected_attendance: "Enter a whole number, 0 or more.",
+      preferred_room_layout_id: "Choose a room layout.",
+      registration_required: "Say whether attendee registration is needed.",
+    });
+  });
+
+  it("says when an end does not follow its start", () => {
+    expect(errorsOf({
+      preferred_start_datetime: "2031-01-02T00:00:00Z",
+      preferred_end_datetime: "2031-01-01T00:00:00Z",
+      registration_opens_at: "2031-01-02T00:00:00Z",
+      registration_closes_at: "2031-01-01T00:00:00Z",
+    })).toEqual({
+      preferred_end_datetime: "The preferred end must be after the start.",
+      registration_closes_at: "Registration must close after it opens.",
+    });
+  });
+});

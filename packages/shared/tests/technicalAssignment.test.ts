@@ -123,3 +123,17 @@ describe("SCRUM-20/AC4 the notification types (20-S11)", () => {
     expect(ACKNOWLEDGEABLE_NOTIFICATION_TYPES).toEqual(["technical_assignment_assigned", "technical_assignment_changed"]);
   });
 });
+
+// Cases mutation testing found no test for (SCRUM-187/AC3, docs/testing/mutation-testing.md).
+describe("SCRUM-20/AC1 a note exactly at the limit (20-S12)", () => {
+  it("20-S12: a note of exactly 500 characters is accepted", () => {
+    expect(parseTechnicalAssignmentInput({ ...valid, note: "x".repeat(500) }, { requireStaff: true }).ok).toBe(true);
+  });
+});
+
+describe("SCRUM-20/AC3 a cancellation reason exactly at the limit (20-S6)", () => {
+  it("20-S6: a reason of exactly 500 characters is accepted", () => {
+    const reason = "x".repeat(500);
+    expect(parseTechnicalAssignmentCancel({ reason })).toEqual({ ok: true, reason });
+  });
+});

@@ -10,11 +10,14 @@
     "test:all": "pnpm -r --if-present run test",
     "lint:all": "pnpm -r --if-present run lint",
     "build:all": "pnpm -r --if-present run build",
+    "test:mutation": "stryker run",
     "traceability": "node scripts/traceability/generate.mjs",
     "test:scripts": "node --test \"scripts/traceability/*.test.mjs\""
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
     "@vitest/coverage-v8": "4.1.11",
     "globals": "^14.0.0",
     "typescript": "^5.6.0",

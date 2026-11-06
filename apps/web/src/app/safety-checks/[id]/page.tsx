@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { awaitsSafetyDecision, type SafetyDecision } from "@spm-t5/shared";
 import { AuthAlert } from "@/components/auth/AuthParts";
 import { SafetyCheckReview } from "@/components/SafetyCheckReview";
@@ -10,35 +10,25 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatEventDateTime } from "@/lib/formatEventDateTime";
 import { getSafetyCheck } from "@/lib/safetyCheckServer";
 import { cn } from "@/lib/utils";
+import { BackLink, PAGE_MAIN, PageTitle } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Safety check · ConnectSphere" };
 
-const Breadcrumb = ({ current }: { current?: string }) => (
-  <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
-    <Link href="/safety-checks" className="underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring">Safety checks</Link>
-    {current && (
-      <>
-        <ChevronRight aria-hidden="true" className="size-4" />
-        <span aria-current="page" className="font-semibold text-foreground">{current}</span>
-      </>
-    )}
-  </nav>
-);
-
 // SCRUM-99: the Safety Officer reviews one event (AC3) and records the outcome (AC4-AC6, AC8), opened from the queue.
 // event-service gives the safety information to Safety Officers only, so the decision is offered to the Safety Officer.
 // SCRUM-142 (Figma frame 13): inside the shared app shell, as a checklist beside the decision.
+// SCRUM-186/AC3: the shared back link replaces the breadcrumb, as on every other page reached from a list.
 export default async function SafetyCheckReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const result = await getSafetyCheck(id);
 
   if (!("details" in result)) {
     return (
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 md:px-8">
-        <Breadcrumb />
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Safety check</h1>
+      <main className={PAGE_MAIN}>
+        <BackLink href="/safety-checks" to="safety checks" />
+        <PageTitle>Safety check</PageTitle>
         <AuthAlert tone="error">{result.error}</AuthAlert>
       </main>
     );
@@ -60,12 +50,12 @@ export default async function SafetyCheckReviewPage({ params }: { params: Promis
   ].filter(Boolean).join(" · ");
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:px-8">
-      <Breadcrumb current={details.name} />
+    <main className={PAGE_MAIN}>
+      <BackLink href="/safety-checks" to="safety checks" />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Operational safety check</h1>
+            <PageTitle>Operational safety check</PageTitle>
             <StatusBadge tone="info" label="Safety check" />
           </div>
           <p className="text-sm text-muted-foreground">{summary}</p>

@@ -1,11 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_MAIN, PageTitle } from "@/components/PageFrame";
 
 // SCRUM-129/AC10: the shape of the venue catalogue while it loads.
 export default function Loading() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8" aria-busy="true" aria-label="Loading the venue catalogue">
-      <h1 className="text-3xl font-bold tracking-tight text-foreground">Venue catalogue</h1>
+    <main className={PAGE_MAIN} aria-busy="true" aria-label="Loading the venue catalogue">
+      <PageTitle>Venue catalogue</PageTitle>
       <Skeleton className="mt-6 mb-4 h-10 w-full" />
       <div className="grid gap-3 md:grid-cols-2">
         {Array.from({ length: 6 }, (_, i) => (

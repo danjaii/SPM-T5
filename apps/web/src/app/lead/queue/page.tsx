@@ -10,21 +10,23 @@ import { getLeadCoordinators, getLeadQueue, getLeadSummary } from "@/lib/leadSer
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Unassigned queue · ConnectSphere" };
+export const metadata: Metadata = { title: "Unassigned requests · ConnectSphere" };
 
 // SCRUM-77: the Lead's queue of event requests waiting for an Event Coordinator.
 // SCRUM-126/AC1, AC2, AC5, AC11: Figma 04 inside the shared shell. The queue decides whether the page works; the
 // coordinators and the summary only add to it, so a failure there leaves their parts out rather than hiding the queue.
+// SCRUM-186/AC4: titled as the sidebar names it.
 export default async function LeadQueuePage() {
   const [queue, coordinators, summary] = await Promise.all([getLeadQueue(), getLeadCoordinators(), getLeadSummary()]);
   const eligible = "coordinators" in coordinators ? coordinators.coordinators : undefined;
 
   return (
     <PageFrame
-      title="Unassigned queue"
+      title="Unassigned requests"
       description="New requests wait here until you give them a coordinator. Oldest first."
       action={
-        <Link className={buttonVariants({ variant: "outline" })} href="/lead/coordinators">
+        // SCRUM-189/AC6: the list of every active event, not the per-coordinator overview
+        <Link className={buttonVariants({ variant: "outline" })} href="/lead/events">
           View all active events
         </Link>
       }
