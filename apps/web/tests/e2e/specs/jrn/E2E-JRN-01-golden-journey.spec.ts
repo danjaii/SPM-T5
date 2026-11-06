@@ -87,7 +87,9 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await expect.poll(async () => (await data.rest<{ status: string; is_draft: boolean }[]>(`events?select=status,is_draft&id=eq.${eventId}`))[0]).toEqual({ status: "submitted", is_draft: false });
     // 172-AC1: every active Lead is told a request needs a coordinator
     await expect.poll(() => told("event_submitted")).toEqual(await ids("lead", "lead2"));
-    await shot(organiser, "E2E-JRN-01", "01-organiser-submitted");
+    await shot(organiser, "E2E-JRN-01", "01-organiser-submitted", {
+      prepare: async () => { await organiser.goto("/my-event-requests"); await expect(organiser.getByRole("row").filter({ hasText: name })).toContainText("Submitted"); },
+    });
   });
 
   await test.step("2 the Lead assigns it to a coordinator (SCRUM-77, 78)", async () => {
@@ -101,7 +103,9 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     expect(row.assigned_coordinator_id).toBe(await data.idOf("coordinator"));
     // 47-AC1: the assigned coordinator, and nobody else, is told they are responsible
     await expect.poll(() => told("coordinator_assigned")).toEqual(await ids("coordinator"));
-    await shot(lead, "E2E-JRN-01", "02-lead-assigned");
+    await shot(lead, "E2E-JRN-01", "02-lead-assigned", {
+      prepare: async () => { await lead.goto("/lead/events"); await waitForHydration(lead, "input[type=search]"); await lead.getByPlaceholder("Event name").fill(name); await expect(lead.getByRole("row").filter({ hasText: name })).toContainText("Rachel Tan"); },
+    });
   });
 
   await test.step("3 the coordinator reviews and approves it (SCRUM-24, 44)", async () => {
@@ -151,7 +155,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
     await expect.poll(statusOf).toBe("awaiting_arrangements");
     // 172-AC2: the event's assigned coordinator is told of the decision
     await expect.poll(() => told("venue_booking_approved")).toEqual(await ids("coordinator"));
-    await shot(venueStaff, "E2E-JRN-01", "06-venue-staff-approved");
+    await shot(venueStaff, "E2E-JRN-01", "06-venue-staff-approved", { prepare: async () => { await venueStaff.reload(); await expect(venueStaff.getByText(/approved/i).first()).toBeVisible(); } });
   });
 
   await test.step("6 the coordinator asks for equipment and Technical Support arrange it (SCRUM-86, 87, 88)", async () => {

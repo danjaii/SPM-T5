@@ -55,6 +55,8 @@ describe("SCRUM-191/AC5 results are read, not typed", () => {
     assert.equal(report.totals["expected-fail"], 1);
     assert.equal(report.totals.flaky, 1);
     assert.equal(report.durationMs, 125000);
+    assert.equal(report.mode, null, "an older results file has no mode");
+    assert.equal(readReport({ config: { metadata: { mode: "local-built" } }, suites: [] }).mode, "local-built");
     assert.equal(report.byId.get("E2E-ACL-01"), "passed");
     assert.equal(report.byId.get("E2E-ACL-05"), "expected-fail");
     assert.equal(report.byId.has("smoke page loads"), false);

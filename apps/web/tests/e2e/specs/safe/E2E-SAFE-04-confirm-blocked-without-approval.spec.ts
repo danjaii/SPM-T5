@@ -20,7 +20,7 @@ test(t.title, { annotation: t.annotation }, async ({ as, data }) => {
   await new EventReviewPage(coordinator).setStatus("Confirmed");
 
   await expect(coordinator.getByText("This event can't move to preparation until it is Safety Approved."), "the coordinator is told why").toBeVisible();
-  await shot(coordinator, "E2E-SAFE-04", "01-confirm-refused");
+  await shot(coordinator, "E2E-SAFE-04", "01-confirm-refused", { focus: coordinator.getByText("This event can't move to preparation until it is Safety Approved.") });
   expect(await status(), "the event is not Confirmed").toBe("awaiting_arrangements");
   expect(await data.rest(`safety_checks?select=id&event_id=eq.${event.id}`), "and no decision was made").toEqual([]);
 });

@@ -77,11 +77,15 @@ const sha = process.env.GITHUB_SHA?.slice(0, 7) ?? execSync("git rev-parse --sho
 const now = new Date();
 const when = report?.startTime ? new Date(report.startTime) : now;
 const ci = Boolean(process.env.CI);
+const environmentOf = (mode, ci) =>
+  mode === "ci" || (!mode && ci) ? "GitHub Actions, ubuntu, Chromium, production build"
+    : mode === "local-built" ? `Local (${process.platform}), Chromium, production build (E2E_BUILT=1)`
+      : `Local (${process.platform}), Chromium, next dev`;
 const meta = {
   commit: sha,
   date: when.toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" }),
   timestamp: when.toISOString(),
-  environment: ci ? "GitHub Actions, ubuntu, Chromium, production build" : `Local (${process.platform}), Chromium, next dev`,
+  environment: environmentOf(report?.mode, ci),
 };
 
 const tr = buildTraceability({ catalogue, specs, specFiles, byId: report?.byId ?? null });

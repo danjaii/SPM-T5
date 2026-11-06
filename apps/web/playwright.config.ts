@@ -44,6 +44,8 @@ const webEnv = Object.fromEntries(
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // written into results.json, so the generated documents say how the run was made (scripts/e2e reads it)
+  metadata: { mode: CI ? "ci" : BUILT ? "local-built" : "local-dev" },
   fullyParallel: true,
   forbidOnly: CI,
   // One retry in CI so a flaky test shows up as "flaky" in results.json instead of passing silently or failing the run.

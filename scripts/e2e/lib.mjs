@@ -106,6 +106,8 @@ export function readReport(report) {
     tests,
     totals: { tests: tests.length, ...totals },
     startTime: report.stats?.startTime ?? null,
+    /** "ci", "local-built" or "local-dev", from the config metadata (null for an older results file). */
+    mode: report.config?.metadata?.mode ?? null,
     durationMs: report.stats?.duration ?? null,
     /** catalogue ID -> worst outcome of its tests */
     byId: new Map([...Map.groupBy(tests.filter((t) => t.id), (t) => t.id)].map(([id, ts]) => [id, worst(ts.map((t) => t.outcome))])),
@@ -468,7 +470,7 @@ export function renderMetrics(m) {
       [[t.tests, t.passed, t.failed, t.flaky, t.skipped, t["expected-fail"], dur(m.durationMs)]])
       : "No results.json was found, so there is no run to report. The catalogue counts below still hold.",
     "",
-    "An *expected fail* is a test marked `test.fail()` for an open defect: it failed, as the defect says it should. It turns into a failure the day the defect is fixed.",
+    "An *expected fail* is a test marked `test.fail()` for an open defect: it failed, as the defect says it should. It turns into a failure the day the defect is fixed. A *skipped* test is skipped on purpose (`test.fixme`) for an open defect that cannot be asserted reliably; see `defects.md`.",
     "",
     `## Cases (${m.cases} in the catalogue, ${m.automatedCases} with a spec)`,
     "",
