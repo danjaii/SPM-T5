@@ -210,3 +210,26 @@ describe("SCRUM-159 the Home page", () => {
     expect(screen.getByRole("alert").textContent).toContain("We couldn't load your events");
   });
 });
+
+describe("SCRUM-200 the filter tabs on a phone", () => {
+  // jsdom has no layout, so this checks the structure that keeps the page from scrolling sideways; E2E-AUTH-05 measures it.
+  it("SCRUM-200/AC1 puts the tab row in its own sideways-scrolling area, so a wide row never widens the page", () => {
+    render(<OrganiserHome events={EVENTS} now={NOW} />);
+
+    const row = screen.getByRole("tablist", { name: "Filter your events" }).parentElement!;
+    expect(row.className).toContain("overflow-x-auto");
+    expect(row.className).toContain("max-w-full");
+  });
+
+  it("SCRUM-200/AC2 still filters the list when a tab inside the scrolling row is chosen, and leaves room for its underline", () => {
+    render(<OrganiserHome events={EVENTS} now={NOW} />);
+
+    const tablist = screen.getByRole("tablist", { name: "Filter your events" });
+    expect(tablist.parentElement!.className).toContain("pb-1.5"); // the underline sits 5 px below the row
+    fireEvent.click(within(tablist).getByRole("tab", { name: /Confirmed/ }));
+
+    expect(within(tablist).getByRole("tab", { name: /Confirmed/ }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("row", { name: /Product Launch/ })).toBeTruthy();
+    expect(screen.queryByRole("row", { name: /Design Workshop/ })).toBeNull();
+  });
+});

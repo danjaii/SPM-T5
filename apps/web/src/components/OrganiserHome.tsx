@@ -96,14 +96,18 @@ export function OrganiserHome({ events, now, initialTab = "all" }: { events: Org
       </section>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as OrganiserTab)}>
-        <TabsList variant="line" aria-label="Filter your events">
-          {TABS.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
-              {t.label}
-              <span className="rounded-full bg-status-info px-1.5 text-xs text-status-info-fg">{t.count(counts)}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        {/* SCRUM-200: on a phone the four tabs and their counts can be wider than the screen; the row scrolls on its own
+            so the page does not (SCRUM-121/AC3). The bottom padding keeps the active tab's underline inside the scroll area. */}
+        <div className="max-w-full overflow-x-auto pb-1.5">
+          <TabsList variant="line" aria-label="Filter your events">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value}>
+                {t.label}
+                <span className="rounded-full bg-status-info px-1.5 text-xs text-status-info-fg">{t.count(counts)}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
         {TABS.map((t) => (
           <TabsContent key={t.value} value={t.value}>
             <EventTable events={eventsInTab(events, t.value)} />
