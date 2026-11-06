@@ -123,8 +123,8 @@ describe("SCRUM-6 — View event status as event coordinator", () => {
   });
   // end of AC2
 
-  // AC3: attendees, venue staff and technical support staff cannot see event status
-  it.each(["attendee", "venue_staff", "technical_support_staff"])("refuses a %s with 403", async (role) => {
+  // AC3: attendees and venue staff cannot see event status (Technical Support Staff can since SCRUM-196, below)
+  it.each(["attendee", "venue_staff"])("refuses a %s with 403", async (role) => {
     const fake = createFake();
     const coordinator = fake.signIn("event_coordinator");
     const outsider = fake.signIn(role);
@@ -137,6 +137,37 @@ describe("SCRUM-6 — View event status as event coordinator", () => {
     expect(res.body).not.toHaveProperty("status");
   });
   // end of AC3
+
+  // SCRUM-196: row level security decides which events Technical Support Staff can read (migration 59)
+  it("SCRUM-196/AC1,AC2 lets Technical Support Staff read an event, with no way to change, review or edit it", async () => {
+    const fake = createFake();
+    const technician = fake.signIn("technical_support_staff");
+    const event = { id: crypto.randomUUID(), name: "Tech Summit", status: "planning", assigned_coordinator_id: null };
+    fake.tables.events.push(event);
+
+    const res = await request(createApp(fake.deps)).get(`/events/${event.id}`).set("Cookie", technician.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      name: "Tech Summit",
+      status: "planning",
+      canChangeStatus: false,
+      canReview: false,
+      canEdit: false,
+      isOrganiser: false,
+      canRequestChange: false,
+    });
+  });
+
+  it("SCRUM-196/AC3 says not found when row level security hides the event from Technical Support Staff", async () => {
+    const fake = createFake();
+    const technician = fake.signIn("technical_support_staff");
+
+    const res = await request(createApp(fake.deps)).get(`/events/${crypto.randomUUID()}`).set("Cookie", technician.cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Event not found." });
+  });
 
   // SCRUM-126: a Lead opens an event from their queue, read-only
   it("SCRUM-126/AC1 lets an Event Coordinator Lead read an event, with no way to change or edit it", async () => {

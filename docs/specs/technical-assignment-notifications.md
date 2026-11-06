@@ -48,7 +48,8 @@ What the customer documents say:
 
   A change to the note only sends nothing. Times are Singapore time. Each row links to the event and to the assignment
   (`notifications.technical_staff_assignment_id`). Technical Support Staff can open the event of an assignment (migration 14's
-  `event_has_technical_work()` now counts assignments). **[DECIDED]**
+  `event_has_technical_work()` now counts assignments). SCRUM-196: `GET /events/:id` lets them through too, read-only; it
+  used to refuse them before row level security could decide, so the notification led to an error. **[DECIDED]**
 - **Acknowledging (AC4, AC5).** An "assigned" or "changed" notification has an **Acknowledge** button. Acknowledging marks
   the notification read and the assignment acknowledged (when), through `acknowledge_technical_assignment()`: only the
   notification's own recipient, only while the assignment is active, and only the notification about its current details

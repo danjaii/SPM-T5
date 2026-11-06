@@ -510,3 +510,45 @@ describe("SCRUM-49/AC6 the event page confirms a submission with its date and ti
   });
 });
 
+
+describe("SCRUM-196/AC2 Technical Support Staff read the event page", () => {
+  const technicianView = {
+    event: {
+      id: "evt-1",
+      name: "Tech Summit",
+      status: "planning",
+      canChangeStatus: false,
+      canReview: false,
+      canEdit: false,
+      isOrganiser: false,
+      canRequestChange: false,
+      expected_attendance: 70,
+    },
+  };
+
+  beforeEach(() => {
+    getEventVenueBookings.mockReset().mockResolvedValue(null);
+    getEventOutcome.mockReset().mockResolvedValue(null);
+    getEventEquipmentRequests.mockReset().mockResolvedValue(null);
+    getEquipmentRequestForm.mockReset().mockResolvedValue({ error: "Forbidden" });
+    getEvent.mockReset().mockResolvedValue(technicianView);
+    // event-service refuses them the comments, so the page leaves that section out
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 403, json: async () => ({ error: "Forbidden" }) })));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("SCRUM-196/AC1 shows the event's name and details", async () => {
+    await open("evt-1");
+
+    expect(screen.getByRole("heading", { name: "Tech Summit" })).toBeTruthy();
+    expect(screen.getByText("70 people")).toBeTruthy();
+  });
+
+  it("SCRUM-196/AC2 offers no way to edit it, review it, change its status or request a change", async () => {
+    await open("evt-1");
+
+    expect(screen.queryByRole("link", { name: "Edit event details" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /approve|reject|change status|cancel event/i })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Request a change" })).toBeNull();
+  });
+});
