@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
 import { TechnicalAssignmentForm } from "@/components/TechnicalAssignmentForm";
 import { getTechnicalAssignmentForm } from "@/lib/technicalAssignmentsServer";
+import { BackLink, PAGE_MAIN } from "@/components/PageFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +14,8 @@ export default async function NewTechnicalAssignmentPage({ params }: { params: P
 
   return (
     <>
-      <AppHeader />
-      <main className="dash__main">
-        <Link className="back-link" href={`/events/${id}`}>← Back to event</Link>
+      <main className={PAGE_MAIN}>
+        <BackLink href={`/events/${id}`} to="event" />
         {"data" in result ? (
           <TechnicalAssignmentForm eventId={id} data={result.data} />
         ) : (

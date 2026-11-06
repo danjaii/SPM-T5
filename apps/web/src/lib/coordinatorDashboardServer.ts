@@ -25,7 +25,7 @@ export interface CoordinatorDashboardData {
 }
 
 /** SCRUM-42/AC4: the coordinator's assigned events (id, name, status). */
-async function getAssignedEvents(): Promise<DashboardEvent[] | undefined> {
+export async function getAssignedEvents(): Promise<DashboardEvent[] | undefined> {
   try {
     const token = (await cookies()).get(SESSION_COOKIE)?.value;
     if (!token) return undefined;

@@ -6,6 +6,7 @@ import type { MyEventRequest } from "@/lib/myEventRequests";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatLastSaved } from "@/lib/formatLastSaved";
 import { LINKED_ROW_CLASS, openRowLink, ROW_LINK_FOCUS_CLASS } from "@/lib/rowLink";
+import { DeleteDraftButton } from "./DeleteDraftButton";
 import EventStatusBadge from "./EventStatusBadge";
 
 // Event dates are shown in Singapore time, like the rest of the app
@@ -25,6 +26,7 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
           <TableHead>Preferred start</TableHead>
           <TableHead>Expected attendance</TableHead>
           <TableHead>Submitted</TableHead>
+          <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -50,6 +52,11 @@ export function MyEventRequestsTable({ requests }: { requests: MyEventRequest[] 
               {/* SCRUM-53/AC3: a draft has not been submitted, so its column says when it was last saved */}
               <TableCell>
                 {request.status === "draft" && request.updated_at ? `Last saved ${formatLastSaved(request.updated_at)}` : formatDate(request.submitted_at)}
+              </TableCell>
+              {/* SCRUM-56/AC2: only a draft can be deleted, so any other status has no Delete control at all.
+                  The click stops here: the dialog is portalled but its clicks still bubble to the row, which would open the draft. */}
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                {request.status === "draft" && <DeleteDraftButton id={request.id} name={request.name} />}
               </TableCell>
             </TableRow>
           );

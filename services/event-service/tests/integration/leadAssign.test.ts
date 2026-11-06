@@ -27,7 +27,7 @@ const MADE = ["leadA", "leadB", "coordA1", "coordA2", "inactiveA", "coordB", "lo
 const DENIED = "42501";
 const CLOSED = "CL001"; // closed events can't be assigned (BR2)
 const ALREADY_ASSIGNED = "CL002"; // someone else assigned it first (AC5)
-const NOT_ELIGIBLE = "CL003"; // not an active coordinator linked to this Lead (BR4)
+const NOT_ELIGIBLE = "CL003"; // not an active coordinator
 const NOT_FOUND = "P0002";
 
 describe.skipIf(!hasDb)("SCRUM-78 Lead assigns an Event Coordinator (migration 23)", () => {
@@ -112,13 +112,15 @@ describe.skipIf(!hasDb)("SCRUM-78 Lead assigns an Event Coordinator (migration 2
     for (const id of madeUsers) await admin.auth.admin.deleteUser(id);
   });
 
-  // AC1: the Lead's eligible coordinators (active, linked to them), each with a workload count
-  it("SCRUM-78/AC1 the eligible coordinators are the Lead's active coordinators, each with a workload count", async () => {
+  // AC1: the eligible coordinators (every active coordinator, whoever supervises them, since SCRUM-184), each with a workload count
+  it("SCRUM-78/AC1 the eligible coordinators are every active coordinator, each with a workload count", async () => {
     const { data, error } = await who.leadA.client.rpc("lead_coordinator_overview");
     expect(error).toBeNull();
     const rows = data as { id: string; workload: number }[];
-    expect(rows.map((r) => r.id)).toEqual(expect.arrayContaining([who.coordA1.userId, who.coordA2.userId]));
-    for (const other of [who.inactiveA, who.coordB, who.priya, who.siti]) expect(rows.map((r) => r.id)).not.toContain(other.userId);
+    expect(rows.map((r) => r.id)).toEqual(
+      expect.arrayContaining([who.coordA1.userId, who.coordA2.userId, who.coordB.userId, who.priya.userId, who.siti.userId, who.seededCoordinator.userId]),
+    );
+    for (const other of [who.inactiveA, who.leadB, who.venueStaff]) expect(rows.map((r) => r.id)).not.toContain(other.userId);
     for (const row of rows) expect(typeof row.workload).toBe("number");
   });
   // end of AC1
@@ -213,17 +215,15 @@ describe.skipIf(!hasDb)("SCRUM-78 Lead assigns an Event Coordinator (migration 2
   });
   // end of AC6
 
-  // AC7: with no eligible coordinators the assignment can't be completed
-  it("SCRUM-78/AC7 a Lead with no eligible coordinators has none to choose, and cannot complete an assignment", async () => {
-    const eventId = await newEvent();
-    expect((await who.loneLead.client.rpc("lead_coordinator_overview")).data).toEqual([]);
-
-    await expectRefused(assignAs(who.loneLead, eventId, who.coordA1.userId), NOT_ELIGIBLE, eventId);
+  // AC7: a Lead with no linked coordinators still has every active coordinator to choose (SCRUM-184, migration 81)
+  it("SCRUM-78/AC7 a Lead with no linked coordinators still has the active coordinators to choose from", async () => {
+    const rows = (await who.loneLead.client.rpc("lead_coordinator_overview")).data as { id: string }[];
+    expect(rows.map((r) => r.id)).toEqual(expect.arrayContaining([who.coordA1.userId, who.coordB.userId]));
   });
 
-  // BR4 + eligibility: only an active coordinator linked to this Lead
-  it.each(["coordB", "priya", "siti", "inactiveA", "seededCoordinator", "venueStaff", "leadB"] as const)(
-    "SCRUM-78/AC7 refuses to assign to %s, who is not one of the Lead's active coordinators",
+  // eligibility: only an active coordinator (SCRUM-184: whoever supervises them)
+  it.each(["inactiveA", "venueStaff", "leadB"] as const)(
+    "SCRUM-78/AC7 refuses to assign to %s, who is not an active coordinator",
     async (target) => {
       const eventId = await newEvent();
       await expectRefused(assignAs(who.leadA, eventId, who[target].userId), NOT_ELIGIBLE, eventId);

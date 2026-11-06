@@ -17,9 +17,9 @@ const inShell = (role: Role, counts: QueueCounts) =>
 
 describe("SCRUM-121/AC2 needs your action", () => {
   it("lists what is waiting, linked to its queue, with an icon-and-label badge", () => {
-    inShell("event_coordinator_lead", { leadQueue: 1 });
+    inShell("venue_staff", { bookingQueue: 1 });
     expect(screen.getByRole("heading", { name: "Needs your action" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "1 unassigned event request waiting for a coordinator" }).getAttribute("href")).toBe("/lead/queue");
+    expect(screen.getByRole("link", { name: "1 venue booking request to decide" }).getAttribute("href")).toBe("/booking-queue");
     expect(screen.getByText("Action needed")).toBeTruthy();
     expect(screen.getByTestId("status-icon")).toBeTruthy();
   });
@@ -40,6 +40,11 @@ describe("SCRUM-121/AC2 needs your action", () => {
 
   it("shows nothing when the queue's count could not be loaded, rather than claiming nothing is waiting", () => {
     const { container } = inShell("venue_staff", {});
+    expect(container.textContent).toBe("");
+  });
+
+  it("SCRUM-188/AC1 shows nothing for the Lead, whose home is the queue itself", () => {
+    const { container } = inShell("event_coordinator_lead", { leadQueue: 2 });
     expect(container.textContent).toBe("");
   });
 

@@ -1,4 +1,5 @@
 import { clock, type AvailabilityPeriod, type VenueAvailabilityData } from "@/lib/venueAvailability";
+import { PageTitle } from "./PageFrame";
 
 interface Segment {
   kind: "setup" | "event" | "turnaround";
@@ -24,7 +25,7 @@ export function VenueAvailabilityDay({ data }: { data: VenueAvailabilityData }) 
   const unavailable = data.unavailable ?? [];
   return (
     <section className="venue avail">
-      <h1>Availability: {data.venue.name}</h1>
+      <PageTitle>Availability: {data.venue.name}</PageTitle>
       <p className="dash__lede">
         Venue times: setup {data.setup_minutes} minutes, turnaround {data.turnaround_minutes} minutes. A booking occupies the
         venue from its setup to the end of its turnaround, and the same time counts when you request a slot.

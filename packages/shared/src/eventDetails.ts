@@ -1,4 +1,4 @@
-import { sgtToUtc, utcToSgt } from "./venueBooking";
+import { isRealDate, sgtToUtc, utcToSgt } from "./venueBooking";
 
 // SCRUM-111 (docs/specs/edit-event-details.md): the assigned coordinator edits an event's planning information. The form
 // (apps/web) and event-service validate with the same function, so they agree.
@@ -184,9 +184,15 @@ export function parseEventDetailsInput(body: unknown, current: CurrentEventDetai
     else return String(value).trim();
     return undefined;
   };
-  const date = timing(input.date, DATE, "date", "Enter a date.", "Enter the date as YYYY-MM-DD.");
+  // SCRUM-190: a date in the right format can still not exist
+  const realDate = (value: string | undefined, key: string, message: string) => {
+    if (value === undefined || isRealDate(value)) return value;
+    errors[key] = message;
+    return undefined;
+  };
+  const date = realDate(timing(input.date, DATE, "date", "Enter a date.", "Enter the date as YYYY-MM-DD."), "date", "Enter a valid date.");
   const startTime = timing(input.startTime, TIME, "startTime", "Enter a start time.", "Enter the start time as HH:MM.");
-  const endDate = timing(input.endDate, DATE, "endDate", "Enter an end date.", "Enter the end date as YYYY-MM-DD.");
+  const endDate = realDate(timing(input.endDate, DATE, "endDate", "Enter an end date.", "Enter the end date as YYYY-MM-DD."), "endDate", "Enter a valid end date.");
   const endTime = timing(input.endTime, TIME, "endTime", "Enter an end time.", "Enter the end time as HH:MM.");
   if (date && startTime && endDate && endTime) {
     const start = sgtToUtc(date, startTime);

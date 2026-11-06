@@ -9,6 +9,7 @@ import {
   type EventTechnicalAssignmentsView,
   type TechnicalAssignmentView,
 } from "@/lib/technicalAssignments";
+import { PageTitle } from "./PageFrame";
 
 type Values = Required<TechnicalAssignmentBody>;
 type Key = keyof Values;
@@ -92,7 +93,7 @@ export function TechnicalAssignmentForm({
 
   return (
     <section className="event">
-      <h1>{assignment ? "Change on-site assignment" : "Assign technical support staff"}</h1>
+      <PageTitle>{assignment ? "Change on-site assignment" : "Assign technical support staff"}</PageTitle>
       {error && (
         <div className="alert alert--error" role="alert">
           {error}

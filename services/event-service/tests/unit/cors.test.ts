@@ -99,3 +99,30 @@ describe("SCRUM-54/AC2: CORS for re-saving a draft", () => {
     expect(res.headers["access-control-allow-methods"]).toBeUndefined();
   });
 });
+
+// SCRUM-56/AC1: the Delete button calls DELETE /events/drafts/:id from the web app; without DELETE in the preflight answer the
+// browser blocks the call and the organiser sees "could not reach the server".
+describe("SCRUM-56/AC1: CORS for deleting a draft", () => {
+  const app = createApp({} as SupabaseDeps);
+  const WEB = "http://localhost:3000";
+
+  it("allows a DELETE preflight for /events/drafts/:id from the web origin, with the login cookie", async () => {
+    const res = await request(app)
+      .options("/events/drafts/3f2c9c1e-0000-4000-8000-000000000001")
+      .set("Origin", WEB)
+      .set("Access-Control-Request-Method", "DELETE");
+    expect(res.status).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe(WEB);
+    expect(res.headers["access-control-allow-credentials"]).toBe("true");
+    expect((res.headers["access-control-allow-methods"] as string).split(",")).toContain("DELETE");
+  });
+
+  it("still refuses another website the DELETE", async () => {
+    const res = await request(app)
+      .options("/events/drafts/3f2c9c1e-0000-4000-8000-000000000001")
+      .set("Origin", "https://evil.example.com")
+      .set("Access-Control-Request-Method", "DELETE");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(res.headers["access-control-allow-methods"]).toBeUndefined();
+  });
+});
